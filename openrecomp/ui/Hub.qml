@@ -83,7 +83,7 @@ Column {
                         Text {
                             visible: !!row.r.heading
                             x: 48; anchors.bottom: parent.bottom
-                            text: row.r.label || ""; color: hub.root.muted; font.family: hub.root.mono; font.pixelSize: 22
+                            textFormat: Text.PlainText; text: row.r.label || ""; color: hub.root.muted; font.family: hub.root.mono; font.pixelSize: 22
                         }
                         Rectangle {
                             visible: !row.r.heading
@@ -95,7 +95,7 @@ Column {
                             Text {
                                 objectName: "hubRowLabel"
                                 x: 48; width: rowAction.x - x - 20; height: parent.height - 12; anchors.verticalCenter: parent.verticalCenter
-                                text: row.r.label || ""
+                                textFormat: Text.PlainText; text: row.r.label || ""
                                 color: row.r.focused ? "#0E0F11" : (row.r.hold ? hub.v.accent : (row.r.disabled ? "#8A8D94" : hub.root.textC))
                                 font.family: hub.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: row.r.focused ? 52 : 42
                                 minimumPixelSize: 32; fontSizeMode: Text.Fit; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter
@@ -106,7 +106,7 @@ Column {
                                 Text {
                                     visible: !!row.r.value; anchors.verticalCenter: parent.verticalCenter
                                     width: Math.min(implicitWidth, 240); elide: Text.ElideMiddle
-                                    text: row.r.value || ""; color: row.r.focused ? "#0E0F11" : (row.r.missing ? hub.v.accent : hub.root.muted); font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 26
+                                    textFormat: Text.PlainText; text: row.r.value || ""; color: row.r.focused ? "#0E0F11" : (row.r.missing ? hub.v.accent : hub.root.muted); font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 26
                                 }
                                 Text { visible: !!row.r.verb; width: Math.min(implicitWidth, 200); elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: row.r.verb || ""; color: "#0E0F11"; font.family: hub.root.sans; font.weight: Font.DemiBold; font.pixelSize: 26 }
                                 Glyph { visible: !!row.r.verb; g: hub.v.confirmInk; anchors.verticalCenter: parent.verticalCenter }
@@ -137,8 +137,8 @@ Column {
                 objectName: "detailContent"
                 x: 72; y: 32; width: 1016; spacing: 0
                 Text { width: parent.width; text: hub.d.kicker || ""; elide: Text.ElideRight; color: hub.v.accent; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 24 }
-                Text { objectName: "detailTitle"; width: parent.width; topPadding: 8; text: hub.d.title || ""; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; lineHeight: 0.95; color: hub.root.textC; font.family: hub.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: hub.hasImages ? 64 : 72 }
-                Text { width: parent.width; topPadding: 12; visible: !!hub.d.lead; text: hub.d.lead || ""; wrapMode: Text.Wrap; maximumLineCount: hub.hasImages ? 2 : 3; elide: Text.ElideRight; lineHeight: 1.1; color: hub.root.textC; font.family: hub.root.sans; font.pixelSize: 28 }
+                Text { objectName: "detailTitle"; width: parent.width; topPadding: 8; textFormat: Text.PlainText; text: hub.d.title || ""; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; lineHeight: 0.95; color: hub.root.textC; font.family: hub.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: hub.hasImages ? 64 : 72 }
+                Text { width: parent.width; topPadding: 12; visible: !!hub.d.lead; textFormat: Text.PlainText; text: hub.d.lead || ""; wrapMode: Text.Wrap; maximumLineCount: hub.hasImages ? 2 : (hub.d.leadLines || 3); elide: Text.ElideRight; lineHeight: 1.1; color: hub.root.textC; font.family: hub.root.sans; font.pixelSize: 28 }
                 Item { width: 1; height: 16 }
                 Row {
                     visible: hub.hasImages
@@ -172,7 +172,7 @@ Column {
                         width: detailContent.width; height: (hub.d.rows || []).length > 5 ? 38 : (hub.hasImages ? 44 : 48); color: "transparent"
                         Rectangle { width: parent.width; height: 1; color: hub.root.line }
                         Text { width: parent.width * 0.45; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: parent.r.k || ""; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26 }
-                        Text { width: parent.width * 0.53; horizontalAlignment: Text.AlignRight; elide: Text.ElideMiddle; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; text: parent.r.v || ""; color: parent.r.accent ? hub.v.accent : hub.root.textC; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 26 }
+                        Text { width: parent.width * 0.53; horizontalAlignment: Text.AlignRight; elide: Text.ElideMiddle; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; textFormat: Text.PlainText; text: parent.r.v || ""; color: parent.r.accent ? hub.v.accent : hub.root.textC; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 26 }
                     }
                 }
                 Row {

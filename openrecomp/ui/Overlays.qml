@@ -137,7 +137,7 @@ Item {
             Text { width: parent.width; elide: Text.ElideRight; text: ov.v.osk.title; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 64 }
             Rectangle {
                 width: parent.width; height: 88; color: ov.root.bar
-                Text { x: 28; width: parent.width - 56; elide: Text.ElideLeft; anchors.verticalCenter: parent.verticalCenter; text: ov.v.osk.text; color: ov.root.textC; font.family: ov.root.mono; font.weight: Font.Medium; font.pixelSize: 48 }
+                Text { x: 28; width: parent.width - 56; elide: Text.ElideLeft; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: ov.v.osk.text; color: ov.root.textC; font.family: ov.root.mono; font.weight: Font.Medium; font.pixelSize: 48 }
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 4; color: ov.v.accent }
             }
             Item { width: 1; height: 10 }

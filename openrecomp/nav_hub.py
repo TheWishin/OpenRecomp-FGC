@@ -120,7 +120,7 @@ class Hub:
         v["more"] = dict(up=start > 0, down=start + ROWS_VISIBLE < len(items))
         it = items[fi] if items else {}
         d = it.get("detail") or dict(kicker="", title=it.get("label", ""), lead="", rows=[])
-        v["detail"] = dict(kicker=d.get("kicker", ""), title=d.get("title", ""), lead=d.get("lead", ""),
+        v["detail"] = dict(kicker=d.get("kicker", ""), title=d.get("title", ""), lead=d.get("lead", ""), leadLines=d.get("leadLines", 3),
                            rows=[dict(k=r["k"], v=r["v"], accent=bool(r.get("accent"))) for r in d.get("rows", [])],
                            results=self._cells(d.get("results", []) or []), primary=d.get("primary", ""), primaryG=self.glyph("confirm", True),
                            images=[uri(p) for p in d.get("images", []) if p], image=uri(d.get("image", "")), progress=d.get("progress", -1))

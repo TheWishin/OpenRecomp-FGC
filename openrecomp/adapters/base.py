@@ -118,10 +118,15 @@ class Adapter:
         return False
 
     def online_state(self):
-        """Read-only login/search snapshot. Reading it never connects or starts a request."""
+        """Read-only login/lobby/match snapshot; reading it never starts a request.
+
+        Playable clients add capabilities, players, rooms, chat, challenge, room and a text rank.
+        Tickets, addresses, credentials and session tokens never belong in this snapshot.
+        """
         return dict(phase="offline", message="", name="", account=False, queue="", match={}, saved_available=False)
 
     def online_action(self, action):
+        """Request a login, lobby action or match step; all are controller-selectable string ids."""
         pass
 
     def online_poll(self):

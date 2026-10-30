@@ -8,6 +8,7 @@ import threading
 import time
 
 from .base import Adapter, ProcessBuild, add_path, expand_locations, onoff
+from .t4_online import T4Online
 from ..manifest import art_dir, save_config
 
 STEP_RE = re.compile(r"^\[(\d+)/(\d+)\]\s+(\w+)\s+-\s+(.*)$")
@@ -30,7 +31,7 @@ def find_root(manifest, config):
     return None
 
 
-class T4(Adapter):
+class T4(T4Online, Adapter):
     native_label = "@t4.native_label"
 
     def __init__(self, manifest, config, root, core=None):
@@ -41,6 +42,7 @@ class T4(Adapter):
             core = importlib.import_module("t4core")
         self.core = core
         self.s = core.load_settings()
+        self._play_lock = threading.RLock()
         self.run = None
         self.build = None
         self.build_lines = []
@@ -73,6 +75,16 @@ class T4(Adapter):
 
     # ---------------------------------------------------------------- playing
     def start(self, extra_env=None):
+        with self._play_lock:
+            if (getattr(self, "_online_phase", "") in ("starting", "playing")
+                    and not (extra_env or {}).get("TEKKEN4_NET")):
+                raise RuntimeError("@online.game_running")
+            proc = getattr(self.run, "proc", None)
+            if callable(getattr(proc, "poll", None)) and self.running():
+                raise RuntimeError("@online.game_running")
+            return self._start(extra_env)
+
+    def _start(self, extra_env=None):
         problems = self.problems()
         if problems:
             raise RuntimeError(problems[0])
@@ -98,7 +110,8 @@ class T4(Adapter):
             self.core.game_env = real_env
         self.core.take_run_lock("openrecomp")
         self.run = run
-        threading.Thread(target=self._wait, args=(run,), daemon=True).start()
+        self._run_waiter = threading.Thread(target=self._wait, args=(run,), daemon=True)
+        self._run_waiter.start()
         return run.proc.pid
 
     def _wait(self, run):

@@ -1,0 +1,7 @@
+{
+    "description": "Client-only T4 rating labels using Tekken 8 rank names. No server rank or ranked play is enabled by this table.",
+    "maintenance": "Maintainer: replace or extend these rows with checked rating boundaries and Tekken 8 rank names in ascending minimum_rating order. Names are intentionally blank. The seed boundary is not an official Tekken 8 threshold; verify the complete mapping before filling names. A blank name hides that tier.",
+    "ranks": [
+        {"minimum_rating": 0, "name": ""}
+    ]
+}

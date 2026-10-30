@@ -111,6 +111,17 @@ def untranslated_literals(source):
         "openrecomp-lobby", "openrecomp-lobby-close", ".tmp", "logged in from another place",
         "auth_failed", "insecure", "bad_name", "name_taken", "rate_limited", "version_mismatch",
         "proto_mismatch", "server_full", "busy_server", "unavailable", "refused",
+        "online_chat", "challenge:", "join_room:", "chat:",
+        "refresh_players", "refresh_rooms", "accept_challenge", "decline_challenge",
+        "create_room", "leave_room", "send_chat", "no_players", "no_rooms", "no_chat",
+        "start_match", "cancel_match", "stop_match", "result_win", "result_loss", "result_none", "return_lobby",
+        "starting", "playing", "result", "result_sent",
+        "t4lobby", "online-t4.json", ".client", ".buildid", ".servers", ".proto", "IMAGENAME eq ",
+        "net.log", "rb_frames.log", "host:", "join:", "manual", "start_game",
+        "game_started", "game_playing", "nat_fallback", "direct", "lan", "r", "NETSUMMARY",
+        r"\bconnected\b", r"(?:frames|frame)\s*[=: ]\s*(\d+)", r"mismatches\s*[=: ]\s*(\d+)",
+        "peer_timeout", "peer_quit", "no_peer", "build_mismatch",
+        "frames", "desync", "rb", "openrecomp-t4-stop",
     }
     formats = {
         'f"{platform} RECOMP"', 'f"slot{i}"', 'f"{self.game.id}:{self.section()}"', 'f"{letter}:\\\\"',

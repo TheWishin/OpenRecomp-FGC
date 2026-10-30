@@ -10,5 +10,5 @@
  "adapter": "t4",
  "source": "PS2 ISO (SLUS-20328)",
  "locations": ["D:\\tekken4-us", "C:\\tekken4-us", "%USERPROFILE%\\Desktop\\T4-*"],
- "sections": ["play", "build", "settings"]
+ "sections": ["play", "online", "build", "settings"]
 }

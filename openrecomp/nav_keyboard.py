@@ -10,7 +10,8 @@ ONLINE_KEYS = (
 
 class Keyboard:
     def _open_osk(self, tid):
-        title = {"online_name": "@online.name", "online_password": "@online.password", "online_server": "@online.server"}.get(tid, "@osk.player_name")
+        title = {"online_name": "@online.name", "online_password": "@online.password", "online_server": "@online.server",
+                 "online_chat": "@online.chat"}.get(tid, "@osk.player_name")
         self.osk = dict(tid=tid, text=self.game.a.text_value(tid), row=1, col=0, title=title, page=0)
         self.overlay = "osk"
 

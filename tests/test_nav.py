@@ -428,7 +428,7 @@ class Manifests(unittest.TestCase):
         self.assertEqual(problems, [])
         self.assertEqual([m["id"] for m in manifests], ["t5dr", "t4"])
         self.assertIn("online", manifests[0]["sections"])
-        self.assertNotIn("online", manifests[1]["sections"])
+        self.assertIn("online", manifests[1]["sections"])
 
     def test_bad_ones_are_named_not_fatal(self):
         with tempfile.TemporaryDirectory(dir=os.path.dirname(os.path.dirname(__file__))) as d:

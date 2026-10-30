@@ -47,6 +47,11 @@ def message(key, **values):
     return dict(_text=key, _values=values)
 
 
+def literal(value):
+    """Keep player-entered and server-supplied text distinct from catalog references."""
+    return dict(_literal=str(value))
+
+
 def error_message(error):
     """Keep our deferred messages; leave a game's own error text as supplied."""
     value = error.args[0] if error.args else None
@@ -58,6 +63,8 @@ def error_message(error):
 def localize(value, code):
     """Replace catalog keys in a plain view dictionary without touching game titles."""
     if isinstance(value, dict):
+        if set(value) == {"_literal"}:
+            return value["_literal"]
         if value.get("_text") in catalog("en"):
             return text(code, value["_text"], **localize(value["_values"], code))
         return {k: localize(v, code) for k, v in value.items()}
