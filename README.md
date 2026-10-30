@@ -14,23 +14,36 @@ used last.
 
 ## Status
 
-First working version. On the launcher today:
+Development version. The following adapter workflows are implemented; installed-game and
+release-runtime acceptance checks remain outstanding:
 
 | Game | How it connects | Sections |
 |---|---|---|
 | Tekken 5: Dark Resurrection | an installed [T5DR Online](https://github.com/TheWishin/T5DROnline) | Play, Online, Build, Replays, Settings |
-| Tekken 4 (USA, SLUS-20328) | a checkout or release of the Tekken 4 recomp with its installed `t4lobby` client | Play, Online, Build, Settings |
+| Tekken 4 (USA, SLUS-20328) | a portable release of the Tekken 4 recomp with its bundled build tools and `t4lobby` client | Play, Online, Build, Settings |
 | Free slots | a manifest (below) | what the manifest says |
 
-T4 Online includes casual quick match, player challenges, open rooms, chat, and one game process per match with manual
-results. Ranked is unavailable for T4. See [T4 Online and release checks](docs/T4_ONLINE.md), including the shared-account
-server requirement. T5DR currently provides login and search through the same lobby integration; its match handover
-still stops at a found match. Other native online features remain reachable through each game's launcher. Texts are
-available in seven languages.
+The T4 adapter implements casual quick match, player challenges, open rooms, chat, and one game process per match with
+manual results. Ranked is unavailable for T4. See [T4 Online and release checks](docs/T4_ONLINE.md), including the
+shared-account server requirement. T5DR's Online section opens its existing T5DR Online launcher. The T4 integration
+has only been exercised with fake installed clients, not real servers or games. Other native online features have a
+shortcut to each game's launcher. Seven
+language catalogs are included; native-speaker and controller layout review remain release checks.
+
+Automated tests exercise launcher logic with fakes, inert temporary files and offscreen QML scenes. They do not prove
+compatibility with an installed lobby API, native report scrubbing, real NAT/TLS behavior, the compiled starter or a
+packaged update. See the manual acceptance checks in [INSTALLING.md](docs/INSTALLING.md),
+[PACKAGING.md](docs/PACKAGING.md) and the online guides. The required test command is
+`.venv\Scripts\python.exe -m unittest discover -s tests`; the checkout's virtual environment currently cannot start
+its configured base interpreter, so no passing full-suite result is claimed.
 
 ## Start
 
-You need Windows 10/11 and Python 3.12.
+The player release is intended for Windows 10/11: extract the whole release zip and open `OpenRecomp.exe`.
+Its private runtime and native starter still need owner packaging and clean-PC acceptance. The controller walk and
+remaining release gates are in [T4 first run](docs/T4_FIRST_RUN.md).
+
+For this source checkout, you need Python 3.12:
 
 ```bat
 run.cmd
@@ -51,8 +64,10 @@ The first start creates `.venv` and installs PySide6. `run.cmd --windowed` opens
 | X | X | Secondary (show a replay's result, delete in the on-screen keyboard) |
 | View | G | Next game |
 
-Xbox-style pads go through XInput. PlayStation pads are read through the HID reader of an installed T5DR Online. The
-launcher reads pads only while it is in front, and not while a game runs.
+Xbox-style pads go through XInput. A Windows joystick reader supports recognized Sony PlayStation controllers without
+a game install; an installed T5DR Online can also supply its HID reader. Real USB/Bluetooth acceptance remains required.
+Normal launcher navigation pauses while a game runs. During T4, hold View + Menu (Share + Options) on one controller
+for two seconds to stop the game and return to the launcher.
 
 ## Add a game
 
@@ -94,7 +109,7 @@ the interface in `adapters/base.py`, so a new adapter changes no screen.
 | `games/` | The manifests that ship |
 | `tests/` | `python -m unittest discover tests` |
 | `tools/make_logo.py` | Draws the logo files in `openrecomp/ui/assets` |
-| `tools/shots.py` | Drives every screen without a window, in a dry run, and saves pictures |
+| `tools/shots.py` | Manual screenshot helper using the real backend and installed artwork; not an isolated test |
 
 ## Licences
 

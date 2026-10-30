@@ -44,5 +44,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
     DWORD result = 1;
     GetExitCodeProcess(process.hProcess, &result);
     CloseHandle(process.hProcess);
+    if (result != 0) {
+        MessageBoxW(NULL, startup_failure(GetUserDefaultUILanguage()),
+                    L"OpenRecomp", MB_OK | MB_ICONERROR);
+    }
     return (int)result;
 }

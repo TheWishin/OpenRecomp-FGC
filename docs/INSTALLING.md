@@ -26,12 +26,19 @@ core at runtime; OpenRecomp does not supply a game, an ISO, a build, keys or gam
 If T4 still needs to be built from the player's own copy, its Build section explains the
 requirements through the installed core. Registration itself never builds or starts a game.
 
+Selecting the first T5DR install refreshes the PlayStation controller reader immediately.
+If a different T5DR install's native modules are already loaded, selecting another install
+can require restarting OpenRecomp. Origin checks refuse to reuse modules from the old
+install; native modules are not unloaded. The old controller reader is paused and removed
+instead of continuing to read from the previous install.
+
 The pad's Quick access button opens launcher preferences and **Check for launcher updates**.
 An update offer shows its version, archive bytes and release-note preview. **No** is selected
 initially. Choosing **Install and restart** downloads and verifies the release and hands off
 to a separate helper. Games, builds, support work and online sessions must be closed before
-installation. A new launcher must stay healthy for 15 seconds to confirm the transaction;
-failure restores the prior version. See [UPDATES.md](UPDATES.md).
+installation. Confirmation requires QML to load and its event loop to reach the 15-second
+timer; this is a limited startup check, not a test of every workflow. A missing confirmation
+attempts rollback to the prior version. See [UPDATES.md](UPDATES.md) for recovery limits.
 
 ## Owner decisions before a release
 

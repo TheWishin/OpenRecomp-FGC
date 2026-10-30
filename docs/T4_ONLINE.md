@@ -6,8 +6,10 @@ runtime package must implement the protocol described by the T4 project's
 `docs/LOBBY.md` and `SERVER_HANDOFF_T4.md`: protocol 1, game `t4`, default port
 7791, and the T4 build identity from `t4net_build.txt`.
 
-Day one covers casual quick match, challenges from the player list, open rooms,
-and lobby chat. A found match requires an explicit acceptance. Each match starts
+The adapter implements casual quick match, challenges from the player list,
+open rooms, and lobby chat. These paths have been tested with fake clients only;
+compatibility with an installed `t4lobby` and its server remains unverified.
+A found match requires an explicit acceptance. Each match starts
 a new T4 process; characters and stage are chosen in the game's VS BATTLE menus.
 Host is P1. When the game exits, the launcher asks for a win, loss, or no result.
 These are manual reports: T4 has no game result file. Ranked and leaderboard
@@ -47,7 +49,10 @@ text only and does not change the server's rating or enable ranked matches.
 ## Manual release checks
 
 These checks require the maintainer's own installation. They are not performed
-by automated tests, which use fake clients, tickets, processes, and logs.
+by automated tests, which use fake clients, tickets, processes, and logs. Tests
+of protocol method calls verify this adapter's expectations of a fake client;
+they do not establish the signatures, event order, cancellation guarantees or
+relay lifecycle of an installed client.
 
 Against an isolated local T4 lobby:
 

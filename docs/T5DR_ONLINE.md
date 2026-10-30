@@ -1,9 +1,9 @@
 # T5DR online: login and search
 
-This is part (a): connect as a guest or an existing account, reuse a saved
-login, search casual or ranked, cancel, and show a found match. Ready checks,
-game handover, and results belong to the next part. Use **Open T5DR launcher**
-for the other online features.
+The adapter implements guest and existing-account login, saved login, casual
+and ranked search, cancellation, and display of a found match. This is part (a),
+tested with fake clients only. Ready checks, game handover, and results belong
+to the next part. Use **Open T5DR launcher** for the other online features.
 
 The Online section and its keyboard work with a controller. Passwords retain
 their case and spaces and are masked on screen. Ranked search requires an
@@ -21,7 +21,10 @@ there is no server change or new protocol field.
 One account can be logged in once. A later login wins and the other client
 receives `kicked` with the reason “logged in from another place”. OpenRecomp
 shows that state and requires a deliberate login; it never logs back in by
-itself. The native launcher also suppresses automatic login after that kick.
+itself. The installed native launcher must also suppress automatic login after
+that kick to avoid the two launchers repeatedly displacing each other. Its
+behavior is outside this repository and has not been verified here; the manual
+coexistence check below is a release requirement.
 
 Saved login uses the native launcher's `online.json` in its user settings
 directory, including its `T5_ONLINE_DIR` override. Its `sessions` entries are
@@ -76,7 +79,12 @@ test accounts. They have not been exercised by this change's automated tests.
    features still work. Check cancellation and application exit release the
    connection without forgetting the remembered login.
 
-Automated coverage uses fakes only. `Nav.dry` must prevent connection, search,
+Automated online coverage uses fake clients, servers and process inspection.
+Most adapter tests replace the worker submitter with a synchronous helper;
+the separate thread cancellation tests cover selected interleavings, not all
+thread schedules or the installed client's own threads. UI tests load real QML
+offscreen with fake backend state; they do not establish physical pad behavior
+or visual readability on a real display. `Nav.dry` must prevent connection, search,
 cancellation, polling, and saved-setting writes. No real server, search, game,
 or build was exercised during implementation. The required unittest command
 could not currently run because the repository virtual environment refers to

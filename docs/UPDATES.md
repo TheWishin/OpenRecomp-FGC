@@ -59,13 +59,37 @@ installation is running, then renames program files on the same drive. The archi
 only the program items listed in `PROGRAM_ITEMS`, rejects unsafe Windows paths, duplicate
 names, links and special files, and validates the staged manifest before swapping.
 
-The new launcher confirms only after the live UI has remained up for 15 seconds. A failed
+The transaction retains the downloaded archive and exact signed checksum and signature
+files. Worker preparation verifies their signature context and the archive hash, then
+compares the staged file and directory set and every staged file's hash with the
+authenticated archive. Runtime copying and hashing run in the update worker. The UI
+checks that it is still safe to quit before starting the prepared helper. After the
+launcher exits, the helper repeats authentication, checks that the target is still an
+upgrade, and checks for running installation processes again before moving program files.
+These checks detect intervening changes when verification runs; they do not protect
+against a malicious process with the same user's permissions changing files between the
+last check and a rename, or tampering with the installed updater itself.
+
+The new launcher schedules confirmation after QML loads and its event loop reaches
+a timer after 15 seconds. This checks scene loading and event-loop survival; it does
+not verify every screen, controller input or adapter. A failed
 move, start, early exit or missing confirmation restores the previous program and restarts
 it. Existing backups are retained beside the installation for recovery. If restoring a
 locked file itself fails, the backup is retained; close programs using the folder before
 manual recovery. A killed helper, power loss or machine crash during renames can also need
 manual recovery from that backup. This is a rollback mechanism, not a crash-proof filesystem
 transaction.
+
+An `apply.lock` directory in `<installation>.update` beside the installation,
+alongside the transaction folders, serializes helpers for that installation through the
+swap and any rollback. A second helper refuses to proceed while the lock exists.
+Successful completion or a completed rollback removes it. An interrupted helper
+or unresolved recovery leaves it in place to prevent another update from moving
+files before recovery is reviewed. Close all launcher and update-helper processes,
+review the transaction's backup and restore the previous program as needed, then
+remove the empty `apply.lock` directory before retrying. Do not remove the lock
+while a helper may still be working, and retain the transaction and backup until
+recovery is complete.
 
 Player data in `OPENRECOMP_HOME` is never moved. Other unrecognized files in the installation
 are kept too. Updating refuses an `OPENRECOMP_HOME` that overlaps a program item. The launcher
@@ -80,6 +104,10 @@ channel or repository similarly needs a deliberately reviewed transition release
 ## Verification still required
 
 Tests use fake releases, inert files and processes, plus an RFC 8032 verification vector.
+Filesystem swap tests exercise real temporary-file moves with injected process and
+restart behavior; the service tests replace the updater API and do not independently
+verify signature checking or installation. Source-string assertions about the starter
+are not a test of its compiled behavior.
 They do not exercise a public release, a real packaged executable, Windows process locking,
 network/proxy behavior or a clean PC. Before release, test on a clean Windows PC without
 Python: extraction into a moved folder, first start with no game, controller-only operation,

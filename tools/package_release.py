@@ -181,8 +181,11 @@ def scan_file(path, name, library=False):
             value = json.loads(Path(path).read_text(encoding="utf-8"))
         except (ValueError, UnicodeError) as e:
             raise PackageError("Invalid shipped JSON: " + name) from e
-        if p.parts[0] == "games" and value.get("locations"):
-            raise PackageError("Shipped game manifests must have no fixed install locations")
+        if p.parts[0] == "games":
+            if not isinstance(value, dict):
+                raise PackageError("Shipped game manifests must be JSON objects")
+            if value.get("locations"):
+                raise PackageError("Shipped game manifests must have no fixed install locations")
 
 
 def verify_inventory(folder, inventory):
@@ -221,7 +224,10 @@ def runtime_files(folder, contract):
             raise PackageError("Embedded standard library exceeds its limits")
         for entry in z.infolist():
             p = safe_name(entry.filename.rstrip("/"))
-            if str(p).casefold() in seen or stat.S_ISLNK(entry.external_attr >> 16):
+            mode = stat.S_IFMT(entry.external_attr >> 16)
+            if (entry.orig_filename != entry.filename or str(p).casefold() in seen
+                    or mode not in (0, stat.S_IFREG, stat.S_IFDIR)
+                    or entry.external_attr & 0x400 or entry.flag_bits & 1):
                 raise PackageError("Unsafe embedded standard library")
             seen.add(str(p).casefold())
             if any(x.lower() in FORBIDDEN_PARTS for x in p.parts) or (not entry.is_dir() and p.suffix.lower() not in {".py", ".pyc", ".txt", ".pickle", ".css", ".json"}):
@@ -275,6 +281,9 @@ def source_files(root):
         raise PackageError("The explicit launcher source payload is incomplete")
     for name in ("LICENSE", "docs/PACKAGING.md", "docs/INSTALLING.md", "docs/UPDATES.md"):
         p = Path(root) / name
+        if (p.is_symlink() or p.is_junction() or not p.is_file()
+                or p.parent.is_symlink() or p.parent.is_junction()):
+            raise PackageError("Source links cannot be packaged")
         scan_file(p, name)
         selected[name] = p
     return selected
@@ -329,10 +338,18 @@ def assemble(root, runtime, starter, licenses, contract_path, output, version, c
         payload.update(("python/" + n, p) for n, p in runtime.items())
         payload.update(("LICENSES/" + n, p) for n, p in licenses.items())
         payload["OpenRecomp.exe"] = starter
+        reviewed = {"python/" + n: checksum for n, checksum in contract["runtime"].items()}
+        reviewed.update(("LICENSES/" + n, checksum) for n, checksum in contract["licenses"].items())
+        reviewed["OpenRecomp.exe"] = contract["starter_sha256"]
         for name, path in payload.items():
             target = stage / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
+            # Bind the shipped bytes to the review, even if an input changes
+            # between validation and copying. Scan source from this snapshot too.
+            if name in reviewed and digest(target) != reviewed[name]:
+                raise PackageError("Input changed after review: " + name)
+            scan_file(target, name, library=name in reviewed)
         (stage / "openrecomp_boot.py").write_text(BOOT, encoding="utf-8")
         # CPython's embeddable distribution resolves these relative to its executable.
         (stage / "python" / "python312._pth").write_text("python312.zip\n.\nLib\nLib/site-packages\n..\n", encoding="utf-8")
