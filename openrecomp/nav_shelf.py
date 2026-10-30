@@ -15,6 +15,11 @@ class Shelf:
         return next((g for g in self.games if g.id == gid), None)
 
     def set_games(self, games):
+        if self.controls_game:
+            self.controls_game.a.controls_close()
+            self.controls_game = None
+        if self.binding_game:
+            self._cancel_binding()
         keep = self.game.id if self.game else None
         self.games = games
         self.game = self.game_by_id(keep) or (games[0] if games else None)

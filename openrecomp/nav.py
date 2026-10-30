@@ -18,6 +18,7 @@ from .nav_keyboard import Keyboard
 from .nav_picker import Picker
 from .nav_sections import Sections
 from .nav_shelf import Shelf
+from .nav_tools import Tools
 
 
 class Game:
@@ -29,7 +30,7 @@ class Game:
         self.accent = manifest["accent"]
 
 
-class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker):
+class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None):
         self.games = games
@@ -64,6 +65,11 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker):
         self.osk = None
         self.pad_kind = "xbox"
         self.was_running = {}
+        self.controls_game = None
+        self.binding_game = None
+        self.binding_result = {}
+        self.support_game = None
+        self.support_snapshot = None
 
     def act(self, action, device=None):
         if device:
@@ -87,6 +93,9 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker):
         self.hold = 0.0
 
     def _select_game(self, game):
+        if self.controls_game and self.controls_game is not game:
+            self.controls_game.a.controls_close()
+            self.controls_game = None
         self.game = game
         self.start_focus = self.games.index(game)
         if not self.dry:
@@ -113,6 +122,8 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker):
         self.toast_left = seconds
 
     def _handle(self, a):
+        if self.overlay == "binding":
+            return self._binding(a)
         if self.overlay == "dialog":
             return self._dialog(a)
         if self.overlay == "osk":
@@ -205,7 +216,10 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker):
             self.say(i18n.error_message(e) or e.__class__.__name__)
 
     def click_entry(self, index):
-        if self.overlay == "picker":
+        if self.overlay == "binding" and not self.binding_active():
+            self.exit_focus = index
+            self.act("confirm")
+        elif self.overlay == "picker":
             self.picker["focus"] = index
             self.act("confirm")
         elif self.overlay == "drawer":

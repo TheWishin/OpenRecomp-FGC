@@ -5,7 +5,13 @@ from .nav_common import ROWS_VISIBLE, SECTION_TITLES, badge, uri, window
 
 class Hub:
     def sections(self, g=None):
-        return (g or self.game).m["sections"]
+        g = g or self.game
+        sections = [s for s in g.m["sections"] if s not in ("controls", "support")]
+        if getattr(g.a, "controls_supported", lambda: False)():
+            sections.append("controls")
+        if getattr(g.a, "support_available", lambda: False)():
+            sections.append("support")
+        return sections
 
     def section(self):
         g = self.game
@@ -130,6 +136,8 @@ class Hub:
         v["prompts"] = prompts
 
     def click_row(self, index):
+        if self.overlay:
+            return
         self._cancel_hold()
         items = self.items()
         if 0 <= index < len(items) and items[index].get("kind") != "heading":
@@ -142,11 +150,15 @@ class Hub:
                     self._guard(self._activate, items[index])
 
     def click_tab(self, section):
+        if self.overlay:
+            return
         self._cancel_hold()
         if section in self.sections():
             self.sec[self.game.id] = section
 
     def click_primary(self):
+        if self.overlay:
+            return
         items = self.items()
         if items:
             self._guard(self._activate, items[self.focus_index(items)])

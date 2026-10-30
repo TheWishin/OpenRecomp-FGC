@@ -78,6 +78,41 @@ class Adapter:
         """Ids of the settings shown under "Start game"."""
         return []
 
+    # ---------------------------------------------------------------- controls: optional per-pad bindings
+    def controls_supported(self):
+        return False
+
+    def controls(self):
+        """[dict(id, label, port, slots=[dict(id, label, value)])]."""
+        return []
+
+    def begin_binding(self, pad_id, slot_id):
+        raise RuntimeError("@controls.unsupported")
+
+    def poll_binding(self, active=True):
+        """dict(state, source, conflicts): capture progress without blocking."""
+        return dict(state="")
+
+    def accept_binding(self):
+        pass
+
+    def cancel_binding(self):
+        pass
+
+    def controls_close(self):
+        pass
+
+    # ---------------------------------------------------------------- support: optional native check and local report
+    def support_available(self):
+        return False
+
+    def support_start(self, kind):
+        raise RuntimeError("@support.unavailable")
+
+    def support_state(self):
+        """dict(running, operation, checked, findings, report, error); no network sending."""
+        return dict(running=False, operation="", checked=False, findings=[], report="", error="")
+
     # ---------------------------------------------------------------- online: rows for the online section
     def online_items(self):
         return []

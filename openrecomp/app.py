@@ -105,15 +105,23 @@ class Backend(QObject):
         dt = TICK_MS / 1000.0
         changed = self.nav.tick(dt)
         running = any(g.a.running() for g in self.nav.games)
-        if self._in_front():
+        active = self._in_front()
+        capturing = self.nav.binding_active()
+        if capturing:
+            self.pads.suppress()
+        changed = self.nav.poll_tools(active=active) or changed
+        if active and not capturing:
             for action, edge in self.pads.poll():
                 self.nav.pad_kind = self.pads.kind
                 changed = True
                 if edge == "down":
                     self.nav.act(action, device=self.pads.kind)
+                    if self.nav.binding_active():
+                        self.pads.suppress()
+                        break
                 else:
                     self.nav.release(action)
-        else:
+        elif not active:
             self.pads.forget()
         self._slow += dt
         if self._slow >= 0.5:                 # game ended, build moved on, a picture got ready

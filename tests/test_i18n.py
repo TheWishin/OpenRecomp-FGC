@@ -66,7 +66,9 @@ def untranslated_literals(source):
                     ignore(node.value)
         elif isinstance(node, ast.Call):
             name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", "")
-            if name in ("get", "setdefault", "getenv", "pop", "startswith", "import_module", "strftime", "compile", "match", "expanduser") and node.args:
+            if name in ("getattr", "hasattr") and len(node.args) > 1:
+                ignore(node.args[1])  # attribute names; a displayed fallback is still checked
+            elif name in ("get", "setdefault", "getenv", "pop", "startswith", "import_module", "strftime", "compile", "match", "expanduser") and node.args:
                 ignore(node.args[0])
             elif name in ("prompt", "glyph", "_ask", "_open_picker", "act") and node.args:
                 ignore(node.args[0])
@@ -93,6 +95,13 @@ def untranslated_literals(source):
         "Downloads", "Desktop", "APPDATA", "OPENRECOMP_T4_ROOT", "OPENRECOMP_T5DR_ROOT", "T5_ONLINE_DIR",
         ".json", ".iso", "*.iso", ".pkg", ".rap", ".openrecomp.tmp", "logs\\build_game.log",
         "--search", "-Force", "openrecomp", "taskkill", "/T", "/F", "/PID", "W", "L",
+        "controls_edit.py", "controls_ui.py", "padmap.py", "padnav.py", "__init__.py", ".py", "replays.py", "launcher.log",
+        "controls_edit", "controls_ui", "t5lobby.padmap", "t5lobby.padnav", "problem_report", "problem_check",
+        "Context", "settings_lines", "build_info_for", "discover", "build", "desktop_dir",
+        "controls_path", "DeviceRef", "load", "sources", "table", "bind", "save", "mask_text",
+        "default_sources", "step", "drain", "update",
+        "idle", "waiting", "ready", "conflict", "multi", "timeout", "disconnected", "done", "ok",
+        "check", "report", "problem", "controls", "support", "error", "saved", "none",
     }
     formats = {
         'f"{platform} RECOMP"', 'f"slot{i}"', 'f"{self.game.id}:{self.section()}"', 'f"{letter}:\\\\"',
@@ -314,6 +323,11 @@ class Catalogs(unittest.TestCase):
         ]
         for source in examples:
             self.assertTrue(untranslated_literals(source), source)
+
+    def test_python_scan_accepts_optional_api_names_but_checks_displayed_defaults(self):
+        self.assertEqual(untranslated_literals('getattr(adapter, "controls_supported", lambda: False)()'), [])
+        self.assertEqual(untranslated_literals('hasattr(adapter, "_controls_session")'), [])
+        self.assertTrue(untranslated_literals('getattr(adapter, "message", "Try again")'))
 
     def test_qml_has_no_player_facing_literals(self):
         forbidden = ("Quick access", "Recent sets", "Choose your fighter", "Your main:", "Folder", "File", "MAIN")

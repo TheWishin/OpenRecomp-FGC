@@ -14,6 +14,8 @@ import subprocess
 import threading
 
 from .base import Adapter, NO_WINDOW, add_path, expand_locations
+from .t5_controls import Controls
+from .support import T5Support
 from ..manifest import art_dir
 
 DISPLAY = [("window", "@display.window"), ("window1080", "@display.1080"), ("window1440", "@display.1440"),
@@ -47,7 +49,7 @@ def find_root(manifest, config):
     return max(built or found, key=version_key)
 
 
-class T5DR(Adapter):
+class T5DR(Controls, T5Support, Adapter):
     native_label = "@t5.native_label"
 
     def __init__(self, manifest, config, root, core=None, replays_mod=None):

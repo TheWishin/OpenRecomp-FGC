@@ -27,6 +27,8 @@ class Dialog:
             elif yes and self.confirm_kind == "rebuild" and not self._dry("@dry_rebuild"):
                 if self._offline_action(self.game.a.build_start, force=True):
                     self.say("@rebuild_starting")
+            elif yes and self.confirm_kind == "support_report":
+                self._start_support(self.game, "report")
 
     def _view_dialog(self, v):
         if self.confirm_kind == "exit":
@@ -35,6 +37,8 @@ class Dialog:
             title, text = "@dialog.stop.title", "@dialog.stop.text"
         elif self.confirm_kind == "rebuild":
             title, text = "@dialog.rebuild.title", "@dialog.rebuild.text"
+        elif self.confirm_kind == "support_report":
+            title, text = "@support.report.confirm.title", "@support.report.confirm.text"
         else:
             title, text = "@dialog.cancel.title", "@dialog.cancel.text"
         v["dialog"] = dict(title=title, text=text, options=[dict(label="@no", index=0, focused=self.exit_focus == 0), dict(label="@yes", index=1, focused=self.exit_focus == 1)])

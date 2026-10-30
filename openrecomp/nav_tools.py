@@ -1,0 +1,155 @@
+"""Optional controls and local problem reports, through the common game interface."""
+from . import i18n
+
+
+class Tools:
+    def _items_controls(self, g):
+        if self.controls_game and self.controls_game is not g:
+            self.controls_game.a.controls_close()
+        self.controls_game = g
+        out = []
+        for pad in g.a.controls():
+            name = pad["label"]
+            out.append(dict(kind="heading", label=name))
+            for slot in pad["slots"]:
+                disabled = pad.get("disabled", False)
+                out.append(dict(kind="action", id=str(pad["id"]) + ":" + slot["id"], label=slot["label"],
+                                value=slot["value"], verb="" if disabled else "@controls.bind", hint="@controls.hint", disabled=disabled,
+                                run=None if disabled else lambda pid=pad["id"], sid=slot["id"]: self._begin_binding(g, pid, sid),
+                                detail=dict(kicker=name, title=slot["label"], lead="@controls.hint",
+                                            rows=[dict(k="@controls.current", v=slot["value"])], primary="" if disabled else "@controls.bind")))
+        return out or [dict(kind="action", id="none", label="@controls.empty", hint="@controls.hint",
+                            detail=dict(kicker="@section.controls", title="@controls.empty", lead="@controls.hint", rows=[]))]
+
+    def _begin_binding(self, g, pad, slot):
+        if self._dry("@controls.bind"):
+            return
+        g.a.begin_binding(pad, slot)
+        self.binding_game = g
+        self.binding_result = dict(state="waiting")
+        self.overlay = "binding"
+
+    def binding_active(self):
+        return self.overlay == "binding" and self.binding_result.get("state") == "waiting"
+
+    def _binding(self, action):
+        if self.binding_active():
+            # Every pad button is a binding candidate, including the usual Back button.
+            if action == "back" and self.device == "kb":
+                self._cancel_binding()
+            return
+        if action in ("left", "right", "up", "down"):
+            self.exit_focus = 1 - self.exit_focus
+        elif action == "back":
+            self._cancel_binding()
+        elif action == "confirm":
+            if self.exit_focus == 1:
+                if self._offline_action(self.binding_game.a.accept_binding):
+                    self.say("@controls.saved")
+                self._cancel_binding()
+            else:
+                self._cancel_binding()
+
+    def _cancel_binding(self):
+        if self.binding_game:
+            self.binding_game.a.cancel_binding()
+        self.overlay = None
+        self.binding_game = None
+
+    def _view_binding(self, v):
+        waiting = self.binding_active()
+        result = self.binding_result
+        text = "@controls.waiting.text" if waiting else i18n.message(
+            "controls.conflict.text", source=result.get("source", ""),
+            slots=", ".join(i18n.localize(s, self.language) for s in result.get("conflicts", [])))
+        v["overlay"] = "dialog"
+        v["dialog"] = dict(title="@controls.waiting.title" if waiting else "@controls.conflict.title", text=text,
+                           options=[] if waiting else [dict(label="@no", index=0, focused=self.exit_focus == 0),
+                                                       dict(label="@yes", index=1, focused=self.exit_focus == 1)])
+        v["hint"] = "@controls.waiting.hint" if waiting else "@dialog_hint"
+        v["prompts"] = [] if waiting else [self.prompt("confirm", "@confirm"), self.prompt("right", "@switch"), self.prompt("back", "@cancel")]
+
+    def poll_tools(self, active=True):
+        """The app polls installed readers and workers; all state stays in this plain model."""
+        changed = False
+        if self.controls_game and not self.binding_active() and active:
+            try:
+                result = self.controls_game.a.poll_binding(active=True)
+                if self.binding_game and result.get("state") == "disconnected":
+                    self._cancel_binding()
+                    self.say("@controls.disconnected")
+            except Exception as e:  # noqa: BLE001 -- a reader failure should not stop the app timer
+                self.say(i18n.error_message(e) or "@controls.failed")
+                self.controls_game.a.controls_close()
+                self.controls_game = None
+            changed = True
+        if self.binding_active():
+            try:
+                result = self.binding_game.a.poll_binding(active=active)
+                state = result.get("state", "waiting")
+                if state != "waiting":
+                    changed = True
+                    self.binding_result = result
+                    if state == "ready":
+                        self.binding_game.a.accept_binding()
+                        self.say("@controls.saved")
+                        self.overlay = None
+                        self.binding_game = None
+                    elif state == "conflict":
+                        self.exit_focus = 0
+                    else:
+                        self._cancel_binding()
+                        messages = dict(timeout="@controls.timeout", multi="@controls.multi", disconnected="@controls.disconnected")
+                        self.say(result.get("error") or messages.get(state, "@controls.failed"))
+            except Exception as e:  # noqa: BLE001 -- unplugging a pad must leave navigation usable
+                self._cancel_binding()
+                self.say(i18n.error_message(e) or "@controls.failed")
+                changed = True
+        if self.controls_game and (self.screen != "hub" or self.game is not self.controls_game or self.section() != "controls" or not active):
+            self.controls_game.a.controls_close()
+            if self.binding_game:
+                self._cancel_binding()
+            self.controls_game = None
+            changed = True
+        if self.support_game:
+            state = self.support_game.a.support_state()
+            if state != self.support_snapshot:
+                self.support_snapshot = state
+                changed = True
+            if not state["running"]:
+                self.support_game = None
+        return changed
+
+    def _items_support(self, g):
+        state = g.a.support_state()
+        busy = state["running"]
+        out = []
+        for kind, label, hint in (("check", "@support.check", "@support.check.hint"), ("report", "@support.report", "@support.report.hint")):
+            run = (lambda: self._ask("support_report")) if kind == "report" else (lambda: self._start_support(g, "check"))
+            out.append(dict(kind="action", id=kind, label=label, verb="" if busy else "@start", disabled=busy,
+                            run=None if busy else run, hint="@support.running" if busy else hint,
+                            detail=dict(kicker="@section.support", title=label, lead="@support.running" if busy else hint,
+                                        rows=[dict(k="@support.local_only", v="@support.local_only")], primary="" if busy else "@start")))
+        if state.get("error"):
+            out.append(self._support_finding("error", "@support.error", state["error"], "@support.check.hint"))
+        for finding in state["findings"]:
+            out.append(self._support_finding(finding["id"], finding["label"], finding.get("seen", ""), finding["fix"]))
+        if state["report"]:
+            out.append(self._support_finding("saved", "@support.report_ready", state["report"], "@support.local_only"))
+        elif not state["findings"] and not busy:
+            label = "@support.no_findings" if state["checked"] else "@support.not_checked"
+            out.append(self._support_finding("none", label, "", "@support.check.hint"))
+        return out
+
+    @staticmethod
+    def _support_finding(sid, label, seen, fix):
+        return dict(kind="action", id=sid, label=label, hint=fix,
+                    detail=dict(kicker="@support.next_step", title=label, lead=fix,
+                                rows=[dict(k="@support.report_path" if sid == "saved" else "@support.observation", v=seen)] if seen else []))
+
+    def _start_support(self, g, kind):
+        if self._dry("@support.report" if kind == "report" else "@support.check"):
+            return
+        if g.a.support_start(kind):
+            self.support_game = g
+            self.support_snapshot = g.a.support_state()

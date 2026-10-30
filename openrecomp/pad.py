@@ -103,6 +103,7 @@ class PlayStationReader:
     def pause(self):
         if self.source is not None:
             self.source.pause()
+        self.next_scan = 0.0
 
 
 class Pads:
@@ -142,3 +143,7 @@ class Pads:
         for r in self.readers:
             if hasattr(r, "pause"):
                 r.pause()
+
+    def suppress(self):
+        """Require release after capture, retaining HID queues until navigation resumes."""
+        self.down = {action: float("inf") for _name, action in SOURCES}
