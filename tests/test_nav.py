@@ -118,7 +118,7 @@ class Base(unittest.TestCase):
         self.a = Fake(manifest("a"))
         self.b = Fake(manifest("b", sections=("play", "build", "settings")), is_ready=False)
         self.quit = []
-        self.nav = Nav([Game(self.a.m, self.a), Game(self.b.m, self.b)], on_quit=lambda: self.quit.append(1))
+        self.nav = Nav([Game(self.a.m, self.a), Game(self.b.m, self.b)], on_quit=lambda: self.quit.append(1), language="en")
 
     def press(self, *actions):
         for a in actions:

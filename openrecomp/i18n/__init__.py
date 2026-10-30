@@ -2,6 +2,7 @@
 import json
 import locale
 import os
+from functools import cache
 from pathlib import Path
 
 _HERE = Path(__file__).parent
@@ -22,8 +23,13 @@ def normalize(code):
 
 
 def catalog(code):
+    return _catalog(normalize(code))
+
+
+@cache
+def _catalog(code):
     try:
-        with (_HERE / (normalize(code) + ".json")).open(encoding="utf-8") as f:
+        with (_HERE / (code + ".json")).open(encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError):
         return {}
@@ -36,12 +42,27 @@ def text(code, key, **values):
     return message.format(**values)
 
 
+def message(key, **values):
+    """A deferred message: keep values separate until the view chooses a language."""
+    return dict(_text=key, _values=values)
+
+
+def error_message(error):
+    """Keep our deferred messages; leave a game's own error text as supplied."""
+    value = error.args[0] if error.args else None
+    if isinstance(value, dict) and value.get("_text") in catalog("en") and isinstance(value.get("_values"), dict):
+        return value
+    return str(error)
+
+
 def localize(value, code):
     """Replace catalog keys in a plain view dictionary without touching game titles."""
     if isinstance(value, dict):
+        if value.get("_text") in catalog("en"):
+            return text(code, value["_text"], **localize(value["_values"], code))
         return {k: localize(v, code) for k, v in value.items()}
     if isinstance(value, list):
         return [localize(v, code) for v in value]
-    if isinstance(value, str) and value.startswith("@"):
+    if isinstance(value, str) and value.startswith("@") and value[1:] in catalog("en"):
         return text(code, value[1:])
     return value

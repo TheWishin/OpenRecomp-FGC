@@ -22,7 +22,7 @@ def find_root(manifest, config):
 
 
 class T4(Adapter):
-    native_label = "Tekken 4 launcher"
+    native_label = "@t4.native_label"
 
     def __init__(self, manifest, config, root, core=None):
         super().__init__(manifest, config)
@@ -53,9 +53,9 @@ class T4(Adapter):
     def status(self):
         problems = self.problems()
         last = self.s.get("last_run") or {}
-        return dict(status="Ready" if not problems else "Not built yet", version="SLUS-20328",
-                    players="Not yet", last=friendly_time(last.get("time", "")),
-                    detail=problems[0] if problems else "Tekken 4 (USA) runs natively on this PC.")
+        return dict(status="@ready" if not problems else "@not_built", version="SLUS-20328",
+                    players="@not_yet", last=friendly_time(last.get("time", "")),
+                    detail=problems[0] if problems else "@t4.ready_detail")
 
     def hero(self):
         """A picture the player made of their own game: <user folder>/art/t4/hero.png (never shipped)."""
@@ -69,7 +69,7 @@ class T4(Adapter):
             raise RuntimeError(problems[0])
         holder = self.core.run_lock_holder()
         if holder:
-            raise RuntimeError(f"Tekken 4 is already running ({holder}).")
+            raise RuntimeError(self.message("t4.locked", holder=holder))
         run = self.core.GameRun(self.s)
         if extra_env:
             real_env = self.core.game_env
@@ -110,26 +110,26 @@ class T4(Adapter):
 
     # ---------------------------------------------------------------- settings
     def settings(self):
-        res = [(k, label.split(" (")[0]) for k, label, _x in self.core.RESOLUTIONS]
-        yes_no = [(False, "Off"), (True, "On")]
+        res = [(k, "@resolution.auto" if k == "auto" else label.split(" (")[0]) for k, label, _x in self.core.RESOLUTIONS]
+        yes_no = [(False, "@off"), (True, "@on")]
         return [
-            dict(id="resolution", label="Internal resolution", options=res, value=self.s.get("resolution", "auto"),
-                 hint="How sharply the game is rendered.", lead="Higher steps need more graphics power. Auto takes the step of your screen."),
-            dict(id="fullscreen", label="Fullscreen", options=yes_no, value=bool(self.s.get("fullscreen")),
-                 hint="F11 or Alt+Enter in the game work too.", lead="Borderless fullscreen for the game."),
-            dict(id="fullscreen_exclusive", label="Exclusive fullscreen", options=yes_no,
-                 value=bool(self.s.get("fullscreen_exclusive")), hint="A little less input lag.",
-                 lead="Only when fullscreen is on."),
-            dict(id="sound", label="Sound", options=yes_no, value=bool(self.s.get("sound", True)),
-                 hint="The real game sound on the emulated IOP.", lead="Without sound the game runs with a silent stand-in."),
-            dict(id="aa", label="Anti-aliasing", options=yes_no, value=bool(self.s.get("aa", True)),
-                 hint="FXAA over the finished picture.", lead="Smooths edges, costs almost nothing."),
-            dict(id="progressive", label="Progressive (480p)", options=yes_no, value=bool(self.s.get("progressive", True)),
-                 hint="The game's 480p mode, no interlacing.", lead="Removes the interlace lines."),
-            dict(id="unlock_all", label="All fighters unlocked", options=yes_no, value=bool(self.s.get("unlock_all", True)),
-                 hint="Your save is not changed.", lead="All fighters from the start, without changing your save."),
-            dict(id="debug_panel", label="Debug window", options=yes_no, value=bool(self.s.get("debug_panel")),
-                 hint="F1 in the game opens the debug window.", lead="For troubleshooting only."),
+            dict(id="resolution", label="@internal_resolution", options=res, value=self.s.get("resolution", "auto"),
+                 hint="@resolution.hint", lead="@resolution.t4_lead"),
+            dict(id="fullscreen", label="@fullscreen", options=yes_no, value=bool(self.s.get("fullscreen")),
+                 hint="@fullscreen.hint", lead="@fullscreen.lead"),
+            dict(id="fullscreen_exclusive", label="@exclusive", options=yes_no,
+                 value=bool(self.s.get("fullscreen_exclusive")), hint="@exclusive.hint",
+                 lead="@exclusive.lead"),
+            dict(id="sound", label="@sound", options=yes_no, value=bool(self.s.get("sound", True)),
+                 hint="@sound.hint", lead="@sound.lead"),
+            dict(id="aa", label="@aa", options=yes_no, value=bool(self.s.get("aa", True)),
+                 hint="@aa.hint", lead="@aa.lead"),
+            dict(id="progressive", label="@progressive", options=yes_no, value=bool(self.s.get("progressive", True)),
+                 hint="@progressive.hint", lead="@progressive.lead"),
+            dict(id="unlock_all", label="@unlock_all", options=yes_no, value=bool(self.s.get("unlock_all", True)),
+                 hint="@unlock_all.hint", lead="@unlock_all.lead"),
+            dict(id="debug_panel", label="@debug_window", options=yes_no, value=bool(self.s.get("debug_panel")),
+                 hint="@debug.hint", lead="@debug.lead"),
         ]
 
     def set_setting(self, sid, value):
@@ -144,9 +144,9 @@ class T4(Adapter):
         iso = self.core.effective_iso(self.s) or self.s.get("iso") or ""
         ok = bool(iso) and os.path.isfile(iso)
         home = os.path.expanduser("~")
-        return [dict(id="iso", label="Game ISO", value=os.path.basename(iso) if ok else "Missing", ok=ok, kind="file",
+        return [dict(id="iso", label="@game_iso", value=os.path.basename(iso) if ok else "@missing", ok=ok, kind="file",
                      exts=[".iso"], dirs=[self.root, os.path.join(home, "Downloads"), os.path.join(home, "Desktop")],
-                     hint="Tekken 4 USA as an ISO (SLUS-20328). No BIOS needed.", note=self.iso_note)]
+                     hint="@iso.hint", note=self.iso_note)]
 
     def set_source(self, sid, path):
         ok, message = self.core.verify_iso(path)
@@ -155,11 +155,11 @@ class T4(Adapter):
             return message
         self.s["iso"] = path
         self.core.save_settings(self.s)
-        return "This is Tekken 4 (USA), SLUS-20328."
+        return "@iso.confirmed"
 
     def build_ready(self):
         iso = self.core.effective_iso(self.s)
-        return "" if iso else "Choose your Tekken 4 ISO first."
+        return "" if iso else "@iso.choose_first"
 
     def build_start(self, force=False):
         iso = self.core.effective_iso(self.s)
@@ -187,23 +187,23 @@ class T4(Adapter):
         while build.running():
             time.sleep(0.2)
         if build.cancelled:
-            self.last_result = "Cancelled."
+            self.last_result = "@cancelled"
         elif build.code == 0:
             self.build_done[self.build_step] = True
-            self.last_result = "Build finished."
+            self.last_result = "@build_finished"
         else:
-            self.last_result = f"Step {self.build_step or '?'} failed. Log: logs\\build_game.log"
+            self.last_result = self.message("step_failed", name=self.build_step or "?", path="logs\\build_game.log")
 
     def build_state(self):
         running = bool(self.build and self.build.running())
         steps = []
         for name, label in self.core.STEPS:
             if name in self.build_done:
-                value = "Done"
+                value = "@osk.done"
             elif running and name == self.build_step:
-                value = "Running"
+                value = "@running"
             else:
-                value = "Open"
+                value = "@pending"
             steps.append(dict(k=label, v=value))
         n, total = self.build_step_no
         return dict(running=running, fraction=(max(0, n - 1) / total) if total else 0.0, title=self.build_step,
@@ -217,7 +217,7 @@ class T4(Adapter):
 def friendly_time(stamp):
     """2026-10-30 02:06:42 -> 30.10., 02:06"""
     m = re.match(r"\d{4}-(\d\d)-(\d\d) (\d\d:\d\d)", stamp or "")
-    return f"{m.group(2)}.{m.group(1)}., {m.group(3)}" if m else "Never"
+    return f"{m.group(2)}.{m.group(1)}., {m.group(3)}" if m else "@never"
 
 
 def state_json(path):
