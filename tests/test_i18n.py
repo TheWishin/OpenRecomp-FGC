@@ -141,7 +141,7 @@ def untranslated_literals(source):
         "frames", "desync", "rb", "openrecomp-t4-stop",
         "file_or_folder", "available", "checking", "installing", "current", "unconfigured",
         ".zip", "con", "prn", "aux", "nul", "conin$", "conout$", "com", "lpt",
-        "sha256", "installs", "pending-", "xb", "_openrecomp_t4core_",
+        "sha256", "installs", "pending-", "xb", "_openrecomp_t4core_", "core", "replays", ".openrecomp-",
     }
     formats = {
         'f"{platform} RECOMP"', 'f"slot{i}"', 'f"{self.game.id}:{self.section()}"', 'f"{letter}:\\\\"',
@@ -355,6 +355,20 @@ class Catalogs(unittest.TestCase):
         self.assertTrue(untranslated_literals('def quick_settings(self):\n'
                                              '    self.say("Choose a setting")\n'
                                              '    return ["resolution"]\n'))
+
+    def test_python_scan_accepts_runtime_names_and_temporary_file_prefix(self):
+        source = ('for name in ("core", "replays"):\n'
+                  '    _runtime_path(root, name)\n'
+                  'core = load_runtime(root, "core")\n'
+                  'replays_mod = load_runtime(root, "replays")\n'
+                  'tempfile.NamedTemporaryFile(prefix=".openrecomp-", suffix=".tmp")\n')
+        self.assertEqual(untranslated_literals(source), [])
+        for value in ("core", "replays", ".openrecomp-"):
+            with self.subTest(value=value):
+                self.assertTrue(untranslated_literals(f'dict(label="{value}")'))
+                self.assertTrue(untranslated_literals(f'dict(hint="{value}")'))
+        self.assertTrue(untranslated_literals('self.say("Choose a runtime")'))
+        self.assertTrue(untranslated_literals('tempfile.NamedTemporaryFile(prefix="Choose a file")'))
 
     def test_python_scan_rejects_untranslated_texts_and_f_strings(self):
         examples = [
