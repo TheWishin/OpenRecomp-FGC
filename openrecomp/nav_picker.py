@@ -20,6 +20,7 @@ class Picker:
 
     def _picker_entries(self):
         p = self.picker
+        p["error"] = False
         out = []
         if not p["dir"]:
             for letter in string.ascii_uppercase:
@@ -43,17 +44,19 @@ class Picker:
                     except OSError:
                         pass
         except OSError:
-            pass
+            p["error"] = True
+            out = [e for e in out if e["kind"] != "pick"]
         key = lambda d: d["name"].casefold()  # noqa: E731
         return out + sorted(files, key=key) + sorted(folders, key=key)
 
     def _picker(self, a):
         p = self.picker
         entries = self._picker_entries()
+        p["focus"] = max(0, min(p["focus"], len(entries) - 1))
         if a == "up":
             p["focus"] = max(0, p["focus"] - 1)
         elif a == "down":
-            p["focus"] = min(len(entries) - 1, p["focus"] + 1)
+            p["focus"] = max(0, min(len(entries) - 1, p["focus"] + 1))
         elif a == "back":
             self.overlay = None
         elif a == "confirm" and entries:
@@ -80,8 +83,19 @@ class Picker:
     def _view_picker(self, v):
         p = self.picker
         entries = self._picker_entries()
+        p["focus"] = max(0, min(p["focus"], len(entries) - 1))
         start = window(len(entries), p["focus"], PICKER_VISIBLE)
         rows = [dict(index=i, name=e["name"], kind=e["kind"], focused=i == p["focus"]) for i, e in enumerate(entries[start:start + PICKER_VISIBLE], start)]
-        v["picker"] = dict(rows=rows, title=p["title"], path=p["dir"] or "@picker.this_pc", up=start > 0, down=start + PICKER_VISIBLE < len(entries))
-        v["hint"] = "@picker_files_hint" if p["kind"] == "file" else "@picker_folder_hint"
-        v["prompts"] = [self.prompt("confirm", "@open"), self.prompt("back", "@cancel")]
+        message = ""
+        if p.get("error"):
+            message = "@picker_unreadable"
+        elif not entries:
+            message = "@picker_empty"
+        elif p["kind"] == "file" and not any(e["kind"] == "file" for e in entries):
+            message = "@picker_no_matches"
+        v["picker"] = dict(rows=rows, title=p["title"], path=p["dir"] or "@picker.this_pc", up=start > 0, down=start + PICKER_VISIBLE < len(entries), message=message)
+        v["hint"] = message or ("@picker_files_hint" if p["kind"] == "file" else "@picker_folder_hint")
+        v["prompts"] = []
+        if entries:
+            v["prompts"].append(self.prompt("confirm", "@open" if entries[p["focus"]]["kind"] == "dir" else "@choose"))
+        v["prompts"].append(self.prompt("back", "@cancel"))

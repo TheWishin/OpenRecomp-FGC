@@ -238,22 +238,22 @@ class Catalogs(unittest.TestCase):
             nav = Nav([g], language=code)
             self.assertEqual(nav.view()["hint"], i18n.text(code, "game_not_found", name="Test"), code)
             nav.act("play")
-            self.assertEqual(nav.view()["toast"], i18n.text(code, "not_ready"), code)
+            self.assertEqual(nav.view()["toast"], i18n.text(code, "game_not_found", name="Test"), code)
 
     def test_adapter_error_with_values_survives_the_view(self):
         for code in i18n.LANGUAGES:
             nav = Nav([game()], language=code)
             nav.game.a.start = mock.Mock(side_effect=RuntimeError(Adapter.message("t4.locked", holder="@Player")))
             nav.act("play")
-            self.assertEqual(nav.view()["toast"], i18n.text(code, "t4.locked", holder="@Player"), code)
+            self.assertEqual(nav.view()["toast"], i18n.text(code, "action_failed", error=i18n.text(code, "t4.locked", holder="@Player")), code)
 
-    def test_external_error_text_is_untouched(self):
+    def test_external_error_cause_is_preserved_in_recovery_message(self):
         for value in ("@Player: core error", {"reason": "core error"}):
             nav = Nav([game()], language="ja")
             error = RuntimeError(value)
             nav.game.a.start = mock.Mock(side_effect=error)
             nav.act("play")
-            self.assertEqual(nav.view()["toast"], str(error))
+            self.assertEqual(nav.view()["toast"], i18n.text("ja", "action_failed", error=str(error)))
 
     def test_file_picker_title_translates_its_source_label(self):
         for code in i18n.LANGUAGES:

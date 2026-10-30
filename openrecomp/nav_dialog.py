@@ -3,6 +3,7 @@
 
 class Dialog:
     def _ask(self, kind):
+        self._cancel_hold()
         self.overlay = "dialog"
         self.confirm_kind = kind
         self.exit_focus = 0
@@ -19,12 +20,21 @@ class Dialog:
                 if not self._dry("@dry_quit"):
                     self.on_quit()
             elif yes and self.confirm_kind == "cancel_build" and not self._dry("@dry_cancel_build"):
-                self.game.a.build_cancel()
-                self.say("@cancelling_build")
+                if self._offline_action(self.game.a.build_cancel):
+                    self.say("@cancelling_build")
+            elif yes and self.confirm_kind == "stop_game" and not self._dry("@dry_stop"):
+                self._offline_action(self.game.a.stop)
+            elif yes and self.confirm_kind == "rebuild" and not self._dry("@dry_rebuild"):
+                if self._offline_action(self.game.a.build_start, force=True):
+                    self.say("@rebuild_starting")
 
     def _view_dialog(self, v):
         if self.confirm_kind == "exit":
             title, text = "@dialog.quit.title", "@dialog.quit.text"
+        elif self.confirm_kind == "stop_game":
+            title, text = "@dialog.stop.title", "@dialog.stop.text"
+        elif self.confirm_kind == "rebuild":
+            title, text = "@dialog.rebuild.title", "@dialog.rebuild.text"
         else:
             title, text = "@dialog.cancel.title", "@dialog.cancel.text"
         v["dialog"] = dict(title=title, text=text, options=[dict(label="@no", index=0, focused=self.exit_focus == 0), dict(label="@yes", index=1, focused=self.exit_focus == 1)])

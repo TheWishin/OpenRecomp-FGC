@@ -30,17 +30,22 @@ class Game:
 
 
 class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker):
-    def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None):
+    def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
+                 last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None):
         self.games = games
         self.on_quit = on_quit or (lambda: None)
         self.install = install              # path -> message; a player's manifest (the free slots)
         self.launch_env = launch_env or {}  # test runs: mute, background
         self.language = i18n.normalize(language)
         self.on_language = on_language or (lambda _language: None)
+        self.on_game = on_game or (lambda _game: None)
+        self.fullscreen = bool(fullscreen)
+        self.reduced_motion = bool(reduced_motion)
+        self.on_preferences = on_preferences or (lambda _fullscreen, _reduced_motion: None)
         self.dry = False                    # test runs: nothing starts, nothing is written, only a message
         self.screen = "start"
-        self.game = games[0] if games else None
-        self.start_focus = 0
+        self.game = next((g for g in games if g.id == last_game), games[0] if games else None)
+        self.start_focus = games.index(self.game) if self.game else 0
         self.sec = {}
         self.focus = {}
         self.overlay = None
@@ -63,6 +68,10 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker):
     def act(self, action, device=None):
         if device:
             self.device = device
+            if device in ("xbox", "ps"):
+                self.pad_kind = device
+        if action != "confirm":
+            self._cancel_hold()
         self.trail = (self.trail + [TRAIL.get(action, "?")])[-16:]
         try:
             self._handle(action)
@@ -70,9 +79,18 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker):
             self.say(i18n.error_message(e) or e.__class__.__name__)
 
     def release(self, action):
-        if action == "confirm" and self.holding:
-            self.holding = None
-            self.hold = 0.0
+        if action == "confirm":
+            self._cancel_hold()
+
+    def _cancel_hold(self):
+        self.holding = None
+        self.hold = 0.0
+
+    def _select_game(self, game):
+        self.game = game
+        self.start_focus = self.games.index(game)
+        if not self.dry:
+            self.on_game(game.id)
 
     def tick(self, dt):
         """Time passes (the app's timer). -> True when the screen must be redrawn."""
@@ -107,7 +125,7 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker):
             return self._drawer(a)
         if a == "social":
             self.overlay = "drawer"
-            self.drawer_focus = 0
+            self.drawer_focus = min(self.drawer_focus, len(self._drawer_items()) - 1)
             return None
         if self.screen == "start":
             return self._start(a)
@@ -125,8 +143,23 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker):
         if g.a.running():
             self.say(i18n.message("game_already_running", name=g.short))
             return
-        g.a.start(extra_env=self.launch_env or None)
-        self.say(i18n.message("game_starting", name=g.short))
+        if not g.a.ready():
+            self._select_game(g)
+            self.screen = "hub"
+            if "build" in self.sections(g):
+                self.sec[g.id] = "build"
+            self.say(g.a.status()["detail"])
+            return
+        if self._offline_action(g.a.start, extra_env=self.launch_env or None):
+            self.say(i18n.message("game_starting", name=g.short))
+
+    def _offline_action(self, fn, *args, **kwargs):
+        try:
+            fn(*args, **kwargs)
+            return True
+        except Exception as e:  # noqa: BLE001 -- preserve the cause and give a way to recover
+            self.say(i18n.message("action_failed", error=i18n.error_message(e) or e.__class__.__name__), 12)
+            return False
 
     def glyph(self, action, ink=False):
         table = GLYPHS["kb"] if self.device == "kb" else GLYPHS[self.pad_kind]
@@ -138,7 +171,8 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker):
         return dict(action=action, label=label, g=self.glyph(action))
 
     def view(self):
-        v = dict(screen=self.screen, overlay=self.overlay or "", toast=self.toast, device="@" + DEVICE_LABEL["kb" if self.device == "kb" else self.pad_kind],
+        v = dict(screen=self.screen, overlay=self.overlay or "", toast=self.toast, fullscreen=self.fullscreen, reducedMotion=self.reduced_motion,
+                 device="@" + DEVICE_LABEL["kb" if self.device == "kb" else self.pad_kind],
                  trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True),
                  shelf=dict(tiles=[], x=0, w=SCREEN_W), tabs=[], rows=[], detail=dict(rows=[], results=[], images=[]), hint="", prompts=[], accent="#ECE9E1", badge="", gameShort="", numeral="",
                  topline="", hold=0, more=dict(up=False, down=False), grid=dict(cells=[], main=""), osk=dict(rows=[], text="", title=""), dialog=dict(title="", text="", options=[]),

@@ -11,7 +11,7 @@ Item {
         height: parent.height
         spacing: 2
         x: shelf.root.v.shelf.x
-        Behavior on x { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        Behavior on x { enabled: !shelf.root.reducedMotion; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         Repeater {
             model: shelf.root.v.shelf.tiles.length
             Item {
@@ -21,15 +21,15 @@ Item {
                 width: t.w || 0
                 height: track.height
                 clip: true
-                Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+                Behavior on width { enabled: !shelf.root.reducedMotion; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
                 Rectangle { anchors.fill: parent; color: tile.t.focused ? "#15171A" : (tile.t.free ? "#090A0B" : "#0B0C0E") }
 
-                // the numeral, in the game's colour when focused
+                // A quiet numeral leaves the game colour to the small accents.
                 Text {
                     text: tile.t.num || ""
                     x: tile.t.focused ? tile.width - implicitWidth - 40 : tile.width - implicitWidth - 12
                     y: tile.t.focused ? (tile.t.free ? 60 : -60) : (tile.t.free ? 300 : 360)
-                    color: tile.t.focused ? (tile.t.accent || "#ECE9E1") : "#24272C"
+                    color: "#24272C"
                     font.family: shelf.root.display
                     font.weight: Font.Black
                     font.pixelSize: tile.t.focused ? (tile.t.free ? 620 : 900) : (tile.t.free ? 200 : 420)
@@ -58,7 +58,8 @@ Item {
                 }
 
                 Column {
-                    x: tile.t.focused ? 64 : 24; y: 48
+                    objectName: "shelfContent"
+                    x: tile.t.focused ? 64 : 24; y: 32
                     width: tile.t.focused ? 500 : tile.width - 40
                     spacing: 0
                     Rectangle { width: 56; height: 8; color: tile.t.accent || "#ECE9E1" }
@@ -76,22 +77,24 @@ Item {
                         width: parent.width
                         text: tile.t.name || ""
                         wrapMode: Text.Wrap
+                        maximumLineCount: 2; elide: Text.ElideRight
                         lineHeight: 0.92
                         color: tile.t.focused ? "#ECE9E1" : "#A3A5AB"
                         font.family: shelf.root.display
                         font.weight: Font.Black
                         font.capitalization: Font.AllUppercase
-                        font.pixelSize: tile.t.focused ? (tile.t.free ? 96 : 112) : (tile.t.free ? 34 : 48)
+                        font.pixelSize: tile.t.focused ? 80 : (tile.t.free ? 34 : 48)
                     }
                     Text {
                         width: parent.width
                         text: tile.t.subtitle || ""
                         wrapMode: Text.Wrap
+                        maximumLineCount: 2; elide: Text.ElideRight
                         color: tile.t.focused ? (tile.t.accent || "#ECE9E1") : "#A3A5AB"
                         font.family: shelf.root.sans
-                        font.pixelSize: tile.t.focused ? 34 : 22
+                        font.pixelSize: tile.t.focused ? 28 : 22
                     }
-                    Item { width: 1; height: tile.t.focused ? 24 : 0 }
+                    Item { width: 1; height: tile.t.focused ? 16 : 0 }
                     Repeater {
                         model: tile.t.focused ? (tile.t.rows || []).length : 0
                         Rectangle {
@@ -99,8 +102,8 @@ Item {
                             readonly property var r: shelf.root.ok(tile.t.rows, index)
                             width: 500; height: 48; color: "transparent"
                             Rectangle { width: parent.width; height: 1; color: "#2A2D32" }
-                            Text { anchors.verticalCenter: parent.verticalCenter; text: parent.r.k || ""; color: "#A3A5AB"; font.family: shelf.root.sans; font.pixelSize: 26 }
-                            Text { anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; text: parent.r.v || ""; color: "#ECE9E1"; font.family: shelf.root.mono; font.weight: Font.Medium; font.pixelSize: 26 }
+                            Text { width: parent.width * 0.46; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: parent.r.k || ""; color: "#A3A5AB"; font.family: shelf.root.sans; font.pixelSize: 26 }
+                            Text { width: parent.width * 0.52; horizontalAlignment: Text.AlignRight; elide: Text.ElideMiddle; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; text: parent.r.v || ""; color: "#ECE9E1"; font.family: shelf.root.mono; font.weight: Font.Medium; font.pixelSize: 26 }
                         }
                     }
                     Item { width: 1; height: tile.t.focused ? 14 : 0 }
@@ -112,30 +115,28 @@ Item {
                             model: (tile.t.results || []).length
                             ResultCell { required property int index; c: shelf.root.ok(tile.t.results, index); accent: tile.t.accent || "#ECE9E1"; root: shelf.root }
                         }
-                        Text { visible: (tile.t.results || []).length === 0; text: tile.t.empty || ""; color: "#A3A5AB"; font.family: shelf.root.sans; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
+                        Text { visible: (tile.t.results || []).length === 0; width: 500; elide: Text.ElideRight; text: tile.t.empty || ""; color: "#A3A5AB"; font.family: shelf.root.sans; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
                     }
                     Item { width: 1; height: tile.t.focused ? 12 : 0 }
-                    Repeater {
-                        model: tile.t.focused ? (tile.t.sections || []).length : 0
-                        Text {
-                            required property int index
-                            text: (tile.t.sections || [])[index] || ""
-                            color: "#8A8D94"
-                            font.family: shelf.root.display
-                            font.weight: Font.ExtraBold
-                            font.capitalization: Font.AllUppercase
-                            font.pixelSize: 30
-                        }
+                    Text {
+                        visible: !!tile.t.focused
+                        width: parent.width
+                        text: (tile.t.sections || []).join(" · ")
+                        wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight
+                        color: "#8A8D94"
+                        font.family: shelf.root.sans
+                        font.pixelSize: 24
                     }
                 }
 
                 // the bar that says what A does
                 Rectangle {
+                    objectName: "shelfAction"
                     visible: !!tile.t.focused
                     anchors.bottom: parent.bottom
                     width: parent.width; height: 104
                     color: "#F2EFE6"
-                    Text { x: 64; anchors.verticalCenter: parent.verticalCenter; text: tile.t.bar || ""; color: "#0E0F11"; font.family: shelf.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
+                    Text { x: 64; width: parent.width - 208; height: parent.height - 16; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: 32; anchors.verticalCenter: parent.verticalCenter; text: tile.t.bar || ""; color: "#0E0F11"; font.family: shelf.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
                     Glyph { anchors.right: parent.right; anchors.rightMargin: 64; anchors.verticalCenter: parent.verticalCenter; size: 56; g: shelf.root.v.confirmInk }
                 }
                 TapHandler { onTapped: shelf.root.backend.clickTile(tile.index) }

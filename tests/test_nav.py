@@ -1,11 +1,10 @@
 """The launcher driven by actions alone, with a fake game: every test records what the game was asked to do."""
 import collections
-import glob
-import importlib
 import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -218,7 +217,8 @@ class Sections(Base):
             raise RuntimeError("Nein.")
         self.a.start = no
         self.press("play")
-        self.assertEqual(self.nav.toast, "Nein.")
+        self.assertIn("Nein.", self.nav.view()["toast"])
+        self.assertIn("try again", self.nav.view()["toast"])
 
 
 class Fighters(Base):
@@ -292,10 +292,13 @@ class Build(Base):
         self.press("confirm")
         self.nav.tick(0.8)
         self.nav.tick(0.8)
+        self.assertEqual(self.a.calls, [])
+        self.assertEqual(self.nav.overlay, "dialog")
+        self.press("right", "confirm")
         self.assertEqual(self.a.calls, [("build", True)])
 
     def test_the_picker_only_shows_matching_files(self):
-        with tempfile.TemporaryDirectory() as d:
+        with tempfile.TemporaryDirectory(dir=os.path.dirname(os.path.dirname(__file__))) as d:
             for name in ("game.iso", "notes.txt", "SECOND.ISO"):
                 open(os.path.join(d, name), "w").close()
             os.mkdir(os.path.join(d, "sub"))
@@ -380,36 +383,23 @@ class Pad(unittest.TestCase):
 
 
 class PlayStation(unittest.TestCase):
-    """The real parser of an installed T5DR Online, when this PC has one: a report in, an action out."""
+    """The launcher's mapping accepts plain device data, without reading any game install."""
 
-    def setUp(self):
-        roots = glob.glob(os.path.expandvars(r"%USERPROFILE%\Desktop\T5DR-Online-*\lobby"))
-        if not roots:
-            self.skipTest("no T5DR Online here")
-        sys.path.insert(0, roots[-1])
-        self.padnav = importlib.import_module("t5lobby.padnav")
-        self.model = self.padnav.ps_model(0x054C, 0x09CC)
-
-    def held(self, hat=8, face=0, lx=0x80, ly=0x80):
-        report = bytearray(64)
-        report[0] = 0x01
-        report[1:5] = bytes((lx, ly, 0x80, 0x80))
-        report[5] = hat | face
-        _mode, names = self.padnav.ps_parse(self.model, False, bytes(report))
+    def held(self, *names):
         Device = collections.namedtuple("Device", "pressed")
         return ps_held([Device(names)])
 
     def test_cross_confirms_and_circle_goes_back(self):
-        self.assertEqual(self.held(face=0x20), {"A"})
-        self.assertEqual(self.held(face=0x40), {"B"})
-        self.assertEqual(self.held(face=0x10), {"X"})
-        self.assertEqual(self.held(face=0x80), {"Y"})
+        self.assertEqual(self.held("B2"), {"A"})
+        self.assertEqual(self.held("B3"), {"B"})
+        self.assertEqual(self.held("B1"), {"X"})
+        self.assertEqual(self.held("B4"), {"Y"})
 
     def test_hat_and_stick_are_directions(self):
-        self.assertEqual(self.held(hat=0), {"DUP"})
-        self.assertEqual(self.held(hat=4), {"DDOWN"})
-        self.assertEqual(self.held(ly=0x00), {"DUP"})
-        self.assertEqual(self.held(lx=0xFF), {"DRIGHT"})
+        self.assertEqual(self.held("HAT_UP"), {"DUP"})
+        self.assertEqual(self.held("HAT_DOWN"), {"DDOWN"})
+        self.assertEqual(self.held("Y-"), {"DUP"})
+        self.assertEqual(self.held("X+"), {"DRIGHT"})
         self.assertEqual(self.held(), set())
 
 
@@ -441,7 +431,7 @@ class Manifests(unittest.TestCase):
         self.assertNotIn("online", manifests[1]["sections"])
 
     def test_bad_ones_are_named_not_fatal(self):
-        with tempfile.TemporaryDirectory() as d:
+        with tempfile.TemporaryDirectory(dir=os.path.dirname(os.path.dirname(__file__))) as d:
             with open(os.path.join(d, "bad.json"), "w", encoding="utf-8") as f:
                 f.write("{")
             with open(os.path.join(d, "nofield.json"), "w", encoding="utf-8") as f:
@@ -451,7 +441,7 @@ class Manifests(unittest.TestCase):
             self.assertEqual(len(problems), 2)
 
     def test_install_puts_a_players_game_in_the_user_folder(self):
-        with tempfile.TemporaryDirectory() as d:
+        with tempfile.TemporaryDirectory(dir=os.path.dirname(os.path.dirname(__file__))) as d:
             os.environ["OPENRECOMP_HOME"] = d
             try:
                 src = os.path.join(d, "mine.json")
@@ -474,13 +464,10 @@ class Manifests(unittest.TestCase):
 
 class Adapters(unittest.TestCase):
     def test_generic_is_ready_when_its_file_is_there(self):
-        with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
-            path = f.name
-        try:
-            self.assertTrue(Generic(manifest(exe=path)).ready())
-        finally:
-            os.remove(path)
-        self.assertFalse(Generic(manifest(exe="C:\\nope\\x.exe")).ready())
+        with mock.patch("openrecomp.adapters.base.os.path.isfile", return_value=True):
+            self.assertTrue(Generic(manifest(exe="fake.exe")).ready())
+        with mock.patch("openrecomp.adapters.base.os.path.isfile", return_value=False):
+            self.assertFalse(Generic(manifest(exe="fake.exe")).ready())
 
     def test_missing_lets_the_player_point_at_the_folder(self):
         config = {}

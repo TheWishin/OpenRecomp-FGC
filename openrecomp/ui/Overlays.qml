@@ -1,19 +1,19 @@
 import QtQuick
 
-// Everything that opens over a screen. The prompt bar stays visible underneath (76 px at the bottom).
+// Overlays leave the focused hint and prompt bar visible below them.
 Item {
     id: ov
     required property var root
     readonly property var v: root.v
     visible: v.overlay !== ""
 
-    Rectangle { x: 0; y: 0; width: 1920; height: 1080 - 76; color: "#C2000000"; TapHandler {} }
+    Rectangle { objectName: "overlayMask"; x: 0; y: 0; width: 1920; height: 1080 - 76 - 60; color: "#C2000000"; TapHandler {} }
 
     // ---------------------------------------------------------------- dialog: the safe answer has the focus
     Rectangle {
         visible: ov.v.overlay === "dialog"
         width: 860; height: dialogColumn.implicitHeight + 112
-        x: (1920 - width) / 2; y: (1004 - height) / 2
+        x: (1920 - width) / 2; y: (944 - height) / 2
         color: ov.root.panel
         Column {
             id: dialogColumn
@@ -39,21 +39,31 @@ Item {
     // ---------------------------------------------------------------- the quick drawer keeps your place
     Rectangle {
         visible: ov.v.overlay === "drawer"
-        x: 1920 - 780; y: 0; width: 780; height: 1004
+        objectName: "drawerPanel"
+        x: 1920 - 780; y: 0; width: 780; height: 944
         color: ov.root.panel
-        Column {
-            y: 40; width: parent.width
-            Text { x: 48; text: ov.v.quickAccess; bottomPadding: 20; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 72 }
-            Repeater {
-                model: ov.v.drawer.rows.length
-                Rectangle {
-                    required property int index
-                    readonly property var r: ov.root.ok(ov.v.drawer.rows, index)
-                    width: 780; height: r.focused ? 92 : 76
-                    color: r.focused ? ov.root.bone : "transparent"
-                    Text { x: 48; anchors.verticalCenter: parent.verticalCenter; text: parent.r.label || ""; color: parent.r.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: parent.r.focused ? 44 : 36 }
-                    Text { anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; text: parent.r.value || ""; color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.sans; font.pixelSize: 26 }
-                    TapHandler { onTapped: ov.root.backend.clickEntry(parent.index) }
+        Item {
+            y: 40; width: parent.width; height: parent.height - 40
+            Text { x: 48; width: parent.width - 96; elide: Text.ElideRight; text: ov.v.quickAccess; bottomPadding: 20; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 72 }
+            Item {
+                objectName: "drawerViewport"
+                y: 112; width: parent.width; height: parent.height - y; clip: true
+                Column {
+                    width: parent.width
+                    y: -Math.max(0, ov.v.drawer.rows.findIndex(r => r.focused) - 8) * 76
+                    Repeater {
+                        model: ov.v.drawer.rows.length
+                        Rectangle {
+                            objectName: "drawerRow"
+                            required property int index
+                            readonly property var r: ov.root.ok(ov.v.drawer.rows, index)
+                            width: 780; height: r.focused ? 92 : 76
+                            color: r.focused ? ov.root.bone : "transparent"
+                            Text { x: 48; width: 330; height: parent.height - 12; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: 28; verticalAlignment: Text.AlignVCenter; anchors.verticalCenter: parent.verticalCenter; text: parent.r.label || ""; color: parent.r.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: parent.r.focused ? 44 : 36 }
+                            Text { width: 310; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight; anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; text: parent.r.value || ""; color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.sans; font.pixelSize: 26 }
+                            TapHandler { onTapped: ov.root.backend.clickEntry(parent.index) }
+                        }
+                    }
                 }
             }
         }
@@ -80,7 +90,7 @@ Item {
                     width: (1800 - 64 - 48) / 9; height: 186
                     z: c.focused ? 2 : 1
                     scale: c.focused ? 1.05 : 1
-                    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+                    Behavior on scale { enabled: !ov.root.reducedMotion; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
                     color: c.focused ? ov.root.bone : (c.chosen ? ov.v.accent : "#1B1D21")
                     Image {
                         visible: !!cell.c.image
@@ -119,15 +129,15 @@ Item {
     Rectangle {
         visible: ov.v.overlay === "osk"
         width: 1240; height: oskColumn.implicitHeight + 96
-        x: (1920 - width) / 2; y: (1004 - height) / 2
+        x: (1920 - width) / 2; y: (944 - height) / 2
         color: ov.root.panel
         Column {
             id: oskColumn
             x: 64; y: 48; width: 1112; spacing: 8
-            Text { text: ov.v.osk.title; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 64 }
+            Text { width: parent.width; elide: Text.ElideRight; text: ov.v.osk.title; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 64 }
             Rectangle {
                 width: parent.width; height: 88; color: ov.root.bar
-                Text { x: 28; anchors.verticalCenter: parent.verticalCenter; text: ov.v.osk.text; color: ov.root.textC; font.family: ov.root.mono; font.weight: Font.Medium; font.pixelSize: 48 }
+                Text { x: 28; width: parent.width - 56; elide: Text.ElideLeft; anchors.verticalCenter: parent.verticalCenter; text: ov.v.osk.text; color: ov.root.textC; font.family: ov.root.mono; font.weight: Font.Medium; font.pixelSize: 48 }
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 4; color: ov.v.accent }
             }
             Item { width: 1; height: 10 }
@@ -157,21 +167,23 @@ Item {
     // ---------------------------------------------------------------- a file or folder, by pad
     Rectangle {
         visible: ov.v.overlay === "picker"
-        x: 260; y: 40; width: 1400; height: 924
+        objectName: "pickerPanel"
+        x: 260; y: 20; width: 1400; height: 904
         color: ov.root.panel
         Column {
             x: 48; y: 32; width: 1304
-            Text { text: ov.v.picker.title; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 64 }
+            Text { width: parent.width; elide: Text.ElideRight; text: ov.v.picker.title; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 64 }
             Text { width: parent.width; bottomPadding: 16; text: ov.v.picker.path; elide: Text.ElideMiddle; color: ov.root.muted; font.family: ov.root.mono; font.pixelSize: 24 }
+            Text { objectName: "pickerMessage"; width: parent.width; height: 64; text: ov.v.picker.message || ""; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; color: ov.root.textC; font.family: ov.root.sans; font.pixelSize: 26 }
             Repeater {
                 model: ov.v.picker.rows.length
                 Rectangle {
                     required property int index
                     readonly property var r: ov.root.ok(ov.v.picker.rows, index)
-                    width: 1304; height: 66
+                    width: 1304; height: 60
                     color: r.focused ? ov.root.bone : "transparent"
-                    Text { x: 20; width: 110; anchors.verticalCenter: parent.verticalCenter; text: parent.r.kind === "dir" ? ov.v.folder : (parent.r.kind === "pick" ? ov.v.pick : ov.v.file); color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.mono; font.pixelSize: 22 }
-                    Text { x: 140; width: 1140; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideMiddle; text: parent.r.name || ""; color: parent.r.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.sans; font.weight: parent.r.kind === "file" ? Font.DemiBold : Font.Normal; font.pixelSize: 30 }
+                    Text { x: 20; width: 160; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: parent.r.kind === "dir" ? ov.v.folder : (parent.r.kind === "pick" ? ov.v.pick : ov.v.file); color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.mono; font.pixelSize: 22 }
+                    Text { x: 200; width: 1080; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideMiddle; text: parent.r.name || ""; color: parent.r.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.sans; font.weight: parent.r.kind === "file" ? Font.DemiBold : Font.Normal; font.pixelSize: 30 }
                     TapHandler { onTapped: ov.root.backend.clickEntry(parent.r.index) }
                 }
             }

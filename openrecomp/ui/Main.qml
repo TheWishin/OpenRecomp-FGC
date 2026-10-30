@@ -24,6 +24,7 @@ Window {
     readonly property string display: "Big Shoulders"
     readonly property string sans: "IBM Plex Sans"
     readonly property string mono: "IBM Plex Mono"
+    readonly property bool reducedMotion: !!v.reducedMotion
 
     function ok(a, i) { return (a && a[i]) || ({}) }
 
@@ -51,7 +52,7 @@ Window {
                     Row {
                         visible: win.v.screen === "hub"; spacing: 12; anchors.verticalCenter: parent.verticalCenter
                         Rectangle { width: 14; height: 14; color: win.v.accent; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: win.v.gameShort; color: win.muted; font.family: win.sans; font.pixelSize: 26 }
+                        Text { width: Math.min(implicitWidth, 280); elide: Text.ElideRight; text: win.v.gameShort; color: win.muted; font.family: win.sans; font.pixelSize: 26 }
                         Rectangle {
                             visible: !!win.v.badge
                             anchors.verticalCenter: parent.verticalCenter
@@ -63,11 +64,11 @@ Window {
                 }
                 Row {
                     anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 36
-                    Text { visible: win.v.screen === "hub"; text: win.v.topline; color: win.muted; font.family: win.mono; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
+                    Text { visible: win.v.screen === "hub"; width: Math.min(implicitWidth, 320); elide: Text.ElideRight; text: win.v.topline; color: win.muted; font.family: win.mono; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
                     Row {
                         spacing: 12; anchors.verticalCenter: parent.verticalCenter
                         Glyph { g: win.v.social; size: 40 }
-                        Text { text: win.v.quickAccess; color: win.textC; font.family: win.sans; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
+                        Text { width: Math.min(implicitWidth, 260); elide: Text.ElideRight; text: win.v.quickAccess; color: win.textC; font.family: win.sans; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
                         TapHandler { onTapped: win.backend.press("social") }
                     }
                 }
@@ -81,27 +82,20 @@ Window {
                 Hub { anchors.fill: parent; visible: win.v.screen === "hub"; root: win }
             }
 
-            // ---------------------------------------------------------------- hint line and input trail
+            // ---------------------------------------------------------------- focused hint and last input device
             Rectangle {
                 width: 1920; height: 60; color: win.bar
                 Rectangle { width: parent.width; height: 1; color: win.line }
                 Text {
-                    anchors.left: parent.left; anchors.leftMargin: 48; anchors.right: trailRow.left; anchors.rightMargin: 32; anchors.verticalCenter: parent.verticalCenter
+                    objectName: "focusHint"
+                    anchors.left: parent.left; anchors.leftMargin: 48; anchors.right: deviceLabel.left; anchors.rightMargin: 32; anchors.verticalCenter: parent.verticalCenter
                     text: win.v.hint; color: win.textC; font.family: win.sans; font.pixelSize: 28; elide: Text.ElideRight
                 }
-                Row {
-                    id: trailRow
-                    anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 3
-                    Repeater {
-                        model: 16
-                        Rectangle {
-                            required property int index
-                            readonly property var c: win.ok(win.v.trail, index)
-                            width: 38; height: 38
-                            color: c.newest ? (win.v.accent === "#ECE9E1" ? win.bone : win.v.accent) : (c.text ? "#24272C" : win.panel)
-                            Text { anchors.centerIn: parent; text: parent.c.text || ""; color: parent.c.newest ? "#0E0F11" : win.textC; font.family: win.mono; font.weight: Font.DemiBold; font.pixelSize: 18 }
-                        }
-                    }
+                Text {
+                    id: deviceLabel
+                    anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter
+                    width: 320; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight
+                    text: win.v.device; color: win.muted; font.family: win.mono; font.pixelSize: 22
                 }
             }
 
@@ -109,20 +103,21 @@ Window {
             Rectangle {
                 width: 1920; height: 76; color: win.bar
                 Row {
-                    anchors.left: parent.left; anchors.leftMargin: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 36
+                    anchors.left: parent.left; anchors.right: parent.right; anchors.margins: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 20
                     Repeater {
                         model: win.v.prompts.length
                         Row {
+                            objectName: "promptItem"
                             required property int index
                             readonly property var p: win.ok(win.v.prompts, index)
+                            width: (1824 - Math.max(0, win.v.prompts.length - 1) * 20) / Math.max(1, win.v.prompts.length)
                             spacing: 12
-                            Glyph { g: parent.p.g || ({}); anchors.verticalCenter: parent.verticalCenter }
-                            Text { text: parent.p.label || ""; color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
+                            Glyph { id: promptGlyph; g: parent.p.g || ({}); size: 40; anchors.verticalCenter: parent.verticalCenter }
+                            Text { objectName: "promptLabel"; width: parent.width - promptGlyph.width - 12; height: 44; text: parent.p.label || ""; color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 26; minimumPixelSize: 20; fontSizeMode: Text.Fit; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter; anchors.verticalCenter: parent.verticalCenter }
                             TapHandler { onTapped: win.backend.press(parent.p.action) }
                         }
                     }
                 }
-                Text { anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; text: win.v.device; color: win.muted; font.family: win.mono; font.pixelSize: 22 }
             }
         }
 

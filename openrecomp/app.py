@@ -9,7 +9,7 @@ from PySide6.QtGui import QFontDatabase, QGuiApplication, QIcon, QWindow
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401 -- so the scene's root comes back as a QQuickWindow
 
-from . import adapters, manifest as mf
+from . import adapters, i18n, manifest as mf
 from .nav import Game, Nav
 from .pad import Pads, PlayStationReader, XInputReader
 
@@ -29,12 +29,15 @@ def load_games(config):
 class Backend(QObject):
     viewChanged = Signal()
 
-    def __init__(self, launch_env=None, parent=None):
+    def __init__(self, launch_env=None, parent=None, windowed=False):
         super().__init__(parent)
         self.config = mf.load_config()
         games, problems = load_games(self.config)
         self.nav = Nav(games, on_quit=QGuiApplication.quit, install=self._install, launch_env=launch_env,
-                       language=self.config.get("language"), on_language=self._save_language)
+                       language=self.config.get("language"), on_language=self._save_language,
+                       last_game=self.config.get("last_game"), on_game=self._save_game,
+                       fullscreen=self.config.get("fullscreen", True) and not windowed,
+                       reduced_motion=self.config.get("reduced_motion", False), on_preferences=self._save_preferences)
         if problems:
             self.nav.say(problems[0], 8)
         t5 = next((g.a for g in games if g.id == "t5dr" and g.a.found()), None)
@@ -58,18 +61,31 @@ class Backend(QObject):
         self.config["language"] = language
         mf.save_config(self.config)
 
+    def _save_game(self, game_id):
+        self.config["last_game"] = game_id
+        mf.save_config(self.config)
+
+    def _save_preferences(self, fullscreen, reduced_motion):
+        self.config.update(fullscreen=fullscreen, reduced_motion=reduced_motion)
+        mf.save_config(self.config)
+        if self.window is not None:
+            changed = self.window.property("wantFull") != fullscreen
+            self.window.setProperty("wantFull", fullscreen)
+            if changed and not self.window.isMinimized():
+                self.window.showFullScreen() if fullscreen else self.window.showNormal()
+
     def _install(self, path):
         """path = a player's manifest; None = a game's folder was chosen. Both: load the games again."""
         message = ""
         if path:
             try:
                 m = mf.install(path)
-                message = f"{m['title']} is on the launcher now."
+                message = i18n.message("manifest_installed", name=m["title"])
             except mf.ManifestError as e:
                 return str(e)
         else:
             mf.save_config(self.config)
-            message = "Game folder saved."
+            message = "@folder_saved"
         games, problems = load_games(self.config)
         self.nav.set_games(games)
         return problems[0] if problems else message
@@ -89,7 +105,7 @@ class Backend(QObject):
         dt = TICK_MS / 1000.0
         changed = self.nav.tick(dt)
         running = any(g.a.running() for g in self.nav.games)
-        if self._in_front() and not running:
+        if self._in_front():
             for action, edge in self.pads.poll():
                 self.nav.pad_kind = self.pads.kind
                 changed = True
@@ -157,43 +173,50 @@ class Backend(QObject):
 
     @Slot(str)
     def press(self, action):
-        self.nav.act(action)
+        self.nav.act(action, device="kb")
         if action == "confirm":
             self.nav.release("confirm")
         self.refresh()
 
     @Slot(int)
     def clickRow(self, i):
+        self.nav.device = "kb"
         self.nav.click_row(i)
         self.refresh()
 
     @Slot(int)
     def clickTile(self, i):
+        self.nav.device = "kb"
         self.nav.click_tile(i)
         self.refresh()
 
     @Slot(str)
     def clickTab(self, s):
+        self.nav.device = "kb"
         self.nav.click_tab(s)
         self.refresh()
 
     @Slot()
     def clickPrimary(self):
+        self.nav.device = "kb"
         self.nav.click_primary()
         self.refresh()
 
     @Slot(int)
     def clickCell(self, i):
+        self.nav.device = "kb"
         self.nav.click_cell(i)
         self.refresh()
 
     @Slot(int)
     def clickEntry(self, i):
+        self.nav.device = "kb"
         self.nav.click_entry(i)
         self.refresh()
 
     @Slot(int, int)
     def clickKey(self, r, c):
+        self.nav.device = "kb"
         self.nav.click_key(r, c)
         self.refresh()
 
@@ -231,8 +254,8 @@ def main(argv=None):
     app.setWindowIcon(QIcon(os.path.join(UI_DIR, "assets", "icon.ico")))
     if os.name == "nt":      # the taskbar shows this program's icon, not python's
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("TheWishin.OpenRecompFGC")
-    backend = Backend()
-    engine = make_engine(backend, full=not args.windowed)
+    backend = Backend(windowed=args.windowed)
+    engine = make_engine(backend, full=backend.nav.fullscreen)
     code = app.exec()
     del engine
     return code

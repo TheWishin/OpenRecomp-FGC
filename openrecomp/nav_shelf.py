@@ -27,7 +27,8 @@ class Shelf:
         elif a == "right":
             self.start_focus = min(len(ids) - 1, self.start_focus + 1)
         elif a == "switchGame":
-            self.start_focus = (self.start_focus + 1) % len(ids)
+            if self.games:
+                self._select_game(self.games[(self.start_focus + 1) % len(self.games)])
         elif a == "back":
             self._ask("exit")
         else:
@@ -36,10 +37,10 @@ class Shelf:
                 if a == "confirm":
                     self._open_picker("manifest", "@choose_manifest", [".json"], [mf.BUILTIN_DIR, os.path.expanduser("~\\Downloads")], "file")
             elif a == "confirm":
-                self.game = g
+                self._select_game(g)
                 self.screen = "hub"
             elif a == "play":
-                self.game = g
+                self._select_game(g)
                 self.start_game(g)
 
     def _view_start(self, v):
@@ -76,12 +77,13 @@ class Shelf:
             v["prompts"] = [self.prompt("confirm", "@open" if ready else "@go_build"), self.prompt("right", "@choose_game")]
             if ready:
                 v["prompts"].append(self.prompt("play", "@play"))
-            v["prompts"] += [self.prompt("social", "@quick_access"), self.prompt("back", "@quit")]
+            v["prompts"] += [self.prompt("switchGame", "@switch_game"), self.prompt("social", "@quick_access"), self.prompt("back", "@quit")]
         else:
             v["hint"] = "@manifest_hint"
             v["prompts"] = [self.prompt("confirm", "@choose_manifest"), self.prompt("right", "@choose_game"), self.prompt("social", "@quick_access"), self.prompt("back", "@quit")]
 
     def click_tile(self, index):
+        self._cancel_hold()
         if self.start_focus == index:
             self.act("confirm")
         else:

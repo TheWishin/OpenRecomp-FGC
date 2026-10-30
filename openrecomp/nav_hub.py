@@ -48,8 +48,7 @@ class Hub:
             self.start_focus = self.games.index(self.game)
         elif a == "switchGame":
             pos = (self.games.index(self.game) + 1) % len(self.games)
-            self.game = self.games[pos]
-            self.start_focus = pos
+            self._select_game(self.games[pos])
         elif a == "play":
             self.start_game(self.game)
         elif a == "x":
@@ -119,7 +118,7 @@ class Hub:
         v["hint"] = it.get("hint", "")
         prompts = []
         if it.get("kind") == "cycler":
-            prompts.append(self.prompt("right", "@change"))
+            prompts += [self.prompt("confirm", "@change"), self.prompt("right", "@change")]
         elif it.get("verb"):
             prompts.append(self.prompt("confirm", it["verb"]))
         if it.get("replay") is not None:
@@ -131,6 +130,7 @@ class Hub:
         v["prompts"] = prompts
 
     def click_row(self, index):
+        self._cancel_hold()
         items = self.items()
         if 0 <= index < len(items) and items[index].get("kind") != "heading":
             already = self.focus_index(items) == index
@@ -142,6 +142,7 @@ class Hub:
                     self._guard(self._activate, items[index])
 
     def click_tab(self, section):
+        self._cancel_hold()
         if section in self.sections():
             self.sec[self.game.id] = section
 
