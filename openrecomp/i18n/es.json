@@ -1,0 +1,8 @@
+{
+ "section.play": "Jugar sin conexión", "section.online": "En línea", "section.build": "Compilar", "section.replays": "Repeticiones", "section.settings": "Ajustes",
+ "quick_access": "Acceso rápido", "language": "Idioma", "language.en": "English", "language.de": "Deutsch", "language.es": "Español", "language.fr": "Français", "language.ja": "日本語", "language.ko": "한국어", "language.pt-BR": "Português (Brasil)",
+ "open": "Abrir", "close": "Cerrar", "cancel": "Cancelar", "confirm": "Confirmar", "change": "Cambiar", "choose": "Elegir", "quit": "Salir", "games": "Juegos", "play": "Jugar", "start": "Iniciar", "stop": "Parar", "settings": "Ajustes", "recent_sets": "Sets recientes", "folder": "Carpeta", "file": "Archivo", "main": "PRINCIPAL",
+ "dialog.quit.title": "¿Salir del lanzador?", "dialog.quit.text": "Los juegos en curso no se verán afectados.", "dialog.cancel.title": "¿Cancelar la compilación?", "dialog.cancel.text": "Se conservan los pasos terminados.", "yes": "Sí", "no": "No",
+ "device.xbox": "Mando activo", "device.ps": "Mando PlayStation activo", "device.kb": "Teclado activo", "picker.this_pc": "Este PC", "picker.choose_folder": "Elegir esta carpeta", "picker.pick": "Elegir",
+ "fighter.choose": "Elige luchador", "fighter.main": "Tu principal: ", "osk.space": "Espacio", "osk.delete": "Borrar", "osk.done": "Listo", "osk.player_name": "Nombre de jugador"
+}

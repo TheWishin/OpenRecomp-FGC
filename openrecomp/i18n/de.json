@@ -1,0 +1,8 @@
+{
+ "section.play": "Offline spielen", "section.online": "Online", "section.build": "Build", "section.replays": "Replays", "section.settings": "Einstellungen",
+ "quick_access": "Schnellzugriff", "language": "Sprache", "language.en": "English", "language.de": "Deutsch", "language.es": "Español", "language.fr": "Français", "language.ja": "日本語", "language.ko": "한국어", "language.pt-BR": "Português (Brasil)",
+ "open": "Öffnen", "close": "Schließen", "cancel": "Abbrechen", "confirm": "Bestätigen", "change": "Ändern", "choose": "Auswählen", "quit": "Beenden", "games": "Spiele", "play": "Spielen", "start": "Starten", "stop": "Stoppen", "settings": "Einstellungen", "recent_sets": "Letzte Sets", "folder": "Ordner", "file": "Datei", "main": "HAUPT",
+ "dialog.quit.title": "Launcher beenden?", "dialog.quit.text": "Laufende Spiele bleiben offen.", "dialog.cancel.title": "Build abbrechen?", "dialog.cancel.text": "Fertige Schritte bleiben erhalten.", "yes": "Ja", "no": "Nein",
+ "device.xbox": "Pad aktiv", "device.ps": "PlayStation-Pad aktiv", "device.kb": "Tastatur aktiv", "picker.this_pc": "Dieser PC", "picker.choose_folder": "Diesen Ordner wählen", "picker.pick": "Wählen",
+ "fighter.choose": "Kämpfer wählen", "fighter.main": "Dein Main: ", "osk.space": "Leertaste", "osk.delete": "Löschen", "osk.done": "Fertig", "osk.player_name": "Spielername"
+}

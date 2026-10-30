@@ -1,0 +1,8 @@
+{
+ "section.play": "Play offline", "section.online": "Online", "section.build": "Build", "section.replays": "Replays", "section.settings": "Settings",
+ "quick_access": "Quick access", "language": "Language", "language.en": "English", "language.de": "Deutsch", "language.es": "Español", "language.fr": "Français", "language.ja": "日本語", "language.ko": "한국어", "language.pt-BR": "Português (Brasil)",
+ "open": "Open", "close": "Close", "cancel": "Cancel", "confirm": "Confirm", "change": "Change", "choose": "Choose", "quit": "Quit", "games": "Games", "play": "Play", "start": "Start", "stop": "Stop", "settings": "Settings", "recent_sets": "Recent sets", "folder": "Folder", "file": "File", "main": "MAIN",
+ "dialog.quit.title": "Quit the launcher?", "dialog.quit.text": "Running games are not affected.", "dialog.cancel.title": "Cancel the build?", "dialog.cancel.text": "Finished steps are kept.", "yes": "Yes", "no": "No",
+ "device.xbox": "Pad active", "device.ps": "PlayStation pad active", "device.kb": "Keyboard active", "picker.this_pc": "This PC", "picker.choose_folder": "Choose this folder", "picker.pick": "Choose",
+ "fighter.choose": "Choose your fighter", "fighter.main": "Your main: ", "osk.space": "Space", "osk.delete": "Delete", "osk.done": "Done", "osk.player_name": "Player name"
+}

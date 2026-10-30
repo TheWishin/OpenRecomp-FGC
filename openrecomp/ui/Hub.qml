@@ -144,7 +144,7 @@ Column {
                     visible: (hub.d.results || []).length > 0
                     spacing: 8
                     topPadding: 16
-                    Text { text: "Recent sets"; width: 160; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
+                    Text { text: hub.v.recentSets; width: 160; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
                     Repeater {
                         model: (hub.d.results || []).length
                         ResultCell { required property int index; c: hub.root.ok(hub.d.results, index); accent: hub.v.accent; root: hub.root }

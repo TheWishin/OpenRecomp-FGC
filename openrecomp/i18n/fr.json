@@ -1,0 +1,8 @@
+{
+ "section.play": "Jouer hors ligne", "section.online": "En ligne", "section.build": "Compiler", "section.replays": "Replays", "section.settings": "Options",
+ "quick_access": "Accès rapide", "language": "Langue", "language.en": "English", "language.de": "Deutsch", "language.es": "Español", "language.fr": "Français", "language.ja": "日本語", "language.ko": "한국어", "language.pt-BR": "Português (Brasil)",
+ "open": "Ouvrir", "close": "Fermer", "cancel": "Annuler", "confirm": "Confirmer", "change": "Changer", "choose": "Choisir", "quit": "Quitter", "games": "Jeux", "play": "Jouer", "start": "Lancer", "stop": "Arrêter", "settings": "Options", "recent_sets": "Sets récents", "folder": "Dossier", "file": "Fichier", "main": "MAIN",
+ "dialog.quit.title": "Quitter le lanceur ?", "dialog.quit.text": "Les jeux en cours ne sont pas affectés.", "dialog.cancel.title": "Annuler la compilation ?", "dialog.cancel.text": "Les étapes terminées sont conservées.", "yes": "Oui", "no": "Non",
+ "device.xbox": "Manette active", "device.ps": "Manette PlayStation active", "device.kb": "Clavier actif", "picker.this_pc": "Ce PC", "picker.choose_folder": "Choisir ce dossier", "picker.pick": "Choisir",
+ "fighter.choose": "Choisissez un combattant", "fighter.main": "Votre main : ", "osk.space": "Espace", "osk.delete": "Effacer", "osk.done": "Terminé", "osk.player_name": "Nom du joueur"
+}

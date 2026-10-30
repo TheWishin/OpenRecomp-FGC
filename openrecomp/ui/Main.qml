@@ -67,7 +67,7 @@ Window {
                     Row {
                         spacing: 12; anchors.verticalCenter: parent.verticalCenter
                         Glyph { g: win.v.social; size: 40 }
-                        Text { text: "Quick access"; color: win.textC; font.family: win.sans; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: win.v.quickAccess; color: win.textC; font.family: win.sans; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
                         TapHandler { onTapped: win.backend.press("social") }
                     }
                 }

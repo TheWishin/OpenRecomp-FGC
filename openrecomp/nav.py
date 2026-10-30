@@ -8,17 +8,18 @@ import pathlib
 import string
 
 from . import manifest as mf
+from . import i18n
 
-SECTION_TITLES = {"play": "Play offline", "online": "Online", "build": "Build", "replays": "Replays", "settings": "Settings"}
+SECTION_TITLES = {"play": "section.play", "online": "section.online", "build": "section.build", "replays": "section.replays", "settings": "section.settings"}
 GLYPHS = {
     "xbox": dict(confirm="A", back="B", x="X", social="Y", prev="LB", next="RB", play="Start", switchGame="View", right="‹ ›"),
     "ps": dict(confirm="✕", back="○", x="□", social="△", prev="L1", next="R1", play="Options", switchGame="Share", right="‹ ›"),
     "kb": dict(confirm="Enter", back="Esc", x="X", social="F", prev="Q", next="E", play="Space", switchGame="G", right="← →"),
 }
 TRAIL = dict(up="↑", down="↓", left="←", right="→", confirm="A", back="B", x="X", social="Y", prev="LB", next="RB", play="St", switchGame="Vw")
-DEVICE_LABEL = dict(xbox="Pad active", ps="PlayStation pad active", kb="Keyboard active")
+DEVICE_LABEL = dict(xbox="device.xbox", ps="device.ps", kb="device.kb")
 OSK = ("1234567890", "QWERTYUIOP", "ASDFGHJKL-", "ZXCVBNM_.,")
-OSK_ACTIONS = (("space", "Space"), ("del", "Delete"), ("done", "Done"))
+OSK_ACTIONS = (("space", "osk.space"), ("del", "osk.delete"), ("done", "osk.done"))
 ROWS_VISIBLE = 9
 PICKER_VISIBLE = 11
 SCREEN_W = 1920
@@ -55,11 +56,13 @@ class Game:
 
 
 class Nav:
-    def __init__(self, games, on_quit=None, install=None, launch_env=None):
+    def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None):
         self.games = games
         self.on_quit = on_quit or (lambda: None)
         self.install = install              # path -> message; a player's manifest (the free slots)
         self.launch_env = launch_env or {}  # test runs: mute, background
+        self.language = i18n.normalize(language)
+        self.on_language = on_language or (lambda _language: None)
         self.dry = False                    # test runs: nothing starts, nothing is written, only a message
         self.screen = "start"
         self.game = games[0] if games else None
@@ -447,11 +450,11 @@ class Nav:
                 self.say("The build is being cancelled.")
 
     def _drawer_items(self):
-        out = []
+        out = [dict(label="@language", value="@language." + self.language, language=True)]
         for g in self.games:
             if g.a.found() and g.a.native_label:
                 out.append(dict(label=g.a.native_label, value=g.short, game=g))
-        return out or [dict(label="Nothing here", value="", game=None)]
+        return out
 
     def _drawer(self, a):
         items = self._drawer_items()
@@ -459,10 +462,20 @@ class Nav:
             self.drawer_focus = max(0, self.drawer_focus - 1)
         elif a == "down":
             self.drawer_focus = min(len(items) - 1, self.drawer_focus + 1)
+        elif a in ("left", "right") and items[self.drawer_focus].get("language"):
+            codes = i18n.LANGUAGES
+            pos = codes.index(self.language)
+            self.language = codes[(pos + (1 if a == "right" else -1)) % len(codes)]
+            self.on_language(self.language)
         elif a in ("back", "social"):
             self.overlay = None
         elif a == "confirm":
-            g = items[self.drawer_focus]["game"]
+            if items[self.drawer_focus].get("language"):
+                codes = i18n.LANGUAGES
+                self.language = codes[(codes.index(self.language) + 1) % len(codes)]
+                self.on_language(self.language)
+                return
+            g = items[self.drawer_focus].get("game")
             if g and not self._dry(f"{g.a.native_label} would open."):
                 g.a.open_native()
                 self.overlay = None
@@ -500,7 +513,7 @@ class Nav:
             self.overlay = None
 
     def _open_osk(self, tid):
-        self.osk = dict(tid=tid, text=self.game.a.text_value(tid), row=1, col=0, title="Player name")
+        self.osk = dict(tid=tid, text=self.game.a.text_value(tid), row=1, col=0, title="@osk.player_name")
         self.overlay = "osk"
 
     def _osk(self, a):
@@ -569,7 +582,7 @@ class Nav:
                     out.append(dict(name=root, path=root, kind="dir"))
             return out
         if p["kind"] == "folder":
-            out.append(dict(name="Choose this folder", path=p["dir"], kind="pick"))
+            out.append(dict(name="@picker.choose_folder", path=p["dir"], kind="pick"))
         parent = os.path.dirname(p["dir"].rstrip("\\/"))
         out.append(dict(name="..", path="" if parent == p["dir"].rstrip("\\/") or len(p["dir"]) <= 3 else parent, kind="dir"))
         folders, files = [], []
@@ -629,11 +642,11 @@ class Nav:
         return dict(action=action, label=label, g=self.glyph(action))
 
     def view(self):
-        v = dict(screen=self.screen, overlay=self.overlay or "", toast=self.toast, device=DEVICE_LABEL["kb" if self.device == "kb" else self.pad_kind],
+        v = dict(screen=self.screen, overlay=self.overlay or "", toast=self.toast, device="@" + DEVICE_LABEL["kb" if self.device == "kb" else self.pad_kind],
                  trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True),
                  shelf=dict(tiles=[], x=0, w=SCREEN_W), tabs=[], rows=[], detail=dict(rows=[], results=[], images=[]), hint="", prompts=[], accent="#ECE9E1", badge="", gameShort="", numeral="",
                  topline="", hold=0, more=dict(up=False, down=False), grid=dict(cells=[], main=""), osk=dict(rows=[], text="", title=""), dialog=dict(title="", text="", options=[]),
-                 picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]))
+                 picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]), quickAccess="@quick_access", recentSets="@recent_sets", folder="@folder", file="@file", pick="@picker.pick", mainLabel="@main", fighterTitle="@fighter.choose", fighterMain="@fighter.main")
         if self.screen == "start":
             self._view_start(v)
         else:
@@ -641,7 +654,7 @@ class Nav:
         over = getattr(self, "_view_" + self.overlay, None) if self.overlay else None
         if over:
             over(v)
-        return v
+        return i18n.localize(v, self.language)
 
     def _trail(self):
         cells = []
@@ -673,7 +686,7 @@ class Nav:
                 ready = g.a.ready()
                 t.update(badge=badge(g), num=g.m["numeral"], name=g.m["title"], subtitle=g.m["subtitle"] if foc else st["status"], accent=g.accent, hero=uri(g.a.hero()),
                          rows=[dict(k="Status", v=st["status"]), dict(k="Version", v=st["version"]), dict(k="Online", v=st["players"]), dict(k="Last played", v=st["last"])],
-                         results=self._cells(g.a.recent_results()), empty="No sets yet", sections=[SECTION_TITLES[s] for s in g.m["sections"]],
+                         results=self._cells(g.a.recent_results()), empty="No sets yet", sections=["@" + SECTION_TITLES[s] for s in g.m["sections"]],
                          bar="Open" if ready else "Go to Build")
             else:
                 t.update(badge="", num="+", name="Free slot" if not foc else "Add a recomp", subtitle="Another game" if foc else "", accent="#ECE9E1", hero="",
@@ -700,7 +713,7 @@ class Nav:
         v["topline"] = g.a.status()["status"]
         v["hero"] = uri(g.a.hero())
         sec = self.section()
-        v["tabs"] = [dict(id=s, label=SECTION_TITLES[s], active=s == sec) for s in self.sections(g)]
+        v["tabs"] = [dict(id=s, label="@" + SECTION_TITLES[s], active=s == sec) for s in self.sections(g)]
         items = self.items()
         fi = self.focus_index(items)
         start = window(len(items), fi, ROWS_VISIBLE)
@@ -740,10 +753,10 @@ class Nav:
 
     def _view_dialog(self, v):
         if self.confirm_kind == "exit":
-            title, text = "Quit the launcher?", "Running games are not affected."
+            title, text = "@dialog.quit.title", "@dialog.quit.text"
         else:
-            title, text = "Cancel the build?", "Finished steps are kept."
-        v["dialog"] = dict(title=title, text=text, options=[dict(label="No", index=0, focused=self.exit_focus == 0), dict(label="Yes", index=1, focused=self.exit_focus == 1)])
+            title, text = "@dialog.cancel.title", "@dialog.cancel.text"
+        v["dialog"] = dict(title=title, text=text, options=[dict(label="@no", index=0, focused=self.exit_focus == 0), dict(label="@yes", index=1, focused=self.exit_focus == 1)])
         v["hint"] = "No is preselected. A stray press changes nothing."
         v["prompts"] = [self.prompt("confirm", "Confirm"), self.prompt("right", "Switch"), self.prompt("back", "Cancel")]
 
@@ -766,7 +779,7 @@ class Nav:
     def _view_osk(self, v):
         o = self.osk
         rows = [[dict(label=ch, row=r, col=c, focused=o["row"] == r and o["col"] == c) for c, ch in enumerate(line)] for r, line in enumerate(OSK)]
-        rows.append([dict(label=label, row=len(OSK), col=c, focused=o["row"] == len(OSK) and o["col"] == c) for c, (_k, label) in enumerate(OSK_ACTIONS)])
+        rows.append([dict(label="@" + label, row=len(OSK), col=c, focused=o["row"] == len(OSK) and o["col"] == c) for c, (_k, label) in enumerate(OSK_ACTIONS)])
         v["osk"] = dict(rows=rows, text=o["text"] + "_", title=o["title"])
         v["hint"] = "The D-pad picks the key. A real keyboard works too."
         v["prompts"] = [self.prompt("confirm", "Enter"), self.prompt("x", "Delete"), self.prompt("play", "Done"), self.prompt("back", "Cancel")]
@@ -776,7 +789,7 @@ class Nav:
         entries = self._picker_entries()
         start = window(len(entries), p["focus"], PICKER_VISIBLE)
         rows = [dict(index=i, name=e["name"], kind=e["kind"], focused=i == p["focus"]) for i, e in enumerate(entries[start:start + PICKER_VISIBLE], start)]
-        v["picker"] = dict(rows=rows, title=p["title"], path=p["dir"] or "This PC", up=start > 0, down=start + PICKER_VISIBLE < len(entries))
+        v["picker"] = dict(rows=rows, title=p["title"], path=p["dir"] or "@picker.this_pc", up=start > 0, down=start + PICKER_VISIBLE < len(entries))
         v["hint"] = "Shows only folders and matching files." if p["kind"] == "file" else "Choose the game's folder."
         v["prompts"] = [self.prompt("confirm", "Open"), self.prompt("back", "Cancel")]
 

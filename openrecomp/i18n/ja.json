@@ -1,0 +1,8 @@
+{
+ "section.play": "オフライン", "section.online": "オンライン", "section.build": "ビルド", "section.replays": "リプレイ", "section.settings": "設定",
+ "quick_access": "クイックアクセス", "language": "言語", "language.en": "English", "language.de": "Deutsch", "language.es": "Español", "language.fr": "Français", "language.ja": "日本語", "language.ko": "한국어", "language.pt-BR": "Português (Brasil)",
+ "open": "開く", "close": "閉じる", "cancel": "キャンセル", "confirm": "決定", "change": "変更", "choose": "選ぶ", "quit": "終了", "games": "ゲーム", "play": "プレイ", "start": "開始", "stop": "停止", "settings": "設定", "recent_sets": "最近の対戦", "folder": "フォルダー", "file": "ファイル", "main": "メイン",
+ "dialog.quit.title": "ランチャーを終了しますか？", "dialog.quit.text": "起動中のゲームには影響しません。", "dialog.cancel.title": "ビルドを中止しますか？", "dialog.cancel.text": "完了した手順は保持されます。", "yes": "はい", "no": "いいえ",
+ "device.xbox": "パッド接続中", "device.ps": "PlayStationパッド接続中", "device.kb": "キーボード接続中", "picker.this_pc": "このPC", "picker.choose_folder": "このフォルダーを選ぶ", "picker.pick": "選ぶ",
+ "fighter.choose": "ファイターを選ぶ", "fighter.main": "メイン: ", "osk.space": "スペース", "osk.delete": "削除", "osk.done": "完了", "osk.player_name": "プレイヤー名"
+}

@@ -33,7 +33,8 @@ class Backend(QObject):
         super().__init__(parent)
         self.config = mf.load_config()
         games, problems = load_games(self.config)
-        self.nav = Nav(games, on_quit=QGuiApplication.quit, install=self._install, launch_env=launch_env)
+        self.nav = Nav(games, on_quit=QGuiApplication.quit, install=self._install, launch_env=launch_env,
+                       language=self.config.get("language"), on_language=self._save_language)
         if problems:
             self.nav.say(problems[0], 8)
         t5 = next((g.a for g in games if g.id == "t5dr" and g.a.found()), None)
@@ -52,6 +53,10 @@ class Backend(QObject):
         self.timer.setInterval(TICK_MS)
         self.timer.timeout.connect(self._tick)
         self.timer.start()
+
+    def _save_language(self, language):
+        self.config["language"] = language
+        mf.save_config(self.config)
 
     def _install(self, path):
         """path = a player's manifest; None = a game's folder was chosen. Both: load the games again."""
@@ -194,6 +199,11 @@ class Backend(QObject):
 
 
 def make_engine(backend, full):
+    # Windows supplies these CJK fonts; Qt falls back to them when a catalog needs them.
+    QFontDatabase.addApplicationFallbackFontFamily("Big Shoulders", "Yu Gothic UI")
+    QFontDatabase.addApplicationFallbackFontFamily("Big Shoulders", "Malgun Gothic")
+    QFontDatabase.addApplicationFallbackFontFamily("IBM Plex Sans", "Yu Gothic UI")
+    QFontDatabase.addApplicationFallbackFontFamily("IBM Plex Sans", "Malgun Gothic")
     for name in os.listdir(os.path.join(UI_DIR, "fonts")):
         if name.lower().endswith(".ttf"):
             QFontDatabase.addApplicationFont(os.path.join(UI_DIR, "fonts", name))

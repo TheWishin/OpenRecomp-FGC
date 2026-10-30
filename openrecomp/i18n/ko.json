@@ -1,0 +1,8 @@
+{
+ "section.play": "오프라인 플레이", "section.online": "온라인", "section.build": "빌드", "section.replays": "리플레이", "section.settings": "설정",
+ "quick_access": "빠른 메뉴", "language": "언어", "language.en": "English", "language.de": "Deutsch", "language.es": "Español", "language.fr": "Français", "language.ja": "日本語", "language.ko": "한국어", "language.pt-BR": "Português (Brasil)",
+ "open": "열기", "close": "닫기", "cancel": "취소", "confirm": "확인", "change": "변경", "choose": "선택", "quit": "종료", "games": "게임", "play": "플레이", "start": "시작", "stop": "중지", "settings": "설정", "recent_sets": "최근 세트", "folder": "폴더", "file": "파일", "main": "메인",
+ "dialog.quit.title": "런처를 종료할까요?", "dialog.quit.text": "실행 중인 게임에는 영향이 없습니다.", "dialog.cancel.title": "빌드를 취소할까요?", "dialog.cancel.text": "완료된 단계는 유지됩니다.", "yes": "예", "no": "아니요",
+ "device.xbox": "패드 활성", "device.ps": "PlayStation 패드 활성", "device.kb": "키보드 활성", "picker.this_pc": "내 PC", "picker.choose_folder": "이 폴더 선택", "picker.pick": "선택",
+ "fighter.choose": "파이터 선택", "fighter.main": "주 캐릭터: ", "osk.space": "스페이스", "osk.delete": "삭제", "osk.done": "완료", "osk.player_name": "플레이어 이름"
+}

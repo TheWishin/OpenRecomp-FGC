@@ -43,7 +43,7 @@ Item {
         color: ov.root.panel
         Column {
             y: 40; width: parent.width
-            Text { x: 48; text: "Quick access"; bottomPadding: 20; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 72 }
+            Text { x: 48; text: ov.v.quickAccess; bottomPadding: 20; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 72 }
             Repeater {
                 model: ov.v.drawer.rows.length
                 Rectangle {
@@ -66,8 +66,8 @@ Item {
         color: ov.root.panel
         Row {
             x: 32; y: 24; spacing: 28
-            Text { text: "Choose your fighter"; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
-            Text { visible: !!ov.v.grid.main; text: "Your main: " + (ov.v.grid.main || ""); color: ov.root.muted; font.family: ov.root.sans; font.pixelSize: 26; anchors.baseline: parent.children[0].baseline }
+            Text { text: ov.v.fighterTitle; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
+            Text { visible: !!ov.v.grid.main; text: ov.v.fighterMain + (ov.v.grid.main || ""); color: ov.root.muted; font.family: ov.root.sans; font.pixelSize: 26; anchors.baseline: parent.children[0].baseline }
         }
         Grid {
             x: 32; y: 96; columns: 9; spacing: 6
@@ -107,7 +107,7 @@ Item {
                         anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 6
                         width: mainTag.implicitWidth + 12; height: mainTag.implicitHeight + 4
                         color: "#0E0F11"
-                        Text { id: mainTag; anchors.centerIn: parent; text: "MAIN"; color: ov.root.bone; font.family: ov.root.mono; font.weight: Font.DemiBold; font.pixelSize: 16 }
+                        Text { id: mainTag; anchors.centerIn: parent; text: ov.v.mainLabel; color: ov.root.bone; font.family: ov.root.mono; font.weight: Font.DemiBold; font.pixelSize: 16 }
                     }
                     TapHandler { onTapped: ov.root.backend.clickCell(cell.index) }
                 }
@@ -170,7 +170,7 @@ Item {
                     readonly property var r: ov.root.ok(ov.v.picker.rows, index)
                     width: 1304; height: 66
                     color: r.focused ? ov.root.bone : "transparent"
-                    Text { x: 20; width: 110; anchors.verticalCenter: parent.verticalCenter; text: parent.r.kind === "dir" ? "Folder" : (parent.r.kind === "pick" ? "Choose" : "File"); color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.mono; font.pixelSize: 22 }
+                    Text { x: 20; width: 110; anchors.verticalCenter: parent.verticalCenter; text: parent.r.kind === "dir" ? ov.v.folder : (parent.r.kind === "pick" ? ov.v.pick : ov.v.file); color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.mono; font.pixelSize: 22 }
                     Text { x: 140; width: 1140; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideMiddle; text: parent.r.name || ""; color: parent.r.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.sans; font.weight: parent.r.kind === "file" ? Font.DemiBold : Font.Normal; font.pixelSize: 30 }
                     TapHandler { onTapped: ov.root.backend.clickEntry(parent.r.index) }
                 }
