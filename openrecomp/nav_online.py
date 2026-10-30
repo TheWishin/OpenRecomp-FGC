@@ -47,7 +47,17 @@ class Online:
                                     leadLines=6 if phase in ("offline", "error", "kicked") else 3, rows=rows),
                         run=lambda: self._online_action(g, iid))
 
-        if phase in ("offline", "error", "kicked"):
+        if phase == "logged_in" and state.get("recovery_codes"):
+            out[0].update(label="@online.recovery_codes", hint="@online.recovery_hint",
+                          detail=dict(kicker="@section.online", title="@online.recovery_codes",
+                                      lead="@online.recovery_hint", rows=[]))
+            for index, code in enumerate(state["recovery_codes"]):
+                out.append(dict(kind="action", id="recovery_code:" + str(index), label=i18n.literal(code),
+                                hint="@online.recovery_hint",
+                                detail=dict(kicker="@online.recovery_codes", title=i18n.literal(code),
+                                            lead="@online.recovery_hint", rows=[])))
+            out.append(action("acknowledge_recovery", "@online.recovery_done", "@online.recovery_hint"))
+        elif phase in ("offline", "error", "kicked"):
             for tid, label in (("online_name", "@online.name"), ("online_password", "@online.password"), ("online_server", "@online.server")):
                 value = g.a.text_value(tid)
                 if tid == "online_password":
@@ -58,6 +68,8 @@ class Online:
             if state.get("saved_available"):
                 out.append(action("login_saved", "@online.saved"))
             out += [action("login_guest", "@online.guest"), action("login_account", "@online.account")]
+            if capabilities.get("registration", False):
+                out.append(action("login_register", "@online.register"))
         elif phase == "logged_in":
             out.append(action("search_casual", "@online.casual", "@online.search_hint"))
             if capabilities.get("ranked", True):

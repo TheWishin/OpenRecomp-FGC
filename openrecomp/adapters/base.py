@@ -124,7 +124,8 @@ class Adapter:
         Optional social capabilities add friends, friend_incoming, friend_outgoing,
         invites and outgoing_invite. Rematch is offered only while its capability is true.
         A room's invitation code is shown only to its member; room passwords stay private.
-        Tickets, addresses, credentials and session tokens never belong in this snapshot.
+        Tickets, addresses, passwords and session tokens never belong in this snapshot.
+        Registration may expose one-time recovery codes until the player acknowledges them.
         """
         return dict(phase="offline", message="", name="", account=False, queue="", match={}, saved_available=False)
 

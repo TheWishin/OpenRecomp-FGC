@@ -67,6 +67,7 @@ class Online:
         self._online_message = "@online.offline"
         self._online_name = ""
         self._online_account = False
+        self._online_recovery_codes = []
         self._online_queue = ""
         self._online_match = {}
         self._online_players = []
@@ -170,11 +171,14 @@ class Online:
         self._online_init()
         capabilities = dict(ranked=self.online_ranked, lobby=self.online_lobby,
                             match_flow=self.online_match_flow)
+        if self.online_package == "t5lobby":
+            capabilities["registration"] = True
         if self.online_lobby and self.online_game != "t4":
             capabilities.update(private_rooms=self._online_social_cap("private_rooms"),
                                 friends=self._online_social_cap("friends"))
         return dict(phase=self._online_phase, message=self._online_message,
                     name=self._online_name, account=self._online_account,
+                    recovery_codes=list(self._online_recovery_codes),
                     queue=self._online_queue, match=dict(self._online_match),
                     saved_available=bool(self._online_saved()),
                     capabilities=capabilities,
@@ -291,7 +295,7 @@ class Online:
         if action == "login_saved" and saved is None:
             self._online_message = "@online.saved_missing"
             return
-        if action == "login_account" and not password:
+        if action in ("login_account", "login_register") and not password:
             self._online_message = "@online.password_required"
             return
         server = self._online_fields["online_server"].strip()
@@ -327,6 +331,8 @@ class Online:
                     me = client.login_guest(name)
                 elif action == "login_saved":
                     me = client.login_session(saved["token"])
+                elif action == "login_register":
+                    me = client.register(name, password, remember=True)
                 else:
                     me = client.login(name, password, remember=True)
                 if not isinstance(me, dict):
@@ -335,7 +341,7 @@ class Online:
                 with self._online_lock:
                     if generation != self._online_generation:
                         raise RuntimeError("@online.cancelled")
-                    if action == "login_account" and client.session:
+                    if action in ("login_account", "login_register") and client.session:
                         try:
                             self._online_write_session(target, me["name"], client.session)
                         except (OSError, ValueError, TypeError):
@@ -369,6 +375,9 @@ class Online:
             self.online_close()
             self._online_message = "@online.logged_out"
             return
+        if action == "acknowledge_recovery":
+            self._online_recovery_codes = []
+            return
         if action == "cancel" and self._online_phase in ("connecting", "searching"):
             # A queue acknowledgement can race a match offer or never arrive. Detach now;
             # the closed connection also prevents an automatic server-side requeue.
@@ -377,7 +386,9 @@ class Online:
             return
         if self._online_busy:
             return
-        if action in ("login_guest", "login_account", "login_saved"):
+        if action in ("login_guest", "login_account", "login_register", "login_saved"):
+            if action == "login_register" and self.online_package != "t5lobby":
+                return
             if self._online_client is None:
                 self._online_login(action)
             return
@@ -837,6 +848,11 @@ class Online:
                 me = value["me"]
                 self._online_name = str(me.get("name") or "")
                 self._online_account = not bool(me.get("guest", True))
+                if action == "login_register":
+                    codes = getattr(self._online_client, "recovery_codes", None)
+                    self._online_recovery_codes = ([code[:64] for code in codes[:32] if isinstance(code, str)]
+                                                   if isinstance(codes, (list, tuple)) else [])
+                    self._online_client.recovery_codes = None
                 if self._online_account:
                     self.config["online_identity"] = dict(name=self._online_name)
                 # The native reader may push friends before the login worker's
@@ -923,6 +939,7 @@ class Online:
         self._online_busy = False
         self._online_phase, self._online_queue = "offline", ""
         self._online_account = False
+        self._online_recovery_codes = []
         self._online_name = ""
         self._online_match = {}
         self._online_players = []

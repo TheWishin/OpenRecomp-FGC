@@ -54,6 +54,23 @@ class MatchSubject(T5Match, online_fakes.Subject):
         self._online_driver_results.put((self._online_generation, value, error))
 
 
+class PendingResultDriver(Driver):
+    def __init__(self):
+        super().__init__()
+        self.last = None
+
+    def on_event(self, event):
+        super().on_event(event)
+        if event["t"] == "match_result":
+            self.last = event
+
+    def rematch(self, mid, accept):
+        # The native driver learns its default match only after consuming the result.
+        mid = mid or (self.last or {}).get("match")
+        if mid:
+            super().rematch(mid, accept)
+
+
 class T5MatchTests(unittest.TestCase):
     login = online_fakes.OnlineAdapterTests.login
 
@@ -141,6 +158,20 @@ class T5MatchTests(unittest.TestCase):
         self.assertEqual(self.a.online_state()["phase"], "playing")
         client.ready.assert_called_once_with(True)
 
+    def test_rematch_before_driver_consumes_result_uses_current_match(self):
+        self.a.fake_driver = PendingResultDriver()
+        client = self.match()
+        self.start(client)
+        client.events.put(dict(t="match_result", match="one", status="confirmed", rematch_window=20))
+        pending = []
+        with mock.patch.object(self.a, "_online_driver_submit", side_effect=pending.append):
+            self.a.online_poll()
+            self.assertEqual(self.a.online_state()["phase"], "result_sent")
+            self.assertIsNone(self.a.fake_driver.last)
+            self.a.online_action("rematch")
+            self.assertEqual(self.a.fake_driver.rematches, [("one", True)])
+        self.assertTrue(pending)
+
     def test_native_connection_notice_ends_pending_match_without_raw_message(self):
         client = self.match()
         client.events.put(dict(t="notice", code="nat_error", msg="private endpoint"))
@@ -177,7 +208,7 @@ class T5MatchTests(unittest.TestCase):
         self.assertTrue(self.a.online_state()["capabilities"]["rematch"])
         self.a.online_action("rematch")
         self.a.online_poll()
-        self.assertEqual(self.a.fake_driver.rematches, [(None, True)])
+        self.assertEqual(self.a.fake_driver.rematches, [("one", True)])
 
     def test_return_lobby_declines_rematch(self):
         client = self.match()
@@ -187,7 +218,7 @@ class T5MatchTests(unittest.TestCase):
         self.a.online_poll()
         self.a.online_action("return_lobby")
         self.a.online_poll()
-        self.assertEqual(self.a.fake_driver.rematches, [(None, False)])
+        self.assertEqual(self.a.fake_driver.rematches, [("one", False)])
         client.leave_set.assert_called_once_with()
         self.assertEqual(self.a.online_state()["phase"], "logged_in")
 

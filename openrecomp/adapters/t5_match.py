@@ -203,22 +203,24 @@ class T5Match(Online):
         elif action == "rematch" and phase == "result_sent" and getattr(self, "_online_rematch", False) and not self._online_busy:
             driver = getattr(self, "_online_driver", None)
             if driver:
+                mid = self._online_match_id
                 self._online_authorized = True
                 self._online_next_authorized = True
                 self._online_rematch = False
                 self._online_message = "@online.rematch_wait"
-                self._online_submit("t5_rematch", lambda: self._online_driver_call(driver, lambda: driver.rematch(None, True)))
+                self._online_submit("t5_rematch", lambda: self._online_driver_call(driver, lambda: driver.rematch(mid, True)))
         elif action == "return_lobby" and phase == "result_sent" and not self._online_busy:
             driver = getattr(self, "_online_driver", None)
             self._online_authorized = False
             self._online_next_authorized = False
             self._online_rematch = False
             if driver:
+                mid = self._online_match_id
                 def leave():
                     # A previously sent offer cannot be undone by a second driver.rematch call.
                     # The installed client's explicit leave ends its rematch window as well.
                     client.leave_set()
-                    driver.rematch(None, False)
+                    driver.rematch(mid, False)
                 self._online_submit("t5_return", lambda: self._online_driver_call(driver, leave))
             else:
                 self._online_phase, self._online_message = "logged_in", "@online.logged_in"
