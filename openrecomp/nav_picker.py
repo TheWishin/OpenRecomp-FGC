@@ -77,11 +77,53 @@ class Picker:
         if target == "manifest":
             self.say(self.install(path) if self.install else "")
         elif target.startswith("source:"):
+            game = self.game
             message = self.game.a.set_source(target[7:], path)
             if message == "reload" and self.install:
-                self.say(self.install(None))
+                self._reload_source(game)
             elif message:
                 self.say(message)
+            state = game.a.source_state()
+            if state.get("id") == target[7:] and (state.get("running") or state.get("result")):
+                self.source_checks[game.id] = game
+                self.poll_sources()
+
+    def poll_sources(self):
+        changed = False
+        for gid, game in list(self.source_checks.items()):
+            state = game.a.source_state()
+            if state.get("running"):
+                continue
+            if state.get("result") == "reload" and self.install:
+                if not self.can_reload_games() or not self._reload_source(game):
+                    continue
+                del self.source_checks[gid]
+                changed = True
+                continue
+            del self.source_checks[gid]
+            changed = True
+            if state.get("result"):
+                self.say(state["result"], 12)
+            if state.get("ok") and self.game is game and self.screen == "hub" and self.section() == "build" and not self.overlay:
+                items = self._items_build(game)
+                self.focus[gid + ":build"] = next((i for i, item in enumerate(items) if item.get("id") == "build"), 0)
+        return changed
+
+    def _reload_source(self, game):
+        try:
+            message = self.install(None)
+        except Exception:  # noqa: BLE001 -- a registration failure must not break the timer
+            self.say("@t4.install_failed", 12)
+            return True
+        self.say(message)
+        if message == "@library.busy":
+            return False
+        if message == "@folder_saved" and self.game and self.game.id == game.id and self.game.m.get("adapter") == "t4" and self.game.a.found():
+            self.screen = "hub"
+            self.sec[self.game.id] = "build"
+            self.focus[self.game.id + ":build"] = 0
+            self.say("@t4.install_next", 12)
+        return True
 
     def _view_picker(self, v):
         p = self.picker

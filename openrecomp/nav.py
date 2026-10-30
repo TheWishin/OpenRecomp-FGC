@@ -78,6 +78,7 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         self.update_offered = ""
         self.update_version = ""
         self.online_rows = {}
+        self.source_checks = {}
 
     def act(self, action, device=None):
         if device:
@@ -112,6 +113,7 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
     def tick(self, dt):
         """Time passes (the app's timer). -> True when the screen must be redrawn."""
         changed = self.poll_online()
+        changed = self.poll_sources() or changed
         if self.toast:
             self.toast_left -= dt
             if self.toast_left <= 0:
@@ -130,6 +132,10 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         self.toast_left = seconds
 
     def _handle(self, a):
+        if a == "quit":
+            return self.request_quit()
+        if a == "returnGame":
+            return self._return_game()
         if self.overlay == "binding":
             return self._binding(a)
         if self.overlay == "dialog":
@@ -149,6 +155,43 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         if self.screen == "start":
             return self._start(a)
         return self._hub(a)
+
+    def _return_game(self):
+        game = next((g for g in self.games if g.m.get("adapter") == "t4" and g.a.running()), None)
+        if game is None or self._dry("@dry_stop"):
+            return
+        online = game.a.online_state().get("phase") == "playing"
+        if online:
+            try:
+                game.a.online_action("stop_match")
+            except Exception:  # noqa: BLE001 -- online failures must not expose session details
+                self.say("@online.failure", 12)
+                return
+        elif not self._offline_action(game.a.stop):
+            return
+        self._cancel_hold()
+        self.overlay = None
+        self._select_game(game)
+        self.screen = "hub"
+        self.sec[game.id] = "online" if online else "play"
+        self.focus[game.id + ":" + self.sec[game.id]] = 0
+        self.say("@t4.returning", 8)
+
+    def request_quit(self):
+        busy = next((g for g in self.games if g.a.source_state().get("running") or g.a.build_state().get("running")), None)
+        if busy:
+            self._cancel_hold()
+            self.overlay = None
+            self._select_game(busy)
+            self.screen = "hub" if busy.a.found() else "start"
+            if self.screen == "hub" and "build" in self.sections(busy):
+                self.sec[busy.id] = "build"
+                items = self._items_build(busy)
+                self.focus[busy.id + ":build"] = next((i for i, item in enumerate(items) if item.get("id") == "build"), 0)
+            self.say("@t4.quit_busy", 12)
+            return False
+        self._ask("exit")
+        return True
 
     def _dry(self, what):
         """True in a dry run: says what would have happened instead of doing it."""

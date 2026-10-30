@@ -9,7 +9,7 @@ class Drawer:
                dict(label="@motion", value="@motion_reduced" if self.reduced_motion else "@motion_full", motion=True, hint="@motion_hint")]
         phase = self.update_state.get("phase", "idle")
         update_hint = {"checking": "@updates.checking", "installing": "@updates.installing", "current": "@updates.current",
-                       "unconfigured": "@updates.unconfigured", "error": "@updates.failed"}.get(phase, "@updates.hint")
+                       "waiting": "@updates.waiting", "unconfigured": "@updates.unconfigured", "error": "@updates.failed"}.get(phase, "@updates.hint")
         out.append(dict(label="@updates.check", value=self.update_state.get("version", ""), update=True, hint=update_hint))
         for g in self.games:
             if g.a.found() and g.a.native_label:
@@ -60,12 +60,12 @@ class Drawer:
         self.on_language(self.language)
 
     def _update_busy(self):
-        return any(g.a.running() or g.a.build_state().get("running") or g.a.support_state().get("running")
+        return any(g.a.running() or g.a.build_state().get("running") or g.a.source_state().get("running") or g.a.support_state().get("running")
                    or g.a.online_state().get("phase", "offline") not in ("", "offline", "error", "kicked") for g in self.games)
 
     def _check_update(self):
-        if self.update_state.get("phase") in ("checking", "installing"):
-            self.say("@updates.checking" if self.update_state["phase"] == "checking" else "@updates.installing")
+        if self.update_state.get("phase") in ("checking", "installing", "waiting"):
+            self.say("@updates." + self.update_state["phase"])
             return
         if self._update_busy():
             self.say("@updates.busy")

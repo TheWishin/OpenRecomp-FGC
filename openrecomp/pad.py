@@ -1,5 +1,5 @@
-"""Controllers -> semantic actions. Qt 6 has no gamepad module: XInput directly, PlayStation pads through the HID reader
-of an installed T5DR Online (t5lobby.padnav) when there is one. The launcher reads pads only while it is in front.
+"""Controllers -> semantic actions. XInput and Windows joystick input need no game install; an installed T5DR Online
+can also supply its HID reader (t5lobby.padnav). The launcher reads pads only while it is in front.
 """
 import ctypes
 import importlib
@@ -57,14 +57,108 @@ class XInputReader:
                 continue
 
     def read(self):
+        return set().union(*self._devices().values())
+
+    def _devices(self):
         if self.get is None:
-            return set()
-        held = set()
+            return {}
+        held = {}
         st = _XInputState()
         for i in range(4):
             if self.get(i, ctypes.byref(st)) == 0:
-                held |= xinput_held(st.pad.buttons, st.pad.lx, st.pad.ly)
+                held[i] = xinput_held(st.pad.buttons, st.pad.lx, st.pad.ly)
         return held
+
+    def return_devices(self):
+        return {index for index, held in self._devices().items() if {"BACK", "START"} <= held}
+
+
+class _JoyCaps(ctypes.Structure):
+    _fields_ = [("mid", ctypes.c_ushort), ("pid", ctypes.c_ushort), ("name", ctypes.c_wchar * 32),
+                ("xmin", ctypes.c_uint), ("xmax", ctypes.c_uint), ("ymin", ctypes.c_uint), ("ymax", ctypes.c_uint),
+                ("zmin", ctypes.c_uint), ("zmax", ctypes.c_uint), ("buttons", ctypes.c_uint),
+                ("period_min", ctypes.c_uint), ("period_max", ctypes.c_uint),
+                ("rmin", ctypes.c_uint), ("rmax", ctypes.c_uint), ("umin", ctypes.c_uint), ("umax", ctypes.c_uint),
+                ("vmin", ctypes.c_uint), ("vmax", ctypes.c_uint), ("caps", ctypes.c_uint),
+                ("max_axes", ctypes.c_uint), ("axes", ctypes.c_uint), ("max_buttons", ctypes.c_uint),
+                ("regkey", ctypes.c_wchar * 32), ("oem", ctypes.c_wchar * 260)]
+
+
+class _JoyState(ctypes.Structure):
+    _fields_ = [(name, ctypes.c_uint) for name in
+                ("size", "flags", "x", "y", "z", "r", "u", "v", "buttons", "button_number", "pov", "reserved1", "reserved2")]
+
+
+def joystick_ps_held(state, caps):
+    """Sony's Windows joystick button order, POV in hundredths of a degree, and calibrated left-stick range."""
+    held = {PS_NAMES["B" + str(index + 1)] for index in range(10)
+            if state.buttons & (1 << index) and "B" + str(index + 1) in PS_NAMES}
+    if caps.caps & 0x10 and state.pov != 0xFFFF:
+        if state.pov >= 31500 or state.pov <= 4500:
+            held.add("DUP")
+        if 4500 <= state.pov <= 13500:
+            held.add("DRIGHT")
+        if 13500 <= state.pov <= 22500:
+            held.add("DDOWN")
+        if 22500 <= state.pov <= 31500:
+            held.add("DLEFT")
+    for value, low, high, negative, positive in (
+            (state.x, caps.xmin, caps.xmax, "DLEFT", "DRIGHT"),
+            (state.y, caps.ymin, caps.ymax, "DUP", "DDOWN")):
+        if high > low:
+            position = (value - low) / (high - low)
+            if position < 0.25:
+                held.add(negative)
+            elif position > 0.75:
+                held.add(positive)
+    return held
+
+
+class WinMMPlayStationReader:
+    """Sony pads exposed by Windows' joystick API, including on an empty game shelf."""
+    kind = "ps"
+
+    def __init__(self):
+        self.api = None
+        self.devices = []
+        self.next_scan = 0.0
+        try:
+            self.api = ctypes.windll.winmm
+            self.api.joyGetNumDevs.restype = ctypes.c_uint
+            self.api.joyGetDevCapsW.argtypes = [ctypes.c_size_t, ctypes.POINTER(_JoyCaps), ctypes.c_uint]
+            self.api.joyGetPosEx.argtypes = [ctypes.c_uint, ctypes.POINTER(_JoyState)]
+        except (OSError, AttributeError):
+            self.api = None
+
+    def read(self):
+        return set().union(*self._devices().values())
+
+    def _devices(self):
+        if self.api is None:
+            return {}
+        now = time.monotonic()
+        if now >= self.next_scan:
+            self.next_scan = now + 1.0
+            self.devices = []
+            for index in range(min(self.api.joyGetNumDevs(), 16)):
+                caps = _JoyCaps()
+                if self.api.joyGetDevCapsW(index, ctypes.byref(caps), ctypes.sizeof(caps)) == 0:
+                    name = caps.name.casefold()
+                    if any(known in name for known in ("wireless controller", "dualsense", "dualshock", "sony")):
+                        self.devices.append((index, caps))
+        held = {}
+        for index, caps in self.devices:
+            state = _JoyState()
+            state.size, state.flags, state.pov = ctypes.sizeof(state), 0xFF, 0xFFFF
+            if self.api.joyGetPosEx(index, ctypes.byref(state)) == 0:
+                held[index] = joystick_ps_held(state, caps)
+        return held
+
+    def return_devices(self):
+        return {index for index, held in self._devices().items() if {"BACK", "START"} <= held}
+
+    def pause(self):
+        pass
 
 
 def ps_held(devices):
@@ -137,6 +231,24 @@ class Pads:
         self.clock = clock
         self.down = {}
         self.kind = "xbox"
+        self.reset_return()
+
+    def reset_return(self):
+        self.return_holds = {}
+        self.return_sent = set()
+
+    def return_requested(self, dt):
+        """An explicit game-exit chord, read only by native readers while T4 owns the foreground."""
+        held = {(id(reader), index) for reader in self.readers
+                if isinstance(reader, (XInputReader, WinMMPlayStationReader)) for index in reader.return_devices()}
+        self.return_holds = {key: self.return_holds.get(key, 0.0) + max(0.0, dt) for key in held}
+        self.return_sent.intersection_update(held)
+        ready = {key for key, duration in self.return_holds.items() if duration >= 2.0} - self.return_sent
+        if ready:
+            self.return_sent.update(ready)
+            self.suppress()
+            return True
+        return False
 
     def poll(self):
         held, kinds = set(), {}

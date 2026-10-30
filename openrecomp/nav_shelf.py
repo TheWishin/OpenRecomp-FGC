@@ -61,7 +61,7 @@ class Shelf:
             if self.games:
                 self._select_game(self.games[(self.start_focus + 1) % len(self.games)])
         elif a == "back":
-            self._ask("exit")
+            self.request_quit()
         else:
             g = self.game_by_id(ids[self.start_focus])
             if g is None:
@@ -69,6 +69,9 @@ class Shelf:
                     self._open_picker("manifest", "@choose_manifest", [".json"], [mf.BUILTIN_DIR, os.path.expanduser("~\\Downloads")], "file")
             elif a == "confirm":
                 self._select_game(g)
+                if g.a.source_state().get("running"):
+                    self.say("@t4.installing" if g.a.source_state().get("id") == "folder" else "@iso.checking")
+                    return
                 source = self._folder_source(g)
                 if source:
                     self._open_picker("source:" + source["id"], "@onboarding.choose_folder", source["exts"], source["dirs"], source["kind"])
@@ -103,6 +106,10 @@ class Shelf:
                 if missing and self._folder_source(g) and not any(game.a.found() for game in self.games):
                     t["subtitle"] = "@onboarding.title" if foc else st["status"]
                     t["empty"] = "@onboarding.source"
+                if missing and g.m.get("adapter") == "t4" and self._folder_source(g):
+                    t["empty"] = "@t4.onboarding_source"
+                if missing and g.a.source_state().get("running"):
+                    t["bar"] = "@t4.installing"
             else:
                 t.update(badge="", num="+", name="@free_slot" if not foc else "@add_recomp", subtitle="@another_game" if foc else "", accent="#ECE9E1", hero="",
                          rows=[dict(k="@name_colour", v="@manifest"), dict(k="@sections", v="@manifest"), dict(k="@build_exe", v="@manifest")],
@@ -114,6 +121,13 @@ class Shelf:
             ready = g.a.ready()
             missing = not g.a.found()
             v["hint"] = "@onboarding.hint" if missing and self._folder_source(g) and not any(game.a.found() for game in self.games) else g.a.status()["detail"]
+            if missing and g.m.get("adapter") == "t4" and self._folder_source(g):
+                v["hint"] = "@t4.onboarding_hint"
+            source = g.a.source_state()
+            if missing and source.get("running"):
+                v["hint"] = "@t4.installing"
+            elif missing and source.get("result") and source["result"] != "reload":
+                v["hint"] = source["result"]
             v["prompts"] = [self.prompt("confirm", "@onboarding.choose_folder" if self._folder_source(g) else ("@open" if ready else "@go_build")), self.prompt("right", "@choose_game")]
             if ready:
                 v["prompts"].append(self.prompt("play", "@play"))

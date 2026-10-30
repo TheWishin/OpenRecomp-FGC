@@ -157,6 +157,9 @@ def untranslated_literals(source):
 class FakeAdapter:
     native_label = ""
 
+    def source_state(self):
+        return dict(running=False, result="", id="", ok=False)
+
     def found(self):
         return True
 

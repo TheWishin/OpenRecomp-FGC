@@ -55,6 +55,8 @@ class T4Online(Online):
 
     def online_state(self):
         state = super().online_state()
+        if state["phase"] == "offline" and state["message"] == "@online.offline":
+            state["message"] = "@t4.online_setup_hint"
         state["rank"] = t4_rank_name(getattr(self, "_online_rating", None)) if state["name"] else ""
         return state
 
@@ -200,6 +202,14 @@ class T4Online(Online):
 
     def online_action(self, action):
         self._online_init()
+        if (action in ("login_guest", "login_account", "login_saved")
+                and self._online_client is None and not self._online_busy):
+            if not self.ready():
+                self._online_phase, self._online_message = "error", "@online.build_required"
+                return
+            if action != "login_saved" and not self.online_text_value("online_name").strip():
+                self._online_phase, self._online_message = "error", "@t4.online_name_required"
+                return
         if action == "search_ranked":
             self._online_message = "@online.ranked_unavailable"
             return

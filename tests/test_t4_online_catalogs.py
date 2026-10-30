@@ -5,6 +5,8 @@ from openrecomp import i18n
 
 
 ONLINE_KEYS = [
+    "t4.online_setup_hint",
+    "t4.online_name_required",
     "online.players",
     "online.rooms",
     "online.chat",

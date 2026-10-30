@@ -129,6 +129,28 @@ class T4OnlineTests(unittest.TestCase):
         self.assertEqual(self.a.starts, [])
         self.scan.assert_not_called()
 
+    def test_first_online_entry_explains_pad_name_server_and_login(self):
+        self.assertEqual(self.a.online_state()["message"], "@t4.online_setup_hint")
+        self.assertEqual(self.a.clients, [])
+
+    def test_login_without_a_build_refuses_before_loading_the_client(self):
+        self.a.core.play_problems = lambda settings: ["not built"]
+        with mock.patch.object(self.a, "_online_modules", side_effect=AssertionError("must not import")):
+            for action in ("login_guest", "login_account", "login_saved"):
+                self.a.online_action(action)
+                self.assertEqual(self.a.online_state()["phase"], "error")
+                self.assertEqual(self.a.online_state()["message"], "@online.build_required")
+        self.assertEqual(self.a.clients, [])
+
+    def test_empty_name_refuses_locally_and_can_retry_after_pad_text(self):
+        with mock.patch.object(self.a, "_online_modules", side_effect=AssertionError("must not import")):
+            for action in ("login_guest", "login_account"):
+                self.a.online_action(action)
+                self.assertEqual(self.a.online_state()["message"], "@t4.online_name_required")
+                self.assertEqual(self.a.online_state()["phase"], "error")
+        self.assertEqual(self.a.clients, [])
+        self.login()
+
     def test_t4_identity_default_port_and_process_mode_capabilities(self):
         client = self.login()
         self.assertEqual(client.kwargs["server"], "127.0.0.1:7791")

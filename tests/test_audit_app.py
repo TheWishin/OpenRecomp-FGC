@@ -25,7 +25,7 @@ class TimerSafety(unittest.TestCase):
     def backend(self, *, running=False, active=True, changed=True):
         events = []
         nav = SimpleNamespace(
-            games=[SimpleNamespace(a=SimpleNamespace(running=lambda: running))],
+            games=[SimpleNamespace(m={}, a=SimpleNamespace(running=lambda: running))],
             release=lambda action: events.append(("release", action)),
             tick=lambda dt: events.append(("tick", dt)) or changed,
             binding_active=lambda: False,
@@ -36,6 +36,7 @@ class TimerSafety(unittest.TestCase):
             poll=lambda: events.append(("poll",)) or [],
             forget=lambda: events.append(("forget",)),
             suppress=lambda: events.append(("suppress",)),
+            reset_return=lambda: None,
         )
         backend = SimpleNamespace(
             nav=nav, pads=pads, _in_front=lambda: active,

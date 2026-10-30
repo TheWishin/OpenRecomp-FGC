@@ -37,12 +37,14 @@ class Online:
         elif phase == "playing":
             title = "@online.match_active"
         detail = dict(kicker="@section.online", title=title,
-                      lead="@online.match_stop" if phase == "matched" and not match_flow else message, rows=rows)
+                      lead="@online.match_stop" if phase == "matched" and not match_flow else message,
+                      leadLines=6 if phase in ("offline", "error", "kicked") else 3, rows=rows)
         out = [dict(kind="action", id="online_status", label=detail["title"], hint=message, detail=detail)]
 
         def action(iid, label, hint=message):
             return dict(kind="action", id=iid, label=label, verb="@confirm", hint=hint,
-                        detail=dict(kicker="@section.online", title=label, lead=hint, rows=rows),
+                        detail=dict(kicker="@section.online", title=label, lead=hint,
+                                    leadLines=6 if phase in ("offline", "error", "kicked") else 3, rows=rows),
                         run=lambda: self._online_action(g, iid))
 
         if phase in ("offline", "error", "kicked"):
@@ -51,7 +53,7 @@ class Online:
                 if tid == "online_password":
                     value = "•" * len(value)
                 out.append(dict(kind="action", id=tid, label=label, value=i18n.literal(value), verb="@change", hint=message,
-                                detail=dict(kicker="@section.online", title=label, lead=message, rows=[]),
+                                detail=dict(kicker="@section.online", title=label, lead=message, leadLines=6, rows=[]),
                                 run=lambda tid=tid: self._open_osk(tid)))
             if state.get("saved_available"):
                 out.append(action("login_saved", "@online.saved"))

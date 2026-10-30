@@ -19,7 +19,9 @@ class Dialog:
             self.overlay = None
             if yes and self.confirm_kind == "exit":
                 if not self._dry("@dry_quit"):
-                    self.on_quit()
+                    if self.request_quit():
+                        self.overlay = None
+                        self.on_quit()
             elif yes and self.confirm_kind == "cancel_build" and not self._dry("@dry_cancel_build"):
                 if self._offline_action(self.game.a.build_cancel):
                     self.say("@cancelling_build")

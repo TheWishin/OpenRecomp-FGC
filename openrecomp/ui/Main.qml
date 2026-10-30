@@ -5,6 +5,7 @@ Window {
     id: win
     required property var backend
     property bool wantFull: true
+    property bool allowClose: false
     width: 1920
     height: 1080
     minimumWidth: 960
@@ -12,6 +13,12 @@ Window {
     visible: false
     title: "OpenRecomp-FGC"
     color: "#000000"
+    onClosing: (close) => {
+        if (!allowClose) {
+            close.accepted = false
+            backend.requestQuit()
+        }
+    }
 
     readonly property var v: backend.view
     readonly property color ground: "#0E0F11"

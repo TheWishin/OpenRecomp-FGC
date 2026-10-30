@@ -41,7 +41,28 @@ class T4Install(unittest.TestCase):
         return path
 
     def install(self, path):
-        return Missing(MANIFEST, self.cfg).set_source("folder", str(path))
+        adapter = Missing(MANIFEST, self.cfg)
+        self.assertEqual(adapter.set_source("folder", str(path)), "@t4.installing")
+        adapter._source_thread.join(5)
+        self.assertFalse(adapter.source_state()["running"])
+        return adapter.source_state()["result"]
+
+    def test_registration_runs_off_the_controller_thread_and_refuses_duplicate_work(self):
+        adapter = Missing(MANIFEST, self.cfg)
+        with mock.patch("openrecomp.adapters.base.threading.Thread") as worker:
+            self.assertEqual(adapter.set_source("folder", "synthetic.zip"), "@t4.installing")
+            self.assertTrue(adapter.source_state()["running"])
+            self.assertEqual(adapter.set_source("folder", "other.zip"), "@t4.installing")
+            worker.assert_called_once()
+            worker.return_value.start.assert_called_once_with()
+
+    def test_worker_start_failure_keeps_registration_available_and_error_visible(self):
+        adapter = Missing(MANIFEST, self.cfg)
+        with mock.patch("openrecomp.adapters.base.threading.Thread") as worker:
+            worker.return_value.start.side_effect = RuntimeError("synthetic worker unavailable")
+            self.assertEqual(adapter.set_source("folder", "synthetic.zip"), "@t4.install_failed")
+        self.assertFalse(adapter.source_state()["running"])
+        self.assertEqual(adapter.sources()[0]["note"], "@t4.install_failed")
 
     def test_missing_offers_zip_or_directory_without_loading_a_core(self):
         source = Missing(MANIFEST, self.cfg).sources()[0]

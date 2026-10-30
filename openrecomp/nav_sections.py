@@ -21,9 +21,11 @@ class Sections:
             start = dict(kind="action", id="start", label="@game_running", verb="@stop", run=lambda: self._ask("stop_game"),
                          hint=i18n.message("game_is_running", name=i18n.literal(g.short)), detail=detail)
         elif ready:
+            if g.m.get("adapter") == "t4":
+                detail["lead"] = "@t4.play_hint"
             detail["primary"] = "@play"
             start = dict(kind="action", id="start", label="@start_game", verb="@start", run=lambda: self.start_game(g),
-                         hint="@start_hint", detail=detail)
+                         hint="@t4.play_hint" if g.m.get("adapter") == "t4" else "@start_hint", detail=detail)
         else:
             can_build = "build" in self.sections(g)
             detail["primary"] = "@go_build" if can_build else ""
@@ -64,6 +66,12 @@ class Sections:
 
     # ---- online
     def _items_online(self, g):
+        if g.m.get("adapter") == "t5dr":
+            if g.a.found():
+                return [self._native_item(g)]
+            return [dict(kind="action", id="folder", label="@onboarding.choose_folder", verb="@go_build",
+                         run=lambda: self._go(g, "build"), hint="@onboarding.hint",
+                         detail=dict(kicker="@section.online", title="@onboarding.choose_folder", lead="@onboarding.hint", rows=[]))]
         if getattr(g.a, "online_supported", lambda: False)():
             return self._online_items(g)
         out = []
@@ -108,14 +116,20 @@ class Sections:
     # ---- build
     def _items_build(self, g):
         state = g.a.build_state()
+        source_state = g.a.source_state()
         out = []
         for s in g.a.sources():
             src = dict(s)
             detail = dict(kicker="@your_files", title=s["label"], lead=s.get("note") or s["hint"],
                           rows=[dict(k="@current", v=s["value"], accent=not s["ok"]), dict(k="@source", v=g.m.get("source", "@own_file"))])
-            out.append(dict(kind="action", id=s["id"], label=s["label"], value=s["value"], missing=not s["ok"], verb="@choose" if not s["ok"] else "@change",
-                            hint=s["hint"], detail=detail,
-                            run=lambda src=src: self._open_picker("source:" + src["id"], i18n.message("choose_named", name=src["label"]), src["exts"], src["dirs"], src.get("kind", "file"))))
+            checking = source_state.get("running") and source_state.get("id") == s["id"]
+            installing = checking and s["id"] == "folder"
+            if checking:
+                detail["lead"] = "@t4.installing" if installing else "@iso.checking"
+            blocked = state["running"] or checking
+            out.append(dict(kind="action", id=s["id"], label=s["label"], value=("@t4.installing" if installing else "@iso.checking") if checking else s["value"], missing=not s["ok"], disabled=blocked, verb="" if blocked else ("@choose" if not s["ok"] else "@change"),
+                            hint=detail["lead"] if checking else s["hint"], detail=detail,
+                            run=None if blocked else lambda src=src: self._open_picker("source:" + src["id"], i18n.message("choose_named", name=src["label"]), src["exts"], src["dirs"], src.get("kind", "file"))))
         for o in g.a.build_options():
             out.append(self._cycler_item(g, o))
         problem = g.a.build_ready()
@@ -126,8 +140,12 @@ class Sections:
         if state["running"]:
             def cancel():
                 self._ask("cancel_build")
-            out.append(dict(kind="action", id="build", label="@build_running", verb="@cancel", run=cancel, hint=state["line"][:90] or "@build_running_hint",
-                            detail=dict(kicker=i18n.message("step", name=state["title"]), title="@build_running", lead=state["line"][:160] or "@build_running_hint", rows=state["steps"], progress=state["fraction"])))
+            t4 = g.m.get("adapter") == "t4"
+            rows = list(state["steps"])
+            if t4 and state["line"]:
+                rows.append(dict(k="@t4.build_output", v=i18n.literal(state["line"][-160:])))
+            out.append(dict(kind="action", id="build", label="@build_running", verb="@cancel", run=cancel, hint="@t4.build_wait" if t4 else (state["line"][:90] or "@build_running_hint"),
+                            detail=dict(kicker=i18n.message("step", name=state["title"]), title="@build_running", lead="@t4.build_wait" if t4 else (state["line"][:160] or "@build_running_hint"), rows=rows, progress=state["fraction"])))
             return out
 
         def build():
@@ -137,8 +155,12 @@ class Sections:
                 if self._offline_action(g.a.build_start):
                     self.say("@build_starting")
         lead = state["result"] or problem or ("@built_hint" if g.a.ready() else "@build_hint")
-        out.append(dict(kind="action", id="build", label="@build_game", disabled=bool(problem), verb="@files_missing" if problem else "@build", run=build,
-                        hint=lead, detail=dict(kicker=st["status"], title="@build_game", lead=lead, rows=state["steps"], primary="" if problem else "@build")))
+        first_play = (g.m.get("adapter") == "t4" and g.a.ready()
+                      and (not state["result"] or state["result"] in ("@build_finished", "@t4.build_finished")))
+        if first_play:
+            lead = "@t4.build_next"
+        out.append(dict(kind="action", id="build", label="@start_game" if first_play else "@build_game", disabled=bool(problem) and not first_play, verb="@play" if first_play else ("@files_missing" if problem else "@build"), run=(lambda: self.start_game(g)) if first_play else build,
+                        hint=lead, detail=dict(kicker=st["status"], title="@start_game" if first_play else "@build_game", lead=lead, rows=state["steps"], primary="@play" if first_play else ("" if problem else "@build"))))
         if not problem:
             def rebuild():
                 self._ask("rebuild")

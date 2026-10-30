@@ -33,7 +33,7 @@ class UpdateService:
         self.worker(work)
 
     def check(self):
-        if self.state["phase"] in ("checking", "installing"):
+        if self.state["phase"] in ("checking", "installing", "waiting"):
             return
         self.release = None
         self.state.update(phase="checking", version="", notes="", size=0)
@@ -68,7 +68,11 @@ class UpdateService:
                                      for key, default in (("version", ""), ("notes", ""), ("size", 0))})
             elif operation == "stage":
                 self.prepared = result
-        if self.prepared is not None and not self.applying and not self.busy():
+        if self.prepared is not None and not self.applying and self.busy():
+            if self.state["phase"] != "waiting":
+                self.state["phase"] = "waiting"
+                changed = True
+        elif self.prepared is not None and not self.applying:
             # Launch only on this thread, after a fresh busy check. The helper waits for our exit.
             self.applying = True
             try:

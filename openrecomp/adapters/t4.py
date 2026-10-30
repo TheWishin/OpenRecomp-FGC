@@ -11,7 +11,7 @@ import time
 
 from .base import Adapter, ProcessBuild, add_path, expand_locations, onoff
 from .t4_online import T4Online
-from .t4_install import install_root
+from .t4_install import install_root, install_source
 from ..manifest import art_dir, save_config
 
 STEP_RE = re.compile(r"^\[(\d+)/(\d+)\]\s+(\w+)\s+-\s+(.*)$")
@@ -76,6 +76,7 @@ class T4(T4Online, Adapter):
         self.core = core
         self.s = core.load_settings()
         self._play_lock = threading.RLock()
+        self._settings_lock = threading.RLock()
         self.run = None
         self.build = None
         self.build_lines = []
@@ -83,6 +84,8 @@ class T4(T4Online, Adapter):
         self.build_step_no = (0, 0)
         self.build_done = {}
         self.iso_note = ""
+        self._source_state = dict(running=False, result="", id="iso", ok=False)
+        self._verified_iso = None
         self.last_result = ""
 
     def found(self):
@@ -97,9 +100,12 @@ class T4(T4Online, Adapter):
     def status(self):
         problems = self.problems()
         last = self.s.get("last_run") or {}
+        detail = problems[0] if problems else "@t4.ready_detail"
+        if not problems and last.get("ok") is False:
+            detail = self.message("t4.play_failed", error=last.get("note") or str(last.get("exit", "?")))
         return dict(status="@ready" if not problems else "@not_built", version="SLUS-20328",
                     players="@not_yet", last=friendly_time(last.get("time", "")),
-                    detail=problems[0] if problems else "@t4.ready_detail")
+                    detail=detail)
 
     def hero(self):
         """A picture the player made of their own game: <user folder>/art/t4/hero.png (never shipped)."""
@@ -109,6 +115,8 @@ class T4(T4Online, Adapter):
     # ---------------------------------------------------------------- playing
     def start(self, extra_env=None):
         with self._play_lock:
+            if self._source_state["running"] or (self.build and self.build.running()):
+                raise RuntimeError("@t4.work_busy")
             if (getattr(self, "_online_phase", "") in ("starting", "playing")
                     and not (extra_env or {}).get("TEKKEN4_NET")):
                 raise RuntimeError("@online.game_running")
@@ -152,8 +160,9 @@ class T4(T4Online, Adapter):
             record = run.wait()
         finally:
             self.core.release_run_lock()
-        self.s["last_run"] = record
-        self.core.save_settings(self.s)
+        with self._settings_lock:
+            self.s["last_run"] = record
+            self.core.save_settings(self.s)
 
     def running(self):
         return bool(self.run and self.run.proc and self.run.proc.poll() is None)
@@ -211,11 +220,13 @@ class T4(T4Online, Adapter):
             self.config.setdefault("t4_graphics", {})[sid] = value
             save_config(self.config)
             if sid == "aa":
-                self.s[sid] = value != GRAPHICS_OPTIONS[sid][0][0]
-                self.core.save_settings(self.s)
+                with self._settings_lock:
+                    self.s[sid] = value != GRAPHICS_OPTIONS[sid][0][0]
+                    self.core.save_settings(self.s)
             return
-        self.s[sid] = value
-        self.core.save_settings(self.s)
+        with self._settings_lock:
+            self.s[sid] = value
+            self.core.save_settings(self.s)
 
     def quick_settings(self):
         return ["resolution", "fullscreen"]
@@ -225,24 +236,100 @@ class T4(T4Online, Adapter):
         iso = self.core.effective_iso(self.s) or self.s.get("iso") or ""
         ok = bool(iso) and os.path.isfile(iso)
         home = os.path.expanduser("~")
-        return [dict(id="iso", label="@game_iso", value=os.path.basename(iso) if ok else "@missing", ok=ok, kind="file",
+        out = [dict(id="iso", label="@game_iso", value=os.path.basename(iso) if ok else "@missing", ok=ok, kind="file",
                      exts=[".iso"], dirs=[self.root, os.path.join(home, "Downloads"), os.path.join(home, "Desktop")],
-                     hint="@iso.hint", note=self.iso_note)]
+                     hint="@iso.hint", note=self.iso_note, busy=self._source_state["running"])]
+        if self._needs_toolchain():
+            folder_note = self._source_state["result"] if self._source_state["id"] == "folder" else ""
+            out.insert(0, dict(id="folder", label="@t4.complete_release", value="@missing", ok=False,
+                               kind="file_or_folder", exts=[".zip"], dirs=[os.path.join(home, "Downloads")],
+                               hint="@t4.portable_required", note=folder_note if folder_note != "reload" else "",
+                               busy=self._source_state["running"]))
+        return out
+
+    def _needs_toolchain(self):
+        bundled = getattr(self.core, "bundled_toolchain", None)
+        return callable(bundled) and not bundled()
 
     def set_source(self, sid, path):
-        ok, message = self.core.verify_iso(path)
-        self.iso_note = message
-        if not ok:
-            return message
-        self.s["iso"] = path
-        self.core.save_settings(self.s)
-        return "@iso.confirmed"
+        if self._source_state["running"]:
+            return "@t4.installing" if self._source_state["id"] == "folder" else "@iso.checking"
+        if self.running() or (self.build and self.build.running()):
+            return "@t4.work_busy"
+        if sid == "folder":
+            self._source_state = dict(running=True, result="", id=sid, ok=False)
+            try:
+                self._source_thread = threading.Thread(target=self._replace_install, args=(path,), daemon=True)
+                self._source_thread.start()
+            except Exception:  # noqa: BLE001 -- keep source selection available if the worker cannot start
+                self._source_state = dict(running=False, result="@t4.install_failed", id=sid, ok=False)
+                return "@t4.install_failed"
+            return "@t4.installing"
+        self.iso_note = "@iso.checking"
+        self._source_state = dict(running=True, result="", id=sid, ok=False)
+        try:
+            self._source_thread = threading.Thread(target=self._check_iso, args=(path,), daemon=True)
+            self._source_thread.start()
+        except Exception as error:  # noqa: BLE001 -- do not strand the source row in Checking
+            self.iso_note = self.message("iso.check_failed", error=str(error) or error.__class__.__name__)
+            self._source_state = dict(running=False, result=self.iso_note, id=sid, ok=False)
+            return self.iso_note
+        return "@iso.checking"
+
+    def _replace_install(self, path):
+        try:
+            result = install_source(self.m, self.config, path)
+        except Exception:  # noqa: BLE001 -- the registration result is shown by the source picker
+            result = "@t4.install_failed"
+        self._source_state = dict(running=False, result=result, id="folder", ok=result == "reload")
+
+    @staticmethod
+    def _iso_stamp(path):
+        try:
+            info = os.stat(path)
+            return os.path.normcase(os.path.abspath(path)), info.st_size, info.st_mtime_ns
+        except OSError:
+            return None
+
+    def _check_iso(self, path):
+        accepted = False
+        try:
+            before = self._iso_stamp(path)
+            ok, reason = self.core.verify_iso(path)
+            if not ok:
+                result = self.message("iso.refused", error=reason)
+            elif before is None or before != self._iso_stamp(path):
+                result = "@iso.changed"
+            else:
+                with self._settings_lock:
+                    settings = dict(self.s, iso=path)
+                    self.core.save_settings(settings)
+                    self.s["iso"] = path
+                self._verified_iso = before
+                accepted = True
+                result = "@iso.confirmed"
+        except Exception as error:  # noqa: BLE001 -- verifier or storage failures remain visible in Build
+            result = self.message("iso.check_failed", error=str(error) or error.__class__.__name__)
+        self.iso_note = result
+        self._source_state = dict(running=False, result=result, id="iso", ok=accepted)
+
+    def source_state(self):
+        return dict(self._source_state)
 
     def build_ready(self):
+        if self._source_state["running"]:
+            return "@t4.installing" if self._source_state["id"] == "folder" else "@iso.checking"
+        if self._needs_toolchain():
+            return "@t4.portable_required"
         iso = self.core.effective_iso(self.s)
-        return "" if iso else "@iso.choose_first"
+        return "" if iso and self._verified_iso == self._iso_stamp(iso) and self._verified_iso else "@iso.choose_first"
 
     def build_start(self, force=False):
+        if self.running() or (self.build and self.build.running()):
+            raise RuntimeError("@t4.work_busy")
+        problem = self.build_ready()
+        if problem:
+            raise RuntimeError(problem)
         iso = self.core.effective_iso(self.s)
         cmd = self.core.build_command(iso)
         if force:
@@ -250,8 +337,14 @@ class T4(T4Online, Adapter):
         self.build_lines = []
         self.build_done = {}
         self.build_step = ""
+        self.build_step_no = (0, 0)
         self.last_result = ""
-        self.build = ProcessBuild(cmd, cwd=self.root, on_line=self._on_line)
+        try:
+            self.build = ProcessBuild(cmd, cwd=self.root, on_line=self._on_line)
+        except Exception as error:
+            self.build = None
+            self.last_result = self.message("t4.build_start_failed", error=str(error) or error.__class__.__name__)
+            raise
         threading.Thread(target=self._build_end, args=(self.build,), daemon=True).start()
 
     def _on_line(self, line):
@@ -267,13 +360,16 @@ class T4(T4Online, Adapter):
     def _build_end(self, build):
         while build.running():
             time.sleep(0.2)
+        if self.build is not build:
+            return
         if build.cancelled:
-            self.last_result = "@cancelled"
+            self.last_result = "@t4.build_cancelled"
         elif build.code == 0:
             self.build_done[self.build_step] = True
-            self.last_result = "@build_finished"
+            self.last_result = "@t4.build_finished" if self.ready() else "@t4.build_incomplete"
         else:
-            self.last_result = self.message("step_failed", name=self.build_step or "?", path="logs\\build_game.log")
+            error = next((line for line in reversed(self.build_lines) if line.strip()), "@t4.no_build_output")
+            self.last_result = self.message("t4.build_failed", name=self.build_step or "?", error=error)
 
     def build_state(self):
         running = bool(self.build and self.build.running())
@@ -283,11 +379,14 @@ class T4(T4Online, Adapter):
                 value = "@osk.done"
             elif running and name == self.build_step:
                 value = "@running"
+            elif self.build and self.build.code not in (None, 0) and name == self.build_step:
+                value = "@t4.step_failed"
             else:
                 value = "@pending"
             steps.append(dict(k=label, v=value))
         n, total = self.build_step_no
-        return dict(running=running, fraction=(max(0, n - 1) / total) if total else 0.0, title=self.build_step,
+        fraction = 1.0 if self.last_result == "@t4.build_finished" else (max(0, n - 1) / total) if total else 0.0
+        return dict(running=running, fraction=fraction, title=self.build_step,
                     steps=steps, result=self.last_result, line=self.build_lines[-1] if self.build_lines else "")
 
     def build_cancel(self):

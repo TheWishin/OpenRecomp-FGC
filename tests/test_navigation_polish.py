@@ -134,7 +134,7 @@ class NavigationPolish(unittest.TestCase):
         backend.window.showNormal.assert_called_once_with()
         self.assertTrue(backend.config["reduced_motion"])
 
-    def test_pad_can_reach_stop_when_launcher_is_active_while_game_runs(self):
+    def test_normal_pad_input_stays_with_the_game_even_if_launcher_is_active(self):
         self.adapters[0].is_running = True
         self.nav.screen = "hub"
         backend = SimpleNamespace(nav=self.nav, pads=mock.Mock(kind="xbox"), _slow=0,
@@ -142,12 +142,12 @@ class NavigationPolish(unittest.TestCase):
                                   refresh=mock.Mock())
         backend.pads.poll.return_value = [("confirm", "down")]
         Backend._tick(backend)
-        self.assertEqual(self.nav.overlay, "dialog")
-        self.assertEqual(self.nav.confirm_kind, "stop_game")
+        # Preserve the existing game-input suppression; T4 has a dedicated return chord.
+        self.assertIsNone(self.nav.overlay)
         self.assertEqual(self.adapters[0].calls, [])
-        backend.refresh.assert_called_once()
         backend._poll_updates.assert_called_once_with()
-        backend.pads.forget.assert_not_called()
+        backend.pads.poll.assert_not_called()
+        backend.pads.forget.assert_called_once()
 
     def test_pad_stays_with_game_when_launcher_is_not_active(self):
         self.adapters[0].is_running = True

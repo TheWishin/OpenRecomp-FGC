@@ -172,6 +172,10 @@ class Adapter:
     def set_source(self, sid, path):
         return ""
 
+    def source_state(self):
+        """Optional background source check/import; result may be 'reload' after registration."""
+        return dict(running=False, result="", id="", ok=False)
+
     def build_options(self):
         return []
 
@@ -199,18 +203,42 @@ class Adapter:
 class Missing(Adapter):
     """The game's folder was not found: the player can point at it."""
 
+    def __init__(self, manifest, config=None):
+        super().__init__(manifest, config)
+        self._source_state = dict(running=False, result="", id="", ok=False)
+
     def sources(self):
         t4 = self.m.get("adapter") == "t4"
         return [dict(id="folder", label="@game_folder", value="@missing", ok=False,
                      kind="file_or_folder" if t4 else "folder", exts=[".zip"] if t4 else [], dirs=[],
-                     hint="@folder_hint")]
+                     hint="@folder_hint", note=self._source_state["result"] if t4 and self._source_state["result"] != "reload" else "")]
 
     def set_source(self, sid, path):
         if self.m.get("adapter") == "t4":
             from .t4_install import install_source
-            return install_source(self.m, self.config, path)
+            if self._source_state["running"]:
+                return "@t4.installing"
+            self._source_state = dict(running=True, result="", id=sid, ok=False)
+
+            def install():
+                try:
+                    result = install_source(self.m, self.config, path)
+                except Exception:  # noqa: BLE001 -- leave a controller-readable recovery path
+                    result = "@t4.install_failed"
+                self._source_state = dict(running=False, result=result, id=sid, ok=result == "reload")
+
+            try:
+                self._source_thread = threading.Thread(target=install, daemon=True)
+                self._source_thread.start()
+            except Exception:  # noqa: BLE001 -- a missing worker must not leave the launcher permanently busy
+                self._source_state = dict(running=False, result="@t4.install_failed", id=sid, ok=False)
+                return "@t4.install_failed"
+            return "@t4.installing"
         self.config.setdefault("roots", {})[self.m["id"]] = path
         return "reload"
+
+    def source_state(self):
+        return dict(self._source_state)
 
 
 class Generic(Adapter):

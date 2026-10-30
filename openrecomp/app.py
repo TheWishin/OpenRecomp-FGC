@@ -11,7 +11,7 @@ from PySide6.QtQuick import QQuickWindow  # noqa: F401 -- so the scene's root co
 
 from . import adapters, i18n, manifest as mf
 from .nav import Game, Nav
-from .pad import Pads, PlayStationReader, XInputReader
+from .pad import Pads, PlayStationReader, WinMMPlayStationReader, XInputReader
 from .update_service import UpdateService
 from . import updater
 
@@ -35,13 +35,13 @@ class Backend(QObject):
         super().__init__(parent)
         self.config = mf.load_config()
         games, problems = load_games(self.config)
-        self.nav = Nav(games, on_quit=QGuiApplication.quit, install=self._install, launch_env=launch_env,
+        self.nav = Nav(games, on_quit=self._quit, install=self._install, launch_env=launch_env,
                        language=self.config.get("language"), on_language=self._save_language,
                        last_game=self.config.get("last_game"), on_game=self._save_game,
                        fullscreen=self.config.get("fullscreen", True) and not windowed,
                        reduced_motion=self.config.get("reduced_motion", False), on_preferences=self._save_preferences,
                        on_update_check=self._check_updates, on_update_install=self._install_update)
-        self.updates = UpdateService(busy=self._update_busy, quit=QGuiApplication.quit)
+        self.updates = UpdateService(busy=self._update_busy, quit=self._quit)
         self._offered_update = False
         self._update_phase = "idle"
         if problems:
@@ -63,7 +63,10 @@ class Backend(QObject):
         self._view = {}
         self._was_running = False
         self._was_building = False
+        self._was_sourcing = False
         self._last_hero = {}
+        self._last_status = {}
+        self._last_build = {}
         self._slow = 0.0
         self.refresh()
         self.timer = QTimer(self)
@@ -77,10 +80,16 @@ class Backend(QObject):
         for game in self.nav.games:
             adapter = game.a
             if (adapter.running() or adapter.build_state().get("running")
+                    or adapter.source_state().get("running")
                     or adapter.support_state().get("running")
                     or adapter.online_state().get("phase", "offline") not in ("offline", "error", "kicked")):
                 return True
         return False
+
+    def _quit(self):
+        if self.window is not None:
+            self.window.setProperty("allowClose", True)
+        QGuiApplication.quit()
 
     def _check_updates(self):
         self.updates.check()
@@ -129,7 +138,7 @@ class Backend(QObject):
                 self.pads.suppress()
                 return
             self.pads.forget()
-        readers = [XInputReader()]
+        readers = [XInputReader(), WinMMPlayStationReader()]
         if t5 is not None:
             readers.append(PlayStationReader(t5.root))
         self.pads = Pads(readers)
@@ -170,6 +179,11 @@ class Backend(QObject):
     def _tick(self):
         dt = TICK_MS / 1000.0
         running = any(g.a.running() for g in self.nav.games)
+        if any(g.m.get("adapter") == "t4" and g.a.running() for g in self.nav.games):
+            if self.pads.return_requested(dt):
+                self.nav.act("returnGame", device=self.pads.kind)
+        else:
+            self.pads.reset_return()
         active = self._in_front() and not running
         if not active:
             self.nav.release("confirm")
@@ -216,7 +230,21 @@ class Backend(QObject):
         if building or building != self._was_building:
             self._was_building = building
             changed = True
+        sourcing = any(g.a.source_state().get("running") for g in self.nav.games)
+        if sourcing or sourcing != getattr(self, "_was_sourcing", False):
+            self._was_sourcing = sourcing
+            changed = True
         for g in self.nav.games:
+            # A short failed run or a final build result can arrive between running polls.
+            for method, cache_name in (("status", "_last_status"), ("build_state", "_last_build")):
+                cache = getattr(self, cache_name, None)
+                if cache is None:
+                    cache = {}
+                    setattr(self, cache_name, cache)
+                snapshot = getattr(g.a, method)()
+                if snapshot != cache.get(g.id):
+                    cache[g.id] = snapshot
+                    changed = True
             hero = g.a.hero()
             if hero != self._last_hero.get(g.id):
                 self._last_hero[g.id] = hero
@@ -224,6 +252,11 @@ class Backend(QObject):
         return changed
 
     # ---------------------------------------------------------------- from the scene
+    @Slot()
+    def requestQuit(self):
+        self.nav.request_quit()
+        self.refresh()
+
     @Slot(int, str, bool)
     def keyDown(self, key, text, repeat):
         action = KEYS.get(Qt.Key(key))
