@@ -191,8 +191,8 @@ class Online:
             return False
         if capability == "friends" and not self._online_account:
             return False
-        method = "has_friends" if capability == "friends" else "private_rooms_ok"
-        check = getattr(self._online_client, method, None)
+        check = (getattr(self._online_client, "has_friends", None) if capability == "friends"
+                 else getattr(self._online_client, "private_rooms_ok", None))
         try:
             return bool(check and check())
         except Exception:  # noqa: BLE001 -- unknown installed/server capabilities stay hidden

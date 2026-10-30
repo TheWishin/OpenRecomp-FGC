@@ -91,6 +91,8 @@ def untranslated_literals(source):
                 ignore(node.args[0])
             elif name == "_go" and len(node.args) > 1:
                 ignore(node.args[1])
+            elif name == "say" and node.args:
+                check_display(node.args[0])
             elif name == "message" and node.args:
                 for key in ast.walk(node.args[0]):
                     if isinstance(key, ast.Constant) and isinstance(key.value, str) and key.value not in english:
@@ -427,7 +429,19 @@ class Catalogs(unittest.TestCase):
     def test_python_scan_accepts_optional_api_names_but_checks_displayed_defaults(self):
         self.assertEqual(untranslated_literals('getattr(adapter, "controls_supported", lambda: False)()'), [])
         self.assertEqual(untranslated_literals('hasattr(adapter, "_controls_session")'), [])
+        source = ('check = (getattr(client, "has_friends", None) if friends '
+                  'else getattr(client, "private_rooms_ok", None))')
+        self.assertEqual(untranslated_literals(source), [])
         self.assertTrue(untranslated_literals('getattr(adapter, "message", "Try again")'))
+        for name in ("has_friends", "private_rooms_ok"):
+            self.assertTrue(untranslated_literals(f'self.say("{name}")'))
+
+    def test_python_scan_checks_technical_names_in_toasts(self):
+        self.assertEqual(untranslated_literals('self.say("@online.failure")'), [])
+        for value in ("online", "ready", "core", "searching"):
+            with self.subTest(value=value):
+                self.assertTrue(untranslated_literals(f'self.say("{value}")'))
+                self.assertTrue(untranslated_literals(f'self.say("@online.failure" if failed else "{value}")'))
 
     def test_python_scan_accepts_hex_colours_but_checks_display_labels(self):
         for colour in ("#ECE9E1", "#abcdef", "#80ECE9E1"):

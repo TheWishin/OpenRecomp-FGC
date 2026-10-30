@@ -58,7 +58,9 @@ class FakeCore:
             self.started.append(self.game_env(settings, "fake-runtime"))
             if self.fail_start:
                 raise RuntimeError("fake start failure")
-        return SimpleNamespace(start=start, proc=SimpleNamespace(pid=123))
+        proc = SimpleNamespace(pid=123, returncode=0)
+        proc.poll = lambda: proc.returncode
+        return SimpleNamespace(start=start, proc=proc)
 
 
 class Graphics(unittest.TestCase):
@@ -149,6 +151,24 @@ class Graphics(unittest.TestCase):
         self.adapter.start()
         self.assertEqual(self.core.started[-1]["TEKKEN4_HUD"], "soft")
         self.assertEqual(self.core.started[-1]["TEKKEN4_ANISO"], "4")
+
+    def test_running_child_keeps_reservation_and_refuses_duplicate_launch(self):
+        self.adapter.start()
+        reservation = self.guard.return_value.acquire.return_value
+        running = reservation.watch.call_args.args[0]
+        self.assertFalse(running())
+        self.adapter.run.proc.returncode = None
+        self.assertTrue(running())
+        with self.assertRaisesRegex(RuntimeError, "@online.game_running"):
+            self.adapter.start()
+        self.guard.assert_called_once_with("t4")
+        reservation.release.assert_not_called()
+        self.assertEqual(len(self.core.started), 1)
+        self.adapter.run.proc.returncode = 0
+        self.assertFalse(running())
+        self.adapter.start()
+        reservation.release.assert_called_once_with()
+        self.assertEqual(len(self.core.started), 2)
 
     def test_existing_settings_still_persist_through_the_core(self):
         self.adapter.set_setting("resolution", "auto")
