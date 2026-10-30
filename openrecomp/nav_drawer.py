@@ -65,7 +65,8 @@ class Drawer:
 
     def _check_update(self):
         if self.update_state.get("phase") in ("checking", "installing", "waiting"):
-            self.say("@updates." + self.update_state["phase"])
+            self.say({"checking": "@updates.checking", "installing": "@updates.installing",
+                      "waiting": "@updates.waiting"}[self.update_state["phase"]])
             return
         if self._update_busy():
             self.say("@updates.busy")
