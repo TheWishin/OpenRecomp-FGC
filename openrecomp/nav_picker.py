@@ -28,7 +28,7 @@ class Picker:
                 if os.path.exists(root):
                     out.append(dict(name=root, path=root, kind="dir"))
             return out
-        if p["kind"] == "folder":
+        if p["kind"] in ("folder", "file_or_folder"):
             out.append(dict(name="@picker.choose_folder", path=p["dir"], kind="pick"))
         parent = os.path.dirname(p["dir"].rstrip("\\/"))
         out.append(dict(name="..", path="" if parent == p["dir"].rstrip("\\/") or len(p["dir"]) <= 3 else parent, kind="dir"))
@@ -39,7 +39,7 @@ class Picker:
                     try:
                         if e.is_dir():
                             folders.append(dict(name=e.name, path=e.path, kind="dir"))
-                        elif p["kind"] == "file" and os.path.splitext(e.name)[1].lower() in p["exts"]:
+                        elif p["kind"] in ("file", "file_or_folder") and os.path.splitext(e.name)[1].lower() in p["exts"]:
                             files.append(dict(name=e.name, path=e.path, kind="file"))
                     except OSError:
                         pass

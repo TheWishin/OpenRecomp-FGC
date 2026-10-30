@@ -1,6 +1,6 @@
 {
  "id": "t4",
- "order": 20,
+ "order": 10,
  "title": "Tekken 4",
  "subtitle": "USA version",
  "platform": "PS2",
@@ -9,6 +9,6 @@
  "accent": "#5B93FF",
  "adapter": "t4",
  "source": "PS2 ISO (SLUS-20328)",
- "locations": ["D:\\tekken4-us", "C:\\tekken4-us", "%USERPROFILE%\\Desktop\\T4-*"],
+ "locations": [],
  "sections": ["play", "online", "build", "settings"]
 }

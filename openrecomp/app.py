@@ -12,6 +12,8 @@ from PySide6.QtQuick import QQuickWindow  # noqa: F401 -- so the scene's root co
 from . import adapters, i18n, manifest as mf
 from .nav import Game, Nav
 from .pad import Pads, PlayStationReader, XInputReader
+from .update_service import UpdateService
+from . import updater
 
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right", Qt.Key_Return: "confirm", Qt.Key_Enter: "confirm",
@@ -37,9 +39,23 @@ class Backend(QObject):
                        language=self.config.get("language"), on_language=self._save_language,
                        last_game=self.config.get("last_game"), on_game=self._save_game,
                        fullscreen=self.config.get("fullscreen", True) and not windowed,
-                       reduced_motion=self.config.get("reduced_motion", False), on_preferences=self._save_preferences)
+                       reduced_motion=self.config.get("reduced_motion", False), on_preferences=self._save_preferences,
+                       on_update_check=self._check_updates, on_update_install=self._install_update)
+        self.updates = UpdateService(busy=self._update_busy, quit=QGuiApplication.quit)
+        self._offered_update = False
+        self._update_phase = "idle"
         if problems:
             self.nav.say(problems[0], 8)
+        try:
+            result = updater.update_result(self.updates.root)
+        except (OSError, ValueError, TypeError):
+            result = None
+        if result and result.get("status") == "rolled_back":
+            self.nav.say("@updates.rolled_back", 12)
+        elif result and result.get("status") == "recovery_required":
+            self.nav.say("@updates.recovery", 20)
+        elif result and result.get("status") == "unchanged":
+            self.nav.say("@updates.failed", 12)
         t5 = next((g.a for g in games if g.id == "t5dr" and g.a.found()), None)
         readers = [XInputReader()]
         if t5 is not None:
@@ -56,6 +72,39 @@ class Backend(QObject):
         self.timer.setInterval(TICK_MS)
         self.timer.timeout.connect(self._tick)
         self.timer.start()
+
+    def _update_busy(self):
+        if self.nav.binding_active():
+            return True
+        for game in self.nav.games:
+            adapter = game.a
+            if (adapter.running() or adapter.build_state().get("running")
+                    or adapter.support_state().get("running")
+                    or adapter.online_state().get("phase", "offline") not in ("offline", "error", "kicked")):
+                return True
+        return False
+
+    def _check_updates(self):
+        self.updates.check()
+
+    def _install_update(self):
+        if not self.updates.install():
+            self.nav.say("@updates.busy")
+
+    def _poll_updates(self):
+        changed = self.updates.poll()
+        self.nav.update_state = dict(self.updates.state)
+        phase = self.updates.state["phase"]
+        if phase != self._update_phase:
+            changed = True
+            self._update_phase = phase
+            if phase in ("current", "unconfigured", "error"):
+                key = "failed" if phase == "error" else phase
+                self.nav.say("@updates." + key, 8)
+        if phase == "available" and not self._offered_update and not self._update_busy():
+            self._offered_update = self.nav.offer_update()
+            changed = changed or self._offered_update
+        return changed
 
     def _save_language(self, language):
         self.config["language"] = language
@@ -104,6 +153,7 @@ class Backend(QObject):
     def _tick(self):
         dt = TICK_MS / 1000.0
         changed = self.nav.tick(dt)
+        changed = self._poll_updates() or changed
         running = any(g.a.running() for g in self.nav.games)
         active = self._in_front()
         capturing = self.nav.binding_active()
@@ -265,6 +315,9 @@ def main(argv=None):
     backend = Backend(windowed=args.windowed)
     app.aboutToQuit.connect(backend.nav.close_online)
     engine = make_engine(backend, full=backend.nav.fullscreen)
+    # A broken QML scene must never acknowledge an update. The old helper owns rollback.
+    QTimer.singleShot(updater.CONFIRM_AFTER_MS, lambda: updater.confirm_startup(backend.updates.root))
+    QTimer.singleShot(2000, backend._check_updates)
     code = app.exec()
     del engine
     return code

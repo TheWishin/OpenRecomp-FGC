@@ -19,7 +19,7 @@ Item {
             id: dialogColumn
             x: 64; y: 56; width: 732; spacing: 16
             Text { width: parent.width; text: ov.v.dialog.title; wrapMode: Text.Wrap; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 88; lineHeight: 0.95 }
-            Text { width: parent.width; text: ov.v.dialog.text; wrapMode: Text.Wrap; color: ov.root.textC; font.family: ov.root.sans; font.pixelSize: 30; bottomPadding: 24 }
+            Text { width: parent.width; text: ov.v.dialog.text; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: ov.root.textC; font.family: ov.root.sans; font.pixelSize: 30; bottomPadding: 24 }
             Row {
                 spacing: 12
                 Repeater {
@@ -28,7 +28,7 @@ Item {
                         required property int index
                         readonly property var o: ov.root.ok(ov.v.dialog.options, index)
                         width: 360; height: 104; color: o.focused ? ov.root.bone : "#24272C"
-                        Text { anchors.centerIn: parent; text: parent.o.label || ""; color: parent.o.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
+                        Text { anchors.centerIn: parent; width: parent.width - 24; horizontalAlignment: Text.AlignHCenter; text: parent.o.label || ""; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: 24; color: parent.o.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
                         TapHandler { onTapped: ov.root.backend.clickEntry(parent.index) }
                     }
                 }

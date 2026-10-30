@@ -200,10 +200,15 @@ class Missing(Adapter):
     """The game's folder was not found: the player can point at it."""
 
     def sources(self):
-        return [dict(id="folder", label="@game_folder", value="@missing", ok=False, kind="folder", exts=[], dirs=[],
+        t4 = self.m.get("adapter") == "t4"
+        return [dict(id="folder", label="@game_folder", value="@missing", ok=False,
+                     kind="file_or_folder" if t4 else "folder", exts=[".zip"] if t4 else [], dirs=[],
                      hint="@folder_hint")]
 
     def set_source(self, sid, path):
+        if self.m.get("adapter") == "t4":
+            from .t4_install import install_source
+            return install_source(self.m, self.config, path)
         self.config.setdefault("roots", {})[self.m["id"]] = path
         return "reload"
 

@@ -33,7 +33,8 @@ class Game:
 
 class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
-                 last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None):
+                 last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None,
+                 on_update_check=None, on_update_install=None):
         self.games = games
         self.on_quit = on_quit or (lambda: None)
         self.install = install              # path -> message; a player's manifest (the free slots)
@@ -71,6 +72,11 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         self.binding_result = {}
         self.support_game = None
         self.support_snapshot = None
+        self.on_update_check = on_update_check
+        self.on_update_install = on_update_install
+        self.update_state = dict(phase="idle", version="", notes="", size=0)
+        self.update_offered = ""
+        self.update_version = ""
 
     def act(self, action, device=None):
         if device:

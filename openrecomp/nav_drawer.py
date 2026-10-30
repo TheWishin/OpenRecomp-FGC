@@ -7,6 +7,10 @@ class Drawer:
         out = [dict(label="@language", value="@language." + self.language, language=True, hint="@language_hint"),
                dict(label="@display_mode", value="@fullscreen" if self.fullscreen else "@windowed", fullscreen=True, hint="@display_mode_hint"),
                dict(label="@motion", value="@motion_reduced" if self.reduced_motion else "@motion_full", motion=True, hint="@motion_hint")]
+        phase = self.update_state.get("phase", "idle")
+        update_hint = {"checking": "@updates.checking", "installing": "@updates.installing", "current": "@updates.current",
+                       "unconfigured": "@updates.unconfigured", "error": "@updates.failed"}.get(phase, "@updates.hint")
+        out.append(dict(label="@updates.check", value=self.update_state.get("version", ""), update=True, hint=update_hint))
         for g in self.games:
             if g.a.found() and g.a.native_label:
                 out.append(dict(label=g.a.native_label, value=g.short, game=g, hint=i18n.message("native_hint", name=g.a.native_label)))
@@ -25,6 +29,8 @@ class Drawer:
         elif a == "confirm":
             if self._drawer_cycle(items[self.drawer_focus], 1):
                 return
+            if items[self.drawer_focus].get("update"):
+                return self._check_update()
             g = items[self.drawer_focus].get("game")
             if g and not self._dry(i18n.message("dry_open", name=g.a.native_label)):
                 g.a.open_native()
@@ -50,6 +56,35 @@ class Drawer:
         codes = i18n.LANGUAGES
         self.language = codes[(codes.index(self.language) + step) % len(codes)]
         self.on_language(self.language)
+
+    def _update_busy(self):
+        return any(g.a.running() or g.a.build_state().get("running") or g.a.support_state().get("running")
+                   or g.a.online_state().get("phase", "offline") not in ("", "offline", "error", "kicked") for g in self.games)
+
+    def _check_update(self):
+        if self.update_state.get("phase") in ("checking", "installing"):
+            self.say("@updates.checking" if self.update_state["phase"] == "checking" else "@updates.installing")
+            return
+        if self._update_busy():
+            self.say("@updates.busy")
+            return
+        if self.update_state.get("phase") == "available":
+            self.overlay = None
+            self.offer_update(force=True)
+        elif self.on_update_check and not self._dry("@updates.check"):
+            self.on_update_check()
+        elif not self.on_update_check:
+            self.say("@updates.unconfigured")
+
+    def offer_update(self, force=False):
+        """Offer once per session when the launcher is free; confirmation remains a separate action."""
+        version = self.update_state.get("version", "")
+        if (self.update_state.get("phase") != "available" or not version or self.overlay or self._update_busy()
+                or (not force and self.update_offered == version)):
+            return False
+        self.update_offered = self.update_version = version
+        self._ask("update")
+        return True
 
     def _view_drawer(self, v):
         items = self._drawer_items()

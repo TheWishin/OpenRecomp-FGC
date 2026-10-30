@@ -1,4 +1,5 @@
 """Confirmation dialog actions and view."""
+from . import i18n
 
 
 class Dialog:
@@ -29,6 +30,12 @@ class Dialog:
                     self.say("@rebuild_starting")
             elif yes and self.confirm_kind == "support_report":
                 self._start_support(self.game, "report")
+            elif yes and self.confirm_kind == "update":
+                if self._update_busy():
+                    self.say("@updates.busy")
+                elif self.update_state.get("phase") == "available" and self.update_state.get("version") == self.update_version:
+                    if self.on_update_install and not self._dry("@updates.install"):
+                        self.on_update_install()
 
     def _view_dialog(self, v):
         if self.confirm_kind == "exit":
@@ -39,8 +46,15 @@ class Dialog:
             title, text = "@dialog.rebuild.title", "@dialog.rebuild.text"
         elif self.confirm_kind == "support_report":
             title, text = "@support.report.confirm.title", "@support.report.confirm.text"
+        elif self.confirm_kind == "update":
+            title = "@updates.confirm.title"
+            text = i18n.message("updates.confirm.text", version=self.update_version,
+                                size=self.update_state.get("size", 0),
+                                notes=i18n.literal(" ".join(str(self.update_state.get("notes", "")).split())[:300]))
         else:
             title, text = "@dialog.cancel.title", "@dialog.cancel.text"
         v["dialog"] = dict(title=title, text=text, options=[dict(label="@no", index=0, focused=self.exit_focus == 0), dict(label="@yes", index=1, focused=self.exit_focus == 1)])
+        if self.confirm_kind == "update":
+            v["dialog"]["options"][1]["label"] = "@updates.install"
         v["hint"] = "@dialog_hint"
         v["prompts"] = [self.prompt("confirm", "@confirm"), self.prompt("right", "@switch"), self.prompt("back", "@cancel")]

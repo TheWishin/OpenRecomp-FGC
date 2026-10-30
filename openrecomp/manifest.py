@@ -18,7 +18,7 @@ def user_dir():
     base = os.environ.get("OPENRECOMP_HOME")
     if not base:
         base = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "OpenRecomp")
-    return base
+    return os.path.abspath(os.path.expandvars(os.path.expanduser(base)))
 
 
 def user_games_dir():

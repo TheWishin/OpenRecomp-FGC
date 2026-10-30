@@ -14,6 +14,11 @@ class Shelf:
     def game_by_id(self, gid):
         return next((g for g in self.games if g.id == gid), None)
 
+    def _folder_source(self, g):
+        if not g.a.found():
+            return next((s for s in g.a.sources() if s.get("kind") in ("folder", "file_or_folder")), None)
+        return None
+
     def set_games(self, games):
         if self.controls_game:
             self.controls_game.a.controls_close()
@@ -43,7 +48,11 @@ class Shelf:
                     self._open_picker("manifest", "@choose_manifest", [".json"], [mf.BUILTIN_DIR, os.path.expanduser("~\\Downloads")], "file")
             elif a == "confirm":
                 self._select_game(g)
-                self.screen = "hub"
+                source = self._folder_source(g)
+                if source:
+                    self._open_picker("source:" + source["id"], "@onboarding.choose_folder", source["exts"], source["dirs"], source["kind"])
+                else:
+                    self.screen = "hub"
             elif a == "play":
                 self._select_game(g)
                 self.start_game(g)
@@ -65,10 +74,14 @@ class Shelf:
             if g:
                 st = g.a.status()
                 ready = g.a.ready()
+                missing = not g.a.found()
                 t.update(badge=badge(g), num=g.m["numeral"], name=g.m["title"], subtitle=g.m["subtitle"] if foc else st["status"], accent=g.accent, hero=uri(g.a.hero()),
                          rows=[dict(k="@status", v=st["status"]), dict(k="@version", v=st["version"]), dict(k="@section.online", v=st["players"]), dict(k="@last_played", v=st["last"])],
                          results=self._cells(g.a.recent_results()), empty="@no_sets", sections=["@" + SECTION_TITLES[s] for s in g.m["sections"]],
-                         bar="@open" if ready else "@go_build")
+                         bar="@onboarding.choose_folder" if self._folder_source(g) else ("@open" if ready else "@go_build"))
+                if missing and self._folder_source(g) and not any(game.a.found() for game in self.games):
+                    t["subtitle"] = "@onboarding.title" if foc else st["status"]
+                    t["empty"] = "@onboarding.source"
             else:
                 t.update(badge="", num="+", name="@free_slot" if not foc else "@add_recomp", subtitle="@another_game" if foc else "", accent="#ECE9E1", hero="",
                          rows=[dict(k="@name_colour", v="@manifest"), dict(k="@sections", v="@manifest"), dict(k="@build_exe", v="@manifest")],
@@ -78,13 +91,14 @@ class Shelf:
         g = self.game_by_id(ids[focus])
         if g:
             ready = g.a.ready()
-            v["hint"] = g.a.status()["detail"]
-            v["prompts"] = [self.prompt("confirm", "@open" if ready else "@go_build"), self.prompt("right", "@choose_game")]
+            missing = not g.a.found()
+            v["hint"] = "@onboarding.hint" if missing and self._folder_source(g) and not any(game.a.found() for game in self.games) else g.a.status()["detail"]
+            v["prompts"] = [self.prompt("confirm", "@onboarding.choose_folder" if self._folder_source(g) else ("@open" if ready else "@go_build")), self.prompt("right", "@choose_game")]
             if ready:
                 v["prompts"].append(self.prompt("play", "@play"))
             v["prompts"] += [self.prompt("switchGame", "@switch_game"), self.prompt("social", "@quick_access"), self.prompt("back", "@quit")]
         else:
-            v["hint"] = "@manifest_hint"
+            v["hint"] = "@onboarding.empty" if not self.games else "@manifest_hint"
             v["prompts"] = [self.prompt("confirm", "@choose_manifest"), self.prompt("right", "@choose_game"), self.prompt("social", "@quick_access"), self.prompt("back", "@quit")]
 
     def click_tile(self, index):

@@ -122,6 +122,9 @@ def untranslated_literals(source):
         r"\bconnected\b", r"(?:frames|frame)\s*[=: ]\s*(\d+)", r"mismatches\s*[=: ]\s*(\d+)",
         "peer_timeout", "peer_quit", "no_peer", "build_mismatch",
         "frames", "desync", "rb", "openrecomp-t4-stop",
+        "file_or_folder", "available", "checking", "installing", "current", "unconfigured",
+        ".zip", "con", "prn", "aux", "nul", "conin$", "conout$", "com", "lpt",
+        "sha256", "installs", "pending-", "xb", "_openrecomp_t4core_",
     }
     formats = {
         'f"{platform} RECOMP"', 'f"slot{i}"', 'f"{self.game.id}:{self.section()}"', 'f"{letter}:\\\\"',

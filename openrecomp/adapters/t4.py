@@ -1,14 +1,17 @@
 """Tekken 4 (PS2 recomp): the project's own launcher core (launcher/t4core.py) does the work; nothing of it is copied."""
 import glob
-import importlib
+import hashlib
+import importlib.util
 import json
 import os
 import re
+import sys
 import threading
 import time
 
 from .base import Adapter, ProcessBuild, add_path, expand_locations, onoff
 from .t4_online import T4Online
+from .t4_install import install_root
 from ..manifest import art_dir, save_config
 
 STEP_RE = re.compile(r"^\[(\d+)/(\d+)\]\s+(\w+)\s+-\s+(.*)$")
@@ -26,9 +29,40 @@ GRAPHICS_OPTIONS = {
 def find_root(manifest, config):
     chosen = (config.get("roots") or {}).get(manifest["id"]) or os.environ.get("OPENRECOMP_T4_ROOT")
     for path in ([chosen] if chosen else []) + expand_locations(manifest.get("locations", [])):
-        if os.path.isfile(os.path.join(path, "launcher", "t4core.py")):
-            return path
+        root = install_root(path)
+        if root:
+            return root
     return None
+
+
+def load_core(root):
+    """A newly selected install must not reuse the previous install's cached t4core."""
+    launcher = os.path.join(os.path.realpath(root), "launcher")
+    path = os.path.join(launcher, "t4core.py")
+    name = "_openrecomp_t4core_" + hashlib.sha256(os.path.normcase(path).encode("utf-8")).hexdigest()
+    if launcher in sys.path:
+        sys.path.remove(launcher)
+    add_path(launcher)
+    if name in sys.modules:
+        core = sys.modules[name]
+        sys.modules["t4core"] = core
+        return core
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("@t4.install_invalid")
+    core = importlib.util.module_from_spec(spec)
+    previous = sys.modules.get("t4core")
+    sys.modules[name] = sys.modules["t4core"] = core
+    try:
+        spec.loader.exec_module(core)
+    except BaseException:
+        sys.modules.pop(name, None)
+        if previous is None:
+            sys.modules.pop("t4core", None)
+        else:
+            sys.modules["t4core"] = previous
+        raise
+    return core
 
 
 class T4(T4Online, Adapter):
@@ -38,8 +72,7 @@ class T4(T4Online, Adapter):
         super().__init__(manifest, config)
         self.root = root
         if core is None:
-            add_path(os.path.join(root, "launcher"))
-            core = importlib.import_module("t4core")
+            core = load_core(root)
         self.core = core
         self.s = core.load_settings()
         self._play_lock = threading.RLock()
