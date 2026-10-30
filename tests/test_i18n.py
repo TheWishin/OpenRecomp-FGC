@@ -64,6 +64,9 @@ def untranslated_literals(source):
             if any(isinstance(t, ast.Attribute) and t.attr in ("screen", "overlay", "device", "pad_kind", "confirm_kind") for t in node.targets):
                 if isinstance(node.value, ast.Constant):
                     ignore(node.value)
+            if len(node.targets) == 1 and isinstance(node.targets[0], ast.Subscript) and isinstance(node.targets[0].slice, ast.Constant) and node.targets[0].slice.value == "overlay":
+                if isinstance(node.value, ast.Constant) and node.value.value == "dialog":
+                    ignore(node.value)  # binding uses the dialog view protocol, not a display label
         elif isinstance(node, ast.Call):
             name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", "")
             if name in ("getattr", "hasattr") and len(node.args) > 1:
@@ -354,6 +357,13 @@ class Catalogs(unittest.TestCase):
         self.assertEqual(untranslated_literals(source), [])
         self.assertTrue(untranslated_literals('dict(label="play")'))
         self.assertTrue(untranslated_literals('dict(label="play" if ready else "@section.build")'))
+
+    def test_python_scan_accepts_dialog_overlay_protocol_but_checks_display_text(self):
+        self.assertEqual(untranslated_literals('v["overlay"] = "dialog"'), [])
+        for source in ('v["overlay"] = "Choose a dialog"', 'v["dialog"] = "dialog"',
+                       'v["overlay"] = v["title"] = "dialog"',
+                       'dict(label="dialog")', 'self.say("dialog")'):
+            self.assertTrue(untranslated_literals(source), source)
 
     def test_python_scan_accepts_optional_api_names_but_checks_displayed_defaults(self):
         self.assertEqual(untranslated_literals('getattr(adapter, "controls_supported", lambda: False)()'), [])
