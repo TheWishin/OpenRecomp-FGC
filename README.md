@@ -19,11 +19,14 @@ First working version. On the launcher today:
 | Game | How it connects | Sections |
 |---|---|---|
 | Tekken 5: Dark Resurrection | an installed [T5DR Online](https://github.com/TheWishin/T5DROnline) | Play, Online, Build, Replays, Settings |
-| Tekken 4 (USA, SLUS-20328) | a checkout or release of the Tekken 4 recomp | Play, Build, Settings |
+| Tekken 4 (USA, SLUS-20328) | a checkout or release of the Tekken 4 recomp with its installed `t4lobby` client | Play, Online, Build, Settings |
 | Free slots | a manifest (below) | what the manifest says |
 
-Not in OpenRecomp-FGC yet: lobby, rooms, friends and tournaments (the Online section opens the T5DR Online launcher for
-those), key bindings and problem reports (each game's own launcher, reachable from Y). The texts are English only so far.
+T4 Online includes casual quick match, player challenges, open rooms, chat, and one game process per match with manual
+results. Ranked is unavailable for T4. See [T4 Online and release checks](docs/T4_ONLINE.md), including the shared-account
+server requirement. T5DR currently provides login and search through the same lobby integration; its match handover
+still stops at a found match. Other native online features remain reachable through each game's launcher. Texts are
+available in seven languages.
 
 ## Start
 
@@ -79,7 +82,11 @@ the interface in `adapters/base.py`, so a new adapter changes no screen.
 
 | Path | What |
 |---|---|
-| `openrecomp/nav.py` | The whole state machine: semantic actions in, one plain dict out. No Qt in it |
+| `openrecomp/nav.py` | Navigation state, action dispatch, timers, and one plain dict out. No Qt |
+| `openrecomp/nav_common.py` | Shared constants and plain helpers, also exported by `nav.py` |
+| `openrecomp/nav_shelf.py` | Game shelf input and view |
+| `openrecomp/nav_hub.py`, `openrecomp/nav_sections.py` | Hub navigation and view; play, online, build, replays, and settings items |
+| `openrecomp/nav_dialog.py`, `openrecomp/nav_drawer.py`, `openrecomp/nav_grid.py`, `openrecomp/nav_keyboard.py`, `openrecomp/nav_picker.py` | Each overlay's input and view |
 | `openrecomp/pad.py` | Controllers to actions |
 | `openrecomp/app.py` | Window, QML scene, timers |
 | `openrecomp/adapters/` | One per kind of game |
