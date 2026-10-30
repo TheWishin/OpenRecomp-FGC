@@ -8,9 +8,18 @@ import threading
 import time
 
 from .base import Adapter, ProcessBuild, add_path, expand_locations, onoff
-from ..manifest import art_dir
+from ..manifest import art_dir, save_config
 
 STEP_RE = re.compile(r"^\[(\d+)/(\d+)\]\s+(\w+)\s+-\s+(.*)$")
+GRAPHICS_OPTIONS = {
+    "aa": [("off", "@off"), ("fxaa", "@aa.fxaa"), ("smaa", "@aa.smaa"),
+           ("ssaa2", "@aa.ssaa2"), ("ssaa3", "@aa.ssaa3"), ("ssaa4", "@aa.ssaa4"),
+           ("msaa2", "@aa.msaa2"), ("msaa4", "@aa.msaa4"), ("msaa8", "@aa.msaa8"),
+           ("ssaa2+fxaa", "@aa.ssaa2_fxaa")],
+    "hud": [("soft", "@hud.soft"), ("sharp", "@hud.sharp")],
+    "anisotropic": [("1", "@off"), ("2", "@anisotropic.two"), ("4", "@anisotropic.four"),
+                    ("8", "@anisotropic.eight"), ("16", "@anisotropic.sixteen")],
+}
 
 
 def find_root(manifest, config):
@@ -71,20 +80,22 @@ class T4(Adapter):
         if holder:
             raise RuntimeError(self.message("t4.locked", holder=holder))
         run = self.core.GameRun(self.s)
-        if extra_env:
-            real_env = self.core.game_env
+        real_env = self.core.game_env
+        graphics = self._graphics_values()
 
-            def env_with_extra(s, exe=None):
-                env = real_env(s, exe)
-                env.update(extra_env)
-                return env
-            self.core.game_env = env_with_extra
-            try:
-                run.start()
-            finally:
-                self.core.game_env = real_env
-        else:
+        def env_with_extra(s, exe=None):
+            env = real_env(s, exe)
+            if self.core.graphics_support(exe)["aa"]:
+                env["TEKKEN4_AA"] = graphics["aa"]
+            env["TEKKEN4_HUD"] = graphics["hud"]
+            env["TEKKEN4_ANISO"] = graphics["anisotropic"]
+            env.update(extra_env or {})
+            return env
+        self.core.game_env = env_with_extra
+        try:
             run.start()
+        finally:
+            self.core.game_env = real_env
         self.core.take_run_lock("openrecomp")
         self.run = run
         threading.Thread(target=self._wait, args=(run,), daemon=True).start()
@@ -109,9 +120,18 @@ class T4(Adapter):
         self.core.subprocess.Popen([python, script], cwd=self.root, creationflags=self.core.NO_WINDOW)
 
     # ---------------------------------------------------------------- settings
+    def _graphics_values(self):
+        # The core only saves boolean AA; advanced choices belong to this launcher's config.
+        saved = self.config.get("t4_graphics") or {}
+        defaults = dict(aa=GRAPHICS_OPTIONS["aa"][1 if self.s.get("aa", True) else 0][0],
+                        hud=GRAPHICS_OPTIONS["hud"][0][0], anisotropic=GRAPHICS_OPTIONS["anisotropic"][2][0])
+        return {sid: saved.get(sid, default) if saved.get(sid, default) in [v for v, _label in GRAPHICS_OPTIONS[sid]]
+                else default for sid, default in defaults.items()}
+
     def settings(self):
         res = [(k, "@resolution.auto" if k == "auto" else label.split(" (")[0]) for k, label, _x in self.core.RESOLUTIONS]
         yes_no = [(False, "@off"), (True, "@on")]
+        graphics = self._graphics_values()
         return [
             dict(id="resolution", label="@internal_resolution", options=res, value=self.s.get("resolution", "auto"),
                  hint="@resolution.hint", lead="@resolution.t4_lead"),
@@ -122,8 +142,12 @@ class T4(Adapter):
                  lead="@exclusive.lead"),
             dict(id="sound", label="@sound", options=yes_no, value=bool(self.s.get("sound", True)),
                  hint="@sound.hint", lead="@sound.lead"),
-            dict(id="aa", label="@aa", options=yes_no, value=bool(self.s.get("aa", True)),
+            dict(id="aa", label="@aa", options=GRAPHICS_OPTIONS["aa"], value=graphics["aa"],
                  hint="@aa.hint", lead="@aa.lead"),
+            dict(id="hud", label="@hud", options=GRAPHICS_OPTIONS["hud"], value=graphics["hud"],
+                 hint="@hud.hint", lead="@hud.lead"),
+            dict(id="anisotropic", label="@anisotropic", options=GRAPHICS_OPTIONS["anisotropic"], value=graphics["anisotropic"],
+                 hint="@anisotropic.hint", lead="@anisotropic.lead"),
             dict(id="progressive", label="@progressive", options=yes_no, value=bool(self.s.get("progressive", True)),
                  hint="@progressive.hint", lead="@progressive.lead"),
             dict(id="unlock_all", label="@unlock_all", options=yes_no, value=bool(self.s.get("unlock_all", True)),
@@ -133,6 +157,15 @@ class T4(Adapter):
         ]
 
     def set_setting(self, sid, value):
+        if sid in GRAPHICS_OPTIONS:
+            if value not in [v for v, _label in GRAPHICS_OPTIONS[sid]]:
+                return
+            self.config.setdefault("t4_graphics", {})[sid] = value
+            save_config(self.config)
+            if sid == "aa":
+                self.s[sid] = value != GRAPHICS_OPTIONS[sid][0][0]
+                self.core.save_settings(self.s)
+            return
         self.s[sid] = value
         self.core.save_settings(self.s)
 
