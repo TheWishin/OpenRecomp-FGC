@@ -31,7 +31,13 @@ class T4Install(unittest.TestCase):
         path = self.folder / "synthetic.zip"
         with zipfile.ZipFile(path, "w") as archive:
             for name, data in entries:
-                archive.writestr(name, data)
+                if isinstance(name, str):
+                    entry = zipfile.ZipInfo(name)
+                    # ZipInfo normalizes Windows separators; keep the unsafe name under test.
+                    entry.filename = name
+                else:
+                    entry = name
+                archive.writestr(entry, data)
         return path
 
     def install(self, path):
@@ -76,6 +82,8 @@ class T4Install(unittest.TestCase):
                     "a/b.txt:stream", "a/lpt²", "a/trailing."):
             with self.subTest(path=bad):
                 path = self.archive([("launcher/t4core.py", MARKER), (bad, b"synthetic")])
+                with zipfile.ZipFile(path) as archive:
+                    self.assertEqual(archive.infolist()[1].orig_filename, bad)
                 self.assertEqual(self.install(path), "@t4.zip_invalid")
                 self.assertNotIn("roots", self.cfg)
                 self.assertFalse(self.home.exists())

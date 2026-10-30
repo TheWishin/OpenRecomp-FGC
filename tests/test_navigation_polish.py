@@ -138,20 +138,24 @@ class NavigationPolish(unittest.TestCase):
         self.adapters[0].is_running = True
         self.nav.screen = "hub"
         backend = SimpleNamespace(nav=self.nav, pads=mock.Mock(kind="xbox"), _slow=0,
-                                  _in_front=lambda: True, refresh=mock.Mock())
+                                  _in_front=lambda: True, _poll_updates=mock.Mock(return_value=False),
+                                  refresh=mock.Mock())
         backend.pads.poll.return_value = [("confirm", "down")]
         Backend._tick(backend)
         self.assertEqual(self.nav.overlay, "dialog")
         self.assertEqual(self.nav.confirm_kind, "stop_game")
         self.assertEqual(self.adapters[0].calls, [])
         backend.refresh.assert_called_once()
+        backend._poll_updates.assert_called_once_with()
         backend.pads.forget.assert_not_called()
 
     def test_pad_stays_with_game_when_launcher_is_not_active(self):
         self.adapters[0].is_running = True
         backend = SimpleNamespace(nav=self.nav, pads=mock.Mock(), _slow=0,
-                                  _in_front=lambda: False, refresh=mock.Mock())
+                                  _in_front=lambda: False, _poll_updates=mock.Mock(return_value=False),
+                                  refresh=mock.Mock())
         Backend._tick(backend)
+        backend._poll_updates.assert_called_once_with()
         backend.pads.poll.assert_not_called()
         backend.pads.forget.assert_called_once()
 

@@ -46,6 +46,7 @@ class ScenePolish(unittest.TestCase):
 
     def tearDown(self):
         self.assertEqual(self.warnings, [])
+        self.win.close()
         del self.win
         del self.engine
 
@@ -95,18 +96,23 @@ class ScenePolish(unittest.TestCase):
                 self.assertLessEqual(label.x() + label.width(), label.parentItem().width() - 48)
 
     def test_overlays_leave_focused_hint_visible_and_drawer_follows_focus(self):
+        # Positioners need a visible scene, even with the offscreen platform.
+        self.win.show()
+        spin()
         self.nav.games = [Game(manifest(f"g{i}"), Fake(manifest(f"g{i}"))) for i in range(20)]
         self.nav.overlay = "drawer"
-        self.nav.drawer_focus = len(self.nav._drawer_items()) - 1
-        self.publish()
+        for focus in (0, 8, len(self.nav._drawer_items()) - 1):
+            with self.subTest(focus=focus):
+                self.nav.drawer_focus = focus
+                self.publish()
+                viewport = self.named("drawerViewport")[0]
+                focused = next(row for row in self.named("drawerRow") if row.property("index") == focus)
+                self.assertGreaterEqual(focused.y() + focused.parentItem().y(), 0)
+                self.assertLessEqual(focused.y() + focused.height() + focused.parentItem().y(), viewport.height())
         mask = self.named("overlayMask")[0]
         panel = self.named("drawerPanel")[0]
         self.assertLessEqual(mask.y() + mask.height(), 944)
         self.assertLessEqual(panel.y() + panel.height(), 944)
-        viewport = self.named("drawerViewport")[0]
-        last = self.named("drawerRow")[-1]
-        self.assertGreaterEqual(last.y() + last.parentItem().y(), 0)
-        self.assertLessEqual(last.y() + last.height() + last.parentItem().y(), viewport.height())
         picker = self.named("pickerPanel")[0]
         self.assertLessEqual(picker.y() + picker.height(), 944)
         self.named("pickerMessage")

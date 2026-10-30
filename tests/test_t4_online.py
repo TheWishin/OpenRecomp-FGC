@@ -144,14 +144,18 @@ class T4OnlineTests(unittest.TestCase):
         modules = dict(client=SimpleNamespace(LobbyClient=self.a.make_client),
                        buildid=SimpleNamespace(BuildInfo=Build), servers=Servers,
                        proto=SimpleNamespace(PROTO_VERSION=1, GAME="t4"))
-        with mock.patch("openrecomp.adapters.t5_online.importlib.import_module", side_effect=lambda name: modules[name.split(".")[-1]]) as load:
-            with mock.patch("openrecomp.adapters.t5_online.add_path"):
-                self.login()
+        # Resolve the string patch target before replacing importlib's shared resolver.
+        with mock.patch("openrecomp.adapters.t5_online.add_path"), mock.patch(
+                "openrecomp.adapters.t5_online.importlib.import_module",
+                side_effect=lambda name: modules[name.split(".")[-1]]) as load:
+            self.login()
         self.assertTrue(all(call.args[0].startswith("t4lobby.") for call in load.call_args_list))
         self.a.online_close()
         del self.a._online_api
         modules["proto"].GAME = "t5"
-        with mock.patch("openrecomp.adapters.t5_online.importlib.import_module", side_effect=lambda name: modules[name.split(".")[-1]]), mock.patch("openrecomp.adapters.t5_online.add_path"):
+        with mock.patch("openrecomp.adapters.t5_online.add_path"), mock.patch(
+                "openrecomp.adapters.t5_online.importlib.import_module",
+                side_effect=lambda name: modules[name.split(".")[-1]]):
             self.a.online_action("login_guest")
             self.a.online_poll()
         self.assertEqual(self.a.online_state()["message"], "@online.client_missing")

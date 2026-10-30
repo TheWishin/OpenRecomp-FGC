@@ -426,9 +426,28 @@ class Manifests(unittest.TestCase):
     def test_the_shipped_games_are_valid(self):
         manifests, problems = mf.load_all([mf.BUILTIN_DIR])
         self.assertEqual(problems, [])
-        self.assertEqual([m["id"] for m in manifests], ["t5dr", "t4"])
+        self.assertEqual([m["id"] for m in manifests], ["t4", "t5dr"])
         self.assertIn("online", manifests[0]["sections"])
         self.assertIn("online", manifests[1]["sections"])
+
+    def test_manifest_order_takes_priority_over_filename_and_title(self):
+        entries = {"a.json": manifest("a", title="A", order=20),
+                   "z.json": manifest("z", title="Z", order=10)}
+        with mock.patch.object(mf.os, "listdir", return_value=["a.json", "z.json"]), mock.patch.object(
+                mf, "load_file", side_effect=lambda path: entries[os.path.basename(path)]):
+            manifests, problems = mf.load_all(["games"])
+        self.assertEqual(problems, [])
+        self.assertEqual([m["id"] for m in manifests], ["z", "a"])
+
+    def test_later_manifest_replaces_the_same_id_before_sorting(self):
+        original = manifest("a", title="A", order=10)
+        replacement = manifest("a", title="Changed", order=30)
+        other = manifest("b", title="B", order=20)
+        with mock.patch.object(mf.os, "listdir", side_effect=[["a.json", "b.json"], ["a.json"]]), mock.patch.object(
+                mf, "load_file", side_effect=[original, other, replacement]):
+            manifests, problems = mf.load_all(["builtin", "user"])
+        self.assertEqual(problems, [])
+        self.assertEqual(manifests, [other, replacement])
 
     def test_bad_ones_are_named_not_fatal(self):
         with tempfile.TemporaryDirectory(dir=os.path.dirname(os.path.dirname(__file__))) as d:

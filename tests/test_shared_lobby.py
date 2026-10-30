@@ -89,9 +89,10 @@ class SharedLobbyTests(unittest.TestCase):
                    servers=SimpleNamespace(load=lambda user_dir: ([], []), default_entry=lambda entries: None,
                        resolve=lambda target, entries: SimpleNamespace(tls="off", client_kwargs=lambda: dict(server=target))),
                    proto=SimpleNamespace(PROTO_VERSION=1, GAME="t4"))
-        with mock.patch("openrecomp.adapters.t5_online.importlib.import_module",
-                        side_effect=lambda name: api[name.split(".")[-1]]) as load, mock.patch(
-                        "openrecomp.adapters.t5_online.add_path"):
+        # Resolve the string patch target before replacing importlib's shared resolver.
+        with mock.patch("openrecomp.adapters.t5_online.add_path"), mock.patch(
+                "openrecomp.adapters.t5_online.importlib.import_module",
+                side_effect=lambda name: api[name.split(".")[-1]]) as load:
             self.a.online_state()
             load.assert_not_called()
             client = self.login()
@@ -103,8 +104,8 @@ class SharedLobbyTests(unittest.TestCase):
     def test_wrong_game_runtime_is_refused_before_connect(self):
         del self.a._online_api
         module = SimpleNamespace(PROTO_VERSION=1, GAME="t5", LobbyClient=object, BuildInfo=object)
-        with mock.patch("openrecomp.adapters.t5_online.importlib.import_module", return_value=module), mock.patch(
-                "openrecomp.adapters.t5_online.add_path"):
+        with mock.patch("openrecomp.adapters.t5_online.add_path"), mock.patch(
+                "openrecomp.adapters.t5_online.importlib.import_module", return_value=module):
             self.action("login_guest")
         self.assertEqual(self.a.online_state()["message"], "@online.client_missing")
         self.assertEqual(self.a.clients, [])

@@ -182,8 +182,9 @@ class OnlineAdapterTests(unittest.TestCase):
             proto=SimpleNamespace(PROTO_VERSION=1))
         def module(name):
             return api[name.split(".")[-1]]
-        with mock.patch("openrecomp.adapters.t5_online.importlib.import_module", side_effect=module) as load, mock.patch(
-                "openrecomp.adapters.t5_online.add_path") as add_path:
+        # Resolve the string patch target before replacing importlib's shared resolver.
+        with mock.patch("openrecomp.adapters.t5_online.add_path") as add_path, mock.patch(
+                "openrecomp.adapters.t5_online.importlib.import_module", side_effect=module) as load:
             self.a.online_state()
             load.assert_not_called()
             self.login()
@@ -193,8 +194,8 @@ class OnlineAdapterTests(unittest.TestCase):
 
     def test_incompatible_protocol_is_refused_without_connecting(self):
         del self.a._online_api
-        with mock.patch("openrecomp.adapters.t5_online.importlib.import_module", return_value=SimpleNamespace(
-                PROTO_VERSION=2)), mock.patch("openrecomp.adapters.t5_online.add_path"):
+        with mock.patch("openrecomp.adapters.t5_online.add_path"), mock.patch(
+                "openrecomp.adapters.t5_online.importlib.import_module", return_value=SimpleNamespace(PROTO_VERSION=2)):
             self.a.online_action("login_guest")
             self.a.online_poll()
         self.assertEqual(self.a.online_state()["message"], "@online.client_missing")

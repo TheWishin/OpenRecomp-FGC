@@ -144,6 +144,8 @@ def untranslated_literals(source):
         if value.startswith("@"):
             if value[1:] not in english and value != "@language.":
                 errors.append((node.lineno, value))
+        elif re.fullmatch(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?", value):
+            continue  # hexadecimal colours, never translated text
         elif value not in technical:
             errors.append((node.lineno, value))
     return errors
@@ -351,6 +353,13 @@ class Catalogs(unittest.TestCase):
         self.assertEqual(untranslated_literals('getattr(adapter, "controls_supported", lambda: False)()'), [])
         self.assertEqual(untranslated_literals('hasattr(adapter, "_controls_session")'), [])
         self.assertTrue(untranslated_literals('getattr(adapter, "message", "Try again")'))
+
+    def test_python_scan_accepts_hex_colours_but_checks_display_labels(self):
+        for colour in ("#ECE9E1", "#abcdef", "#80ECE9E1"):
+            self.assertEqual(untranslated_literals(f'dict(accent="{colour}")'), [])
+            self.assertTrue(untranslated_literals(f'dict(label="{colour}")'))
+        for colour in ("#GGGGGG", "#Choose", "#ECE9E1 text"):
+            self.assertTrue(untranslated_literals(f'dict(accent="{colour}")'))
 
     def test_python_scan_accepts_online_ids_but_checks_their_display_labels(self):
         self.assertEqual(untranslated_literals('dict(phase="searching", id="login_saved")'), [])

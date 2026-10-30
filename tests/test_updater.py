@@ -43,7 +43,10 @@ class UpdaterTests(unittest.TestCase):
         raw = io.BytesIO()
         with zipfile.ZipFile(raw, "w") as archive:
             for name, value in entries.items():
-                archive.writestr(name, value)
+                entry = zipfile.ZipInfo(name)
+                # ZipInfo normalizes Windows separators; keep the unsafe name under test.
+                entry.filename = name
+                archive.writestr(entry, value)
         return raw.getvalue()
 
     def test_ed25519_published_rfc8032_vector_and_tampering(self):
@@ -134,9 +137,12 @@ class UpdaterTests(unittest.TestCase):
         bad_entries = ["../escape", "openrecomp/../../escape", "openrecomp/./bad", "settings.json", "python/CON.txt", "python/COM¹.txt",
                        "python/bad:stream", "python/space ", "python\\escape", "/absolute"]
         for name in bad_entries:
-            raw = self.archive({prefix + name: b"fake"})
-            with zipfile.ZipFile(io.BytesIO(raw)) as archive, self.assertRaises(u.UpdateError):
-                u._archive_members(archive, "v1.2.3")
+            with self.subTest(path=name):
+                raw = self.archive({prefix + name: b"fake"})
+                with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                    self.assertEqual(archive.infolist()[0].orig_filename, prefix + name)
+                    with self.assertRaises(u.UpdateError):
+                        u._archive_members(archive, "v1.2.3")
         raw = self.archive({prefix + "openrecomp/A.py": b"a", prefix + "openrecomp/a.py": b"b"})
         with zipfile.ZipFile(io.BytesIO(raw)) as archive, self.assertRaises(u.UpdateError):
             u._archive_members(archive, "v1.2.3")
