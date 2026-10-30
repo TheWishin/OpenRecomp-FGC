@@ -1,0 +1,18 @@
+# Game data and anything made from it: never in this public repository
+*.iso
+*.pkg
+*.rap
+*.bin
+*.img
+*.elf
+*.self
+
+# Screenshots can show game art
+shots/
+*.png
+*.jpg
+
+# Local
+.venv/
+__pycache__/
+*.pyc
