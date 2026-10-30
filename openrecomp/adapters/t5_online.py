@@ -59,7 +59,9 @@ class Online:
             return
         cfg = self._online_config()
         self._online_fields = dict(online_name=str(cfg.get("name") or self._online_nickname() or ""),
-                                   online_password="", online_server=str(cfg.get("server") or ""), online_chat="")
+                                   online_password="", online_server=str(cfg.get("server") or ""), online_chat="",
+                                   online_room_name="", online_room_password="", online_room_code="",
+                                   online_friend_name="")
         self._online_name_prefill = not bool(cfg.get("name"))
         self._online_phase = "offline"
         self._online_message = "@online.offline"
@@ -72,6 +74,11 @@ class Online:
         self._online_chat = []
         self._online_challenge = {}
         self._online_room = {}
+        self._online_friends = []
+        self._online_friend_incoming = []
+        self._online_friend_outgoing = []
+        self._online_invites = []
+        self._online_outgoing_invite = {}
         self._online_client = None
         self._online_busy = False
         self._online_generation = 0
@@ -161,15 +168,35 @@ class Online:
 
     def online_state(self):
         self._online_init()
+        capabilities = dict(ranked=self.online_ranked, lobby=self.online_lobby,
+                            match_flow=self.online_match_flow)
+        if self.online_lobby and self.online_game != "t4":
+            capabilities.update(private_rooms=self._online_social_cap("private_rooms"),
+                                friends=self._online_social_cap("friends"))
         return dict(phase=self._online_phase, message=self._online_message,
                     name=self._online_name, account=self._online_account,
                     queue=self._online_queue, match=dict(self._online_match),
                     saved_available=bool(self._online_saved()),
-                    capabilities=dict(ranked=self.online_ranked, lobby=self.online_lobby,
-                                      match_flow=self.online_match_flow),
+                    capabilities=capabilities,
                     players=[dict(p) for p in self._online_players], rooms=[dict(r) for r in self._online_rooms],
                     chat=[dict(line) for line in self._online_chat], challenge=dict(self._online_challenge),
-                    room=dict(self._online_room))
+                    room=dict(self._online_room), friends=[dict(f) for f in self._online_friends],
+                    friend_incoming=[dict(f) for f in self._online_friend_incoming],
+                    friend_outgoing=[dict(f) for f in self._online_friend_outgoing],
+                    invites=[dict(inv) for inv in self._online_invites],
+                    outgoing_invite=dict(self._online_outgoing_invite))
+
+    def _online_social_cap(self, capability):
+        if not self.online_lobby or self.online_game == "t4" or self._online_client is None:
+            return False
+        if capability == "friends" and not self._online_account:
+            return False
+        method = "has_friends" if capability == "friends" else "private_rooms_ok"
+        check = getattr(self._online_client, method, None)
+        try:
+            return bool(check and check())
+        except Exception:  # noqa: BLE001 -- unknown installed/server capabilities stay hidden
+            return False
 
     def online_text_value(self, tid):
         self._online_init()
@@ -181,7 +208,8 @@ class Online:
     def set_online_text_value(self, tid, value):
         self._online_init()
         if (tid in self._online_fields and not self._online_busy
-                and (self._online_client is None or tid == "online_chat")):
+                and (self._online_client is None or tid in ("online_chat", "online_room_name",
+                     "online_room_password", "online_room_code", "online_friend_name"))):
             self._online_fields[tid] = str(value)
             if tid == "online_name":
                 self._online_name_prefill = False
@@ -207,7 +235,8 @@ class Online:
         keys = dict(auth_failed="@online.auth_failed", insecure="@online.insecure", bad_name="@online.bad_name",
                     name_taken="@online.name_taken", timeout="@online.unavailable", rate_limited="@online.rate_limited",
                     version_mismatch="@online.version_mismatch", proto_mismatch="@online.version_mismatch",
-                    server_full="@online.server_full", busy="@online.busy_server")
+                    server_full="@online.server_full", busy="@online.busy_server",
+                    room_locked="@online.room_locked", bad_password="@online.room_locked")
         local = ("@online.client_missing", "@online.build_required", "@online.no_online",
                  "@online.server_invalid", "@online.game_running", "@online.process_unknown", "@online.cancelled")
         if isinstance(error, RuntimeError) and str(error) in local:
@@ -405,9 +434,83 @@ class Online:
         if not isinstance(room, dict):
             return {}
         owner = room.get("owner") or {}
-        return dict(id=str(room.get("id") or "")[:80], name=str(room.get("name") or "")[:64],
+        out = dict(id=str(room.get("id") or "")[:80], name=str(room.get("name") or "")[:64],
                     host=str(owner.get("name") or "")[:64] if isinstance(owner, dict) else "",
                     status=str(room.get("status") or "")[:20])
+        if self._online_social_cap("private_rooms"):
+            lock = room.get("lock") or room.get("private") or "none"
+            out["lock"] = lock if lock in ("none", "password", "code") else "none"
+        return out
+
+    def _online_own_room(self, room):
+        self._online_room = self._online_room_view(room)
+        if self._online_room.get("id") and self._online_social_cap("private_rooms"):
+            code = getattr(self._online_client, "room_code", None)
+            if isinstance(code, str):
+                self._online_room["code"] = code[:40]
+
+    def _online_friends_snapshot(self, event):
+        if not self._online_social_cap("friends") or not isinstance(event, dict):
+            return
+        friends = event.get("friends") or []
+        self._online_friends = []
+        for friend in friends[:200] if isinstance(friends, list) else []:
+            if not isinstance(friend, dict) or not friend.get("name"):
+                continue
+            retry = friend.get("retry")
+            retry = max(0, min(retry, 86400)) if isinstance(retry, int) and not isinstance(retry, bool) else 0
+            wait = getattr(self._online_client, "invite_wait", None)
+            if callable(wait):
+                retry = wait(friend["name"])
+            self._online_friends.append(dict(name=str(friend["name"])[:64],
+                status=friend.get("status") if friend.get("status") in ("online", "in_match", "offline") else "offline",
+                activity=str(friend.get("activity") or "")[:64], invite=friend.get("invite") == "ok", retry=retry))
+        for field in ("incoming", "outgoing"):
+            entries = event.get(field) or []
+            setattr(self, "_online_friend_" + field, [dict(name=str(entry["name"])[:64])
+                for entry in entries[:200] if isinstance(entry, dict) and entry.get("name")]
+                if isinstance(entries, list) else [])
+
+    def _online_social_event(self, event):
+        if not self._online_social_cap("friends"):
+            return False
+        kind = event.get("t")
+        if kind == "friends":
+            self._online_friends_snapshot(event)
+        elif kind in ("friend_status", "friend_request", "friend_update"):
+            self._online_friends_snapshot(getattr(self._online_client, "friend_list", None))
+            self._online_message = "@online.friend_updated"
+        elif kind == "invited":
+            sender, room = event.get("from"), event.get("room")
+            sender = sender if isinstance(sender, dict) else {}
+            room = room if isinstance(room, dict) else {}
+            iid = str(event.get("invite") or "")[:80]
+            if iid:
+                self._online_invites = [inv for inv in self._online_invites if inv["id"] != iid][-19:]
+                self._online_invites.append(dict(id=iid, name=str(sender.get("name") or "")[:64],
+                    kind="room" if event.get("kind") == "room" else "casual", room=str(room.get("name") or "")[:64]))
+        elif kind == "invite_update":
+            iid = str(event.get("invite") or "")[:80]
+            self._online_invites = [inv for inv in self._online_invites if inv["id"] != iid]
+            if self._online_outgoing_invite.get("id") == iid:
+                self._online_outgoing_invite = {}
+            self._online_friends_snapshot(getattr(self._online_client, "friend_list", None))
+            self._online_message = "@online.invite_ended"
+        else:
+            return False
+        return True
+
+    def _online_invite_waits(self):
+        wait = getattr(self._online_client, "invite_wait", None)
+        if not callable(wait):
+            return False
+        changed = False
+        for friend in self._online_friends:
+            retry = wait(friend["name"])
+            if retry != friend["retry"]:
+                friend["retry"] = retry
+                changed = True
+        return changed
 
     def _online_lobby_snapshot(self, event):
         me = getattr(self._online_client, "me", None) or {}
@@ -418,8 +521,9 @@ class Online:
         self._online_players = [self._online_player(p) for p in players
                                 if isinstance(p, dict) and p.get("id") != me.get("id")][:200]
         self._online_rooms = [self._online_room_view(r) for r in rooms
-                              if isinstance(r, dict) and not (r.get("private") or r.get("lock")
-                              or r.get("hidden") or r.get("ranked") or r.get("training"))][:200]
+                              if isinstance(r, dict) and not (r.get("hidden") or r.get("ranked") or r.get("training"))
+                              and (self._online_social_cap("private_rooms") or not (
+                                  r.get("private") or r.get("lock") not in (None, "", "none", False)))][:200]
 
     def _online_lobby_action(self, action, client):
         generation = self._online_generation
@@ -444,22 +548,62 @@ class Online:
                         raise SearchRefused(problem)
                 self._online_check_request(generation, client)
                 return client.answer_challenge(challenge, accept=action == "accept_challenge")
-        elif action == "create_room":
+        elif action in ("create_room", "create_password_room", "create_code_room"):
+            private = {"create_password_room": "password", "create_code_room": "code"}.get(action)
+            if private and not self._online_social_cap("private_rooms"):
+                self._online_message = "@online.social_unavailable"
+                return
+            password = self._online_fields["online_room_password"][:128]
+            name = self._online_fields["online_room_name"].strip()[:64]
+            if private == "password" and not password:
+                self._online_message = "@online.room_password_required"
+                return
+            self._online_fields["online_room_password"] = ""
             def work():
                 problem = self._online_game_check()
                 if problem:
                     raise SearchRefused(problem)
                 self._online_check_request(generation, client)
+                if private:
+                    return client.create_room(name=name or None, ranked=False, private=private,
+                                              **(dict(password=password) if private == "password" else {}))
+                if name and self._online_social_cap("private_rooms"):
+                    return client.create_room(name=name, ranked=False)
                 return client.create_room(ranked=False)
         elif action.startswith("join_room:"):
             target = action.split(":", 1)[1]
             if any(r["id"] == target for r in self._online_rooms):
+                room = next(r for r in self._online_rooms if r["id"] == target)
+                password = self._online_fields["online_room_password"][:128]
+                code = self._online_fields["online_room_code"].strip()[:40]
+                if room.get("lock") == "password" and not password:
+                    self._online_message = "@online.room_password_required"
+                    return
+                if room.get("lock") == "code" and not code:
+                    self._online_message = "@online.room_code_required"
+                    return
+                self._online_fields["online_room_password"] = ""
                 def work():
                     problem = self._online_game_check()
                     if problem:
                         raise SearchRefused(problem)
                     self._online_check_request(generation, client)
+                    if room.get("lock") == "password":
+                        return client.join_room(target, password=password)
+                    if room.get("lock") == "code":
+                        return client.join_room(target, code=code)
                     return client.join_room(target)
+        elif action == "join_room_code" and self._online_social_cap("private_rooms"):
+            code = self._online_fields["online_room_code"].strip()[:40]
+            if not code:
+                self._online_message = "@online.room_code_required"
+                return
+            def work():
+                problem = self._online_game_check()
+                if problem:
+                    raise SearchRefused(problem)
+                self._online_check_request(generation, client)
+                return client.join_room(code=code)
         elif action == "leave_room":
             work = client.leave_room
         elif action == "send_chat":
@@ -468,8 +612,71 @@ class Online:
                 self._online_message = "@online.chat_required"
                 return
             work = lambda: client.chat(text)
+        elif self._online_social_cap("friends"):
+            work = self._online_friend_action(action, client)
         if work:
-            self._online_submit(action, work)
+            def checked():
+                self._online_check_request(generation, client)
+                return work()
+            self._online_submit(action, checked)
+
+    def _online_friend_action(self, action, client):
+        generation = self._online_generation
+        prefix, _, target = action.partition(":")
+        if action == "refresh_friends":
+            return client.friends_list
+        if action == "add_friend":
+            name = self._online_fields["online_friend_name"].strip()[:64]
+            if not name:
+                self._online_message = "@online.friend_name_required"
+                return None
+            return lambda: client.add_friend(name)
+        incoming = {entry["name"] for entry in self._online_friend_incoming}
+        outgoing = {entry["name"] for entry in self._online_friend_outgoing}
+        friends = {entry["name"]: entry for entry in self._online_friends}
+        if prefix in ("accept_friend", "decline_friend") and target in incoming:
+            return lambda: client.answer_friend(target, accept=prefix == "accept_friend")
+        if prefix == "cancel_friend" and target in outgoing:
+            return lambda: client.cancel_friend_request(target)
+        if prefix == "remove_friend" and target in friends:
+            return lambda: client.remove_friend(target)
+        if prefix in ("invite_friend", "invite_room") and target in friends:
+            friend = friends[target]
+            wait = getattr(client, "invite_wait", None)
+            retry = wait(target) if callable(wait) else friend.get("retry", 0)
+            if retry:
+                self._online_message = "@online.invite_wait"
+                return None
+            if friend.get("status") != "online" or not friend.get("invite"):
+                return None
+            if prefix == "invite_room" and not self._online_room.get("id"):
+                return None
+            def work():
+                problem = self._online_game_check()
+                if problem:
+                    raise SearchRefused(problem)
+                self._online_check_request(generation, client)
+                return client.invite(target, kind="room" if prefix == "invite_room" else "casual")
+            return work
+        if prefix in ("accept_invite", "decline_invite") and any(inv["id"] == target for inv in self._online_invites):
+            def work():
+                if prefix == "accept_invite":
+                    problem = self._online_game_check()
+                    if problem:
+                        raise SearchRefused(problem)
+                self._online_check_request(generation, client)
+                return client.answer_invite(target, accept=prefix == "accept_invite")
+            return work
+        if action == "cancel_invite" and self._online_outgoing_invite:
+            iid = self._online_outgoing_invite["id"]
+            return lambda: client.cancel_invite(iid)
+        return None
+
+    @staticmethod
+    def _online_match_request(action):
+        return (action.startswith(("search_", "challenge:", "join_room:", "accept_invite:",
+                                   "invite_friend:", "invite_room:")) or action in (
+            "accept_challenge", "create_room", "create_password_room", "create_code_room", "join_room_code"))
 
     def _online_event(self, event):
         """A game-specific match flow can consume events without exposing tickets to screens."""
@@ -501,7 +708,7 @@ class Online:
             except queue.Empty:
                 break
         retained = False
-        priority = ("kicked", "disconnected", "match_found") if self.online_match_flow else (
+        priority = ("kicked", "disconnected") if self.online_match_flow else (
             "kicked", "match_found", "disconnected")
         for kind in priority:
             event = next((event for event in events if event.get("t") == kind), None)
@@ -530,13 +737,27 @@ class Online:
             return True, True
         changed = retained
         for event in events:
-            if self._online_event(event):
+            if self.online_match_flow and event.get("t") == "match_found":
+                self._online_invites = []
+                self._online_outgoing_invite = {}
+                self._online_challenge = {}
+                if not self._online_match_found(event):
+                    name, account = self._online_name, self._online_account
+                    self.online_close()
+                    self._online_phase, self._online_message = "matched", "@online.matched"
+                    self._online_match = self._online_match_view(event)
+                    self._online_name, self._online_account = name, account
+                    return True, True
+                changed = True
+            elif self._online_event(event):
+                changed = True
+            elif self._online_social_event(event):
                 changed = True
             elif self.online_lobby and event.get("t") == "lobby_state":
                 self._online_lobby_snapshot(event)
                 changed = True
             elif self.online_lobby and event.get("t") == "room":
-                self._online_room = self._online_room_view(event.get("room"))
+                self._online_own_room(event.get("room"))
                 changed = True
             elif self.online_lobby and event.get("t") == "chat":
                 sender = event.get("from") or {}
@@ -577,8 +798,7 @@ class Online:
             self._online_busy = False
             if self._online_completion(action, value, error):
                 continue
-            match_request = (action.startswith(("search_", "challenge:", "join_room:"))
-                             or action in ("accept_challenge", "create_room"))
+            match_request = self._online_match_request(action)
             if error:
                 # The client can receive a terminal event while a blocking request is finishing.
                 event_changed, terminal = self._online_events()
@@ -605,8 +825,7 @@ class Online:
                     message = self._online_message
                     self.online_close()
                     self._online_message = message
-                elif (action.startswith(("challenge:", "join_room:"))
-                      or action in ("accept_challenge", "create_room")) and not isinstance(error, SearchRefused):
+                elif match_request and not isinstance(error, SearchRefused):
                     # A timed-out reply may still have reserved a match or room on the server.
                     message = self._online_message
                     self.online_close()
@@ -620,6 +839,9 @@ class Online:
                 self._online_account = not bool(me.get("guest", True))
                 if self._online_account:
                     self.config["online_identity"] = dict(name=self._online_name)
+                # The native reader may push friends before the login worker's
+                # result reaches us. Its cached snapshot survives that ordering.
+                self._online_friends_snapshot(getattr(self._online_client, "friend_list", None))
                 self._online_fields["online_name"] = self._online_name
                 self._online_name_prefill = False
                 self._online_fields["online_server"] = value["server"]
@@ -644,8 +866,8 @@ class Online:
             elif action in ("accept_challenge", "decline_challenge"):
                 self._online_challenge = {}
                 self._online_message = "@online.challenge_answered"
-            elif action == "create_room" or action.startswith("join_room:"):
-                self._online_room = self._online_room_view(value)
+            elif action in ("create_room", "create_password_room", "create_code_room", "join_room_code") or action.startswith("join_room:"):
+                self._online_own_room(value)
                 self._online_message = "@online.room_joined"
             elif action == "leave_room":
                 self._online_room = {}
@@ -653,6 +875,36 @@ class Online:
             elif action == "send_chat":
                 self._online_fields["online_chat"] = ""
                 self._online_message = "@online.chat_sent"
+            elif action == "refresh_friends":
+                self._online_friends_snapshot(value)
+                self._online_message = "@online.friend_updated"
+            elif action == "add_friend":
+                self._online_fields["online_friend_name"] = ""
+                self._online_message = "@online.friend_requested"
+            elif action.startswith(("accept_friend:", "decline_friend:")):
+                target = action.partition(":")[2]
+                self._online_friend_incoming = [f for f in self._online_friend_incoming if f["name"] != target]
+                self._online_message = "@online.friend_answered"
+            elif action.startswith("remove_friend:"):
+                target = action.partition(":")[2]
+                self._online_friends = [f for f in self._online_friends if f["name"] != target]
+                self._online_message = "@online.friend_removed"
+            elif action.startswith("cancel_friend:"):
+                target = action.partition(":")[2]
+                self._online_friend_outgoing = [f for f in self._online_friend_outgoing if f["name"] != target]
+                self._online_message = "@online.friend_cancelled"
+            elif action.startswith(("invite_friend:", "invite_room:")):
+                if isinstance(value, dict) and value.get("invite"):
+                    self._online_outgoing_invite = dict(id=str(value["invite"])[:80],
+                        name=str(value.get("name") or "")[:64], kind="room" if value.get("kind") == "room" else "casual")
+                self._online_message = "@online.invite_sent"
+            elif action.startswith(("accept_invite:", "decline_invite:")):
+                target = action.partition(":")[2]
+                self._online_invites = [inv for inv in self._online_invites if inv["id"] != target]
+                self._online_message = "@online.invite_answered"
+            elif action == "cancel_invite":
+                self._online_outgoing_invite = {}
+                self._online_message = "@online.invite_ended"
         event_changed, terminal = self._online_events()
         changed = changed or event_changed
         if terminal:
@@ -661,7 +913,7 @@ class Online:
                 and time.monotonic() >= self._online_guard_at):
             self._online_guard_at = time.monotonic() + 1
             self._online_submit("guard", self._online_game_check)
-        return changed
+        return self._online_invite_waits() or changed
 
     def online_close(self):
         self._online_init()
@@ -678,7 +930,14 @@ class Online:
         self._online_chat = []
         self._online_challenge = {}
         self._online_room = {}
+        self._online_friends = []
+        self._online_friend_incoming = []
+        self._online_friend_outgoing = []
+        self._online_invites = []
+        self._online_outgoing_invite = {}
         self._online_fields["online_password"] = ""
         self._online_fields["online_chat"] = ""
+        self._online_fields["online_room_password"] = ""
+        self._online_fields["online_room_code"] = ""
         if client:
             threading.Thread(target=close_client, args=(client,), name="openrecomp-lobby-close", daemon=True).start()

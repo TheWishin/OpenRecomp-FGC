@@ -17,7 +17,9 @@ import threading
 from .base import Adapter, NO_WINDOW, add_path, expand_locations
 from .t5_controls import Controls
 from .support import T5Support
-from .t5_online import Online
+from .t5_match import T5Match
+from .t5_online import game_process_running
+from .launch_guard import LaunchGuard
 from ..manifest import art_dir
 
 DISPLAY = [("window", "@display.window"), ("window1080", "@display.1080"), ("window1440", "@display.1440"),
@@ -80,7 +82,7 @@ def load_runtime(root, name):
     return module
 
 
-class T5DR(Controls, T5Support, Online, Adapter):
+class T5DR(Controls, T5Support, T5Match, Adapter):
     native_label = "@t5.native_label"
 
     def __init__(self, manifest, config, root, core=None, replays_mod=None):
@@ -179,8 +181,25 @@ class T5DR(Controls, T5Support, Online, Adapter):
             raise RuntimeError(self.status()["detail"])
         if self.running():
             raise RuntimeError("@already_running")
-        self.game = self.core.GameRun(self.s.out_dir, self.s)
-        return self.game.start(extra_env=extra_env)
+        previous = getattr(self, "_game_guard", None)
+        if previous is not None:
+            previous.release()
+        guard = LaunchGuard("t5dr")
+        guard.acquire()
+        try:
+            running = game_process_running()
+            if running is None:
+                raise RuntimeError("@online.process_unknown")
+            if running:
+                raise RuntimeError("@online.game_running")
+            self.game = self.core.GameRun(self.s.out_dir, self.s)
+            result = self.game.start(extra_env=extra_env)
+        except Exception:
+            guard.release()
+            raise
+        self._game_guard = guard
+        guard.watch(self.game.running)
+        return result
 
     def running(self):
         return bool(self.game and self.game.running())

@@ -22,7 +22,7 @@ class Online:
         rows = []
         if state.get("name"):
             rows.append(dict(k="@online.name", v=i18n.literal(state["name"])))
-        if phase in ("logged_in", "searching", "cancelling", "starting", "playing", "result", "result_sent"):
+        if phase in ("logged_in", "searching", "cancelling", "matched", "starting", "playing", "result", "result_sent"):
             rows.append(dict(k="@online.session", v="@online.account_kind" if state.get("account") else "@online.guest_kind"))
         if state.get("rank"):
             rows.append(dict(k="@online.rank", v=i18n.literal(state["rank"])))
@@ -69,7 +69,7 @@ class Online:
             out.append(action("cancel", "@cancel" if phase == "connecting" else "@online.cancel"))
         elif phase == "matched":
             if match_flow:
-                out += [action("start_match", "@online.start_match", "@online.start_hint"),
+                out += [action("start_match", "@online.start_match", "@online.ready_hint"),
                         action("cancel_match", "@online.cancel_match")]
             else:
                 out.append(action("logout", "@online.logout", "@online.match_stop"))
@@ -82,13 +82,17 @@ class Online:
                     action("result_loss", "@online.result_loss", "@online.result_hint"),
                     action("result_none", "@online.result_none", "@online.result_hint")]
         elif phase == "result_sent" and match_flow:
+            if capabilities.get("rematch", False):
+                out.append(action("rematch", "@online.rematch", "@online.rematch_hint"))
             out.append(action("return_lobby", "@online.return_lobby"))
         if g.a.native_label:
             out.append(self._native_item(g))
         # A reply can replace Cancel with Search, or reorder lobby targets between
         # input events. Never let the old row index authorize the replacement.
         challenge_id = (state.get("challenge") or {}).get("id")
-        rows = [(item.get("id"), challenge_id if item.get("id") in ("accept_challenge", "decline_challenge") else None)
+        invite_id = (state.get("outgoing_invite") or {}).get("id")
+        rows = [(item.get("id"), challenge_id if item.get("id") in ("accept_challenge", "decline_challenge")
+                 else invite_id if item.get("id") == "cancel_invite" else None)
                 for item in out]
         previous = self.online_rows.get(g.id)
         index = self.focus.get(g.id + ":online", 0)
@@ -98,6 +102,7 @@ class Online:
         return out
 
     def _online_lobby_items(self, g, state, out, action):
+        capabilities = state.get("capabilities") or {}
         challenge = state.get("challenge") or {}
         if challenge:
             details = [dict(k="@online.name", v=i18n.literal(challenge.get("name") or ""))]
@@ -120,14 +125,33 @@ class Online:
             out.append(dict(kind="action", id="no_players", label="@online.no_players", hint="@online.challenge_hint"))
         out.append(dict(kind="heading", label="@online.rooms"))
         out += [action("refresh_rooms", "@online.refresh_rooms"), action("create_room", "@online.create_room")]
+        if capabilities.get("private_rooms", False):
+            for tid, label in (("online_room_name", "@online.room_name"),
+                               ("online_room_password", "@online.room_password"),
+                               ("online_room_code", "@online.room_code")):
+                out.append(self._online_text_item(g, tid, label, "@online.private_room_hint"))
+            out += [action("create_password_room", "@online.create_password_room", "@online.private_room_hint"),
+                    action("create_code_room", "@online.create_code_room", "@online.private_room_hint"),
+                    action("join_room_code", "@online.join_room_code", "@online.private_room_hint")]
         if state.get("room"):
+            code = state["room"].get("code")
+            if code and capabilities.get("private_rooms", False):
+                out.append(dict(kind="action", id="room_invite_code", label="@online.room_invite_code",
+                                value=i18n.literal(code), hint="@online.private_room_hint",
+                                detail=dict(kicker="@online.rooms", title="@online.room_invite_code",
+                                            lead=i18n.literal(code), rows=[])))
             out.append(action("leave_room", "@online.leave_room"))
-        for room in state.get("rooms") or []:
+        rooms = [room for room in state.get("rooms") or [] if capabilities.get("private_rooms", False)
+                 or not (room.get("private") or room.get("lock") not in (None, "", False, "none"))]
+        for room in rooms:
             name = room.get("name") or room.get("host")
             item = action("join_room:" + str(room["id"]), i18n.literal(name) if name else "@online.join_room", "@online.room_hint")
             item["verb"] = "@online.join_room"
+            if room.get("lock") == "password":
+                item["hint"] = "@online.private_room_hint"
+                item["detail"]["lead"] = "@online.private_room_hint"
             out.append(item)
-        if not state.get("rooms"):
+        if not rooms:
             out.append(dict(kind="action", id="no_rooms", label="@online.no_rooms", hint="@online.room_hint"))
         out.append(dict(kind="heading", label="@online.chat"))
         for index, message in enumerate(state.get("chat") or []):
@@ -143,6 +167,60 @@ class Online:
                         detail=dict(kicker="@online.chat", title="@online.chat", lead="@online.chat_hint", rows=[]),
                         run=lambda: self._open_osk("online_chat")))
         out.append(action("send_chat", "@online.send_chat", "@online.chat_hint"))
+        if capabilities.get("friends", False):
+            self._online_friend_items(g, state, out, action)
+
+    def _online_text_item(self, g, tid, label, hint):
+        value = g.a.text_value(tid)
+        if tid.endswith("_password"):
+            value = "\u2022" * len(value)
+        return dict(kind="action", id=tid, label=label, value=i18n.literal(value),
+                    verb="@change", hint=hint,
+                    detail=dict(kicker="@section.online", title=label, lead=hint, rows=[]),
+                    run=lambda: self._open_osk(tid))
+
+    def _online_friend_items(self, g, state, out, action):
+        out.append(dict(kind="heading", label="@online.friends"))
+        out.append(action("refresh_friends", "@online.refresh_friends", "@online.friends_hint"))
+        out.append(self._online_text_item(g, "online_friend_name", "@online.friend_name", "@online.friends_hint"))
+        out.append(action("add_friend", "@online.add_friend", "@online.friends_hint"))
+
+        def friend_action(prefix, label, person):
+            name = str(person.get("name") or "")
+            item = action(prefix + ":" + name, label, "@online.friends_hint")
+            item["value"] = i18n.literal(name)
+            item["detail"]["rows"] = [dict(k="@online.name", v=i18n.literal(name))]
+            if person.get("status"):
+                status = {"online": "@online.friend_online", "in_match": "@online.friend_in_match",
+                          "offline": "@online.friend_offline"}.get(person["status"], i18n.literal(person["status"]))
+                item["detail"]["rows"].append(dict(k="@online.friend_status", v=status))
+            return item
+
+        friends = state.get("friends") or []
+        if not friends:
+            out.append(dict(kind="action", id="no_friends", label="@online.no_friends", hint="@online.friends_hint"))
+        for friend in friends:
+            if friend.get("invite"):
+                out.append(friend_action("invite_friend", "@online.invite_friend", friend))
+                if state.get("room"):
+                    out.append(friend_action("invite_room", "@online.invite_room", friend))
+            out.append(friend_action("remove_friend", "@online.remove_friend", friend))
+        for friend in state.get("friend_incoming") or []:
+            out.append(friend_action("accept_friend", "@online.accept_friend", friend))
+            out.append(friend_action("decline_friend", "@online.decline_friend", friend))
+        for friend in state.get("friend_outgoing") or []:
+            out.append(friend_action("cancel_friend", "@online.cancel_friend", friend))
+        for invite in state.get("invites") or []:
+            for prefix, label in (("accept_invite", "@online.accept_invite"),
+                                  ("decline_invite", "@online.decline_invite")):
+                item = action(prefix + ":" + str(invite["id"]), label, "@online.friends_hint")
+                item["value"] = i18n.literal(invite.get("name") or "")
+                item["detail"]["rows"] = [dict(k="@online.name", v=i18n.literal(invite.get("name") or ""))]
+                out.append(item)
+        if state.get("outgoing_invite"):
+            item = action("cancel_invite", "@online.cancel_invite", "@online.friends_hint")
+            item["detail"]["rows"] = [dict(k="@online.name", v=i18n.literal(state["outgoing_invite"].get("name") or ""))]
+            out.append(item)
 
     def poll_online(self):
         if self.dry:

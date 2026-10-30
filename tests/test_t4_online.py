@@ -41,7 +41,7 @@ class Subject(T4):
         self.stops = []
         self.child_exit = None
         self.fail_start = False
-        self._online_api = dict(client=self.make_client, build=Build, servers=Servers)
+        self._online_api = dict(client=self.make_client, build=Build, servers=Servers, game_env=ticket_env)
 
     def make_client(self, **kwargs):
         client = MatchClient(**kwargs)

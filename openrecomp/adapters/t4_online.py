@@ -1,4 +1,5 @@
 """T4's process-mode match flow over the common installed lobby client."""
+import importlib
 import os
 import re
 import threading
@@ -66,6 +67,29 @@ class T4Online(Online):
                        spectate=False, sets=False, match_rules=False)
         return options
 
+    def _online_game_env(self, ticket):
+        if ticket.role not in ("host", "join") or ticket.ranked:
+            raise RuntimeError("@online.refused")
+        api = self._online_modules()
+        if "game_env" not in api:
+            module = importlib.import_module(self.online_package + ".t4game")
+            package = os.path.normcase(os.path.realpath(os.path.join(self.root, "lobby", self.online_package)))
+            origin = getattr(module, "__file__", None)
+            try:
+                local = isinstance(origin, str) and os.path.commonpath(
+                    (package, os.path.normcase(os.path.realpath(origin)))) == package
+            except ValueError:
+                local = False
+            if not local or not callable(getattr(module, "game_env", None)):
+                raise RuntimeError("@online.client_missing")
+            api["game_env"] = module.game_env
+        return api["game_env"](ticket)
+
+    def _online_match_message(self):
+        reason = getattr(self, "_online_evidence", {}).get("reason")
+        return {"peer_quit": "@online.peer_quit", "peer_timeout": "@online.peer_timeout",
+                "no_peer": "@online.connection_failed", "build_mismatch": "@online.game_build_mismatch"}.get(reason)
+
     def _online_game_check(self):
         self._online_reap_owned()
         if (getattr(self, "_online_owned_run", None) is not None
@@ -95,6 +119,8 @@ class T4Online(Online):
         self._online_ticket = None
         self._online_match_id = event.get("match")
         self._online_authorized = False
+        self._online_ready_check = event.get("ready_check", True) is not False
+        self._online_early_start = None
         self._online_owned_run = None
         self._online_pending_start = None
         self._online_result_message = "@online.result_sent"
@@ -105,21 +131,46 @@ class T4Online(Online):
 
     def _online_event(self, event):
         kind = event.get("t")
-        if kind == "match_reveal":
+        if kind == "notice" and event.get("code") in ("nat_error", "version_mismatch"):
+            if self._online_phase in ("matched", "starting", "playing"):
+                message = ("@online.game_build_mismatch" if event["code"] == "version_mismatch"
+                           else "@online.connection_failed")
+                self.online_close()
+                self._online_message = message
+            return True
+        if kind in ("match_reveal", "match_cancel", "match_result", "nat_status", "nat_upgrade", "nat_fallback"):
+            if self._online_phase not in ("matched", "starting", "playing", "result", "result_sent"):
+                return True
             current = getattr(self, "_online_match_id", None)
             if current and event.get("match") not in (None, current):
                 return True
+        if kind in ("nat_status", "nat_upgrade", "nat_fallback"):
+            if self._online_phase not in ("matched", "starting", "playing"):
+                return True
+            if kind == "nat_fallback":
+                self._online_message = "@online.connection_fallback" if event.get("ok") else "@online.connection_failed"
+            else:
+                path = event.get("path") if kind == "nat_upgrade" else event.get("phase")
+                self._online_message = "@online.connection_relay" if path == "relay" else "@online.connection_direct"
+            return True
+        if kind == "match_reveal":
             opponent = event.get("opponent") or {}
             opponent = opponent if isinstance(opponent, dict) else {}
             self._online_match["opponent"] = str(opponent.get("name") or "")
             return True
         if kind == "match_start":
             ticket = event.get("ticket")
-            if not getattr(self, "_online_authorized", False) or ticket is None:
-                return True
-            if self._online_phase not in ("starting", "playing"):
+            if ticket is None:
                 return True
             if getattr(self, "_online_match_id", None) and ticket.match_id != self._online_match_id:
+                return True
+            if not getattr(self, "_online_authorized", False):
+                # Accepted challenges can already be past the server's ready step.
+                # Keep their ticket private until the player confirms the game start.
+                if self._online_phase == "matched" and not getattr(self, "_online_ready_check", True):
+                    self._online_early_start = (self._online_generation, event)
+                return True
+            if self._online_phase not in ("starting", "playing"):
                 return True
             if getattr(self, "_online_ticket", None) is ticket:
                 return True
@@ -155,7 +206,7 @@ class T4Online(Online):
                             prefixes[path] = stream.read(4096)
                     except OSError:
                         offsets[path] = (0, 0)
-                env = ticket_env(ticket)
+                env = self._online_game_env(ticket)
                 with self._online_lock:
                     if generation != self._online_generation or not self._online_authorized:
                         raise RuntimeError("@online.cancelled")
@@ -171,17 +222,17 @@ class T4Online(Online):
             self._online_submit("start_game", launch)
             return True
         if kind == "match_cancel":
-            current = getattr(self, "_online_match_id", None)
-            if current and event.get("match") not in (None, current):
-                return True
             # A quick-match cancellation may requeue automatically; disconnect to stop it.
+            reason = event.get("reason")
             self.online_close()
-            self._online_message = "@online.cancelled"
+            self._online_message = {
+                "peer_quit": "@online.peer_quit", "opponent_left": "@online.peer_quit",
+                "peer_timeout": "@online.peer_timeout", "ready_timeout": "@online.ready_expired",
+                "declined": "@online.peer_declined", "relay_full": "@online.relay_full",
+                "nat_failed": "@online.connection_failed", "udp_unreachable": "@online.connection_failed",
+                "no_connection": "@online.connection_failed"}.get(reason, "@online.cancelled")
             return True
         if kind == "match_result":
-            current = getattr(self, "_online_match_id", None)
-            if current and event.get("match") not in (None, current):
-                return True
             if self._online_phase == "starting":
                 # The lobby can void a match while the launch worker is still pending.
                 self.online_close()
@@ -219,13 +270,14 @@ class T4Online(Online):
             self._online_authorized = True
             self._online_phase, self._online_message = "starting", "@online.starting"
             generation = self._online_generation
+            ready_check = getattr(self, "_online_ready_check", True)
 
             def ready():
                 problem = self._online_game_check()
                 if problem:
                     raise SearchRefused(problem)
                 self._online_check_request(generation, client)
-                return client.ready(True)
+                return client.ready(True) if ready_check else None
             self._online_submit(action, ready)
         elif action == "cancel_match" and phase in ("matched", "starting") and client:
             self._online_authorized = False
@@ -243,7 +295,9 @@ class T4Online(Online):
                 winner=winner, match_id=ticket.match_id, source="manual", **evidence))
         elif action == "return_lobby" and phase == "result_sent":
             self._online_ticket = None
+            self._online_match_id = None
             self._online_authorized = False
+            self._online_early_start = None
             self._online_match = {}
             self._online_phase, self._online_message = "logged_in", "@online.logged_in"
         else:
@@ -262,6 +316,9 @@ class T4Online(Online):
             self._online_message = message
         elif action == "start_game":
             self._online_phase, self._online_message = "playing", "@online.playing"
+        elif (action == "start_match" and self._online_phase == "starting"
+              and self._online_message == "@online.starting" and getattr(self, "_online_ready_check", True)):
+            self._online_message = "@online.waiting_peer_ready"
         elif action.startswith("result_"):
             self._online_phase = "result_sent"
             self._online_message = getattr(self, "_online_result_message", "@online.result_sent")
@@ -360,6 +417,13 @@ class T4Online(Online):
         if hasattr(self, "_online_lock"):
             self._online_reap_owned()
         changed = super().online_poll()
+        early = getattr(self, "_online_early_start", None)
+        if (early is not None and not self._online_busy and getattr(self, "_online_authorized", False)
+                and self._online_phase == "starting"):
+            self._online_early_start = None
+            if early[0] == self._online_generation:
+                self._online_event(early[1])
+                return True
         pending = getattr(self, "_online_pending_start", None)
         if pending is not None and not self._online_busy:
             self._online_pending_start = None
@@ -370,11 +434,15 @@ class T4Online(Online):
         run = getattr(self, "_online_owned_run", None)
         self._online_read_evidence()
         if run is None:
-            self._online_phase, self._online_message = "result", "@online.result_prompt"
+            self._online_phase, self._online_message = "result", self._online_match_message() or "@online.result_prompt"
             return True
         if run.proc.poll() is not None:
-            self._online_phase, self._online_message = "result", "@online.result_prompt"
+            self._online_phase, self._online_message = "result", self._online_match_message() or "@online.result_prompt"
             return True
+        problem = self._online_match_message()
+        if problem and self._online_message != problem:
+            self._online_message = problem
+            changed = True
         client, ticket = self._online_client, self._online_ticket
         if self._online_connected and not getattr(self, "_online_started_sent", False):
             self._online_started_sent = True
@@ -387,6 +455,7 @@ class T4Online(Online):
         if (not self._online_connected and not self._online_fallback and ticket.path in ("direct", "lan")
                 and time.monotonic() - self._online_started_at >= 20):
             self._online_fallback = True
+            self._online_message = "@online.connection_fallback"
             self._online_submit("nat_fallback", lambda: client.nat_fallback(ticket.match_id))
             return True
         return changed
@@ -395,6 +464,7 @@ class T4Online(Online):
         self._online_init()
         with self._online_lock:
             self._online_authorized = False
+            self._online_early_start = None
             self._online_pending_start = None
             self._online_stop_owned()
             super().online_close()

@@ -10,7 +10,9 @@ import threading
 import time
 
 from .base import Adapter, ProcessBuild, add_path, expand_locations, onoff
+from .launch_guard import LaunchGuard
 from .t4_online import T4Online
+from .t5_online import game_process_running
 from .t4_install import install_root, install_source
 from ..manifest import art_dir, save_config
 
@@ -123,7 +125,27 @@ class T4(T4Online, Adapter):
             proc = getattr(self.run, "proc", None)
             if callable(getattr(proc, "poll", None)) and self.running():
                 raise RuntimeError("@online.game_running")
-            return self._start(extra_env)
+            previous = getattr(self, "_launch_guard", None)
+            if previous is not None and proc is not None and proc.poll() is not None:
+                previous.release()
+            reservation = LaunchGuard("t4").acquire()
+            try:
+                exe, _why = self.core.find_runtime(self.s)
+                if not exe:
+                    raise RuntimeError("@online.build_required")
+                active = game_process_running(os.path.basename(exe))
+                if active is None:
+                    raise RuntimeError("@online.process_unknown")
+                if active:
+                    raise RuntimeError("@online.game_running")
+                pid = self._start(extra_env)
+            except Exception:
+                reservation.release()
+                raise
+            self._launch_guard = reservation
+            run = self.run
+            reservation.watch(lambda: run.proc.poll() is None)
+            return pid
 
     def _start(self, extra_env=None):
         problems = self.problems()

@@ -98,7 +98,12 @@ def untranslated_literals(source):
                 ignore(node.args[0])
             for kw in node.keywords:
                 if kw.arg in ("label", "hint", "lead", "title", "verb", "kicker", "k", "v", "value", "note", "primary", "status", "version", "players", "last", "result", "empty", "bar"):
-                    check_display(kw.value)
+                    # Friend snapshots carry a protocol enum; Nav translates that enum.
+                    friend_record = (name == "dict" and kw.arg == "status"
+                                     and {item.arg for item in node.keywords}
+                                     == {"name", "status", "activity", "invite", "retry"})
+                    if not friend_record:
+                        check_display(kw.value)
                 if kw.arg in ("id", "kind", "opens", "encoding", "errors", "mode"):
                     ignore(kw.value)
 
@@ -142,6 +147,16 @@ def untranslated_literals(source):
         "file_or_folder", "available", "checking", "installing", "current", "unconfigured",
         ".zip", "con", "prn", "aux", "nul", "conin$", "conout$", "com", "lpt",
         "sha256", "installs", "pending-", "xb", "_openrecomp_t4core_", "core", "replays", ".openrecomp-",
+        "online_room_name", "online_room_password", "online_room_code", "online_friend_name", "_password",
+        "create_password_room", "create_code_room", "join_room_code", "room_invite_code",
+        "refresh_friends", "add_friend", "remove_friend", "invite_friend", "invite_room",
+        "accept_friend", "decline_friend", "cancel_friend", "accept_invite", "decline_invite", "cancel_invite",
+        "no_friends", "private_rooms", "friends", "incoming", "outgoing", "_online_friend_",
+        "password", "code", "online", "in_match", "rematch", "logs", ".match_driver", ".t4game",
+        "continue", "won", "lost", "draw", "t5_ready", "t5_answer", "t5_rematch", "t5_return", "t5_driver",
+        "openrecomp-t5-match", "openrecomp-t5-match-close",
+        "[a-z0-9_-]+", "invalid game id", "OpenRecomp-FGC-launches", ".lock", "a+b",
+        "openrecomp-game-reservation",
     }
     formats = {
         'f"{platform} RECOMP"', 'f"slot{i}"', 'f"{self.game.id}:{self.section()}"', 'f"{letter}:\\\\"',
@@ -426,6 +441,33 @@ class Catalogs(unittest.TestCase):
         self.assertEqual(untranslated_literals('ONLINE_KEYS = (("qwertyuiop",),)'), [])
         self.assertTrue(untranslated_literals('dict(label="searching")'))
         self.assertTrue(untranslated_literals('dict(hint="login_saved")'))
+
+    def test_python_scan_accepts_match_social_and_reservation_identifiers(self):
+        values = (
+            "online_room_password", "online_room_code", "online_friend_name", "_password",
+            "create_password_room", "create_code_room", "join_room_code", "refresh_friends",
+            "accept_friend", "invite_room", "accept_invite", "cancel_invite", "_online_friend_",
+            "private_rooms", "friends", "incoming", "outgoing", "online", "in_match",
+            "rematch", "logs", ".match_driver", ".t4game", "continue", "won", "lost", "draw",
+            "t5_ready", "t5_driver", "t5_rematch", "t5_return", "openrecomp-t5-match",
+            "openrecomp-t5-match-close", "[a-z0-9_-]+", "invalid game id",
+            "OpenRecomp-FGC-launches", ".lock", "a+b", "openrecomp-game-reservation",
+        )
+        for value in values:
+            with self.subTest(value=value):
+                self.assertEqual(untranslated_literals(f'token = {value!r}'), [])
+                for field in ("label", "lead", "hint", "title", "status"):
+                    self.assertTrue(untranslated_literals(f'dict({field}={value!r})'), field)
+        self.assertTrue(untranslated_literals('token = "openrecomp-player-message"'))
+        self.assertTrue(untranslated_literals('token = "join_room_new_message"'))
+
+    def test_python_scan_recognizes_only_the_friend_snapshot_status_enum(self):
+        source = ('dict(name=friend["name"], status="online" if active else "offline", '
+                  'activity="", invite=True, retry=0)')
+        self.assertEqual(untranslated_literals(source), [])
+        self.assertTrue(untranslated_literals('dict(status="offline")'))
+        self.assertTrue(untranslated_literals(source.replace('"offline"', '"Try again later"')))
+        self.assertTrue(untranslated_literals(source.replace('status=', 'label=')))
 
     def test_qml_has_no_player_facing_literals(self):
         forbidden = ("Quick access", "Recent sets", "Choose your fighter", "Your main:", "Folder", "File", "MAIN")

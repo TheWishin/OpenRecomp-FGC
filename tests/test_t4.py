@@ -37,6 +37,9 @@ class FakeCore:
     def run_lock_holder(self):
         return ""
 
+    def find_runtime(self, settings):
+        return "fake-runtime", ""
+
     def take_run_lock(self, owner):
         self.locks.append(owner)
 
@@ -62,6 +65,8 @@ class Graphics(unittest.TestCase):
     def setUp(self):
         self.save_config = self.enterContext(mock.patch("openrecomp.adapters.t4.save_config"))
         self.thread = self.enterContext(mock.patch("openrecomp.adapters.t4.threading.Thread"))
+        self.guard = self.enterContext(mock.patch("openrecomp.adapters.t4.LaunchGuard"))
+        self.enterContext(mock.patch("openrecomp.adapters.t4.game_process_running", return_value=False))
         self.core = FakeCore()
         self.config = {}
         self.adapter = self.make_adapter()

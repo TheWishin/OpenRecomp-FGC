@@ -258,14 +258,18 @@ class T4FirstRunNavigation(unittest.TestCase):
         self.assertEqual(self.adapter.calls, [])
         self.assertEqual(self.nav.section(), "online")
 
-    def test_t5dr_online_offers_only_the_old_launcher(self):
+    def test_t5dr_online_uses_shared_login_and_keeps_native_launcher_available(self):
         adapter = Fake(manifest("t5dr", adapter="t5dr"))
         adapter.online_supported = lambda: True
         adapter.online_action = mock.Mock()
         nav = Nav([Game(adapter.m, adapter)], language="en")
         nav.act("confirm")
         nav.act("next")
-        self.assertEqual([item["id"] for item in nav.items()], ["native"])
+        ids = [item["id"] for item in nav.items()]
+        self.assertIn("login_guest", ids)
+        self.assertIn("login_account", ids)
+        self.assertIn("native", ids)
+        nav.focus["t5dr:online"] = ids.index("native")
         nav.act("confirm", device="xbox")
         self.assertEqual(adapter.calls, [("native",)])
         adapter.online_action.assert_not_called()

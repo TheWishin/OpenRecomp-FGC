@@ -121,6 +121,9 @@ class Adapter:
         """Read-only login/lobby/match snapshot; reading it never starts a request.
 
         Playable clients add capabilities, players, rooms, chat, challenge, room and a text rank.
+        Optional social capabilities add friends, friend_incoming, friend_outgoing,
+        invites and outgoing_invite. Rematch is offered only while its capability is true.
+        A room's invitation code is shown only to its member; room passwords stay private.
         Tickets, addresses, credentials and session tokens never belong in this snapshot.
         """
         return dict(phase="offline", message="", name="", account=False, queue="", match={}, saved_available=False)
