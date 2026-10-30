@@ -1,0 +1,157 @@
+"""The game sections and their adapter actions."""
+from . import i18n
+
+
+class Sections:
+    # ---- play
+    def _items_play(self, g):
+        st = g.a.status()
+        ready = g.a.ready()
+        running = g.a.running()
+        detail = dict(kicker=st["status"], title=g.short, lead=st["detail"],
+                      rows=[dict(k="@version", v=st["version"]), dict(k="@last_played", v=st["last"])],
+                      results=g.a.recent_results(), image="")
+        by_id = {s["id"]: s for s in g.a.settings()}
+        for sid in g.a.quick_settings():
+            s = by_id.get(sid)
+            if s:
+                detail["rows"].append(dict(k=s["label"], v=self._option_label(s)))
+        if running:
+            detail["primary"] = "@stop"
+            start = dict(kind="action", id="start", label="@game_running", verb="@stop", run=g.a.stop,
+                         hint=i18n.message("game_is_running", name=g.short), detail=detail)
+        elif ready:
+            detail["primary"] = "@play"
+            start = dict(kind="action", id="start", label="@start_game", verb="@start", run=lambda: self.start_game(g),
+                         hint="@start_hint", detail=detail)
+        else:
+            detail["primary"] = "@go_build" if "build" in self.sections(g) else ""
+            start = dict(kind="action", id="start", label="@build_first", verb="@go_build", run=lambda: self._go(g, "build"),
+                         hint=st["detail"], detail=detail)
+        out = [start]
+        for sid in g.a.quick_settings():
+            if sid in by_id:
+                out.append(self._cycler_item(g, by_id[sid]))
+        if g.a.native_label:
+            out.append(self._native_item(g))
+        return out
+
+    def _go(self, g, section):
+        self.sec[g.id] = section
+
+    def _native_item(self, g):
+        def run():
+            if self._dry(i18n.message("dry_open", name=g.a.native_label)):
+                return
+            g.a.open_native()
+            self.say(i18n.message("opening", name=g.a.native_label))
+        return dict(kind="action", id="native", label="@native_launcher", verb="@open", run=run,
+                    hint=i18n.message("native_hint", name=g.a.native_label),
+                    detail=dict(kicker="@also", title=g.a.native_label, lead="@native_lead", rows=[]))
+
+    @staticmethod
+    def _option_label(s):
+        return next((label for value, label in s["options"] if value == s["value"]), str(s["value"]))
+
+    def _cycler_item(self, g, s):
+        def setter(value):
+            g.a.set_setting(s["id"], value)
+        label = self._option_label(s)
+        return dict(kind="cycler", id=s["id"], label=s["label"], value=label, options=s["options"], current=s["value"], set=setter,
+                    hint=s.get("hint", ""), detail=dict(kicker="@setting", title=s["label"], lead=s.get("lead", ""), rows=[dict(k="@current", v=label)]))
+
+    # ---- online
+    def _items_online(self, g):
+        out = []
+        for it in g.a.online_items():
+            it = dict(it)
+            opens = it.get("opens")
+            if opens == "fighters":
+                it["run"] = self._open_fighters
+            elif opens and opens.startswith("text:"):
+                it["run"] = lambda tid=opens[5:]: self._open_osk(tid)
+            elif it.get("kind") == "action":
+                it["run"] = lambda iid=it["id"], label=it["label"]: self._dry(i18n.message("dry_start", name=label)) or self.say(g.a.run_online(iid))
+            out.append(it)
+        return out
+
+    # ---- replays
+    def _items_replays(self, g):
+        replays = g.a.replays()
+        if not replays:
+            return [dict(kind="action", id="none", label="@no_replays", verb="", hint="@replays_hint",
+                         detail=dict(kicker="@section.replays", title="@no_replays", lead="@replays_lead", rows=[]))]
+        out, last = [], None
+        for r in replays:
+            if r["group"] != last:
+                out.append(dict(kind="heading", label=r["group"]))
+                last = r["group"]
+            result = r["result"] if self.show_results else "@hidden"
+            out.append(dict(kind="action", id=r["id"], replay=r["id"], label=r["label"], value=r["when"], verb="@watch",
+                            run=lambda rid=r["id"]: self._play_replay(g, rid),
+                            hint="@replay_hint",
+                            detail=dict(kicker=r["group"], title=r["label"], lead="@saved_locally", images=r.get("images", []),
+                                        rows=[dict(k="@date", v=r["date"]), dict(k="@opponent", v=r["opponent"]), dict(k="@netcode", v=r["netcode"]), dict(k="@result", v=result)],
+                                        primary="@watch")))
+        return out
+
+    def _play_replay(self, g, rid):
+        if self._dry("@dry_replay"):
+            return
+        g.a.play_replay(rid, extra_env=self.launch_env or None)
+        self.say("@replay_starting")
+
+    # ---- build
+    def _items_build(self, g):
+        state = g.a.build_state()
+        out = []
+        for s in g.a.sources():
+            src = dict(s)
+            detail = dict(kicker="@your_files", title=s["label"], lead=s.get("note") or s["hint"],
+                          rows=[dict(k="@current", v=s["value"], accent=not s["ok"]), dict(k="@source", v=g.m.get("source", "@own_file"))])
+            out.append(dict(kind="action", id=s["id"], label=s["label"], value=s["value"], missing=not s["ok"], verb="@choose" if not s["ok"] else "@change",
+                            hint=s["hint"], detail=detail,
+                            run=lambda src=src: self._open_picker("source:" + src["id"], i18n.message("choose_named", name=src["label"]), src["exts"], src["dirs"], src.get("kind", "file"))))
+        for o in g.a.build_options():
+            out.append(self._cycler_item(g, o))
+        problem = g.a.build_ready()
+        if not g.a.found():
+            return out
+        st = g.a.status()
+        if state["running"]:
+            def cancel():
+                self._ask("cancel_build")
+            out.append(dict(kind="action", id="build", label="@build_running", verb="@cancel", run=cancel, hint=state["line"][:90] or "@build_running_hint",
+                            detail=dict(kicker=i18n.message("step", name=state["title"]), title="@build_running", lead=state["line"][:160], rows=state["steps"], progress=state["fraction"])))
+            return out
+
+        def build():
+            if problem:
+                self.say(problem)
+            elif not self._dry("@dry_build"):
+                g.a.build_start()
+                self.say("@build_starting")
+        lead = state["result"] or problem or ("@built_hint" if g.a.ready() else "@build_hint")
+        out.append(dict(kind="action", id="build", label="@build_game", disabled=bool(problem), verb="@files_missing" if problem else "@build", run=build,
+                        hint=lead, detail=dict(kicker=st["status"], title="@build_game", lead=lead, rows=state["steps"], primary="" if problem else "@build")))
+        if not problem:
+            def rebuild():
+                if self._dry("@dry_rebuild"):
+                    return
+                g.a.build_start(force=True)
+                self.say("@rebuild_starting")
+            out.append(dict(kind="heading", label="@from_scratch", mt=16))
+            out.append(dict(kind="hold", id="rebuild", label="@rebuild_all", verb="@hold", run=rebuild, hint="@rebuild_hint",
+                            detail=dict(kicker="@takes_longer", title="@rebuild_all", lead="@rebuild_lead", rows=[])))
+        return out
+
+    # ---- settings
+    def _items_settings(self, g):
+        out = [self._cycler_item(g, s) for s in g.a.settings()]
+        if g.a.native_label:
+            out.append(dict(kind="heading", label="@also", mt=12))
+            out.append(self._native_item(g))
+        if not out:
+            out.append(dict(kind="action", id="none", label="@no_settings", verb="", hint="@no_settings_hint",
+                            detail=dict(kicker="@section.settings", title="@no_settings", lead="", rows=[])))
+        return out

@@ -1,0 +1,32 @@
+"""Confirmation dialog actions and view."""
+
+
+class Dialog:
+    def _ask(self, kind):
+        self.overlay = "dialog"
+        self.confirm_kind = kind
+        self.exit_focus = 0
+
+    def _dialog(self, a):
+        if a in ("left", "right", "up", "down"):
+            self.exit_focus = 1 - self.exit_focus
+        elif a == "back":
+            self.overlay = None
+        elif a == "confirm":
+            yes = self.exit_focus == 1
+            self.overlay = None
+            if yes and self.confirm_kind == "exit":
+                if not self._dry("@dry_quit"):
+                    self.on_quit()
+            elif yes and self.confirm_kind == "cancel_build" and not self._dry("@dry_cancel_build"):
+                self.game.a.build_cancel()
+                self.say("@cancelling_build")
+
+    def _view_dialog(self, v):
+        if self.confirm_kind == "exit":
+            title, text = "@dialog.quit.title", "@dialog.quit.text"
+        else:
+            title, text = "@dialog.cancel.title", "@dialog.cancel.text"
+        v["dialog"] = dict(title=title, text=text, options=[dict(label="@no", index=0, focused=self.exit_focus == 0), dict(label="@yes", index=1, focused=self.exit_focus == 1)])
+        v["hint"] = "@dialog_hint"
+        v["prompts"] = [self.prompt("confirm", "@confirm"), self.prompt("right", "@switch"), self.prompt("back", "@cancel")]

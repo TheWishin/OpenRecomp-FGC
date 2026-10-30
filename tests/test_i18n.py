@@ -35,6 +35,10 @@ def untranslated_literals(source):
     for node in ast.walk(tree):
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
             ignore(node)  # docstrings
+        elif isinstance(node, ast.FunctionDef) and node.name == "quick_settings":
+            for child in ast.walk(node):
+                if isinstance(child, ast.Return):
+                    ignore(child.value)  # adapter setting IDs, never display labels
         elif isinstance(node, ast.Subscript):
             ignore(node.slice)  # field names, never their values
         elif isinstance(node, ast.Dict):
@@ -82,7 +86,7 @@ def untranslated_literals(source):
     # These are filenames, environment variables, technical units, and protocol identifiers.
     technical = {
         "_items_", "_view_", "source:", "text:", "space", "del", "done", "random", "reload", "nt", "utf-8", "w", "replace",
-        "folder", "file", "dir", "action", "dev", "1080p", "1440p", "4K", "SLUS-20328", "T5DR Online",
+        "folder", "file", "dir", "action", "dev", "auto", "1080p", "1440p", "4K", "SLUS-20328", "T5DR Online",
         "launcher", "runtime", "core.py", "t4core.py", "t4_launcher.pyw", "t5dr_launcher.pyw", "t5dr.exe",
         "T5DR Online.exe", "T5DROnline", "online.json", "release.json", "lobby", "t5lobby", "tools", "data",
         "cache", "fighters", "fighters.json", "python", "python.exe", "t4", "t5dr", "hero.png",
@@ -283,9 +287,20 @@ class Catalogs(unittest.TestCase):
             i18n._catalog.cache_clear()
 
     def test_python_has_no_player_facing_literals(self):
-        paths = [ROOT / "openrecomp" / "nav.py", *(ROOT / "openrecomp" / "adapters").glob("*.py")]
+        paths = [ROOT / "openrecomp" / "nav.py", *(ROOT / "openrecomp").glob("nav_*.py"),
+                 *(ROOT / "openrecomp" / "adapters").glob("*.py")]
         for path in paths:
             self.assertEqual(untranslated_literals(path.read_text(encoding="utf-8")), [], path.name)
+
+    def test_python_scan_accepts_setting_ids_and_protocol_defaults(self):
+        source = ('def quick_settings(self):\n'
+                  '    return ["resolution", "fullscreen", "display", "internal_res"]\n'
+                  'value = self.s.get("resolution", "auto")\n')
+        self.assertEqual(untranslated_literals(source), [])
+        self.assertTrue(untranslated_literals('dict(label="auto")'))
+        self.assertTrue(untranslated_literals('def quick_settings(self):\n'
+                                             '    self.say("Choose a setting")\n'
+                                             '    return ["resolution"]\n'))
 
     def test_python_scan_rejects_untranslated_texts_and_f_strings(self):
         examples = [
