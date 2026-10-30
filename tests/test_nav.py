@@ -38,7 +38,7 @@ class Fake(Adapter):
         return self.is_ready
 
     def status(self):
-        return dict(status="Bereit" if self.is_ready else "Noch nicht gebaut", version="v1", players="Nein", last="heute", detail="Detail")
+        return dict(status="Ready" if self.is_ready else "Not built yet", version="v1", players="No", last="heute", detail="Detail")
 
     def start(self, extra_env=None):
         self.calls.append(("start", extra_env))
@@ -66,9 +66,9 @@ class Fake(Adapter):
 
     def online_items(self):
         return [dict(kind="heading", label="Ich"),
-                dict(kind="action", id="fighter", label="Charakter", value=self.fighter, verb="Ändern", opens="fighters", hint="h", detail=dict(title="c", rows=[])),
-                dict(kind="action", id="ranked", label="Ranked", verb="Suchen", hint="h", detail=dict(title="r", rows=[])),
-                dict(kind="action", id="name", label="Name", verb="Ändern", opens="text:name", hint="h", detail=dict(title="n", rows=[]))]
+                dict(kind="action", id="fighter", label="Fighter", value=self.fighter, verb="Change", opens="fighters", hint="h", detail=dict(title="c", rows=[])),
+                dict(kind="action", id="ranked", label="Ranked", verb="Search", hint="h", detail=dict(title="r", rows=[])),
+                dict(kind="action", id="name", label="Name", verb="Change", opens="text:name", hint="h", detail=dict(title="n", rows=[]))]
 
     def run_online(self, item_id):
         self.calls.append(("online", item_id))
@@ -94,7 +94,7 @@ class Fake(Adapter):
         self.calls.append(("replay", replay_id))
 
     def sources(self):
-        return [dict(id="iso", label="ISO", value="Fehlt", ok=False, kind="file", exts=[".iso"], dirs=[], hint="h")]
+        return [dict(id="iso", label="ISO", value="Missing", ok=False, kind="file", exts=[".iso"], dirs=[], hint="h")]
 
     def set_source(self, sid, path):
         self.calls.append(("source", sid, path))
@@ -257,10 +257,10 @@ class Replays(Base):
         self.press("confirm", "next", "next", "next")
         self.assertEqual(self.nav.section(), "replays")
         rows = {r["k"]: r["v"] for r in self.nav.view()["detail"]["rows"]}
-        self.assertEqual(rows["Ergebnis"], "Verborgen")
+        self.assertEqual(rows["Result"], "Hidden")
         self.press("x")
         rows = {r["k"]: r["v"] for r in self.nav.view()["detail"]["rows"]}
-        self.assertEqual(rows["Ergebnis"], "Sieg 3:1")
+        self.assertEqual(rows["Result"], "Sieg 3:1")
 
     def test_a_long_list_scrolls_and_never_ends_on_a_heading(self):
         self.press("confirm", "next", "next", "next")
@@ -411,6 +411,25 @@ class PlayStation(unittest.TestCase):
         self.assertEqual(self.held(ly=0x00), {"DUP"})
         self.assertEqual(self.held(lx=0xFF), {"DRIGHT"})
         self.assertEqual(self.held(), set())
+
+
+class Badge(unittest.TestCase):
+    def test_each_game_says_what_kind_of_recomp_it_is(self):
+        manifests, _problems = mf.load_all([mf.BUILTIN_DIR])
+        kinds = {m["id"]: m["platform"] for m in manifests}
+        self.assertEqual(kinds, {"t5dr": "PS3", "t4": "PS2"})
+
+    def test_the_shelf_and_the_hub_show_it(self):
+        m = manifest("a", platform="PS3")
+        nav = Nav([Game(m, Fake(m))])
+        self.assertEqual(nav.view()["shelf"]["tiles"][0]["badge"], "PS3 RECOMP")
+        self.assertEqual(nav.view()["shelf"]["tiles"][-1]["badge"], "")
+        nav.act("confirm")
+        self.assertEqual(nav.view()["badge"], "PS3 RECOMP")
+
+    def test_no_platform_no_badge(self):
+        m = manifest("a")
+        self.assertEqual(Nav([Game(m, Fake(m))]).view()["shelf"]["tiles"][0]["badge"], "")
 
 
 class Manifests(unittest.TestCase):

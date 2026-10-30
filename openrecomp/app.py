@@ -59,12 +59,12 @@ class Backend(QObject):
         if path:
             try:
                 m = mf.install(path)
-                message = f"{m['title']} ist jetzt auf dem Launcher."
+                message = f"{m['title']} is on the launcher now."
             except mf.ManifestError as e:
                 return str(e)
         else:
             mf.save_config(self.config)
-            message = "Spielordner gespeichert."
+            message = "Game folder saved."
         games, problems = load_games(self.config)
         self.nav.set_games(games)
         return problems[0] if problems else message
@@ -201,7 +201,7 @@ def make_engine(backend, full):
     engine.setInitialProperties({"backend": backend, "wantFull": full})
     engine.load(QUrl.fromLocalFile(os.path.join(UI_DIR, "Main.qml")))
     if not engine.rootObjects():
-        raise RuntimeError("Die Oberfläche liess sich nicht laden.")
+        raise RuntimeError("The interface could not be loaded.")
     backend.window = engine.rootObjects()[0]
     if isinstance(backend.window, QWindow):
         if full:
@@ -213,7 +213,7 @@ def make_engine(backend, full):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="openrecomp-fgc", description="OpenRecomp-FGC: Launcher for all your Recomps")
-    ap.add_argument("--windowed", action="store_true", help="in einem Fenster statt im Vollbild")
+    ap.add_argument("--windowed", action="store_true", help="in a window instead of fullscreen")
     args = ap.parse_args(argv)
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
     app = QGuiApplication(sys.argv[:1])

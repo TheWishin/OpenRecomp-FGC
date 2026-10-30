@@ -32,25 +32,26 @@ def art_dir(game_id):
 def validate(m):
     """The manifest with its defaults, ManifestError when something a screen needs is missing."""
     if not isinstance(m, dict):
-        raise ManifestError("Das Manifest ist kein JSON-Objekt.")
+        raise ManifestError("The manifest is not a JSON object.")
     for key in ("id", "title", "numeral", "accent", "adapter"):
         if not isinstance(m.get(key), str) or not m[key].strip():
-            raise ManifestError(f"Im Manifest fehlt \"{key}\".")
+            raise ManifestError(f"The manifest has no \"{key}\".")
     if m["adapter"] not in ADAPTERS:
-        raise ManifestError(f"Unbekannter Adapter \"{m['adapter']}\".")
+        raise ManifestError(f"Unknown adapter \"{m['adapter']}\".")
     if not all(c.isalnum() or c in "-_" for c in m["id"]):
-        raise ManifestError("Die id darf nur Buchstaben, Ziffern, - und _ enthalten.")
+        raise ManifestError("The id may only hold letters, digits, - and _.")
     if len(m["accent"]) != 7 or m["accent"][0] != "#":
-        raise ManifestError("accent muss eine Farbe wie #5B93FF sein.")
+        raise ManifestError("accent must be a colour like #5B93FF.")
     sections = m.get("sections") or ["play", "settings"]
     bad = [s for s in sections if s not in SECTIONS]
     if bad:
-        raise ManifestError(f"Unbekannter Bereich: {bad[0]}.")
+        raise ManifestError(f"Unknown section: {bad[0]}.")
     if m["adapter"] == "generic" and not m.get("exe"):
-        raise ManifestError("Ein generic-Spiel braucht \"exe\".")
+        raise ManifestError("A generic game needs \"exe\".")
     out = dict(m)
     out["sections"] = list(sections)
     out.setdefault("subtitle", "")
+    out.setdefault("platform", "")
     out.setdefault("short", m["title"])
     out.setdefault("locations", [])
     return out
@@ -61,9 +62,9 @@ def load_file(path):
         with open(path, encoding="utf-8") as f:
             return validate(json.load(f))
     except OSError as e:
-        raise ManifestError(f"Datei nicht lesbar: {e}") from e
+        raise ManifestError(f"Cannot read the file: {e}") from e
     except ValueError as e:
-        raise ManifestError(f"Kein gültiges JSON: {e}") from e
+        raise ManifestError(f"Not valid JSON: {e}") from e
 
 
 def load_all(dirs=None):

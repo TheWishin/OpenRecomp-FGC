@@ -9,23 +9,23 @@ import string
 
 from . import manifest as mf
 
-SECTION_TITLES = {"play": "Offline spielen", "online": "Online", "build": "Build", "replays": "Replays", "settings": "Einstellungen"}
+SECTION_TITLES = {"play": "Play offline", "online": "Online", "build": "Build", "replays": "Replays", "settings": "Settings"}
 GLYPHS = {
     "xbox": dict(confirm="A", back="B", x="X", social="Y", prev="LB", next="RB", play="Start", switchGame="View", right="‹ ›"),
     "ps": dict(confirm="✕", back="○", x="□", social="△", prev="L1", next="R1", play="Options", switchGame="Share", right="‹ ›"),
-    "kb": dict(confirm="Enter", back="Esc", x="X", social="F", prev="Q", next="E", play="Leertaste", switchGame="G", right="← →"),
+    "kb": dict(confirm="Enter", back="Esc", x="X", social="F", prev="Q", next="E", play="Space", switchGame="G", right="← →"),
 }
 TRAIL = dict(up="↑", down="↓", left="←", right="→", confirm="A", back="B", x="X", social="Y", prev="LB", next="RB", play="St", switchGame="Vw")
-DEVICE_LABEL = dict(xbox="Pad aktiv", ps="PlayStation-Pad aktiv", kb="Tastatur aktiv")
-OSK = ("1234567890", "QWERTZUIOP", "ASDFGHJKL-", "YXCVBNM_.,")
-OSK_ACTIONS = (("space", "Leerzeichen"), ("del", "Löschen"), ("done", "Fertig"))
+DEVICE_LABEL = dict(xbox="Pad active", ps="PlayStation pad active", kb="Keyboard active")
+OSK = ("1234567890", "QWERTYUIOP", "ASDFGHJKL-", "ZXCVBNM_.,")
+OSK_ACTIONS = (("space", "Space"), ("del", "Delete"), ("done", "Done"))
 ROWS_VISIBLE = 9
 PICKER_VISIBLE = 11
 SCREEN_W = 1920
 WIDE, SPINE_GAME, SPINE_SLOT, GAP = 1040, 260, 140, 2
 GRID_COLS = 9
 HOLD_SECONDS = 1.5
-FRIENDLY_RESULT = {"S": True, "N": False}
+FRIENDLY_RESULT = {"W": True, "L": False}
 
 
 def uri(path):
@@ -37,6 +37,12 @@ def window(count, focus, size):
     if count <= size:
         return 0
     return max(0, min(count - size, focus - size // 2))
+
+
+def badge(g):
+    """What kind of recomp a game is, from its manifest: PS3 RECOMP."""
+    platform = g.m.get("platform", "")
+    return f"{platform} RECOMP".upper() if platform else ""
 
 
 class Game:
@@ -161,7 +167,7 @@ class Nav:
             g = self.game_by_id(ids[self.start_focus])
             if g is None:
                 if a == "confirm":
-                    self._open_picker("manifest", "Manifest wählen", [".json"], [mf.BUILTIN_DIR, os.path.expanduser("~\\Downloads")], "file")
+                    self._open_picker("manifest", "Choose manifest", [".json"], [mf.BUILTIN_DIR, os.path.expanduser("~\\Downloads")], "file")
             elif a == "confirm":
                 self.game = g
                 self.screen = "hub"
@@ -172,17 +178,17 @@ class Nav:
     def _dry(self, what):
         """True in a dry run: says what would have happened instead of doing it."""
         if self.dry:
-            self.say(f"Trockenlauf: {what}")
+            self.say(f"Dry run: {what}")
         return self.dry
 
     def start_game(self, g):
-        if self._dry(f"{g.short} würde starten."):
+        if self._dry(f"{g.short} would start."):
             return
         if g.a.running():
-            self.say(f"{g.short} läuft schon.")
+            self.say(f"{g.short} is already running.")
             return
         g.a.start(extra_env=self.launch_env or None)
-        self.say(f"{g.short} startet.")
+        self.say(f"{g.short} is starting.")
 
     # ------------------------------------------------------------------------------------ the game's sections
     def sections(self, g=None):
@@ -242,7 +248,7 @@ class Nav:
             self._activate(it)
 
     def _cycle(self, it, step):
-        if self._dry(f"{it['label']} würde sich ändern."):
+        if self._dry(f"{it['label']} would change."):
             return
         options = it["options"]
         values = [o[0] for o in options]
@@ -272,7 +278,7 @@ class Nav:
         ready = g.a.ready()
         running = g.a.running()
         detail = dict(kicker=st["status"], title=g.short, lead=st["detail"],
-                      rows=[dict(k="Version", v=st["version"]), dict(k="Zuletzt", v=st["last"])],
+                      rows=[dict(k="Version", v=st["version"]), dict(k="Last played", v=st["last"])],
                       results=g.a.recent_results(), image="")
         by_id = {s["id"]: s for s in g.a.settings()}
         for sid in g.a.quick_settings():
@@ -280,16 +286,16 @@ class Nav:
             if s:
                 detail["rows"].append(dict(k=s["label"], v=self._option_label(s)))
         if running:
-            detail["primary"] = "Stoppen"
-            start = dict(kind="action", id="start", label="Spiel läuft", verb="Stoppen", run=g.a.stop,
-                         hint=f"{g.short} läuft gerade.", detail=detail)
+            detail["primary"] = "Stop"
+            start = dict(kind="action", id="start", label="Game running", verb="Stop", run=g.a.stop,
+                         hint=f"{g.short} is running.", detail=detail)
         elif ready:
-            detail["primary"] = "Spielen"
-            start = dict(kind="action", id="start", label="Spiel starten", verb="Starten", run=lambda: self.start_game(g),
-                         hint="Startet das Spiel. Den Charakter wählst du im Spiel.", detail=detail)
+            detail["primary"] = "Play"
+            start = dict(kind="action", id="start", label="Start game", verb="Start", run=lambda: self.start_game(g),
+                         hint="Starts the game. You pick your fighter in the game.", detail=detail)
         else:
-            detail["primary"] = "Zum Build" if "build" in self.sections(g) else ""
-            start = dict(kind="action", id="start", label="Zuerst bauen", verb="Zum Build", run=lambda: self._go(g, "build"),
+            detail["primary"] = "Go to Build" if "build" in self.sections(g) else ""
+            start = dict(kind="action", id="start", label="Build first", verb="Go to Build", run=lambda: self._go(g, "build"),
                          hint=st["detail"], detail=detail)
         out = [start]
         for sid in g.a.quick_settings():
@@ -304,13 +310,13 @@ class Nav:
 
     def _native_item(self, g):
         def run():
-            if self._dry(f"{g.a.native_label} würde sich öffnen."):
+            if self._dry(f"{g.a.native_label} would open."):
                 return
             g.a.open_native()
-            self.say(f"{g.a.native_label} öffnet sich.")
-        return dict(kind="action", id="native", label="Eigener Launcher", verb="Öffnen", run=run,
-                    hint=f"Der {g.a.native_label}: Steuerung, Fehlerbericht und alles, was hier noch fehlt.",
-                    detail=dict(kicker="Daneben", title=g.a.native_label, lead="Alles, was OpenRecomp-FGC noch nicht selbst kann, bleibt dort erreichbar: Tastenbelegung, Fehlerbericht, Updates.", rows=[]))
+            self.say(f"{g.a.native_label} is opening.")
+        return dict(kind="action", id="native", label="Game's own launcher", verb="Open", run=run,
+                    hint=f"The {g.a.native_label}: controls, problem report and everything not here yet.",
+                    detail=dict(kicker="Also", title=g.a.native_label, lead="Everything OpenRecomp-FGC cannot do yet stays available there: key bindings, problem report, updates.", rows=[]))
 
     @staticmethod
     def _option_label(s):
@@ -321,7 +327,7 @@ class Nav:
             g.a.set_setting(s["id"], value)
         label = self._option_label(s)
         return dict(kind="cycler", id=s["id"], label=s["label"], value=label, options=s["options"], current=s["value"], set=setter,
-                    hint=s.get("hint", ""), detail=dict(kicker="Einstellung", title=s["label"], lead=s.get("lead", ""), rows=[dict(k="Aktuell", v=label)]))
+                    hint=s.get("hint", ""), detail=dict(kicker="Setting", title=s["label"], lead=s.get("lead", ""), rows=[dict(k="Current", v=label)]))
 
     # ---- online
     def _items_online(self, g):
@@ -334,7 +340,7 @@ class Nav:
             elif opens and opens.startswith("text:"):
                 it["run"] = lambda tid=opens[5:]: self._open_osk(tid)
             elif it.get("kind") == "action":
-                it["run"] = lambda iid=it["id"]: self._dry(f"{iid} würde starten.") or self.say(g.a.run_online(iid))
+                it["run"] = lambda iid=it["id"]: self._dry(f"{iid} would start.") or self.say(g.a.run_online(iid))
             out.append(it)
         return out
 
@@ -342,27 +348,27 @@ class Nav:
     def _items_replays(self, g):
         replays = g.a.replays()
         if not replays:
-            return [dict(kind="action", id="none", label="Noch keine Replays", verb="", hint="Online-Matches landen hier von selbst.",
-                         detail=dict(kicker="Replays", title="Noch keine Replays", lead="Online-Matches landen von selbst hier und bleiben auf diesem PC.", rows=[]))]
+            return [dict(kind="action", id="none", label="No replays yet", verb="", hint="Online matches land here by themselves.",
+                         detail=dict(kicker="Replays", title="No replays yet", lead="Online matches land here by themselves and stay on this PC.", rows=[]))]
         out, last = [], None
         for r in replays:
             if r["group"] != last:
                 out.append(dict(kind="heading", label=r["group"]))
                 last = r["group"]
-            result = r["result"] if self.show_results else "Verborgen"
-            out.append(dict(kind="action", id=r["id"], replay=r["id"], label=r["label"], value=r["when"], verb="Ansehen",
+            result = r["result"] if self.show_results else "Hidden"
+            out.append(dict(kind="action", id=r["id"], replay=r["id"], label=r["label"], value=r["when"], verb="Watch",
                             run=lambda rid=r["id"]: self._play_replay(g, rid),
-                            hint="Liegt lokal auf diesem PC. Das Ergebnis bleibt verborgen, bis du es zeigst.",
-                            detail=dict(kicker=r["group"], title=r["label"], lead="Gespeichert auf diesem PC.", images=r.get("images", []),
-                                        rows=[dict(k="Datum", v=r["date"]), dict(k="Gegner", v=r["opponent"]), dict(k="Netcode", v=r["netcode"]), dict(k="Ergebnis", v=result)],
-                                        primary="Ansehen")))
+                            hint="Stored on this PC. The result stays hidden until you show it.",
+                            detail=dict(kicker=r["group"], title=r["label"], lead="Saved on this PC.", images=r.get("images", []),
+                                        rows=[dict(k="Date", v=r["date"]), dict(k="Opponent", v=r["opponent"]), dict(k="Netcode", v=r["netcode"]), dict(k="Result", v=result)],
+                                        primary="Watch")))
         return out
 
     def _play_replay(self, g, rid):
-        if self._dry("Das Replay würde starten."):
+        if self._dry("The replay would start."):
             return
         g.a.play_replay(rid, extra_env=self.launch_env or None)
-        self.say("Replay startet.")
+        self.say("Replay is starting.")
 
     # ---- build
     def _items_build(self, g):
@@ -370,11 +376,11 @@ class Nav:
         out = []
         for s in g.a.sources():
             src = dict(s)
-            detail = dict(kicker="Deine Dateien", title=s["label"], lead=s.get("note") or s["hint"],
-                          rows=[dict(k="Aktuell", v=s["value"], accent=not s["ok"]), dict(k="Quelle", v=g.m.get("source", "Eigene Datei"))])
-            out.append(dict(kind="action", id=s["id"], label=s["label"], value=s["value"], missing=not s["ok"], verb="Wählen" if not s["ok"] else "Ändern",
+            detail = dict(kicker="Your files", title=s["label"], lead=s.get("note") or s["hint"],
+                          rows=[dict(k="Current", v=s["value"], accent=not s["ok"]), dict(k="Source", v=g.m.get("source", "Your own file"))])
+            out.append(dict(kind="action", id=s["id"], label=s["label"], value=s["value"], missing=not s["ok"], verb="Choose" if not s["ok"] else "Change",
                             hint=s["hint"], detail=detail,
-                            run=lambda src=src: self._open_picker("source:" + src["id"], src["label"] + " wählen", src["exts"], src["dirs"], src.get("kind", "file"))))
+                            run=lambda src=src: self._open_picker("source:" + src["id"], "Choose " + src["label"], src["exts"], src["dirs"], src.get("kind", "file"))))
         for o in g.a.build_options():
             out.append(self._cycler_item(g, o))
         problem = g.a.build_ready()
@@ -384,39 +390,39 @@ class Nav:
         if state["running"]:
             def cancel():
                 self._ask("cancel_build")
-            out.append(dict(kind="action", id="build", label="Build läuft", verb="Abbrechen", run=cancel, hint=state["line"][:90] or "Der Build läuft.",
-                            detail=dict(kicker=f"Schritt: {state['title']}", title="Build läuft", lead=state["line"][:160], rows=state["steps"], progress=state["fraction"])))
+            out.append(dict(kind="action", id="build", label="Build running", verb="Cancel", run=cancel, hint=state["line"][:90] or "The build is running.",
+                            detail=dict(kicker=f"Step: {state['title']}", title="Build running", lead=state["line"][:160], rows=state["steps"], progress=state["fraction"])))
             return out
 
         def build():
             if problem:
                 self.say(problem)
-            elif not self._dry("Der Build würde starten."):
+            elif not self._dry("The build would start."):
                 g.a.build_start()
-                self.say("Der Build startet.")
-        lead = state["result"] or problem or ("Das Spiel ist gebaut. Neu bauen brauchst du nur nach einem Update." if g.a.ready() else "Baut das Spiel aus deinen eigenen Dateien. Nichts verlässt diesen PC.")
-        out.append(dict(kind="action", id="build", label="Spiel bauen", disabled=bool(problem), verb="Dateien fehlen" if problem else "Bauen", run=build,
-                        hint=lead, detail=dict(kicker=st["status"], title="Spiel bauen", lead=lead, rows=state["steps"], primary="" if problem else "Bauen")))
+                self.say("The build is starting.")
+        lead = state["result"] or problem or ("The game is built. You only need to build again after an update." if g.a.ready() else "Builds the game from your own files. Nothing leaves this PC.")
+        out.append(dict(kind="action", id="build", label="Build game", disabled=bool(problem), verb="Files missing" if problem else "Build", run=build,
+                        hint=lead, detail=dict(kicker=st["status"], title="Build game", lead=lead, rows=state["steps"], primary="" if problem else "Build")))
         if not problem:
             def rebuild():
-                if self._dry("Der Build würde neu starten."):
+                if self._dry("The build would start again."):
                     return
                 g.a.build_start(force=True)
-                self.say("Der Build startet, alle Schritte neu.")
-            out.append(dict(kind="heading", label="Von vorn", mt=16))
-            out.append(dict(kind="hold", id="rebuild", label="Alles neu bauen", verb="Halten", run=rebuild, hint="Macht jeden Schritt neu. Zum Bestätigen gedrückt halten.",
-                            detail=dict(kicker="Dauert länger", title="Alles neu bauen", lead="Macht jeden Schritt neu, auch fertige. Spielstände bleiben. Halte die Taste, bis der Balken voll ist.", rows=[])))
+                self.say("The build is starting, every step again.")
+            out.append(dict(kind="heading", label="From scratch", mt=16))
+            out.append(dict(kind="hold", id="rebuild", label="Rebuild everything", verb="Hold", run=rebuild, hint="Redoes every step. Hold to confirm.",
+                            detail=dict(kicker="Takes longer", title="Rebuild everything", lead="Redoes every step, also finished ones. Saves are kept. Hold the button until the bar is full.", rows=[])))
         return out
 
     # ---- settings
     def _items_settings(self, g):
         out = [self._cycler_item(g, s) for s in g.a.settings()]
         if g.a.native_label:
-            out.append(dict(kind="heading", label="Daneben", mt=12))
+            out.append(dict(kind="heading", label="Also", mt=12))
             out.append(self._native_item(g))
         if not out:
-            out.append(dict(kind="action", id="none", label="Keine Einstellungen", verb="", hint="Dieses Spiel hat keine Einstellungen.",
-                            detail=dict(kicker="Einstellungen", title="Keine Einstellungen", lead="", rows=[])))
+            out.append(dict(kind="action", id="none", label="No settings", verb="", hint="This game has no settings.",
+                            detail=dict(kicker="Settings", title="No settings", lead="", rows=[])))
         return out
 
     # ------------------------------------------------------------------------------------ overlays
@@ -434,18 +440,18 @@ class Nav:
             yes = self.exit_focus == 1
             self.overlay = None
             if yes and self.confirm_kind == "exit":
-                if not self._dry("Der Launcher würde schliessen."):
+                if not self._dry("The launcher would close."):
                     self.on_quit()
-            elif yes and self.confirm_kind == "cancel_build" and not self._dry("Der Build würde abbrechen."):
+            elif yes and self.confirm_kind == "cancel_build" and not self._dry("The build would be cancelled."):
                 self.game.a.build_cancel()
-                self.say("Der Build wird abgebrochen.")
+                self.say("The build is being cancelled.")
 
     def _drawer_items(self):
         out = []
         for g in self.games:
             if g.a.found() and g.a.native_label:
                 out.append(dict(label=g.a.native_label, value=g.short, game=g))
-        return out or [dict(label="Nichts hier", value="", game=None)]
+        return out or [dict(label="Nothing here", value="", game=None)]
 
     def _drawer(self, a):
         items = self._drawer_items()
@@ -457,13 +463,13 @@ class Nav:
             self.overlay = None
         elif a == "confirm":
             g = items[self.drawer_focus]["game"]
-            if g and not self._dry(f"{g.a.native_label} würde sich öffnen."):
+            if g and not self._dry(f"{g.a.native_label} would open."):
                 g.a.open_native()
                 self.overlay = None
-                self.say(f"{g.a.native_label} öffnet sich.")
+                self.say(f"{g.a.native_label} is opening.")
 
     def _fighter_list(self):
-        return [dict(key="random", name="Zufall", image="")] + self.game.a.fighters()
+        return [dict(key="random", name="Random", image="")] + self.game.a.fighters()
 
     def _open_fighters(self):
         self.overlay = "fighters"
@@ -489,12 +495,12 @@ class Nav:
         elif a == "back":
             self.overlay = None
         elif a == "confirm":
-            if not self._dry(f"{items[i]['name']} würde gespeichert."):
+            if not self._dry(f"{items[i]['name']} would be saved."):
                 self.game.a.set_fighter(items[i]["key"])
             self.overlay = None
 
     def _open_osk(self, tid):
-        self.osk = dict(tid=tid, text=self.game.a.text_value(tid), row=1, col=0, title="Spielername")
+        self.osk = dict(tid=tid, text=self.game.a.text_value(tid), row=1, col=0, title="Player name")
         self.overlay = "osk"
 
     def _osk(self, a):
@@ -537,7 +543,7 @@ class Nav:
             self.osk["text"] += text
 
     def _osk_done(self):
-        if not self._dry("Der Text würde gespeichert."):
+        if not self._dry("The text would be saved."):
             self.game.a.set_text_value(self.osk["tid"], self.osk["text"].strip())
         self.overlay = None
 
@@ -563,7 +569,7 @@ class Nav:
                     out.append(dict(name=root, path=root, kind="dir"))
             return out
         if p["kind"] == "folder":
-            out.append(dict(name="Diesen Ordner wählen", path=p["dir"], kind="pick"))
+            out.append(dict(name="Choose this folder", path=p["dir"], kind="pick"))
         parent = os.path.dirname(p["dir"].rstrip("\\/"))
         out.append(dict(name="..", path="" if parent == p["dir"].rstrip("\\/") or len(p["dir"]) <= 3 else parent, kind="dir"))
         folders, files = [], []
@@ -601,7 +607,7 @@ class Nav:
                 self._picked(p["target"], e["path"])
 
     def _picked(self, target, path):
-        if self._dry(f"{path} würde übernommen."):
+        if self._dry(f"{path} would be used."):
             return
         if target == "manifest":
             self.say(self.install(path) if self.install else "")
@@ -625,7 +631,7 @@ class Nav:
     def view(self):
         v = dict(screen=self.screen, overlay=self.overlay or "", toast=self.toast, device=DEVICE_LABEL["kb" if self.device == "kb" else self.pad_kind],
                  trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True),
-                 shelf=dict(tiles=[], x=0, w=SCREEN_W), tabs=[], rows=[], detail=dict(rows=[], results=[], images=[]), hint="", prompts=[], accent="#ECE9E1", gameShort="", numeral="",
+                 shelf=dict(tiles=[], x=0, w=SCREEN_W), tabs=[], rows=[], detail=dict(rows=[], results=[], images=[]), hint="", prompts=[], accent="#ECE9E1", badge="", gameShort="", numeral="",
                  topline="", hold=0, more=dict(up=False, down=False), grid=dict(cells=[], main=""), osk=dict(rows=[], text="", title=""), dialog=dict(title="", text="", options=[]),
                  picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]))
         if self.screen == "start":
@@ -665,31 +671,32 @@ class Nav:
             if g:
                 st = g.a.status()
                 ready = g.a.ready()
-                t.update(num=g.m["numeral"], name=g.m["title"], subtitle=g.m["subtitle"] if foc else st["status"], accent=g.accent, hero=uri(g.a.hero()),
-                         rows=[dict(k="Status", v=st["status"]), dict(k="Version", v=st["version"]), dict(k="Online", v=st["players"]), dict(k="Zuletzt", v=st["last"])],
-                         results=self._cells(g.a.recent_results()), empty="Noch keine Sets", sections=[SECTION_TITLES[s] for s in g.m["sections"]],
-                         bar="Öffnen" if ready else "Zum Build")
+                t.update(badge=badge(g), num=g.m["numeral"], name=g.m["title"], subtitle=g.m["subtitle"] if foc else st["status"], accent=g.accent, hero=uri(g.a.hero()),
+                         rows=[dict(k="Status", v=st["status"]), dict(k="Version", v=st["version"]), dict(k="Online", v=st["players"]), dict(k="Last played", v=st["last"])],
+                         results=self._cells(g.a.recent_results()), empty="No sets yet", sections=[SECTION_TITLES[s] for s in g.m["sections"]],
+                         bar="Open" if ready else "Go to Build")
             else:
-                t.update(num="+", name="Freier Slot" if not foc else "Recomp hinzufügen", subtitle="Weiteres Spiel" if foc else "", accent="#ECE9E1", hero="",
-                         rows=[dict(k="Name und Farbe", v="Manifest"), dict(k="Bereiche", v="Manifest"), dict(k="Build oder Exe", v="Manifest")],
-                         results=[], empty="OpenRecomp-FGC baut daraus alle Screens.", sections=[], bar="Manifest wählen")
+                t.update(badge="", num="+", name="Free slot" if not foc else "Add a recomp", subtitle="Another game" if foc else "", accent="#ECE9E1", hero="",
+                         rows=[dict(k="Name and colour", v="Manifest"), dict(k="Sections", v="Manifest"), dict(k="Build or exe", v="Manifest")],
+                         results=[], empty="OpenRecomp-FGC builds all screens from it.", sections=[], bar="Choose manifest")
             tiles.append(t)
         v["shelf"] = dict(tiles=tiles, x=x, w=total)
         g = self.game_by_id(ids[focus])
         if g:
             ready = g.a.ready()
             v["hint"] = g.a.status()["detail"]
-            v["prompts"] = [self.prompt("confirm", "Öffnen" if ready else "Zum Build"), self.prompt("right", "Spiel wählen")]
+            v["prompts"] = [self.prompt("confirm", "Open" if ready else "Go to Build"), self.prompt("right", "Choose game")]
             if ready:
-                v["prompts"].append(self.prompt("play", "Spielen"))
-            v["prompts"] += [self.prompt("social", "Schnellzugriff"), self.prompt("back", "Beenden")]
+                v["prompts"].append(self.prompt("play", "Play"))
+            v["prompts"] += [self.prompt("social", "Quick access"), self.prompt("back", "Quit")]
         else:
-            v["hint"] = "Ein neuer Recomp ist nur ein Eintrag: Name, Farbe, Bereiche, Build oder Exe."
-            v["prompts"] = [self.prompt("confirm", "Manifest wählen"), self.prompt("right", "Spiel wählen"), self.prompt("social", "Schnellzugriff"), self.prompt("back", "Beenden")]
+            v["hint"] = "A new recomp is just one entry: name, colour, sections, build or exe."
+            v["prompts"] = [self.prompt("confirm", "Choose manifest"), self.prompt("right", "Choose game"), self.prompt("social", "Quick access"), self.prompt("back", "Quit")]
 
     def _view_hub(self, v):
         g = self.game
         v["accent"], v["gameShort"], v["numeral"] = g.accent, g.short, g.m["numeral"]
+        v["badge"] = badge(g)
         v["topline"] = g.a.status()["status"]
         v["hero"] = uri(g.a.hero())
         sec = self.section()
@@ -720,31 +727,31 @@ class Nav:
         v["hint"] = it.get("hint", "")
         prompts = []
         if it.get("kind") == "cycler":
-            prompts.append(self.prompt("right", "Ändern"))
+            prompts.append(self.prompt("right", "Change"))
         elif it.get("verb"):
             prompts.append(self.prompt("confirm", it["verb"]))
         if it.get("replay") is not None:
-            prompts.append(self.prompt("x", "Ergebnis verbergen" if self.show_results else "Ergebnis zeigen"))
-        prompts.append(self.prompt("back", "Spiele"))
+            prompts.append(self.prompt("x", "Hide result" if self.show_results else "Show result"))
+        prompts.append(self.prompt("back", "Games"))
         if g.a.ready():
-            prompts.append(self.prompt("play", "Spielen"))
-        prompts += [self.prompt("social", "Schnellzugriff"), self.prompt("switchGame", "Spiel wechseln")]
+            prompts.append(self.prompt("play", "Play"))
+        prompts += [self.prompt("social", "Quick access"), self.prompt("switchGame", "Switch game")]
         v["prompts"] = prompts
 
     def _view_dialog(self, v):
         if self.confirm_kind == "exit":
-            title, text = "Launcher beenden?", "Laufende Spiele bleiben davon unberührt."
+            title, text = "Quit the launcher?", "Running games are not affected."
         else:
-            title, text = "Build abbrechen?", "Schon fertige Schritte bleiben erhalten."
-        v["dialog"] = dict(title=title, text=text, options=[dict(label="Nein", index=0, focused=self.exit_focus == 0), dict(label="Ja", index=1, focused=self.exit_focus == 1)])
-        v["hint"] = "Nein ist vorausgewählt. Versehentlich drücken ändert nichts."
-        v["prompts"] = [self.prompt("confirm", "Bestätigen"), self.prompt("right", "Wechseln"), self.prompt("back", "Abbrechen")]
+            title, text = "Cancel the build?", "Finished steps are kept."
+        v["dialog"] = dict(title=title, text=text, options=[dict(label="No", index=0, focused=self.exit_focus == 0), dict(label="Yes", index=1, focused=self.exit_focus == 1)])
+        v["hint"] = "No is preselected. A stray press changes nothing."
+        v["prompts"] = [self.prompt("confirm", "Confirm"), self.prompt("right", "Switch"), self.prompt("back", "Cancel")]
 
     def _view_drawer(self, v):
         items = self._drawer_items()
         v["drawer"] = dict(rows=[dict(index=i, label=it["label"], value=it["value"], focused=i == self.drawer_focus) for i, it in enumerate(items)])
-        v["hint"] = "Freunde, Lobby, Tastenbelegung und Fehlerbericht liegen noch in den Launchern der Spiele."
-        v["prompts"] = [self.prompt("confirm", "Öffnen"), self.prompt("back", "Schliessen")]
+        v["hint"] = "Friends, lobby, key bindings and problem reports are still in the games' own launchers."
+        v["prompts"] = [self.prompt("confirm", "Open"), self.prompt("back", "Close")]
 
     def _view_fighters(self, v):
         items = self._fighter_list()
@@ -753,25 +760,25 @@ class Nav:
         v["grid"] = dict(main=main, cells=[dict(index=i, name=f["name"], main=f["name"] == main, image=uri(f["image"]), random=f["key"] == "random", focused=i == self.grid_focus, chosen=f["key"] == chosen)
                                            for i, f in enumerate(items)],
                          mosaic=[uri(f["image"]) for f in items[1:5] if f["image"]])
-        v["hint"] = "Gilt, wenn du im Spiel nicht rechtzeitig wählst."
-        v["prompts"] = [self.prompt("confirm", "Wählen"), self.prompt("back", "Schliessen")]
+        v["hint"] = "Used if you do not pick in the game in time."
+        v["prompts"] = [self.prompt("confirm", "Choose"), self.prompt("back", "Close")]
 
     def _view_osk(self, v):
         o = self.osk
         rows = [[dict(label=ch, row=r, col=c, focused=o["row"] == r and o["col"] == c) for c, ch in enumerate(line)] for r, line in enumerate(OSK)]
         rows.append([dict(label=label, row=len(OSK), col=c, focused=o["row"] == len(OSK) and o["col"] == c) for c, (_k, label) in enumerate(OSK_ACTIONS)])
         v["osk"] = dict(rows=rows, text=o["text"] + "_", title=o["title"])
-        v["hint"] = "Steuerkreuz wählt die Taste. Eine echte Tastatur geht auch."
-        v["prompts"] = [self.prompt("confirm", "Eingeben"), self.prompt("x", "Löschen"), self.prompt("play", "Fertig"), self.prompt("back", "Abbrechen")]
+        v["hint"] = "The D-pad picks the key. A real keyboard works too."
+        v["prompts"] = [self.prompt("confirm", "Enter"), self.prompt("x", "Delete"), self.prompt("play", "Done"), self.prompt("back", "Cancel")]
 
     def _view_picker(self, v):
         p = self.picker
         entries = self._picker_entries()
         start = window(len(entries), p["focus"], PICKER_VISIBLE)
         rows = [dict(index=i, name=e["name"], kind=e["kind"], focused=i == p["focus"]) for i, e in enumerate(entries[start:start + PICKER_VISIBLE], start)]
-        v["picker"] = dict(rows=rows, title=p["title"], path=p["dir"] or "Dieser PC", up=start > 0, down=start + PICKER_VISIBLE < len(entries))
-        v["hint"] = "Zeigt nur Ordner und passende Dateien." if p["kind"] == "file" else "Wähle den Ordner mit dem Spiel."
-        v["prompts"] = [self.prompt("confirm", "Öffnen"), self.prompt("back", "Abbrechen")]
+        v["picker"] = dict(rows=rows, title=p["title"], path=p["dir"] or "This PC", up=start > 0, down=start + PICKER_VISIBLE < len(entries))
+        v["hint"] = "Shows only folders and matching files." if p["kind"] == "file" else "Choose the game's folder."
+        v["prompts"] = [self.prompt("confirm", "Open"), self.prompt("back", "Cancel")]
 
     # ------------------------------------------------------------------------------------ mouse
     def click_row(self, index):
@@ -781,7 +788,7 @@ class Nav:
             self.focus[self.key()] = index
             if already or items[index].get("kind") != "hold":
                 if items[index].get("kind") == "hold":
-                    self.say("Mit Pad oder Enter gedrückt halten.")
+                    self.say("Hold with the pad or Enter.")
                 else:
                     self._guard(self._activate, items[index])
 

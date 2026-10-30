@@ -62,7 +62,16 @@ Item {
                     width: tile.t.focused ? 500 : tile.width - 40
                     spacing: 0
                     Rectangle { width: 56; height: 8; color: tile.t.accent || "#ECE9E1" }
-                    Item { width: 1; height: 20 }
+                    Item { width: 1; height: 14 }
+                    Rectangle {
+                        visible: !!tile.t.badge
+                        width: badgeText.implicitWidth + 16; height: visible ? 30 : 0
+                        color: tile.t.focused ? (tile.t.accent || "#ECE9E1") : "transparent"
+                        border.width: 2
+                        border.color: tile.t.accent || "#ECE9E1"
+                        Text { id: badgeText; anchors.centerIn: parent; text: tile.t.badge || ""; color: tile.t.focused ? "#0E0F11" : (tile.t.accent || "#ECE9E1"); font.family: shelf.root.mono; font.weight: Font.DemiBold; font.pixelSize: 18 }
+                    }
+                    Item { width: 1; height: 12 }
                     Text {
                         width: parent.width
                         text: tile.t.name || ""

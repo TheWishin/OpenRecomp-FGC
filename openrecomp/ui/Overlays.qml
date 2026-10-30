@@ -43,7 +43,7 @@ Item {
         color: ov.root.panel
         Column {
             y: 40; width: parent.width
-            Text { x: 48; text: "Schnellzugriff"; bottomPadding: 20; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 72 }
+            Text { x: 48; text: "Quick access"; bottomPadding: 20; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 72 }
             Repeater {
                 model: ov.v.drawer.rows.length
                 Rectangle {
@@ -66,8 +66,8 @@ Item {
         color: ov.root.panel
         Row {
             x: 32; y: 24; spacing: 28
-            Text { text: "Wähle deinen Charakter"; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
-            Text { visible: !!ov.v.grid.main; text: "Dein Main: " + (ov.v.grid.main || ""); color: ov.root.muted; font.family: ov.root.sans; font.pixelSize: 26; anchors.baseline: parent.children[0].baseline }
+            Text { text: "Choose your fighter"; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
+            Text { visible: !!ov.v.grid.main; text: "Your main: " + (ov.v.grid.main || ""); color: ov.root.muted; font.family: ov.root.sans; font.pixelSize: 26; anchors.baseline: parent.children[0].baseline }
         }
         Grid {
             x: 32; y: 96; columns: 9; spacing: 6
@@ -170,7 +170,7 @@ Item {
                     readonly property var r: ov.root.ok(ov.v.picker.rows, index)
                     width: 1304; height: 66
                     color: r.focused ? ov.root.bone : "transparent"
-                    Text { x: 20; width: 110; anchors.verticalCenter: parent.verticalCenter; text: parent.r.kind === "dir" ? "Ordner" : (parent.r.kind === "pick" ? "Wählen" : "Datei"); color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.mono; font.pixelSize: 22 }
+                    Text { x: 20; width: 110; anchors.verticalCenter: parent.verticalCenter; text: parent.r.kind === "dir" ? "Folder" : (parent.r.kind === "pick" ? "Choose" : "File"); color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.mono; font.pixelSize: 22 }
                     Text { x: 140; width: 1140; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideMiddle; text: parent.r.name || ""; color: parent.r.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.sans; font.weight: parent.r.kind === "file" ? Font.DemiBold : Font.Normal; font.pixelSize: 30 }
                     TapHandler { onTapped: ov.root.backend.clickEntry(parent.r.index) }
                 }

@@ -23,7 +23,7 @@ First working version. On the launcher today:
 | Free slots | a manifest (below) | what the manifest says |
 
 Not in OpenRecomp-FGC yet: lobby, rooms, friends and tournaments (the Online section opens the T5DR Online launcher for
-those), key bindings and problem reports (each game's own launcher, reachable from Y). The texts are German only so far.
+those), key bindings and problem reports (each game's own launcher, reachable from Y). The texts are English only so far.
 
 ## Start
 
@@ -61,6 +61,7 @@ needs this:
  "id": "mygame",
  "title": "My Game",
  "subtitle": "PS2 Recomp",
+ "platform": "PS2",
  "numeral": "M",
  "accent": "#2FC4B2",
  "adapter": "generic",

@@ -4,10 +4,11 @@
  "title": "Tekken 5",
  "subtitle": "Dark Resurrection",
  "short": "Tekken 5 DR",
+ "platform": "PS3",
  "numeral": "5",
  "accent": "#F0414E",
  "adapter": "t5dr",
- "source": "PS3-Paket (.pkg + .rap)",
+ "source": "PS3 package (.pkg + .rap)",
  "locations": ["%USERPROFILE%\\Desktop\\T5DR-Online-*", "C:\\T5DR-Online-*", "D:\\T5DR-Online-*", "C:\\Games\\T5DR-Online-*"],
  "sections": ["play", "online", "build", "replays", "settings"]
 }

@@ -40,8 +40,8 @@ class Adapter:
 
     def status(self):
         """dict(status=short line, version, players, last, detail=one sentence)."""
-        return dict(status="Nicht gefunden", version="keine", players="Nein", last="Noch nie",
-                    detail=f"OpenRecomp-FGC hat {self.m['short']} auf diesem PC nicht gefunden.")
+        return dict(status="Not found", version="none", players="No", last="Never",
+                    detail=f"OpenRecomp-FGC did not find {self.m['short']} on this PC.")
 
     def hero(self):
         return ""
@@ -51,7 +51,7 @@ class Adapter:
 
     # ---------------------------------------------------------------- playing
     def start(self, extra_env=None):
-        raise RuntimeError("Das Spiel ist nicht bereit.")
+        raise RuntimeError("The game is not ready.")
 
     def running(self):
         return False
@@ -60,7 +60,7 @@ class Adapter:
         pass
 
     def open_native(self):
-        raise RuntimeError("Dieses Spiel hat keinen eigenen Launcher.")
+        raise RuntimeError("This game has no launcher of its own.")
 
     # ---------------------------------------------------------------- settings: dict(id, label, hint, lead, options, value)
     def settings(self):
@@ -70,7 +70,7 @@ class Adapter:
         pass
 
     def quick_settings(self):
-        """Ids of the settings shown under "Spiel starten"."""
+        """Ids of the settings shown under "Start game"."""
         return []
 
     # ---------------------------------------------------------------- online: rows for the online section
@@ -100,7 +100,7 @@ class Adapter:
         return []
 
     def play_replay(self, replay_id, extra_env=None):
-        raise RuntimeError("Keine Replays.")
+        raise RuntimeError("No replays.")
 
     # ---------------------------------------------------------------- build
     def sources(self):
@@ -114,10 +114,10 @@ class Adapter:
         return []
 
     def build_ready(self):
-        return "Dieses Spiel wird nicht über OpenRecomp-FGC gebaut."
+        return "This game is not built through OpenRecomp-FGC."
 
     def build_start(self, force=False):
-        raise RuntimeError("Kein Build.")
+        raise RuntimeError("No build.")
 
     def build_state(self):
         """dict(running, fraction, title, steps=[dict(k, v)], result, line)."""
@@ -138,8 +138,8 @@ class Missing(Adapter):
     """The game's folder was not found: the player can point at it."""
 
     def sources(self):
-        return [dict(id="folder", label="Spielordner", value="Fehlt", ok=False, kind="folder", exts=[], dirs=[],
-                     hint="Zeig OpenRecomp-FGC, wo das Spiel liegt.")]
+        return [dict(id="folder", label="Game folder", value="Missing", ok=False, kind="folder", exts=[], dirs=[],
+                     hint="Show OpenRecomp-FGC where the game is.")]
 
     def set_source(self, sid, path):
         self.config.setdefault("roots", {})[self.m["id"]] = path
@@ -164,10 +164,10 @@ class Generic(Adapter):
 
     def status(self):
         if self.found():
-            return dict(status="Bereit", version=str(self.m.get("version", "unbekannt")), players="Nein",
-                        last="unbekannt", detail="Startet direkt die im Manifest genannte Datei.")
-        return dict(status="Nicht gefunden", version="keine", players="Nein", last="Noch nie",
-                    detail=f"{self.exe()} fehlt.")
+            return dict(status="Ready", version=str(self.m.get("version", "unknown")), players="No",
+                        last="unknown", detail="Starts the file the manifest names.")
+        return dict(status="Not found", version="none", players="No", last="Never",
+                    detail=f"{self.exe()} is missing.")
 
     def start(self, extra_env=None):
         env = dict(os.environ)

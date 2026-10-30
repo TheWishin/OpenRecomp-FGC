@@ -16,12 +16,12 @@ import threading
 from .base import Adapter, NO_WINDOW, add_path, expand_locations
 from ..manifest import art_dir
 
-DISPLAY = [("window", "Fenster"), ("window1080", "Fenster 1080p"), ("window1440", "Fenster 1440p"),
-           ("maximized", "Maximiert"), ("borderless", "Randlos")]
-RES_NAMES = {"lowest": "Niedrigste (0.5x)", "lower": "Niedrig (0.75x)", "native": "Nativ (720p)", "1080p": "1080p",
+DISPLAY = [("window", "Window"), ("window1080", "Window 1080p"), ("window1440", "Window 1440p"),
+           ("maximized", "Maximized"), ("borderless", "Borderless")]
+RES_NAMES = {"lowest": "Lowest (0.5x)", "lower": "Lower (0.75x)", "native": "Native (720p)", "1080p": "1080p",
              "1440p": "1440p", "4k": "4K", "auto": "Auto"}
-ON_OFF = [("on", "An"), ("off", "Aus")]
-YES_NO = [(False, "Aus"), (True, "An")]
+ON_OFF = [("on", "On"), ("off", "Off")]
+YES_NO = [(False, "Off"), (True, "On")]
 RANK_TAG = re.compile(r"\s*\[\d+\]$")
 
 
@@ -48,7 +48,7 @@ def find_root(manifest, config):
 
 
 class T5DR(Adapter):
-    native_label = "T5DR-Online-Launcher"
+    native_label = "T5DR Online launcher"
 
     def __init__(self, manifest, config, root, core=None, replays_mod=None):
         super().__init__(manifest, config)
@@ -95,15 +95,15 @@ class T5DR(Adapter):
     def status(self):
         st = self.state()
         entries = self.replay_entries()
-        last = entries[0].when.strftime("%d.%m., %H:%M") if entries and entries[0].when else "Noch nie"
-        version = self.release().get("version") or "Entwicklung"
+        last = entries[0].when.strftime("%d.%m., %H:%M") if entries and entries[0].when else "Never"
+        version = self.release().get("version") or "dev"
         if st["ok"]:
-            status, detail = "Bereit", "Dein Spiel läuft lokal auf diesem PC. Den Charakter wählst du im Spiel."
+            status, detail = "Ready", "Your game runs locally on this PC. You pick your fighter in the game."
         elif st["needs_rebuild"]:
-            status, detail = "Neu bauen", "Diese Version ändert den Spielcode: einmal bauen, etwa 2 Minuten."
+            status, detail = "Build again", "This version changes the game code: build once, about 2 minutes."
         else:
-            status, detail = "Noch nicht gebaut", "Wähle dein Paket und deine Lizenz im Build-Bereich."
-        return dict(status=status, version=f"v{version}", players="Lobby und Ranked", last=last, detail=detail)
+            status, detail = "Not built yet", "Choose your package and license in the Build section."
+        return dict(status=status, version=f"v{version}", players="Lobby and ranked", last=last, detail=detail)
 
     # ---------------------------------------------------------------- pictures
     def face(self, gid):
@@ -134,14 +134,14 @@ class T5DR(Adapter):
             os.makedirs(os.path.dirname(path), exist_ok=True)
             fa._write(path, fa.ra.png_bytes(rgba, fa.TEX_W, fa.TEX_W))  # noqa: SLF001 -- the module's atomic write
         except Exception as e:  # noqa: BLE001 -- a missing picture must never stop the launcher
-            self.problem = f"Bild nicht gelesen: {e}"
+            self.problem = f"Picture not read: {e}"
 
     # ---------------------------------------------------------------- playing
     def start(self, extra_env=None):
         if not self.ready():
             raise RuntimeError(self.status()["detail"])
         if self.running():
-            raise RuntimeError("Das Spiel läuft schon.")
+            raise RuntimeError("The game is already running.")
         self.game = self.core.GameRun(self.s.out_dir, self.s)
         return self.game.start(extra_env=extra_env)
 
@@ -168,37 +168,37 @@ class T5DR(Adapter):
     def settings(self):
         s = self.s
         res = [(k, RES_NAMES.get(k, k)) for k in self.core.INTERNAL_RES_LABELS]
-        delay = [("auto", "Auto"), ("0", "0 Frames"), ("1", "1 Frame"), ("2", "2 Frames")]
+        delay = [("auto", "Auto"), ("0", "0 frames"), ("1", "1 frame"), ("2", "2 frames")]
         return [
-            dict(id="display", label="Anzeige", options=DISPLAY, value=s["display"],
-                 hint="Wie das Spielfenster aufgeht. Im Spiel gehen auch F11 und Alt+Enter.",
-                 lead="Randlos füllt den Bildschirm, im Fenster bleibt der PC nebenher nutzbar."),
-            dict(id="internal_res", label="Interne Auflösung", options=res, value=s["internal_res"],
-                 hint="Wie scharf das Spiel gerendert wird.",
-                 lead="Höhere Stufen brauchen mehr Grafikleistung. Online darf jeder eine andere Stufe nutzen."),
+            dict(id="display", label="Display", options=DISPLAY, value=s["display"],
+                 hint="How the game window opens. F11 and Alt+Enter work in the game too.",
+                 lead="Borderless fills the screen, a window keeps the PC usable."),
+            dict(id="internal_res", label="Internal resolution", options=res, value=s["internal_res"],
+                 hint="How sharply the game is rendered.",
+                 lead="Higher steps need more graphics power. Online, each player may use another step."),
             dict(id="vsync", label="V-Sync", options=ON_OFF, value=s["vsync"],
-                 hint="Aus: am wenigsten Lag, das Bild kann reissen.", lead="Betrifft nur, wie das Bild auf den Bildschirm kommt."),
-            dict(id="shadows", label="Schatten", options=ON_OFF, value=s["shadows"],
-                 hint="Schatten von Kämpfern und Stage.", lead="Aus entlastet schwache Grafikkarten."),
-            dict(id="effects", label="Effekte", options=ON_OFF, value=s["effects"],
-                 hint="Trefferfunken, Flammen, Rauch, Nebel, Wasserfälle.", lead="Aus entlastet schwache Grafikkarten."),
-            dict(id="stage_blur", label="Stage-Unschärfe", options=ON_OFF, value=s["stage_blur"],
-                 hint="Weichzeichner und Leuchten mancher Stages.", lead="Reine Optik, online ohne Einfluss."),
-            dict(id="input_delay", label="Online Input-Delay", options=delay, value=str(s["input_delay"]),
-                 hint="Auto wählt nach Ping. Beide Spieler stellen ihn ein.", lead="Mehr Delay heisst weniger Rollback. Ranked legt der Server fest."),
-            dict(id="training", label="Training-Anzeige", options=[("off", "Aus"), ("inputs", "Eingaben"), ("frames", "Eingaben + Frames")],
-                 value=s["training"], hint="Eingaben und Frame-Daten im Practice-Modus. F2 wechselt im Spiel.", lead="Zeigt Startup und Vorteil jedes Moves."),
-            dict(id="practice", label="Practice-Werkzeuge", options=YES_NO, value=bool(s["practice"]),
-                 hint="SELECT-Kombis, Dummy und Aufnahmen im Practice-Modus.", lead="Nur offline im Practice-Modus."),
-            dict(id="always_left", label="Immer links", options=YES_NO, value=bool(s["always_left"]),
-                 hint="Als P2 zeigt dieser PC den Kampf gespiegelt, du stehst links.", lead="Nur die Anzeige auf diesem PC ändert sich."),
-            dict(id="mute", label="Ton aus", options=YES_NO, value=bool(s["mute"]), hint="Schaltet den Spielton stumm.", lead="Schaltet den Spielton stumm."),
-            dict(id="replays", label="Replays speichern", options=YES_NO, value=bool(s["replays"]),
-                 hint="Online-Matches landen als Replay auf diesem PC.", lead="Ein Match braucht nur wenige KB."),
-            dict(id="unlock_stages", label="Alte Stages offline", options=YES_NO, value=bool(s["unlock_stages"]),
-                 hint="Tekken-5-Stages ohne Arcade-Durchlauf. Der Spielstand bleibt.", lead="Nur offline."),
-            dict(id="unlock_items", label="Items gratis offline", options=YES_NO, value=bool(s["unlock_items"]),
-                 hint="Alle Items im Shop kostenlos. Der Spielstand wird vorher gesichert.", lead="Nur offline."),
+                 hint="Off: least lag, the picture may tear.", lead="Only changes how the picture reaches the screen."),
+            dict(id="shadows", label="Shadows", options=ON_OFF, value=s["shadows"],
+                 hint="Shadows of fighters and stage.", lead="Off helps weak graphics cards."),
+            dict(id="effects", label="Effects", options=ON_OFF, value=s["effects"],
+                 hint="Hit sparks, flames, smoke, mist, waterfalls.", lead="Off helps weak graphics cards."),
+            dict(id="stage_blur", label="Stage blur", options=ON_OFF, value=s["stage_blur"],
+                 hint="Soft focus and glow of some stages.", lead="Looks only, no effect online."),
+            dict(id="input_delay", label="Online input delay", options=delay, value=str(s["input_delay"]),
+                 hint="Auto picks by ping. Both players set it.", lead="More delay means less rollback. In ranked the server sets it."),
+            dict(id="training", label="Training display", options=[("off", "Off"), ("inputs", "Inputs"), ("frames", "Inputs + frames")],
+                 value=s["training"], hint="Inputs and frame data in Practice. F2 switches in the game.", lead="Shows startup and advantage of every move."),
+            dict(id="practice", label="Practice tools", options=YES_NO, value=bool(s["practice"]),
+                 hint="SELECT combos, dummy and recordings in Practice.", lead="Offline in Practice only."),
+            dict(id="always_left", label="Always left", options=YES_NO, value=bool(s["always_left"]),
+                 hint="As P2 this PC shows the fight mirrored, you stand on the left.", lead="Only the picture on this PC changes."),
+            dict(id="mute", label="Mute", options=YES_NO, value=bool(s["mute"]), hint="Mutes the game sound.", lead="Mutes the game sound."),
+            dict(id="replays", label="Save replays", options=YES_NO, value=bool(s["replays"]),
+                 hint="Online matches are saved as replays on this PC.", lead="A match takes only a few KB."),
+            dict(id="unlock_stages", label="Old stages offline", options=YES_NO, value=bool(s["unlock_stages"]),
+                 hint="Tekken 5 stages without clearing Arcade. Your save stays as it is.", lead="Offline only."),
+            dict(id="unlock_items", label="Free items offline", options=YES_NO, value=bool(s["unlock_items"]),
+                 hint="All shop items free. Your save is backed up first.", lead="Offline only."),
         ]
 
     def set_setting(self, sid, value):
@@ -223,29 +223,29 @@ class T5DR(Adapter):
         chosen = self.fighter_name(self.chosen_fighter())
         main = self.fighter_name_id(self.main_id())
         return [
-            dict(kind="heading", label="Dein Charakter"),
-            dict(kind="action", id="fighter", label="Charakter", value=chosen, verb="Ändern", opens="fighters",
-                 hint="Gilt, wenn du im Spiel nicht rechtzeitig wählst.",
-                 detail=dict(kicker="Dein Charakter", title=chosen, image=self.fighter_image(self.chosen_fighter()),
-                             lead="Nach dem Matchfund wählst du im Spiel selbst (30 s, Select = Zufall). Der Charakter hier gilt, wenn du nicht rechtzeitig wählst.",
-                             rows=[dict(k="Dein Main", v=main or "noch keiner"),
-                                   dict(k="Kostüm", v="Bestätigen-Taste im Spiel"), dict(k="Im Ranked-Set", v="Hier gesperrt")])),
-            dict(kind="heading", label="Spielen", mt=12),
-            dict(kind="action", id="ranked", label="Ranked", verb="Suchen",
-                 hint="Die Suche läuft im T5DR-Launcher, OpenRecomp-FGC öffnet ihn dafür.",
-                 detail=dict(kicker="T5DR Online", title="Ranked", lead="Wertet für deinen Rang. Die Suche läuft im T5DR-Launcher, dort siehst du Match und Ready-Check.",
-                             rows=[dict(k="Modus", v="Best of 3"), dict(k="Seiten", v="Vom Server"), dict(k="Stage", v="Zufall")], primary="Suchen")),
-            dict(kind="action", id="casual", label="Quick Match", verb="Suchen",
-                 hint="Die Suche läuft im T5DR-Launcher, OpenRecomp-FGC öffnet ihn dafür.",
-                 detail=dict(kicker="T5DR Online", title="Quick Match", lead="Ungewertet, nach Ping. Die Suche läuft im T5DR-Launcher.",
-                             rows=[dict(k="Wertung", v="Keine"), dict(k="Rematch", v="Ja")], primary="Suchen")),
-            dict(kind="action", id="lobby", label="Lobby, Räume, Freunde", verb="Öffnen",
-                 hint="Der T5DR-Launcher mit Lobby, Räumen, Turnieren, Freunden und Rangliste.",
-                 detail=dict(kicker="T5DR Online", title="Lobby", lead="Räume, Turniere, Freunde, Zuschauen und Rangliste laufen weiter im T5DR-Launcher.",
-                             rows=[dict(k="Stand", v="Noch nicht in OpenRecomp-FGC")], primary="Öffnen")),
-            dict(kind="action", id="nickname", label="Spielername", value=self.s["nickname"] or "keiner", verb="Ändern", opens="text:nickname",
-                 hint="Dein Name für die Lobby. Die Bildschirmtastatur reicht völlig.",
-                 detail=dict(kicker="Dein Profil", title="Spielername", lead="So siehst du in der Lobby aus.", rows=[dict(k="Aktuell", v=self.s["nickname"] or "keiner")])),
+            dict(kind="heading", label="Your fighter"),
+            dict(kind="action", id="fighter", label="Fighter", value=chosen, verb="Change", opens="fighters",
+                 hint="Used if you do not pick in the game in time.",
+                 detail=dict(kicker="Your fighter", title=chosen, image=self.fighter_image(self.chosen_fighter()),
+                             lead="After a match is found you pick in the game (30 s, Select = random). The fighter here is used if you do not pick in time.",
+                             rows=[dict(k="Your main", v=main or "none yet"),
+                                   dict(k="Costume", v="Confirm button in the game"), dict(k="In a ranked set", v="Locked here")])),
+            dict(kind="heading", label="Play", mt=12),
+            dict(kind="action", id="ranked", label="Ranked", verb="Search",
+                 hint="The search runs in the T5DR launcher, OpenRecomp-FGC opens it for you.",
+                 detail=dict(kicker="T5DR Online", title="Ranked", lead="Counts for your rank. The search runs in the T5DR launcher, where you also see the match and ready check.",
+                             rows=[dict(k="Mode", v="Best of 3"), dict(k="Sides", v="From the server"), dict(k="Stage", v="Random")], primary="Search")),
+            dict(kind="action", id="casual", label="Quick Match", verb="Search",
+                 hint="The search runs in the T5DR launcher, OpenRecomp-FGC opens it for you.",
+                 detail=dict(kicker="T5DR Online", title="Quick Match", lead="Unrated, by ping. The search runs in the T5DR launcher.",
+                             rows=[dict(k="Rating", v="None"), dict(k="Rematch", v="Yes")], primary="Search")),
+            dict(kind="action", id="lobby", label="Lobby, rooms, friends", verb="Open",
+                 hint="The T5DR launcher with lobby, rooms, tournaments, friends and leaderboard.",
+                 detail=dict(kicker="T5DR Online", title="Lobby", lead="Rooms, tournaments, friends, spectating and leaderboard stay in the T5DR launcher.",
+                             rows=[dict(k="State", v="Not in OpenRecomp-FGC yet")], primary="Open")),
+            dict(kind="action", id="nickname", label="Player name", value=self.s["nickname"] or "none", verb="Change", opens="text:nickname",
+                 hint="Your name for the lobby. The on-screen keyboard is enough.",
+                 detail=dict(kicker="Your profile", title="Player name", lead="How you appear in the lobby.", rows=[dict(k="Current", v=self.s["nickname"] or "none")])),
         ]
 
     def search_on_start_works(self):
@@ -257,12 +257,12 @@ class T5DR(Adapter):
             name = "Ranked" if item_id == "ranked" else "Quick Match"
             if self.search_on_start_works():
                 self._exe_launcher("--search", item_id)
-                return f"T5DR-Launcher startet die Suche: {name}."
+                return f"T5DR launcher is starting the search: {name}."
             self._exe_launcher()
-            return f"T5DR-Launcher öffnet sich. Starte {name} dort."
+            return f"T5DR launcher is opening. Start {name} there."
         if item_id == "lobby":
             self._exe_launcher()
-            return "T5DR-Launcher öffnet sich."
+            return "T5DR launcher is opening."
         return ""
 
     # ---------------------------------------------------------------- fighters
@@ -282,7 +282,7 @@ class T5DR(Adapter):
         return [dict(key=f["key"], name=f["name"], image=self.face(f["id"])) for f in picks]
 
     def fighter_name(self, key):
-        return next((f["name"] for f in self._fighter_table() if f["key"] == key), "Zufall")
+        return next((f["name"] for f in self._fighter_table() if f["key"] == key), "Random")
 
     def fighter_name_id(self, gid):
         return next((f["name"] for f in self._fighter_table() if f["id"] == gid), "")
@@ -335,7 +335,7 @@ class T5DR(Adapter):
         out = []
         for e in self.replay_entries():
             if e.complete and e.won is not None:
-                out.append("S" if e.won else "N")
+                out.append("W" if e.won else "L")
             if len(out) == 5:
                 break
         return out
@@ -354,8 +354,8 @@ class T5DR(Adapter):
         for i, e in enumerate(self.replay_entries()):
             a, b = self.rp.fighter_name(e.p1), self.rp.fighter_name(e.p2)
             score = f"{e.score[0]}:{e.score[1]}" if e.score else ""
-            result = ("Sieg " if e.won else "Niederlage ") + score if e.won is not None else (score or "Offen")
-            opponent = RANK_TAG.sub("", e.opponent or "") or "Unbekannt"
+            result = ("Win " if e.won else "Loss ") + score if e.won is not None else (score or "Open")
+            opponent = RANK_TAG.sub("", e.opponent or "") or "Unknown"
             when = e.when.strftime("%d.%m.%Y, %H:%M") if e.when else "?"
             out.append(dict(id=str(i), label=f"{a} – {b}", when=e.when.strftime("%H:%M") if e.when else "",
                             date=when, group=f"{e.when.strftime('%d.%m.') if e.when else '?'} · {opponent}", opponent=opponent,
@@ -378,10 +378,10 @@ class T5DR(Adapter):
         rap = self.s["rap"]
         rap_ok = bool(rap) and os.path.isfile(rap)
         return [
-            dict(id="pkg", label="Paket (.pkg)", value="Gefunden" if pkg_ok else "Fehlt", ok=pkg_ok, kind="file", exts=[".pkg"], dirs=dirs,
-                 hint="Dein Spielpaket aus deinem Konto. Nichts verlässt diesen PC.", note=pkg_text),
-            dict(id="rap", label="Lizenz (.rap)", value="Gefunden" if rap_ok else "Fehlt", ok=rap_ok, kind="file", exts=[".rap"], dirs=dirs,
-                 hint="Deine Lizenzdatei aus deinem Konto. Nichts verlässt diesen PC.", note=""),
+            dict(id="pkg", label="Package (.pkg)", value="Found" if pkg_ok else "Missing", ok=pkg_ok, kind="file", exts=[".pkg"], dirs=dirs,
+                 hint="Your game package from your own account. Nothing leaves this PC.", note=pkg_text),
+            dict(id="rap", label="License (.rap)", value="Found" if rap_ok else "Missing", ok=rap_ok, kind="file", exts=[".rap"], dirs=dirs,
+                 hint="Your license file from your own account. Nothing leaves this PC.", note=""),
         ]
 
     def set_source(self, sid, path):
@@ -391,12 +391,12 @@ class T5DR(Adapter):
         return ""
 
     def build_options(self):
-        return [dict(id="low_priority", label="PC reaktionsfähig halten", options=YES_NO, value=bool(self.s["low_priority"]),
-                     hint="Der Build läuft langsamer, der PC bleibt nutzbar.", lead="Der Build läuft langsamer, dafür bleibt der PC nebenher gut nutzbar.")]
+        return [dict(id="low_priority", label="Keep the PC responsive", options=YES_NO, value=bool(self.s["low_priority"]),
+                     hint="The build is slower, the PC stays usable.", lead="The build is slower, but the PC stays usable meanwhile.")]
 
     def build_ready(self):
         if not self.s["pkg"] or not self.s["rap"]:
-            return "Wähle zuerst Paket und Lizenz."
+            return "Choose package and license first."
         return ""
 
     def build_start(self, force=False):
@@ -421,11 +421,11 @@ class T5DR(Adapter):
             kind, value = ev[0], ev[1] if len(ev) > 1 else None
             if kind == "step":
                 if self.build_step:
-                    self.build_steps[self.build_step] = "Fertig"
+                    self.build_steps[self.build_step] = "Done"
                 self.build_step = value
-                self.build_steps[value] = "Läuft"
+                self.build_steps[value] = "Running"
             elif kind == "skip":
-                self.build_steps[value] = "Fertig"
+                self.build_steps[value] = "Done"
             elif kind == "sub":
                 self.build_fraction = float(value)
             elif kind == "line":
@@ -435,20 +435,20 @@ class T5DR(Adapter):
             elif kind == "end":
                 if value == 0:
                     if self.build_step:
-                        self.build_steps[self.build_step] = "Fertig"
-                    self.last_result = "Fertig gebaut."
+                        self.build_steps[self.build_step] = "Done"
+                    self.last_result = "Build finished."
                 elif value == -1:
-                    self.last_result = "Abgebrochen."
+                    self.last_result = "Cancelled."
                 elif not self.last_result:
-                    self.last_result = f"Der Build ist fehlgeschlagen. Log: {self.build.log_path}"
+                    self.last_result = f"The build failed. Log: {self.build.log_path}"
                 self.build = None
                 self._state = None
 
     def build_state(self):
         self._pump_build()
         names = list(self.core.STEP_TITLES)
-        steps = [dict(k=self.core.STEP_TITLES[n], v=self.build_steps.get(n, "Offen")) for n in names]
-        done = sum(1 for n in names if self.build_steps.get(n) == "Fertig")
+        steps = [dict(k=self.core.STEP_TITLES[n], v=self.build_steps.get(n, "Open")) for n in names]
+        done = sum(1 for n in names if self.build_steps.get(n) == "Done")
         return dict(running=self.build is not None, fraction=done / len(names) if names else 0.0,
                     title=self.core.STEP_TITLES.get(self.build_step, ""), steps=steps, result=self.last_result, line=self.build_line)
 

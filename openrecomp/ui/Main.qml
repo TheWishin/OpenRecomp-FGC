@@ -52,6 +52,13 @@ Window {
                         visible: win.v.screen === "hub"; spacing: 12; anchors.verticalCenter: parent.verticalCenter
                         Rectangle { width: 14; height: 14; color: win.v.accent; anchors.verticalCenter: parent.verticalCenter }
                         Text { text: win.v.gameShort; color: win.muted; font.family: win.sans; font.pixelSize: 26 }
+                        Rectangle {
+                            visible: !!win.v.badge
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: hubBadge.implicitWidth + 16; height: 30
+                            color: "transparent"; border.width: 2; border.color: win.v.accent
+                            Text { id: hubBadge; anchors.centerIn: parent; text: win.v.badge || ""; color: win.v.accent; font.family: win.mono; font.weight: Font.DemiBold; font.pixelSize: 18 }
+                        }
                     }
                 }
                 Row {
@@ -60,7 +67,7 @@ Window {
                     Row {
                         spacing: 12; anchors.verticalCenter: parent.verticalCenter
                         Glyph { g: win.v.social; size: 40 }
-                        Text { text: "Schnellzugriff"; color: win.textC; font.family: win.sans; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: "Quick access"; color: win.textC; font.family: win.sans; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
                         TapHandler { onTapped: win.backend.press("social") }
                     }
                 }
