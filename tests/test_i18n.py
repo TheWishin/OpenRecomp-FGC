@@ -101,7 +101,7 @@ def untranslated_literals(source):
         "controls_path", "DeviceRef", "load", "sources", "table", "bind", "save", "mask_text",
         "default_sources", "step", "drain", "update",
         "idle", "waiting", "ready", "conflict", "multi", "timeout", "disconnected", "done", "ok",
-        "check", "report", "problem", "controls", "support", "error", "saved", "none",
+        "check", "report", "problem", "play", "controls", "support", "error", "saved", "none",
         "online_", "online_name", "online_password", "online_server", ":online",
         "offline", "connecting", "logged_in", "searching", "cancelling", "matched", "kicked", "match_found",
         "login_", "search_", "login_guest", "login_account", "login_saved", "search_casual", "search_ranked",
@@ -348,6 +348,12 @@ class Catalogs(unittest.TestCase):
         ]
         for source in examples:
             self.assertTrue(untranslated_literals(source), source)
+
+    def test_python_scan_accepts_play_section_id_but_checks_display_labels(self):
+        source = 'self.sec[g.id] = "play" if g.a.ready() or "build" not in secs else "build"'
+        self.assertEqual(untranslated_literals(source), [])
+        self.assertTrue(untranslated_literals('dict(label="play")'))
+        self.assertTrue(untranslated_literals('dict(label="play" if ready else "@section.build")'))
 
     def test_python_scan_accepts_optional_api_names_but_checks_displayed_defaults(self):
         self.assertEqual(untranslated_literals('getattr(adapter, "controls_supported", lambda: False)()'), [])
