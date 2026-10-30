@@ -230,6 +230,7 @@ class Pads:
         self.readers = readers if readers is not None else []
         self.clock = clock
         self.down = {}
+        self.pressed = set()
         self.kind = "xbox"
         self.reset_return()
 
@@ -260,6 +261,8 @@ class Pads:
         out = []
         now = self.clock()
         for name, action in SOURCES:
+            if name in held:
+                self.pressed.add(action)
             if name in held and action not in self.down:
                 self.down[action] = now + REPEAT_DELAY
                 self.kind = kinds.get(name, self.kind)
@@ -269,7 +272,9 @@ class Pads:
                 out.append((action, "down"))
             elif name not in held and action in self.down:
                 del self.down[action]
-                out.append((action, "up"))
+                if action in self.pressed:
+                    self.pressed.remove(action)
+                    out.append((action, "up"))
         return out
 
     def forget(self):

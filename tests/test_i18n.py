@@ -9,6 +9,7 @@ from unittest import mock
 from openrecomp import i18n
 from openrecomp.adapters.base import Adapter
 from openrecomp.nav import Game, Nav
+from openrecomp.nav_common import SECTION_TITLES
 
 
 ROOT = Path(__file__).parents[1]
@@ -23,6 +24,13 @@ def untranslated_literals(source):
 
     def ignore(node):
         ignored.update(id(child) for child in ast.walk(node))
+
+    def ignore_protocol(node, values):
+        if isinstance(node, ast.Constant) and node.value in values:
+            ignore(node)
+        elif isinstance(node, ast.IfExp):
+            ignore_protocol(node.body, values)
+            ignore_protocol(node.orelse, values)
 
     def check_display(node):
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -64,6 +72,12 @@ def untranslated_literals(source):
             if any(isinstance(t, ast.Attribute) and t.attr in ("screen", "overlay", "device", "pad_kind", "confirm_kind") for t in node.targets):
                 if isinstance(node.value, ast.Constant):
                     ignore(node.value)
+            if len(node.targets) == 1 and isinstance(node.targets[0], ast.Attribute) and node.targets[0].attr == "screen":
+                ignore_protocol(node.value, ("start", "hub"))
+            if len(node.targets) == 1 and isinstance(node.targets[0], ast.Subscript):
+                target = node.targets[0].value
+                if isinstance(target, ast.Attribute) and target.attr == "sec" and isinstance(target.value, ast.Name) and target.value.id == "self":
+                    ignore_protocol(node.value, SECTION_TITLES)
             if len(node.targets) == 1 and isinstance(node.targets[0], ast.Subscript) and isinstance(node.targets[0].slice, ast.Constant) and node.targets[0].slice.value == "overlay":
                 if isinstance(node.value, ast.Constant) and node.value.value == "dialog":
                     ignore(node.value)  # binding uses the dialog view protocol, not a display label
@@ -360,6 +374,19 @@ class Catalogs(unittest.TestCase):
         self.assertEqual(untranslated_literals(source), [])
         self.assertTrue(untranslated_literals('dict(label="play")'))
         self.assertTrue(untranslated_literals('dict(label="play" if ready else "@section.build")'))
+
+    def test_python_scan_accepts_navigation_ids_only_in_protocol_assignments(self):
+        for source in ('self.screen = "hub" if found else "start"',
+                       'self.sec[game.id] = "online" if online else "play"'):
+            self.assertEqual(untranslated_literals(source), [], source)
+        for value in ("online", "hub", "start"):
+            for source in (f'dict(label="{value}")', f'self.say("{value}")'):
+                self.assertTrue(untranslated_literals(source), source)
+        for source in ('self.screen = "hub" if found else "Choose a game"',
+                       'self.sec[game.id] = "online" if online else "Choose a section"',
+                       'self.sec[game.id] = "online" if self.say("Choose a section") else "play"',
+                       'self.title = "hub" if found else "start"'):
+            self.assertTrue(untranslated_literals(source), source)
 
     def test_python_scan_accepts_dialog_overlay_protocol_but_checks_display_text(self):
         self.assertEqual(untranslated_literals('v["overlay"] = "dialog"'), [])

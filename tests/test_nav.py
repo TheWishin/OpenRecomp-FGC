@@ -375,6 +375,26 @@ class Pad(unittest.TestCase):
         self.held = set()
         self.assertEqual(self.pads.poll(), [("confirm", "up")])
 
+    def test_suppression_without_held_buttons_has_no_release_edges(self):
+        self.pads.suppress()
+        self.pads.suppress()
+        self.assertEqual(self.pads.poll(), [])
+        self.held = {"A"}
+        self.assertEqual(self.pads.poll(), [("confirm", "down")])
+
+    def test_a_direction_first_held_while_away_requires_release_before_repeating(self):
+        self.pads.forget()
+        self.held = {"DDOWN"}
+        self.assertEqual(self.pads.poll(), [])
+        self.now = 1.0
+        self.assertEqual(self.pads.poll(), [])
+        self.held = set()
+        self.assertEqual(self.pads.poll(), [("down", "up")])
+        self.held = {"DDOWN"}
+        self.assertEqual(self.pads.poll(), [("down", "down")])
+        self.now = 1.5
+        self.assertEqual(self.pads.poll(), [("down", "down")])
+
     def test_the_stick_is_a_dpad(self):
         self.assertEqual(xinput_held(0, 30000, 0), {"DRIGHT"})
         self.assertEqual(xinput_held(0, -30000, 30000), {"DLEFT", "DUP"})

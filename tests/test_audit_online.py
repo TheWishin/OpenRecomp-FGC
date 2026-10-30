@@ -24,6 +24,7 @@ class OnlineAuditTests(unittest.TestCase):
     def login(self, kind=Subject):
         adapter = kind(self.directory)
         self.addCleanup(adapter.online_close)
+        adapter.set_text_value("online_name", "FakePlayer")
         adapter.online_action("login_guest")
         adapter.online_poll()
         self.assertEqual(adapter.online_state()["phase"], "logged_in")
