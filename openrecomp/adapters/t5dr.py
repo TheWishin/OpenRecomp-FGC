@@ -4,13 +4,14 @@ Nothing of it is copied: OpenRecomp-FGC imports it from the player's install. Pi
 (read from the player's own built game by fighter_art.py) and stay on the PC.
 """
 import collections
-import glob
-import importlib
+import importlib.util
 import json
 import os
 import queue
 import re
 import subprocess
+import sys
+import tempfile
 import threading
 
 from .base import Adapter, NO_WINDOW, add_path, expand_locations
@@ -50,6 +51,35 @@ def find_root(manifest, config):
     return max(built or found, key=version_key)
 
 
+def _runtime_path(root, name):
+    path = os.path.realpath(os.path.join(root, "launcher", name + ".py"))
+    cached = sys.modules.get(name)
+    if cached is not None:
+        origin = os.path.realpath(getattr(cached, "__file__", ""))
+        if os.path.normcase(origin) != os.path.normcase(path):
+            raise ImportError("@not_ready")
+    return path
+
+
+def load_runtime(root, name):
+    """Never reuse a runtime module from a different selected install."""
+    path = _runtime_path(root, name)
+    cached = sys.modules.get(name)
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError("@not_ready")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(name, None)
+        raise
+    return module
+
+
 class T5DR(Controls, T5Support, Online, Adapter):
     native_label = "@t5.native_label"
 
@@ -57,11 +87,14 @@ class T5DR(Controls, T5Support, Online, Adapter):
         super().__init__(manifest, config)
         self.root = root
         if core is None:
+            # A core may itself import replays: reject conflicting caches before either executes.
+            for name in ("core", "replays"):
+                _runtime_path(root, name)
             add_path(os.path.join(root, "lobby"))
             add_path(os.path.join(root, "tools"))
             add_path(os.path.join(root, "launcher"))
-            core = importlib.import_module("core")
-            replays_mod = importlib.import_module("replays")
+            core = load_runtime(root, "core")
+            replays_mod = load_runtime(root, "replays")
         self.core = core
         self.rp = replays_mod
         self.s = core.Settings()
@@ -91,7 +124,8 @@ class T5DR(Controls, T5Support, Online, Adapter):
     def release(self):
         try:
             with open(os.path.join(self.root, "release.json"), encoding="utf-8") as f:
-                return json.load(f)
+                release = json.load(f)
+            return release if isinstance(release, dict) else {}
         except (OSError, ValueError):
             return {}
 
@@ -226,53 +260,6 @@ class T5DR(Controls, T5Support, Online, Adapter):
             self.s["nickname"] = value
             self.s.save()
 
-    # ---------------------------------------------------------------- online: native launcher shortcuts for other lobby features
-    def online_items(self):
-        chosen = self.fighter_name(self.chosen_fighter())
-        main = self.fighter_name_id(self.main_id())
-        return [
-            dict(kind="heading", label="@your_fighter"),
-            dict(kind="action", id="fighter", label="@fighter", value=chosen, verb="@change", opens="fighters",
-                 hint="@fighter_hint",
-                 detail=dict(kicker="@your_fighter", title=chosen, image=self.fighter_image(self.chosen_fighter()),
-                             lead="@fighter.lead",
-                             rows=[dict(k="@your_main", v=main or "@none_yet"),
-                                   dict(k="@costume", v="@costume.confirm"), dict(k="@ranked_set", v="@locked_here")])),
-            dict(kind="heading", label="@play", mt=12),
-            dict(kind="action", id="ranked", label="@ranked", verb="@search",
-                 hint="@search.hint",
-                 detail=dict(kicker="T5DR Online", title="@ranked", lead="@ranked.lead",
-                             rows=[dict(k="@mode", v="@best_of_three"), dict(k="@sides", v="@server_sides"), dict(k="@stage", v="@random")], primary="@search")),
-            dict(kind="action", id="casual", label="@quick_match", verb="@search",
-                 hint="@search.hint",
-                 detail=dict(kicker="T5DR Online", title="@quick_match", lead="@casual.lead",
-                             rows=[dict(k="@rating", v="@none"), dict(k="@rematch", v="@yes")], primary="@search")),
-            dict(kind="action", id="lobby", label="@lobby_rooms_friends", verb="@open",
-                 hint="@lobby.hint",
-                 detail=dict(kicker="T5DR Online", title="@lobby", lead="@lobby.lead",
-                             rows=[dict(k="@state", v="@not_available_here")], primary="@open")),
-            dict(kind="action", id="nickname", label="@osk.player_name", value=self.s["nickname"] or "@none_lower", verb="@change", opens="text:nickname",
-                 hint="@player_name.hint",
-                 detail=dict(kicker="@your_profile", title="@osk.player_name", lead="@player_name.lead", rows=[dict(k="@current", v=self.s["nickname"] or "@none_lower")])),
-        ]
-
-    def search_on_start_works(self):
-        """Up to 1.1.9 `--search` asks for the game's state before the launcher has read it and always says "build first"."""
-        return version_key(self.root) > (1, 1, 9)
-
-    def run_online(self, item_id):
-        if item_id in ("ranked", "casual"):
-            name = "@ranked" if item_id == "ranked" else "@quick_match"
-            if self.search_on_start_works():
-                self._exe_launcher("--search", item_id)
-                return self.message("search_starting", name=name)
-            self._exe_launcher()
-            return self.message("search_opening", name=name)
-        if item_id == "lobby":
-            self._exe_launcher()
-            return "@t5.launcher_opening"
-        return ""
-
     # ---------------------------------------------------------------- fighters
     def _fighter_table(self):
         if self._fighters is None:
@@ -318,14 +305,26 @@ class T5DR(Controls, T5Support, Online, Adapter):
 
     def set_fighter(self, key):
         """The same field of the same file the T5DR launcher's character grid writes; the rest stays as it is."""
-        cfg = self._online_cfg()
-        cfg["char"] = key
         path = self.online_cfg_path()
+        try:
+            with open(path, encoding="utf-8") as f:
+                cfg = json.load(f)
+        except FileNotFoundError:
+            cfg = {}
+        if not isinstance(cfg, dict):
+            raise ValueError("@not_ready")
+        cfg["char"] = key
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        tmp = path + ".openrecomp.tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=1)
-        os.replace(tmp, path)
+        tmp = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=os.path.dirname(path),
+                                             prefix=".openrecomp-", suffix=".tmp", delete=False) as f:
+                tmp = f.name
+                json.dump(cfg, f, indent=1)
+            os.replace(tmp, path)
+        finally:
+            if tmp is not None and os.path.exists(tmp):
+                os.unlink(tmp)
 
     def main_id(self):
         """The fighter of most of this PC's replays (the lobby's "main" needs a login)."""
@@ -463,7 +462,3 @@ class T5DR(Controls, T5Support, Online, Adapter):
     def build_cancel(self):
         if self.build:
             self.build.cancel()
-
-
-def installed_copies(manifest):
-    return [p for loc in manifest.get("locations", []) for p in glob.glob(os.path.expandvars(loc))]

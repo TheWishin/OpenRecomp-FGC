@@ -83,6 +83,16 @@ class Online:
             out.append(action("return_lobby", "@online.return_lobby"))
         if g.a.native_label:
             out.append(self._native_item(g))
+        # A reply can replace Cancel with Search, or reorder lobby targets between
+        # input events. Never let the old row index authorize the replacement.
+        challenge_id = (state.get("challenge") or {}).get("id")
+        rows = [(item.get("id"), challenge_id if item.get("id") in ("accept_challenge", "decline_challenge") else None)
+                for item in out]
+        previous = self.online_rows.get(g.id)
+        index = self.focus.get(g.id + ":online", 0)
+        if previous is not None and (index >= len(previous) or index >= len(rows) or previous[index] != rows[index]):
+            self.focus[g.id + ":online"] = 0
+        self.online_rows[g.id] = rows
         return out
 
     def _online_lobby_items(self, g, state, out, action):

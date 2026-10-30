@@ -96,9 +96,7 @@ class T4Online(Online):
         self._online_owned_run = None
         self._online_pending_start = None
         self._online_result_message = "@online.result_sent"
-        opponent = event.get("opponent") or {}
-        ping = event.get("ping") or {}
-        self._online_match = dict(opponent=str(opponent.get("name") or ""), ping=ping.get("ms"))
+        self._online_match = self._online_match_view(event)
         self._online_phase, self._online_queue = "matched", ""
         self._online_message = "@online.t4_matched"
         return True
@@ -110,6 +108,7 @@ class T4Online(Online):
             if current and event.get("match") not in (None, current):
                 return True
             opponent = event.get("opponent") or {}
+            opponent = opponent if isinstance(opponent, dict) else {}
             self._online_match["opponent"] = str(opponent.get("name") or "")
             return True
         if kind == "match_start":
@@ -134,37 +133,38 @@ class T4Online(Online):
             self._online_phase, self._online_message = "starting", "@online.starting"
             client = self._online_client
             generation = self._online_generation
+            old_run = getattr(self, "_online_owned_run", None)
 
             def launch():
-                old_run = getattr(self, "_online_owned_run", None)
+                self._online_check_request(generation, client)
                 if old_run is not None:
-                    self._online_stop_owned(wait=True)
+                    self._online_stop_owned(wait=True, expected=old_run)
                 else:
                     problem = self._online_game_check()
                     if problem:
                         raise SearchRefused(problem)
-                self._online_log_offsets = {}
-                self._online_log_prefixes = {}
+                offsets, prefixes = {}, {}
                 for name in ("net.log", "rb_frames.log"):
                     path = os.path.join(self.core.SAVE_DIR, name)
                     try:
                         stat = os.stat(path)
-                        self._online_log_offsets[path] = (stat.st_size, stat.st_mtime_ns)
+                        offsets[path] = (stat.st_size, stat.st_mtime_ns)
                         with open(path, "rb") as stream:
-                            self._online_log_prefixes[path] = stream.read(4096)
+                            prefixes[path] = stream.read(4096)
                     except OSError:
-                        self._online_log_offsets[path] = (0, 0)
+                        offsets[path] = (0, 0)
                 env = ticket_env(ticket)
                 with self._online_lock:
                     if generation != self._online_generation or not self._online_authorized:
                         raise RuntimeError("@online.cancelled")
+                    self._online_log_offsets, self._online_log_prefixes = offsets, prefixes
                     self.start(extra_env=env)
                     self._online_owned_run = self.run
-                self._online_started_at = time.monotonic()
-                self._online_connected = self._online_playing = self._online_fallback = False
-                self._online_started_sent = self._online_playing_sent = False
-                self._online_evidence = dict(frames=0, desync=0)
-                self._online_log_pending = {}
+                    self._online_started_at = time.monotonic()
+                    self._online_connected = self._online_playing = self._online_fallback = False
+                    self._online_started_sent = self._online_playing_sent = False
+                    self._online_evidence = dict(frames=0, desync=0)
+                    self._online_log_pending = {}
                 return client
             self._online_submit("start_game", launch)
             return True
@@ -208,11 +208,13 @@ class T4Online(Online):
         if action == "start_match" and phase == "matched" and client and not self._online_busy:
             self._online_authorized = True
             self._online_phase, self._online_message = "starting", "@online.starting"
+            generation = self._online_generation
 
             def ready():
                 problem = self._online_game_check()
                 if problem:
                     raise SearchRefused(problem)
+                self._online_check_request(generation, client)
                 return client.ready(True)
             self._online_submit(action, ready)
         elif action == "cancel_match" and phase in ("matched", "starting") and client:
@@ -271,8 +273,10 @@ class T4Online(Online):
                     self._online_owned_run = None
                     self._online_stopper = None
 
-    def _online_stop_owned(self, wait=False):
+    def _online_stop_owned(self, wait=False, expected=None):
         run = getattr(self, "_online_owned_run", None)
+        if expected is not None and run is not expected:
+            raise RuntimeError("@online.cancelled")
         if run is None:
             return
         stopping = getattr(self, "_online_stopper", None)

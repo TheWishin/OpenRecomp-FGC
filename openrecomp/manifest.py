@@ -2,6 +2,7 @@
 import json
 import os
 import shutil
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUILTIN_DIR = os.path.join(os.path.dirname(HERE), "games")
@@ -108,9 +109,26 @@ def load_config():
 
 
 def save_config(cfg):
-    os.makedirs(user_dir(), exist_ok=True)
-    path = os.path.join(user_dir(), "config.json")
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=1)
-    os.replace(tmp, path)
+    if not isinstance(cfg, dict):
+        raise ValueError("The configuration is not a JSON object.")
+    folder = user_dir()
+    path = os.path.join(folder, "config.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            existing = json.load(f)
+    except FileNotFoundError:
+        pass
+    else:
+        if not isinstance(existing, dict):
+            raise ValueError("The existing configuration is not a JSON object.")
+    os.makedirs(folder, exist_ok=True)
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=folder,
+                                         prefix=".config-", suffix=".tmp", delete=False) as f:
+            tmp = f.name
+            json.dump(cfg, f, indent=1)
+        os.replace(tmp, path)
+    finally:
+        if tmp is not None and os.path.exists(tmp):
+            os.unlink(tmp)

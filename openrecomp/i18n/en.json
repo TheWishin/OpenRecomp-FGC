@@ -543,5 +543,6 @@
     "t4.install_failed":  "The T4 install could not be added. Check the folder and try again.",
     "starter.failed":  "OpenRecomp could not start its private Python. Extract the complete launcher zip again.",
     "updates.rolled_back":  "The update did not start correctly. The previous launcher was restored.",
-    "updates.recovery":  "The update could not restore all launcher files. Keep the update backup and reinstall the launcher. Your separate game installs and settings are kept."
+    "updates.recovery":  "The update could not restore all launcher files. Keep the update backup and reinstall the launcher. Your separate game installs and settings are kept.",
+    "library.busy": "Close games and online sessions and finish builds, reports and controller setup before changing installed games."
 }

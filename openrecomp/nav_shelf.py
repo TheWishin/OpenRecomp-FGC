@@ -2,6 +2,7 @@
 import os
 
 from . import manifest as mf
+from . import i18n
 from .nav_common import GAP, SCREEN_W, SECTION_TITLES, SPINE_GAME, SPINE_SLOT, WIDE, badge, uri
 
 
@@ -19,16 +20,36 @@ class Shelf:
             return next((s for s in g.a.sources() if s.get("kind") in ("folder", "file_or_folder")), None)
         return None
 
+    def can_reload_games(self):
+        return not self.binding_game and not self._update_busy()
+
     def set_games(self, games):
+        if not self.can_reload_games():
+            self.say("@library.busy")
+            return False
+        if not self.dry:
+            try:
+                for g in self.games:
+                    if getattr(g.a, "online_supported", lambda: False)():
+                        g.a.online_close()
+            except Exception:  # noqa: BLE001 -- keep a client tracked if its cleanup failed
+                self.say("@library.busy")
+                return False
         if self.controls_game:
             self.controls_game.a.controls_close()
             self.controls_game = None
-        if self.binding_game:
-            self._cancel_binding()
         keep = self.game.id if self.game else None
+        self._cancel_hold()
+        self.overlay = None
+        self.picker = self.osk = None
+        self.support_game = self.support_snapshot = None
         self.games = games
         self.game = self.game_by_id(keep) or (games[0] if games else None)
+        self.online_rows.clear()
         self.start_focus = min(self.start_focus, len(self.tile_ids()) - 1)
+        if self.game is None:
+            self.screen = "start"
+        return True
 
     def _start(self, a):
         ids = self.tile_ids()
@@ -75,7 +96,7 @@ class Shelf:
                 st = g.a.status()
                 ready = g.a.ready()
                 missing = not g.a.found()
-                t.update(badge=badge(g), num=g.m["numeral"], name=g.m["title"], subtitle=g.m["subtitle"] if foc else st["status"], accent=g.accent, hero=uri(g.a.hero()),
+                t.update(badge=badge(g), num=i18n.literal(g.m["numeral"]), name=i18n.literal(g.m["title"]), subtitle=i18n.literal(g.m["subtitle"]) if foc else st["status"], accent=g.accent, hero=uri(g.a.hero()),
                          rows=[dict(k="@status", v=st["status"]), dict(k="@version", v=st["version"]), dict(k="@section.online", v=st["players"]), dict(k="@last_played", v=st["last"])],
                          results=self._cells(g.a.recent_results()), empty="@no_sets", sections=["@" + SECTION_TITLES[s] for s in g.m["sections"]],
                          bar="@onboarding.choose_folder" if self._folder_source(g) else ("@open" if ready else "@go_build"))

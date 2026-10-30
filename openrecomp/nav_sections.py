@@ -8,7 +8,7 @@ class Sections:
         st = g.a.status()
         ready = g.a.ready()
         running = g.a.running()
-        detail = dict(kicker=st["status"], title=g.short, lead=st["detail"],
+        detail = dict(kicker=st["status"], title=i18n.literal(g.short), lead=st["detail"],
                       rows=[dict(k="@version", v=st["version"]), dict(k="@last_played", v=st["last"])],
                       results=g.a.recent_results(), image="")
         by_id = {s["id"]: s for s in g.a.settings()}
@@ -19,7 +19,7 @@ class Sections:
         if running:
             detail["primary"] = "@stop"
             start = dict(kind="action", id="start", label="@game_running", verb="@stop", run=lambda: self._ask("stop_game"),
-                         hint=i18n.message("game_is_running", name=g.short), detail=detail)
+                         hint=i18n.message("game_is_running", name=i18n.literal(g.short)), detail=detail)
         elif ready:
             detail["primary"] = "@play"
             start = dict(kind="action", id="start", label="@start_game", verb="@start", run=lambda: self.start_game(g),

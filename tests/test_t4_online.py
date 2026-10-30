@@ -9,7 +9,7 @@ from unittest import mock
 
 from openrecomp.adapters.t4 import T4
 from openrecomp.adapters.t4_online import ticket_env
-from test_online_adapter import Build, Client, Servers
+from test_online_adapter import Build, Client, Servers, runtime_modules
 
 
 class MatchClient(Client):
@@ -141,9 +141,9 @@ class T4OnlineTests(unittest.TestCase):
 
     def test_t4_runtime_module_names_and_wrong_game_refusal(self):
         del self.a._online_api
-        modules = dict(client=SimpleNamespace(LobbyClient=self.a.make_client),
+        modules = runtime_modules(self.directory.name, "t4lobby", dict(client=SimpleNamespace(LobbyClient=self.a.make_client),
                        buildid=SimpleNamespace(BuildInfo=Build), servers=Servers,
-                       proto=SimpleNamespace(PROTO_VERSION=1, GAME="t4"))
+                       proto=SimpleNamespace(PROTO_VERSION=1, GAME="t4")))
         # Resolve the string patch target before replacing importlib's shared resolver.
         with mock.patch("openrecomp.adapters.t5_online.add_path"), mock.patch(
                 "openrecomp.adapters.t5_online.importlib.import_module",

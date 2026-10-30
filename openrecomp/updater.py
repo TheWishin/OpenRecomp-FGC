@@ -41,9 +41,10 @@ _DEVICES = ({"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
 
 
 class UpdateError(Exception):
-    def __init__(self, detail, key="update_failed"):
+    def __init__(self, detail, key="update_failed", *, safe_to_unlock=False):
         super().__init__(detail)
         self.key = key
+        self.safe_to_unlock = safe_to_unlock
 
 
 @dataclass(frozen=True)
@@ -310,13 +311,92 @@ def _work_root(root):
 
 
 def _check_user_home(root):
-    home = os.environ.get("OPENRECOMP_HOME")
-    if home:
-        home = Path(home).resolve()
-        for item in PROGRAM_ITEMS:
-            target = Path(root).resolve() / item
-            if home == target or target in home.parents or home in target.parents:
-                raise UpdateError("OPENRECOMP_HOME overlaps program files; move player data before updating.")
+    home = os.environ.get("OPENRECOMP_HOME") or os.path.join(
+        os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "OpenRecomp")
+    home = Path(os.path.expandvars(os.path.expanduser(home))).resolve()
+    for item in PROGRAM_ITEMS:
+        target = (Path(root).resolve() / item).resolve()
+        if home == target or target in home.parents or home in target.parents:
+            raise UpdateError("The player data folder overlaps program files; move player data before updating.")
+
+
+def _require_upgrade(root, release):
+    current, offered = version_key(local_version(root)), version_key(release.get("version"))
+    if current is None or offered is None or offered <= current:
+        raise UpdateError("The offered update is no longer newer than this installation.")
+
+
+def _signed_checksum(sums, release):
+    filename = f"OpenRecomp-{release['version']}.zip"
+    expected = None
+    for line in sums.decode("ascii").splitlines():
+        match = re.fullmatch(r"([0-9a-f]{64})  ([^/\\]+)", line)
+        if not match:
+            raise UpdateError("Malformed SHA256SUMS.")
+        if match[2] == filename:
+            if expected is not None:
+                raise UpdateError("Duplicate archive checksum.")
+            expected = match[1]
+    if expected is None:
+        raise UpdateError("The signed archive checksum is missing.")
+    return expected
+
+
+def _proof_bytes(path, limit):
+    with Path(path).open("rb") as source:
+        raw = source.read(limit + 1)
+    if len(raw) > limit:
+        raise UpdateError("The retained update proof exceeds its allowed size.")
+    return raw
+
+
+def _verify_staged(staged, release, channel):
+    """Authenticate retained release bytes and every staged file before executing or moving them."""
+    staged = Path(staged)
+    transaction = staged.parent
+    sums = _proof_bytes(transaction / "SHA256SUMS", 65536)
+    verify_signature(_proof_bytes(transaction / "SHA256SUMS.sig", 4096), sums, release, channel)
+    expected = _signed_checksum(sums, release)
+    archive_path = transaction / "release.zip"
+    expected_files, expected_dirs = {}, set()
+    with archive_path.open("rb") as source:
+        if os.fstat(source.fileno()).st_size > MAX_ZIP:
+            raise UpdateError("The retained update archive exceeds its allowed size.")
+        if hashlib.file_digest(source, "sha256").hexdigest() != expected:
+            raise UpdateError("The retained update archive failed authentication.")
+        source.seek(0)
+        with zipfile.ZipFile(source) as archive:
+            for info, parts in _archive_members(archive, release["version"]):
+                expected_dirs.update("/".join(parts[:n]) for n in range(1, len(parts)))
+                name = "/".join(parts)
+                if info.is_dir():
+                    expected_dirs.add(name)
+                else:
+                    with archive.open(info) as original:
+                        expected_files[name] = (info.file_size, hashlib.file_digest(original, "sha256").digest())
+    actual, actual_dirs = {}, set()
+    if staged.is_symlink() or staged.is_junction():
+        raise UpdateError("The staged program contains a link.")
+    for current, dirs, files in os.walk(staged, followlinks=False):
+        for name in dirs + files:
+            path = Path(current) / name
+            if path.is_symlink() or path.is_junction():
+                raise UpdateError("The staged program contains a link.")
+        actual_dirs.update((Path(current) / name).relative_to(staged).as_posix() for name in dirs)
+        for name in files:
+            path = Path(current) / name
+            if not stat.S_ISREG(path.stat().st_mode):
+                raise UpdateError("The staged program contains a special file.")
+            actual[path.relative_to(staged).as_posix()] = path
+    if set(actual) != set(expected_files) or actual_dirs != expected_dirs:
+        raise UpdateError("The staged program differs from the signed archive.")
+    for name, (size, digest) in expected_files.items():
+        if actual[name].stat().st_size != size:
+            raise UpdateError("A staged file differs from the signed archive.")
+        with actual[name].open("rb") as target:
+            if hashlib.file_digest(target, "sha256").digest() != digest:
+                raise UpdateError("A staged file differs from the signed archive.")
+    _manifest(staged, release, channel)
 
 
 def stage_update(root, release, channel=None):
@@ -332,17 +412,8 @@ def stage_update(root, release, channel=None):
         sums = _download(release["sums_url"], channel, 65536)
         signature = _download(release["sig_url"], channel, 4096)
         verify_signature(signature, sums, release, channel)
-        filename = f"OpenRecomp-{release['version']}.zip"
-        expected = None
-        for line in sums.decode("ascii").splitlines():
-            match = re.fullmatch(r"([0-9a-f]{64})  ([^/\\]+)", line)
-            if not match:
-                raise UpdateError("Malformed SHA256SUMS.")
-            if match[2] == filename:
-                if expected is not None:
-                    raise UpdateError("Duplicate archive checksum.")
-                expected = match[1]
-        if expected is None or expected != release["digest"]:
+        expected = _signed_checksum(sums, release)
+        if expected != release["digest"]:
             raise UpdateError("Signed checksum and GitHub digest disagree.")
         archive_path = transaction / "release.zip"
         count = _download(release["zip_url"], channel, min(MAX_ZIP, release["size"]), archive_path)
@@ -362,6 +433,8 @@ def stage_update(root, release, channel=None):
                     with archive.open(info) as source, open(target, "xb") as output:
                         shutil.copyfileobj(source, output)
         _manifest(staged, release, channel)
+        (transaction / "SHA256SUMS").write_bytes(sums)
+        (transaction / "SHA256SUMS.sig").write_bytes(signature)
         (transaction / "verified.json").write_text(json.dumps(dict(version=release["version"], channel=channel.name)), encoding="utf-8")
         return staged
     except Exception:
@@ -369,14 +442,15 @@ def stage_update(root, release, channel=None):
         raise
 
 
-def launch_update(root, staged, channel=None):
+def prepare_update(root, staged, channel=None):
+    """Authenticate the stage and copy the helper runtime on the update worker."""
     channel = (channel or configured_channel()).validate()
     root, staged = Path(root).resolve(), Path(staged).resolve()
     _check_user_home(root)
     if staged.name != "new" or staged.parent.parent != _work_root(root) or not staged.is_dir():
         raise UpdateError("The update was not staged beside this installation.")
     release = _json(staged.parent / "verified.json")
-    _manifest(staged, release, channel)
+    _verify_staged(staged, release, channel)
     runner = staged.parent / "runner"
     shutil.copytree(root / "python", runner / "python")
     shutil.copy2(__file__, runner / "updater.py")
@@ -384,6 +458,18 @@ def launch_update(root, staged, channel=None):
     plan = dict(root=str(root), staged=str(staged), pid=os.getpid(), version=release["version"], channel=channel.name, token=token)
     plan_path = staged.parent / "plan.json"
     plan_path.write_text(json.dumps(plan), encoding="utf-8")
+    return plan_path
+
+
+def launch_update(root, prepared, channel=None):
+    """Start the prepared helper after the UI thread's final busy check."""
+    channel = (channel or configured_channel()).validate()
+    root = Path(root).resolve()
+    plan_path, _plan, plan_root, _staged, transaction = _validated_plan(prepared, channel)
+    if plan_root != root or plan_path.name != "plan.json":
+        raise UpdateError("The update helper was prepared for another installation.")
+    _check_user_home(root)
+    runner = transaction / "runner"
     flags = 0x00000008 | 0x00000200 if os.name == "nt" else 0
     return subprocess.Popen([str(runner / "python" / "pythonw.exe"), "-I", "-B", str(runner / "updater.py"), "--apply", str(plan_path)],
                             cwd=runner, creationflags=flags, close_fds=True)
@@ -450,16 +536,43 @@ def _restart(root, marker=None):
                              str(Path(root) / "openrecomp_boot.py")], cwd=root, env=env, close_fds=True)
 
 
-def apply_plan(plan_path, *, wait=CONFIRM_WAIT, alive=_pid_alive, processes=_install_processes, restart=_restart, move=os.replace, sleep=time.sleep):
-    """Run only in the copied helper. Every failed move/start/confirmation restores the old files."""
+def _validated_plan(plan_path, channel=None):
     plan_path = Path(plan_path).resolve()
     plan = _json(plan_path)
     root, staged = Path(plan["root"]).resolve(), Path(plan["staged"]).resolve()
     transaction = plan_path.parent
     if (transaction.parent != _work_root(root) or staged != transaction / "new"
-            or not version_key(plan.get("version")) or plan.get("channel") != configured_channel().name
+            or not version_key(plan.get("version")) or plan.get("channel") != (channel or configured_channel()).name
             or not re.fullmatch(r"[0-9a-f]{64}", plan.get("token", ""))):
         raise UpdateError("Invalid update transaction.")
+    return plan_path, plan, root, staged, transaction
+
+
+def apply_plan(plan_path, *, wait=CONFIRM_WAIT, alive=_pid_alive, processes=_install_processes, restart=_restart, move=os.replace, sleep=time.sleep):
+    """Serialize helpers before any swap, including the complete rollback on failure."""
+    plan_path, _plan, _root, _staged, transaction = _validated_plan(plan_path)
+    lock = transaction.parent / "apply.lock"
+    try:
+        lock.mkdir()
+    except FileExistsError:
+        raise UpdateError("Another update or an interrupted recovery owns this installation.") from None
+    release_lock = False
+    try:
+        result = _apply_plan(plan_path, wait=wait, alive=alive, processes=processes,
+                             restart=restart, move=move, sleep=sleep)
+        release_lock = True
+        return result
+    except Exception as error:
+        release_lock = getattr(error, "safe_to_unlock", False)
+        raise
+    finally:
+        if release_lock:
+            lock.rmdir()
+
+
+def _apply_plan(plan_path, *, wait, alive, processes, restart, move, sleep):
+    """Run only in the copied helper. Every failed move/start/confirmation restores the old files."""
+    plan_path, plan, root, staged, transaction = _validated_plan(plan_path)
     backup = transaction / "backup"
     try:
         _check_user_home(root)
@@ -469,12 +582,16 @@ def apply_plan(plan_path, *, wait=CONFIRM_WAIT, alive=_pid_alive, processes=_ins
             if time.monotonic() >= end:
                 raise UpdateError("The launcher installation is still in use.")
             sleep(0.1)
+        _require_upgrade(root, plan)
+        _verify_staged(staged, plan, configured_channel())
+        if processes(root):
+            raise UpdateError("The launcher installation became busy during update verification.")
         backup.mkdir()
     except Exception as failure:
         (transaction / "result.json").write_text(json.dumps(dict(status="unchanged", version=plan["version"])), encoding="utf-8")
         if not alive(plan["pid"]):
             restart(root)
-        raise UpdateError("The update could not start; the previous launcher is unchanged.") from failure
+        raise UpdateError("The update could not start; the previous launcher is unchanged.", safe_to_unlock=True) from failure
     old, new = [], []
     marker = transaction / "confirmed.json"
     proc = None
@@ -522,7 +639,7 @@ def apply_plan(plan_path, *, wait=CONFIRM_WAIT, alive=_pid_alive, processes=_ins
         if problems:
             raise UpdateError("The update failed. Recovery copies were kept beside the installation; close programs using it before restoring the backup.") from failure
         restart(root)
-        raise UpdateError("The update failed and the previous launcher was restored.") from failure
+        raise UpdateError("The update failed and the previous launcher was restored.", safe_to_unlock=True) from failure
 
 
 def confirm_startup(root):
@@ -546,9 +663,20 @@ def update_result(root):
     work = _work_root(root)
     if not work.is_dir():
         return None
-    for result in sorted(work.glob("*/result.json"), key=lambda p: p.stat().st_mtime, reverse=True):
-        value = _json(result)
-        result.unlink()
+    candidates = []
+    for result in work.glob("*/result.json"):
+        try:
+            candidates.append((result.stat().st_mtime, result))
+        except OSError:
+            continue
+    for _modified, result in sorted(candidates, reverse=True):
+        try:
+            value = _json(result)
+            if not isinstance(value, dict):
+                continue
+            result.unlink()
+        except (OSError, ValueError):
+            continue
         if value.get("status") in ("updated", "rolled_back", "recovery_required", "unchanged"):
             return value
     return None

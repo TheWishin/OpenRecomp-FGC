@@ -95,7 +95,7 @@ class Hub:
 
     def _view_hub(self, v):
         g = self.game
-        v["accent"], v["gameShort"], v["numeral"] = g.accent, g.short, g.m["numeral"]
+        v["accent"], v["gameShort"], v["numeral"] = g.accent, i18n.literal(g.short), i18n.literal(g.m["numeral"])
         v["badge"] = badge(g)
         v["topline"] = g.a.status()["status"]
         v["hero"] = uri(g.a.hero())
@@ -142,7 +142,12 @@ class Hub:
         if self.overlay:
             return
         self._cancel_hold()
+        previous = self.online_rows.get(self.game.id) if self.section() == "online" else None
         items = self.items()
+        current = self.online_rows.get(self.game.id)
+        if previous is not None and current is not None and (
+                index >= len(previous) or index >= len(current) or previous[index] != current[index]):
+            return
         if 0 <= index < len(items) and items[index].get("kind") != "heading":
             already = self.focus_index(items) == index
             self.focus[self.key()] = index

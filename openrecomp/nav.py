@@ -77,6 +77,7 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         self.update_state = dict(phase="idle", version="", notes="", size=0)
         self.update_offered = ""
         self.update_version = ""
+        self.online_rows = {}
 
     def act(self, action, device=None):
         if device:
@@ -156,10 +157,10 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         return self.dry
 
     def start_game(self, g):
-        if self._dry(i18n.message("dry_start", name=g.short)):
+        if self._dry(i18n.message("dry_start", name=i18n.literal(g.short))):
             return
         if g.a.running():
-            self.say(i18n.message("game_already_running", name=g.short))
+            self.say(i18n.message("game_already_running", name=i18n.literal(g.short)))
             return
         if not g.a.ready():
             self._select_game(g)
@@ -169,7 +170,7 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
             self.say(g.a.status()["detail"])
             return
         if self._offline_action(g.a.start, extra_env=self.launch_env or None):
-            self.say(i18n.message("game_starting", name=g.short))
+            self.say(i18n.message("game_starting", name=i18n.literal(g.short)))
 
     def _offline_action(self, fn, *args, **kwargs):
         try:

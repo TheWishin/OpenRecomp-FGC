@@ -3,6 +3,7 @@ of an installed T5DR Online (t5lobby.padnav) when there is one. The launcher rea
 """
 import ctypes
 import importlib
+from importlib.machinery import PathFinder
 import os
 import sys
 import time
@@ -81,10 +82,29 @@ class PlayStationReader:
         if not t5dr_root:
             return
         lobby = os.path.join(t5dr_root, "lobby")
-        if lobby not in sys.path:
-            sys.path.insert(0, lobby)
+        package_root = os.path.normcase(os.path.realpath(os.path.join(lobby, "t5lobby")))
+
+        def local_origin(origin):
+            try:
+                return isinstance(origin, str) and os.path.commonpath(
+                    (package_root, os.path.normcase(os.path.realpath(origin)))) == package_root
+            except ValueError:
+                return False
+
         try:
-            self.source = importlib.import_module("t5lobby.padnav").HidSource()
+            spec = PathFinder.find_spec("t5lobby", [lobby])
+            if spec is None or not local_origin(spec.origin):
+                return
+            for name, module in tuple(sys.modules.items()):
+                if name == "t5lobby" or name.startswith("t5lobby."):
+                    if not local_origin(getattr(module, "__file__", None)):
+                        return
+            if lobby in sys.path:
+                sys.path.remove(lobby)
+            sys.path.insert(0, lobby)
+            module = importlib.import_module("t5lobby.padnav")
+            if local_origin(getattr(module, "__file__", None)):
+                self.source = module.HidSource()
         except Exception:  # noqa: BLE001 -- no PlayStation pads then, XInput still works
             self.source = None
 
@@ -102,7 +122,10 @@ class PlayStationReader:
 
     def pause(self):
         if self.source is not None:
-            self.source.pause()
+            try:
+                self.source.pause()
+            except Exception:  # a disconnected reader must still let the launcher yield input
+                pass
         self.next_scan = 0.0
 
 
@@ -139,7 +162,7 @@ class Pads:
 
     def forget(self):
         """The launcher left the front: nothing is held any more, and a press held across the switch is not a new one."""
-        self.down = {action: float("inf") for _n, action in SOURCES if action in self.down}
+        self.suppress()
         for r in self.readers:
             if hasattr(r, "pause"):
                 r.pause()

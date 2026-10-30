@@ -202,6 +202,20 @@ class UpdaterTests(unittest.TestCase):
         program(self.root, "v1.0.0")
         (self.root / "settings.json").write_text("player settings")
         staged = self.staged()
+        seed = os.urandom(32)
+        public = release_sign.public_key(seed)
+        self.channel = u.Channel(CHANNEL.repository, CHANNEL.repository_id, CHANNEL.name, (public.hex(),))
+        archive_path = staged.parent / "release.zip"
+        with zipfile.ZipFile(archive_path, "w") as archive:
+            for source in staged.rglob("*"):
+                if source.is_file():
+                    archive.write(source, "OpenRecomp-v1.2.3/" + source.relative_to(staged).as_posix())
+        sums = (hashlib.sha256(archive_path.read_bytes()).hexdigest() + "  OpenRecomp-v1.2.3.zip\n").encode("ascii")
+        signature = release_sign.sign(seed, u.signature_message(self.channel.name, "v1.2.3", sums))
+        (staged.parent / "SHA256SUMS").write_bytes(sums)
+        (staged.parent / "SHA256SUMS.sig").write_text(json.dumps(dict(algorithm="ed25519",
+            channel=self.channel.name, version="v1.2.3", key_id=hashlib.sha256(public).hexdigest()[:16],
+            signature=signature.hex())), encoding="utf-8")
         path = staged.parent / "plan.json"
         path.write_text(json.dumps(dict(root=str(self.root), staged=str(staged), version="v1.2.3", channel=CHANNEL.name,
                                         pid=123, token="a" * 64)))
@@ -212,7 +226,7 @@ class UpdaterTests(unittest.TestCase):
         def restart(root, marker=None):
             Path(marker["path"]).write_text(json.dumps(dict(token=marker["token"])))
             return mock.Mock()
-        with mock.patch.object(u, "configured_channel", return_value=CHANNEL):
+        with mock.patch.object(u, "configured_channel", return_value=self.channel):
             self.assertTrue(u.apply_plan(path, wait=0.1, alive=lambda p: False, processes=lambda r: [], restart=restart))
         self.assertEqual(u.local_version(self.root), "v1.2.3")
         self.assertEqual((self.root / "settings.json").read_text(), "player settings")
@@ -224,7 +238,7 @@ class UpdaterTests(unittest.TestCase):
             restarts.append(u.local_version(root))
             if marker:
                 raise OSError("fake restart failure")
-        with mock.patch.object(u, "configured_channel", return_value=CHANNEL), self.assertRaises(u.UpdateError):
+        with mock.patch.object(u, "configured_channel", return_value=self.channel), self.assertRaises(u.UpdateError):
             u.apply_plan(path, wait=0, alive=lambda p: False, processes=lambda r: [], restart=restart)
         self.assertEqual(restarts, ["v1.2.3", "v1.0.0"])
         self.assertEqual(u.local_version(self.root), "v1.0.0")
@@ -240,7 +254,7 @@ class UpdaterTests(unittest.TestCase):
             if len(calls) == 3:
                 raise OSError("fake file locked")
             os.replace(source, target)
-        with mock.patch.object(u, "configured_channel", return_value=CHANNEL), self.assertRaises(u.UpdateError):
+        with mock.patch.object(u, "configured_channel", return_value=self.channel), self.assertRaises(u.UpdateError):
             u.apply_plan(path, wait=0, alive=lambda p: False, processes=lambda r: [], restart=mock.Mock(), move=move)
         self.assertEqual(u.local_version(self.root), "v1.0.0")
         for item in u.REQUIRED_ITEMS:
@@ -250,10 +264,10 @@ class UpdaterTests(unittest.TestCase):
         path, staged = self.transaction()
         proc = mock.Mock()
         proc.poll.return_value = 0
-        with mock.patch.object(u, "configured_channel", return_value=CHANNEL), self.assertRaises(u.UpdateError):
+        with mock.patch.object(u, "configured_channel", return_value=self.channel), self.assertRaises(u.UpdateError):
             u.apply_plan(path, wait=0, alive=lambda p: False, processes=lambda r: [], restart=mock.Mock(return_value=proc))
         self.assertEqual(u.local_version(self.root), "v1.0.0")
-        with mock.patch.object(u, "configured_channel", return_value=CHANNEL), self.assertRaises(u.UpdateError):
+        with mock.patch.object(u, "configured_channel", return_value=self.channel), self.assertRaises(u.UpdateError):
             u.apply_plan(path, wait=0, alive=lambda p: True, processes=lambda r: [], restart=mock.Mock())
         self.assertEqual(u.local_version(self.root), "v1.0.0")
 
@@ -284,7 +298,7 @@ class UpdaterTests(unittest.TestCase):
                 self.assertTrue(proc.wait.called)
                 restored.append(source.name)
             os.replace(source, target)
-        with mock.patch.object(u, "configured_channel", return_value=CHANNEL), self.assertRaises(u.UpdateError):
+        with mock.patch.object(u, "configured_channel", return_value=self.channel), self.assertRaises(u.UpdateError):
             u.apply_plan(path, wait=0, alive=lambda p: False, processes=lambda r: [], restart=mock.Mock(return_value=proc), move=move)
         proc.terminate.assert_called_once()
         self.assertTrue(restored)
@@ -295,7 +309,7 @@ class UpdaterTests(unittest.TestCase):
         proc = mock.Mock()
         proc.poll.return_value = None
         proc.terminate.side_effect = OSError("fake access denied")
-        with mock.patch.object(u, "configured_channel", return_value=CHANNEL), self.assertRaises(u.UpdateError):
+        with mock.patch.object(u, "configured_channel", return_value=self.channel), self.assertRaises(u.UpdateError):
             u.apply_plan(path, wait=0, alive=lambda p: False, processes=lambda r: [], restart=mock.Mock(return_value=proc))
         self.assertEqual(u.local_version(self.root), "v1.0.0")
         self.assertEqual(u.update_result(self.root)["status"], "recovery_required")
@@ -303,7 +317,7 @@ class UpdaterTests(unittest.TestCase):
     def test_process_inspection_failure_restarts_unchanged_launcher(self):
         path, staged = self.transaction()
         restart = mock.Mock()
-        with mock.patch.object(u, "configured_channel", return_value=CHANNEL), self.assertRaises(u.UpdateError):
+        with mock.patch.object(u, "configured_channel", return_value=self.channel), self.assertRaises(u.UpdateError):
             u.apply_plan(path, wait=0, alive=lambda p: False,
                          processes=mock.Mock(side_effect=OSError("fake process inspection race")), restart=restart)
         restart.assert_called_once_with(self.root)
@@ -313,7 +327,7 @@ class UpdaterTests(unittest.TestCase):
     def test_busy_timeout_does_not_restart_a_still_running_launcher(self):
         path, staged = self.transaction()
         restart = mock.Mock()
-        with mock.patch.object(u, "configured_channel", return_value=CHANNEL), self.assertRaises(u.UpdateError):
+        with mock.patch.object(u, "configured_channel", return_value=self.channel), self.assertRaises(u.UpdateError):
             u.apply_plan(path, wait=0, alive=lambda p: True, processes=lambda r: [], restart=restart)
         restart.assert_not_called()
         self.assertEqual(u.local_version(self.root), "v1.0.0")

@@ -53,6 +53,8 @@ class Drawer:
         return True
 
     def _cycle_language(self, step):
+        if self._dry(i18n.message("dry_change", name="@language")):
+            return
         codes = i18n.LANGUAGES
         self.language = codes[(codes.index(self.language) + step) % len(codes)]
         self.on_language(self.language)

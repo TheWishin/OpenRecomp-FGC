@@ -148,8 +148,10 @@ class T4(T4Online, Adapter):
         return run.proc.pid
 
     def _wait(self, run):
-        record = run.wait()
-        self.core.release_run_lock()
+        try:
+            record = run.wait()
+        finally:
+            self.core.release_run_lock()
         self.s["last_run"] = record
         self.core.save_settings(self.s)
 

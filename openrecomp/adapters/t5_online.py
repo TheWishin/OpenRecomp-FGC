@@ -1,11 +1,13 @@
 """Shared login, search and lobby calls through each game's installed lobby client."""
 import csv
 import importlib
+from importlib.machinery import PathFinder
 import io
 import json
 import os
 import queue
 import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -74,7 +76,6 @@ class Online:
         self._online_busy = False
         self._online_generation = 0
         self._online_results = queue.Queue()
-        self._online_cancel_pending = False
         self._online_guard_at = 0.0
         self._online_lock = threading.RLock()
 
@@ -119,11 +120,34 @@ class Online:
 
     def _online_modules(self):
         if not hasattr(self, "_online_api"):
-            add_path(os.path.join(self.root, "lobby"))
+            lobby = os.path.join(self.root, "lobby")
+            package_root = os.path.normcase(os.path.realpath(os.path.join(lobby, self.online_package)))
+
+            def local_origin(origin):
+                try:
+                    return (isinstance(origin, str) and os.path.commonpath(
+                        (package_root, os.path.normcase(os.path.realpath(origin)))) == package_root)
+                except ValueError:
+                    return False
+
+            spec = PathFinder.find_spec(self.online_package, [lobby])
+            if spec is None or not local_origin(spec.origin):
+                raise RuntimeError("@online.client_missing")
+            # A second install must not reuse a previously imported client's server/config code.
+            for name, module in tuple(sys.modules.items()):
+                if name == self.online_package or name.startswith(self.online_package + "."):
+                    if not local_origin(getattr(module, "__file__", None)):
+                        raise RuntimeError("@online.client_missing")
+            if lobby in sys.path:
+                sys.path.remove(lobby)
+            add_path(lobby)
             client = importlib.import_module(self.online_package + ".client")
             buildid = importlib.import_module(self.online_package + ".buildid")
             servers = importlib.import_module(self.online_package + ".servers")
             proto = importlib.import_module(self.online_package + ".proto")
+            if not all(local_origin(getattr(module, "__file__", None))
+                       for module in (client, buildid, servers, proto)):
+                raise RuntimeError("@online.client_missing")
             if proto.PROTO_VERSION != 1 or (self.online_game and getattr(proto, "GAME", None) != self.online_game):
                 raise RuntimeError("@online.client_missing")
             self._online_api = dict(client=client.LobbyClient, build=buildid.BuildInfo, servers=servers)
@@ -176,6 +200,8 @@ class Online:
 
     def _online_error(self, error, saved=False):
         code = getattr(error, "code", "")
+        if not isinstance(code, str):
+            code = ""
         if saved and code == "auth_failed":
             return "@online.saved_expired"
         keys = dict(auth_failed="@online.auth_failed", insecure="@online.insecure", bad_name="@online.bad_name",
@@ -194,10 +220,20 @@ class Online:
 
     def _online_write_session(self, server, name, token, expected=None):
         """Merge a fresh file; no password is ever stored, and unrelated native settings survive."""
-        cfg = self._online_config()
-        sessions = cfg.get("sessions")
-        if not isinstance(sessions, dict):
-            sessions = {}
+        path = self.online_cfg_path()
+        old = os.path.join(os.path.dirname(getattr(self.s, "path", "") or self.root), "online.json")
+        paths = (path, old) if self.online_legacy_config else (path,)
+        cfg = {}
+        for candidate in paths:
+            try:
+                with open(candidate, encoding="utf-8") as stream:
+                    cfg = json.load(stream)
+                break
+            except FileNotFoundError:
+                continue
+        if not isinstance(cfg, dict) or ("sessions" in cfg and not isinstance(cfg["sessions"], dict)):
+            raise ValueError("@online.save_failed")
+        sessions = cfg.get("sessions", {})
         key = server.strip().lower()
         if token:
             sessions[key] = dict(name=name, token=token, saved=time.time())
@@ -208,7 +244,6 @@ class Online:
                 return
             sessions.pop(key)
             cfg["sessions"] = sessions
-        path = self.online_cfg_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         temporary = path + "." + uuid.uuid4().hex + ".tmp"
         try:
@@ -265,6 +300,8 @@ class Online:
                     me = client.login_session(saved["token"])
                 else:
                     me = client.login(name, password, remember=True)
+                if not isinstance(me, dict):
+                    raise RuntimeError("@online.client_missing")
                 warning = ""
                 with self._online_lock:
                     if generation != self._online_generation:
@@ -272,7 +309,7 @@ class Online:
                     if action == "login_account" and client.session:
                         try:
                             self._online_write_session(target, me["name"], client.session)
-                        except OSError:
+                        except (OSError, ValueError, TypeError):
                             warning = "@online.save_failed"
                 return dict(me=me, server=target, warning=warning)
             except Exception as error:
@@ -284,7 +321,7 @@ class Online:
                             try:
                                 self._online_write_session(server or self._online_default_server(), None, None,
                                                            expected=saved["token"])
-                            except OSError:
+                            except (OSError, ValueError, TypeError):
                                 pass
                 raise
         self._online_submit(action, work)
@@ -303,14 +340,13 @@ class Online:
             self.online_close()
             self._online_message = "@online.logged_out"
             return
+        if action == "cancel" and self._online_phase in ("connecting", "searching"):
+            # A queue acknowledgement can race a match offer or never arrive. Detach now;
+            # the closed connection also prevents an automatic server-side requeue.
+            self.online_close()
+            self._online_message = "@online.cancelled"
+            return
         if self._online_busy:
-            if action == "cancel":
-                if self._online_phase == "connecting":
-                    self.online_close()
-                    self._online_message = "@online.cancelled"
-                else:
-                    self._online_cancel_pending = True
-                    self._online_message = "@online.cancelling"
             return
         if action in ("login_guest", "login_account", "login_saved"):
             if self._online_client is None:
@@ -333,22 +369,25 @@ class Online:
             char = self.chosen_fighter()
             self._online_phase, self._online_queue = "searching", mode
             self._online_message = "@online.searching_ranked" if mode == "ranked" else "@online.searching_casual"
+            generation = self._online_generation
 
             def work():
                 problem = self._online_game_check()
                 if problem:
                     raise SearchRefused(problem)
+                self._online_check_request(generation, client)
                 if mode == "ranked":
                     client.ranked_match(char)
                 else:
                     client.quick_match(char)
                 return mode
             self._online_submit(action, work)
-        elif action == "cancel" and self._online_phase == "searching":
-            self._online_message = "@online.cancelling"
-            self._online_submit(action, client.cancel_queue)
         elif self.online_lobby and self._online_phase == "logged_in":
             self._online_lobby_action(action, client)
+
+    def _online_check_request(self, generation, client):
+        if generation != self._online_generation or client is not self._online_client:
+            raise SearchRefused("@online.cancelled")
 
     def _online_player_rank(self, rating):
         return ""
@@ -372,13 +411,18 @@ class Online:
 
     def _online_lobby_snapshot(self, event):
         me = getattr(self._online_client, "me", None) or {}
-        self._online_players = [self._online_player(p) for p in event.get("players", [])
+        me = me if isinstance(me, dict) else {}
+        players, rooms = event.get("players"), event.get("rooms")
+        players = players if isinstance(players, (list, tuple)) else []
+        rooms = rooms if isinstance(rooms, (list, tuple)) else []
+        self._online_players = [self._online_player(p) for p in players
                                 if isinstance(p, dict) and p.get("id") != me.get("id")][:200]
-        self._online_rooms = [self._online_room_view(r) for r in event.get("rooms", [])
+        self._online_rooms = [self._online_room_view(r) for r in rooms
                               if isinstance(r, dict) and not (r.get("private") or r.get("lock")
                               or r.get("hidden") or r.get("ranked") or r.get("training"))][:200]
 
     def _online_lobby_action(self, action, client):
+        generation = self._online_generation
         work = None
         if action in ("refresh_players", "refresh_rooms"):
             work = client.refresh
@@ -389,6 +433,7 @@ class Online:
                     problem = self._online_game_check()
                     if problem:
                         raise SearchRefused(problem)
+                    self._online_check_request(generation, client)
                     return client.challenge(target)
         elif action in ("accept_challenge", "decline_challenge") and self._online_challenge:
             challenge = self._online_challenge["id"]
@@ -397,12 +442,14 @@ class Online:
                     problem = self._online_game_check()
                     if problem:
                         raise SearchRefused(problem)
+                self._online_check_request(generation, client)
                 return client.answer_challenge(challenge, accept=action == "accept_challenge")
         elif action == "create_room":
             def work():
                 problem = self._online_game_check()
                 if problem:
                     raise SearchRefused(problem)
+                self._online_check_request(generation, client)
                 return client.create_room(ranked=False)
         elif action.startswith("join_room:"):
             target = action.split(":", 1)[1]
@@ -411,6 +458,7 @@ class Online:
                     problem = self._online_game_check()
                     if problem:
                         raise SearchRefused(problem)
+                    self._online_check_request(generation, client)
                     return client.join_room(target)
         elif action == "leave_room":
             work = client.leave_room
@@ -430,6 +478,12 @@ class Online:
     def _online_match_found(self, event):
         return False
 
+    def _online_match_view(self, event):
+        opponent, ping = event.get("opponent"), event.get("ping")
+        opponent = opponent if isinstance(opponent, dict) else {}
+        ping = ping if isinstance(ping, dict) else {}
+        return dict(opponent=str(opponent.get("name") or "")[:64], ping=ping.get("ms"))
+
     def _online_completion(self, action, value, error):
         return False
 
@@ -441,7 +495,9 @@ class Online:
         events = []
         for _ in range(client.events.qsize()):
             try:
-                events.append(client.events.get_nowait())
+                event = client.events.get_nowait()
+                if isinstance(event, dict):
+                    events.append(event)
             except queue.Empty:
                 break
         retained = False
@@ -464,11 +520,9 @@ class Online:
                 self._online_message = ("@online.kicked" if "logged in from another place" in reason
                                         else "@online.removed")
             elif kind == "match_found":
-                opponent = event.get("opponent") or {}
-                ping = event.get("ping") or {}
                 # Closing also prevents the server requeueing this client after a ready timeout.
                 self._online_phase = "matched"
-                self._online_match = dict(opponent=str(opponent.get("name") or ""), ping=ping.get("ms"))
+                self._online_match = self._online_match_view(event)
                 self._online_name, self._online_account = name, account
                 self._online_message = "@online.matched"
             else:
@@ -577,9 +631,6 @@ class Online:
                 self._online_phase, self._online_queue = "searching", value
                 self._online_message = "@online.searching_ranked" if value == "ranked" else "@online.searching_casual"
                 self._online_guard_at = time.monotonic() + 1
-            elif action == "cancel":
-                self._online_phase, self._online_queue = "logged_in", ""
-                self._online_message = "@online.cancelled"
             elif action == "guard" and value:
                 message = value
                 self.online_close()
@@ -606,10 +657,6 @@ class Online:
         changed = changed or event_changed
         if terminal:
             return True
-        if self._online_cancel_pending and not self._online_busy:
-            self._online_cancel_pending = False
-            self.online_action("cancel")
-            changed = True
         if (self._online_phase == "searching" and not self._online_busy
                 and time.monotonic() >= self._online_guard_at):
             self._online_guard_at = time.monotonic() + 1
@@ -622,7 +669,6 @@ class Online:
             self._online_generation += 1
             client, self._online_client = self._online_client, None
         self._online_busy = False
-        self._online_cancel_pending = False
         self._online_phase, self._online_queue = "offline", ""
         self._online_account = False
         self._online_name = ""

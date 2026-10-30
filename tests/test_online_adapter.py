@@ -84,6 +84,17 @@ class Settings(dict):
     pass
 
 
+def runtime_modules(directory, package, modules):
+    """Give test client modules the same install origins production validates."""
+    root = os.path.join(directory, "lobby", package)
+    os.makedirs(root, exist_ok=True)
+    with open(os.path.join(root, "__init__.py"), "w", encoding="utf-8"):
+        pass
+    for name, module in modules.items():
+        module.__file__ = os.path.join(root, name + ".py")
+    return modules
+
+
 class Subject(Online, Adapter):
     text_value = T5DR.text_value
     set_text_value = T5DR.set_text_value
@@ -176,10 +187,10 @@ class OnlineAdapterTests(unittest.TestCase):
 
     def test_runtime_client_is_loaded_from_install_only_on_explicit_request(self):
         del self.a._online_api
-        api = dict(
+        api = runtime_modules(self.directory.name, "t5lobby", dict(
             client=SimpleNamespace(LobbyClient=self.a.make_client),
             buildid=SimpleNamespace(BuildInfo=Build), servers=Servers,
-            proto=SimpleNamespace(PROTO_VERSION=1))
+            proto=SimpleNamespace(PROTO_VERSION=1)))
         def module(name):
             return api[name.split(".")[-1]]
         # Resolve the string patch target before replacing importlib's shared resolver.
@@ -194,8 +205,10 @@ class OnlineAdapterTests(unittest.TestCase):
 
     def test_incompatible_protocol_is_refused_without_connecting(self):
         del self.a._online_api
+        module = SimpleNamespace(PROTO_VERSION=2)
+        runtime_modules(self.directory.name, "t5lobby", dict(proto=module))
         with mock.patch("openrecomp.adapters.t5_online.add_path"), mock.patch(
-                "openrecomp.adapters.t5_online.importlib.import_module", return_value=SimpleNamespace(PROTO_VERSION=2)):
+                "openrecomp.adapters.t5_online.importlib.import_module", return_value=module):
             self.a.online_action("login_guest")
             self.a.online_poll()
         self.assertEqual(self.a.online_state()["message"], "@online.client_missing")
@@ -214,7 +227,8 @@ class OnlineAdapterTests(unittest.TestCase):
         self.assertIn(("quick", "random"), client.calls)
         self.a.online_action("cancel")
         self.a.online_poll()
-        self.assertIn("cancel", client.calls)
+        self.assertTrue(client.closed.wait(1))
+        self.assertEqual(self.a.online_state()["phase"], "offline")
         self.assertEqual(self.a.online_state()["message"], "@online.cancelled")
 
     def test_guest_cannot_search_ranked_and_search_requires_login(self):
@@ -331,11 +345,11 @@ class OnlineAdapterTests(unittest.TestCase):
         client = self.login()
         self.a.online_action("search_casual")
         self.a.online_action("cancel")
-        self.assertEqual(self.a.online_state()["message"], "@online.cancelling")
+        self.assertEqual(self.a.online_state()["message"], "@online.cancelled")
         self.a.online_poll()
         self.a.online_poll()
-        self.assertIn("cancel", client.calls)
-        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+        self.assertTrue(client.closed.wait(1))
+        self.assertEqual(self.a.online_state()["phase"], "offline")
 
     def test_lost_queue_ack_disconnects_to_stop_a_possible_search(self):
         client = self.login()

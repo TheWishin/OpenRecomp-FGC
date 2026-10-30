@@ -16,7 +16,7 @@ class UpdateService:
         self.state = dict(phase="idle", version="", notes="", size=0)
         self.results = queue.Queue()
         self.release = None
-        self.staged = None
+        self.prepared = None
         self.applying = False
 
     @staticmethod
@@ -45,7 +45,10 @@ class UpdateService:
             return False
         self.state["phase"] = "installing"
         release = dict(self.release)
-        self._run("stage", lambda: self.api.stage_update(self.root, release))
+        def prepare():
+            staged = self.api.stage_update(self.root, release)
+            return self.api.prepare_update(self.root, staged)
+        self._run("stage", prepare)
         return True
 
     def poll(self):
@@ -64,15 +67,15 @@ class UpdateService:
                                   **{key: result.get(key, default) if result else default
                                      for key, default in (("version", ""), ("notes", ""), ("size", 0))})
             elif operation == "stage":
-                self.staged = result
-        if self.staged is not None and not self.applying and not self.busy():
+                self.prepared = result
+        if self.prepared is not None and not self.applying and not self.busy():
             # Launch only on this thread, after a fresh busy check. The helper waits for our exit.
             self.applying = True
             try:
-                self.api.launch_update(self.root, self.staged)
+                self.api.launch_update(self.root, self.prepared)
             except Exception:
                 self.state["phase"] = "error"
-                self.staged = None
+                self.prepared = None
                 self.applying = False
             else:
                 self.quit()

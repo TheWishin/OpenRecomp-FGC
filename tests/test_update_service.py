@@ -16,6 +16,7 @@ class Service(unittest.TestCase):
         self.api = mock.Mock()
         self.api.check_release.return_value = dict(version="v1.2.3", notes="Changes", size=42)
         self.api.stage_update.return_value = Path("fake-stage")
+        self.api.prepare_update.return_value = Path("fake-plan")
         self.busy = False
         self.quit = mock.Mock()
         self.service = UpdateService("fake-install", api=self.api, busy=lambda: self.busy,
@@ -41,7 +42,8 @@ class Service(unittest.TestCase):
         self.service.poll()
         self.service.poll()
         self.api.stage_update.assert_called_once()
-        self.api.launch_update.assert_called_once_with(Path("fake-install"), Path("fake-stage"))
+        self.api.prepare_update.assert_called_once_with(Path("fake-install"), Path("fake-stage"))
+        self.api.launch_update.assert_called_once_with(Path("fake-install"), Path("fake-plan"))
         self.quit.assert_called_once()
 
     def test_busy_refuses_confirm_and_defers_helper_when_activity_starts_during_download(self):
@@ -59,7 +61,7 @@ class Service(unittest.TestCase):
         self.api.launch_update.assert_called_once()
 
     def test_failed_stage_or_helper_keeps_launcher_open(self):
-        for operation in ("stage_update", "launch_update"):
+        for operation in ("stage_update", "prepare_update", "launch_update"):
             with self.subTest(operation=operation):
                 self.setUp()
                 getattr(self.api, operation).side_effect = OSError("private detail")

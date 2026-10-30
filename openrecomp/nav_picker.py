@@ -71,6 +71,9 @@ class Picker:
     def _picked(self, target, path):
         if self._dry(i18n.message("dry_use", path=path)):
             return
+        if (target == "manifest" or target.startswith("source:")) and not self.can_reload_games():
+            self.say("@library.busy")
+            return
         if target == "manifest":
             self.say(self.install(path) if self.install else "")
         elif target.startswith("source:"):

@@ -1,7 +1,6 @@
 """Small JSON catalog loader used by the launcher and its controller."""
 import json
 import locale
-import os
 from functools import cache
 from pathlib import Path
 
@@ -10,8 +9,17 @@ LANGUAGES = ("en", "de", "es", "fr", "ja", "ko", "pt-BR")
 
 
 def system_language():
-    """One of our catalog codes, based on Windows' current UI locale."""
-    name = (locale.getlocale()[0] or locale.getdefaultlocale()[0] or "en").replace("_", "-")
+    """One of our catalog codes, based on the current locale."""
+    name = "en"
+    for get_locale in (locale.getlocale, locale.getdefaultlocale):
+        try:
+            detected = get_locale()[0]
+        except (ValueError, OSError):
+            continue
+        if detected:
+            name = detected
+            break
+    name = name.replace("_", "-")
     if name.lower().startswith("pt-br"):
         return "pt-BR"
     code = name.split("-", 1)[0].lower()

@@ -56,11 +56,9 @@ class Backend(QObject):
             self.nav.say("@updates.recovery", 20)
         elif result and result.get("status") == "unchanged":
             self.nav.say("@updates.failed", 12)
-        t5 = next((g.a for g in games if g.id == "t5dr" and g.a.found()), None)
-        readers = [XInputReader()]
-        if t5 is not None:
-            readers.append(PlayStationReader(t5.root))
-        self.pads = Pads(readers)
+        self.pads = None
+        self._pad_root = None
+        self._load_pads(games)
         self.window = None
         self._view = {}
         self._was_running = False
@@ -123,8 +121,25 @@ class Backend(QObject):
             if changed and not self.window.isMinimized():
                 self.window.showFullScreen() if fullscreen else self.window.showNormal()
 
+    def _load_pads(self, games):
+        t5 = next((g.a for g in games if g.id == "t5dr" and g.a.found()), None)
+        root = os.path.normcase(os.path.realpath(t5.root)) if t5 is not None else ""
+        if self.pads is not None:
+            if root == self._pad_root:
+                self.pads.suppress()
+                return
+            self.pads.forget()
+        readers = [XInputReader()]
+        if t5 is not None:
+            readers.append(PlayStationReader(t5.root))
+        self.pads = Pads(readers)
+        self._pad_root = root
+        self.pads.suppress()
+
     def _install(self, path):
         """path = a player's manifest; None = a game's folder was chosen. Both: load the games again."""
+        if not self.nav.can_reload_games():
+            return "@library.busy"
         message = ""
         if path:
             try:
@@ -136,7 +151,9 @@ class Backend(QObject):
             mf.save_config(self.config)
             message = "@folder_saved"
         games, problems = load_games(self.config)
-        self.nav.set_games(games)
+        if not self.nav.set_games(games):
+            return "@library.busy"
+        self._load_pads(games)
         return problems[0] if problems else message
 
     @Property("QVariant", notify=viewChanged)
@@ -152,10 +169,14 @@ class Backend(QObject):
 
     def _tick(self):
         dt = TICK_MS / 1000.0
+        running = any(g.a.running() for g in self.nav.games)
+        active = self._in_front() and not running
+        if not active:
+            self.nav.release("confirm")
         changed = self.nav.tick(dt)
         changed = self._poll_updates() or changed
         running = any(g.a.running() for g in self.nav.games)
-        active = self._in_front()
+        active = active and not running
         capturing = self.nav.binding_active()
         if capturing:
             self.pads.suppress()
@@ -176,7 +197,7 @@ class Backend(QObject):
         self._slow += dt
         if self._slow >= 0.5:                 # game ended, build moved on, a picture got ready
             self._slow = 0.0
-            changed = changed or self._slow_changes(running)
+            changed = self._slow_changes(running) or changed
         if changed:
             self.refresh()
 
