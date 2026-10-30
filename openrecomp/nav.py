@@ -15,6 +15,7 @@ from .nav_drawer import Drawer
 from .nav_grid import Grid
 from .nav_hub import Hub
 from .nav_keyboard import Keyboard
+from .nav_online import Online
 from .nav_picker import Picker
 from .nav_sections import Sections
 from .nav_shelf import Shelf
@@ -30,7 +31,7 @@ class Game:
         self.accent = manifest["accent"]
 
 
-class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools):
+class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None):
         self.games = games
@@ -103,7 +104,7 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools):
 
     def tick(self, dt):
         """Time passes (the app's timer). -> True when the screen must be redrawn."""
-        changed = False
+        changed = self.poll_online()
         if self.toast:
             self.toast_left -= dt
             if self.toast_left <= 0:

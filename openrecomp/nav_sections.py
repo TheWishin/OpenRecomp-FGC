@@ -64,6 +64,8 @@ class Sections:
 
     # ---- online
     def _items_online(self, g):
+        if getattr(g.a, "online_supported", lambda: False)():
+            return self._online_items(g)
         out = []
         for it in g.a.online_items():
             it = dict(it)

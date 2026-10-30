@@ -56,7 +56,10 @@ class Hub:
             pos = (self.games.index(self.game) + 1) % len(self.games)
             self._select_game(self.games[pos])
         elif a == "play":
-            self.start_game(self.game)
+            if self.section() == "online" and getattr(self.game.a, "online_supported", lambda: False)():
+                self.say(self.game.a.online_state().get("message") or "@online.search_hint")
+            else:
+                self.start_game(self.game)
         elif a == "x":
             if it.get("replay") is not None:
                 self.show_results = not self.show_results
@@ -130,7 +133,7 @@ class Hub:
         if it.get("replay") is not None:
             prompts.append(self.prompt("x", "@hide_result" if self.show_results else "@show_result"))
         prompts.append(self.prompt("back", "@games"))
-        if g.a.ready():
+        if g.a.ready() and not (sec == "online" and getattr(g.a, "online_supported", lambda: False)()):
             prompts.append(self.prompt("play", "@play"))
         prompts += [self.prompt("social", "@quick_access"), self.prompt("switchGame", "@switch_game")]
         v["prompts"] = prompts

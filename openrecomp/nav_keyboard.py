@@ -1,25 +1,36 @@
 """On-screen keyboard actions and view."""
 from .nav_common import OSK, OSK_ACTIONS
 
+ONLINE_KEYS = (
+    ("1234567890", "qwertyuiop", "asdfghjkl-", "zxcvbnm_.,"),
+    OSK,
+    ("!@#$%^&*()", "[]{}<>/\\|=", "+:;\"'`~?-_", ".,01234567"),
+)
+
 
 class Keyboard:
     def _open_osk(self, tid):
-        self.osk = dict(tid=tid, text=self.game.a.text_value(tid), row=1, col=0, title="@osk.player_name")
+        title = {"online_name": "@online.name", "online_password": "@online.password", "online_server": "@online.server"}.get(tid, "@osk.player_name")
+        self.osk = dict(tid=tid, text=self.game.a.text_value(tid), row=1, col=0, title=title, page=0)
         self.overlay = "osk"
+
+    def _osk_keys(self):
+        return ONLINE_KEYS[self.osk["page"]] if self.osk["tid"].startswith("online_") else OSK
 
     def _osk(self, a):
         o = self.osk
-        length = len(OSK_ACTIONS) if o["row"] == len(OSK) else len(OSK[o["row"]])
+        keys = self._osk_keys()
+        length = len(OSK_ACTIONS) if o["row"] == len(keys) else len(keys[o["row"]])
         if a == "left":
             o["col"] = (o["col"] - 1) % length
         elif a == "right":
             o["col"] = (o["col"] + 1) % length
         elif a in ("up", "down"):
             to = o["row"] + (-1 if a == "up" else 1)
-            if 0 <= to <= len(OSK):
-                if to == len(OSK):
+            if 0 <= to <= len(keys):
+                if to == len(keys):
                     o["col"] = min(2, o["col"] * 3 // 10)
-                elif o["row"] == len(OSK):
+                elif o["row"] == len(keys):
                     o["col"] = o["col"] * 3 + 1
                 o["row"] = to
         elif a == "x":
@@ -28,8 +39,11 @@ class Keyboard:
             self._osk_done()
         elif a == "back":
             self.overlay = None
+            self.osk = None
+        elif a == "social" and o["tid"].startswith("online_"):
+            o["page"] = (o["page"] + 1) % len(ONLINE_KEYS)
         elif a == "confirm":
-            if o["row"] == len(OSK):
+            if o["row"] == len(keys):
                 kind = OSK_ACTIONS[o["col"]][0]
                 if kind == "space":
                     o["text"] += " "
@@ -38,26 +52,33 @@ class Keyboard:
                 else:
                     self._osk_done()
             else:
-                o["text"] += OSK[o["row"]][o["col"]]
+                o["text"] += keys[o["row"]][o["col"]]
 
     def type_text(self, text):
         """A physical keyboard in the on-screen keyboard."""
         if self.overlay == "osk":
             self.device = "kb"
-            self.osk["text"] += text
+            self.osk["text"] += text if self.osk["tid"].startswith("online_") else text.upper()
 
     def _osk_done(self):
         if not self._dry("@dry_text"):
-            self.game.a.set_text_value(self.osk["tid"], self.osk["text"].strip())
+            text = self.osk["text"] if self.osk["tid"] == "online_password" else self.osk["text"].strip()
+            self.game.a.set_text_value(self.osk["tid"], text)
         self.overlay = None
+        self.osk = None
 
     def _view_osk(self, v):
         o = self.osk
-        rows = [[dict(label=ch, row=r, col=c, focused=o["row"] == r and o["col"] == c) for c, ch in enumerate(line)] for r, line in enumerate(OSK)]
-        rows.append([dict(label="@" + label, row=len(OSK), col=c, focused=o["row"] == len(OSK) and o["col"] == c) for c, (_k, label) in enumerate(OSK_ACTIONS)])
-        v["osk"] = dict(rows=rows, text=o["text"] + "_", title=o["title"])
-        v["hint"] = "@osk_hint"
+        keys = self._osk_keys()
+        rows = [[dict(label=ch, row=r, col=c, focused=o["row"] == r and o["col"] == c) for c, ch in enumerate(line)] for r, line in enumerate(keys)]
+        rows.append([dict(label="@" + label, row=len(keys), col=c, focused=o["row"] == len(keys) and o["col"] == c) for c, (_k, label) in enumerate(OSK_ACTIONS)])
+        text = "•" * len(o["text"]) if o["tid"] == "online_password" else o["text"]
+        v["osk"] = dict(rows=rows, text=text + "_", title=o["title"])
+        online = o["tid"].startswith("online_")
+        v["hint"] = "@online.keyboard_hint" if online else "@osk_hint"
         v["prompts"] = [self.prompt("confirm", "@enter"), self.prompt("x", "@osk.delete"), self.prompt("play", "@osk.done"), self.prompt("back", "@cancel")]
+        if online:
+            v["prompts"].append(self.prompt("social", "@online.keyboard_page"))
 
     def click_key(self, row, col):
         if self.overlay == "osk":

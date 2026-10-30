@@ -16,6 +16,7 @@ import threading
 from .base import Adapter, NO_WINDOW, add_path, expand_locations
 from .t5_controls import Controls
 from .support import T5Support
+from .t5_online import Online
 from ..manifest import art_dir
 
 DISPLAY = [("window", "@display.window"), ("window1080", "@display.1080"), ("window1440", "@display.1440"),
@@ -49,7 +50,7 @@ def find_root(manifest, config):
     return max(built or found, key=version_key)
 
 
-class T5DR(Controls, T5Support, Adapter):
+class T5DR(Controls, T5Support, Online, Adapter):
     native_label = "@t5.native_label"
 
     def __init__(self, manifest, config, root, core=None, replays_mod=None):
@@ -213,14 +214,19 @@ class T5DR(Controls, T5Support, Adapter):
         return ["display", "internal_res"]
 
     def text_value(self, tid):
+        if tid.startswith("online_"):
+            return self.online_text_value(tid)
         return self.s["nickname"] if tid == "nickname" else ""
 
     def set_text_value(self, tid, value):
+        if tid.startswith("online_"):
+            self.set_online_text_value(tid, value)
+            return
         if tid == "nickname":
             self.s["nickname"] = value
             self.s.save()
 
-    # ---------------------------------------------------------------- online: the T5DR launcher runs the lobby
+    # ---------------------------------------------------------------- online: native launcher shortcuts for other lobby features
     def online_items(self):
         chosen = self.fighter_name(self.chosen_fighter())
         main = self.fighter_name_id(self.main_id())

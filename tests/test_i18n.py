@@ -55,7 +55,7 @@ def untranslated_literals(source):
                 if isinstance(child, (ast.Constant, ast.Tuple, ast.List)):
                     ignore(child)  # action IDs and core protocol values
         elif isinstance(node, ast.Assign):
-            if any(isinstance(t, ast.Name) and t.id in ("GLYPHS", "TRAIL", "OSK", "__all__") for t in node.targets):
+            if any(isinstance(t, ast.Name) and t.id in ("GLYPHS", "TRAIL", "OSK", "ONLINE_KEYS", "__all__") for t in node.targets):
                 ignore(node.value)  # physical button names, keyboard keys, exports
             if any(isinstance(t, ast.Name) and t.id in ("SECTION_TITLES", "DEVICE_LABEL", "OSK_ACTIONS") for t in node.targets):
                 for child in ast.walk(node.value):
@@ -102,6 +102,15 @@ def untranslated_literals(source):
         "default_sources", "step", "drain", "update",
         "idle", "waiting", "ready", "conflict", "multi", "timeout", "disconnected", "done", "ok",
         "check", "report", "problem", "controls", "support", "error", "saved", "none",
+        "online_", "online_name", "online_password", "online_server", ":online",
+        "offline", "connecting", "logged_in", "searching", "cancelling", "matched", "kicked", "match_found",
+        "login_", "search_", "login_guest", "login_account", "login_saved", "search_casual", "search_ranked",
+        "cancel", "logout", "casual", "ranked", "guard", "RequestError",
+        "tasklist", "/FI", "IMAGENAME eq t5dr.exe", "/FO", "CSV", "/NH",
+        "t5lobby.client", "t5lobby.buildid", "t5lobby.servers", "t5lobby.proto", "127.0.0.1:7781",
+        "openrecomp-lobby", "openrecomp-lobby-close", ".tmp", "logged in from another place",
+        "auth_failed", "insecure", "bad_name", "name_taken", "rate_limited", "version_mismatch",
+        "proto_mismatch", "server_full", "busy_server", "unavailable", "refused",
     }
     formats = {
         'f"{platform} RECOMP"', 'f"slot{i}"', 'f"{self.game.id}:{self.section()}"', 'f"{letter}:\\\\"',
@@ -328,6 +337,12 @@ class Catalogs(unittest.TestCase):
         self.assertEqual(untranslated_literals('getattr(adapter, "controls_supported", lambda: False)()'), [])
         self.assertEqual(untranslated_literals('hasattr(adapter, "_controls_session")'), [])
         self.assertTrue(untranslated_literals('getattr(adapter, "message", "Try again")'))
+
+    def test_python_scan_accepts_online_ids_but_checks_their_display_labels(self):
+        self.assertEqual(untranslated_literals('dict(phase="searching", id="login_saved")'), [])
+        self.assertEqual(untranslated_literals('ONLINE_KEYS = (("qwertyuiop",),)'), [])
+        self.assertTrue(untranslated_literals('dict(label="searching")'))
+        self.assertTrue(untranslated_literals('dict(hint="login_saved")'))
 
     def test_qml_has_no_player_facing_literals(self):
         forbidden = ("Quick access", "Recent sets", "Choose your fighter", "Your main:", "Folder", "File", "MAIN")

@@ -114,6 +114,23 @@ class Adapter:
         return dict(running=False, operation="", checked=False, findings=[], report="", error="")
 
     # ---------------------------------------------------------------- online: rows for the online section
+    def online_supported(self):
+        return False
+
+    def online_state(self):
+        """Read-only login/search snapshot. Reading it never connects or starts a request."""
+        return dict(phase="offline", message="", name="", account=False, queue="", match={}, saved_available=False)
+
+    def online_action(self, action):
+        pass
+
+    def online_poll(self):
+        """Advance an explicitly requested login/search; never called by a dry Nav."""
+        return False
+
+    def online_close(self):
+        pass
+
     def online_items(self):
         return []
 

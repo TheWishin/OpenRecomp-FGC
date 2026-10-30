@@ -163,7 +163,7 @@ class Backend(QObject):
                 self.refresh()
                 return
             if text and text.isprintable() and key not in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Escape):
-                nav.type_text(text.upper())
+                nav.type_text(text)
                 self.refresh()
                 return
         if action is None:
@@ -263,6 +263,7 @@ def main(argv=None):
     if os.name == "nt":      # the taskbar shows this program's icon, not python's
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("TheWishin.OpenRecompFGC")
     backend = Backend(windowed=args.windowed)
+    app.aboutToQuit.connect(backend.nav.close_online)
     engine = make_engine(backend, full=backend.nav.fullscreen)
     code = app.exec()
     del engine
