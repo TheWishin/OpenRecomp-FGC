@@ -10,7 +10,8 @@ SPEC = importlib.util.spec_from_file_location("t5_online_package", ROOT / "tools
 package = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(package)
 
-FEATURES = {"accounts", "challenges", "community", "profiles", "rules", "spectating", "tournaments"}
+FEATURES = {"accounts", "challenges", "community", "moderation", "private_chat", "profiles",
+            "rules", "spectating", "tournaments"}
 FEATURE_SOURCES = {"openrecomp/nav_" + name + ".py" for name in FEATURES}
 FEATURE_SOURCES.update("openrecomp/adapters/t5_" + name + ".py" for name in FEATURES)
 FEATURE_SOURCES.add("openrecomp/adapters/t5_features.py")
