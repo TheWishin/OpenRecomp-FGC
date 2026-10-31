@@ -20,7 +20,6 @@ class SocialLobby(Lobby):
 
 
 class SocialNavigation(unittest.TestCase):
-    choose = OnlineNavigation.choose
     pad_key = OnlineNavigation.pad_key
 
     def setUp(self):
@@ -31,6 +30,18 @@ class SocialNavigation(unittest.TestCase):
 
     def ids(self):
         return [item.get("id") for item in self.nav.items()]
+
+    def choose(self, iid):
+        self.assertIsNone(self.nav.overlay, (iid, self.nav.overlay))
+        items = self.nav.items()
+        target = next(i for i, item in enumerate(items) if item.get("id") == iid)
+        for _ in range(len(items)):
+            current = self.nav.focus_index(items)
+            if current == target:
+                self.nav.act("confirm", device="xbox")
+                return
+            self.nav.act("down" if current < target else "up", device="xbox")
+        self.fail("Controller navigation did not reach " + iid)
 
     def test_all_social_actions_are_pad_reachable(self):
         actions = ("create_password_room", "create_code_room", "join_room_code", "join_room:locked",
@@ -71,6 +82,9 @@ class SocialNavigation(unittest.TestCase):
                 if self.nav.overlay == "osk":
                     self.nav.type_text("dry text")
                     self.nav.act("play", device="xbox")
+                elif self.nav.overlay == "fighters":
+                    self.nav.act("confirm", device="xbox")
+                self.assertIsNone(self.nav.overlay, iid)
         self.nav.tick(.016)
         self.assertEqual(self.a.calls, [])
         self.assertEqual(self.a.polls, 0)

@@ -1,4 +1,4 @@
-﻿"""Controller rows for the installed client's public records and statistics."""
+"""Controller rows for the installed client's public records and statistics."""
 from datetime import datetime
 
 from . import i18n

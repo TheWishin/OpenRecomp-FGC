@@ -245,7 +245,11 @@ class Online:
 
     def set_online_text_value(self, tid, value):
         self._online_init()
-        if (tid in self._online_fields and not self._online_busy
+        # These requests capture drafts before submitting and never clear them on completion.
+        draft = self._online_phase == "logged_in" and tid in (
+            "online_room_name", "online_room_password", "online_room_code",
+            "online_tour_name", "online_tour_clock", "online_tour_dq")
+        if (tid in self._online_fields and (not self._online_busy or draft)
                 and (self._online_client is None or tid not in (
                      "online_name", "online_password", "online_server", "online_fingerprint"))):
             self._online_fields[tid] = str(value)
@@ -547,6 +551,7 @@ class Online:
         return out
 
     def _online_own_room(self, room):
+        room = room[0] if isinstance(room, tuple) and room else room
         self._online_room = self._online_room_view(room)
         if self._online_room.get("id") and self._online_social_cap("private_rooms"):
             code = getattr(self._online_client, "room_code", None)
@@ -956,6 +961,10 @@ class Online:
                     self._online_message = message
             elif (self.online_match_flow and match_request
                   and self._online_phase in ("matched", "starting", "playing", "result", "result_sent")):
+                if action == "join_room_code" or action.startswith("join_room:"):
+                    room = value[0] if isinstance(value, tuple) and value else value
+                    if isinstance(room, dict) and room.get("id"):
+                        self._online_own_room(room)
                 continue
             elif action.startswith("login_"):
                 me = value["me"]

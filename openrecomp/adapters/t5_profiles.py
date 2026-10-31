@@ -1,4 +1,4 @@
-﻿"""Read-only profile, leaderboard and community views through the installed client."""
+"""Read-only profile, leaderboard and community views through the installed client."""
 import copy
 import math
 

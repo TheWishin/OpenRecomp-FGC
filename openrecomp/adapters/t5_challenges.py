@@ -57,10 +57,18 @@ def _stages(client):
     return [key[:80] for key in values[:200] if isinstance(key, str) and key != "random"] if isinstance(values, list) else []
 
 
+def _sender(client):
+    for name in ("send_challenge", "challenge"):
+        method = getattr(client, name, None)
+        if callable(method):
+            return method
+    return None
+
+
 def state(owner):
     init(owner)
     client = owner._online_client
-    ready = client is not None and callable(getattr(client, "send_challenge", None))
+    ready = _sender(client) is not None
     prefs = dict(owner._t5_challenge_prefs)
     prefs.update(delay_max=_maximum(client), delay_supported=_ok(client, "multi_challenge_ok"),
                  casual_supported=_ok(client, "casual_ok"), sets_supported=_ok(client, "casual_sets_ok"),
@@ -123,7 +131,7 @@ def _preferences(owner, action, client):
 
 
 def _send(client, target, delay, first_to):
-    send = client.send_challenge
+    send = _sender(client)
     parameters = inspect.signature(send).parameters
     kwargs = {}
     if "delay" in parameters:
@@ -137,7 +145,7 @@ def action(owner, action, client):
     init(owner)
     if not (action.startswith(("challenge:", "challenge_option:", "cancel_challenge:"))):
         return False
-    if not callable(getattr(client, "send_challenge", None)):
+    if _sender(client) is None:
         return False
     if owner._online_phase != "logged_in" or owner._online_busy:
         return True
