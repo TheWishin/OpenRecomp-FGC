@@ -177,7 +177,7 @@ def untranslated_literals(source):
         r"[A-Za-z0-9_.+ -]{1,100}", r"[0-9a-f]{64}", r"[0-9a-f]{40}",
         "stdout.txt", "stderr.txt", "wb",
         "launcher.json", "settings.json", "controls.json", "servers.json", "t5dr_build.json", "PS3_CONTROLS",
-        ".settings-", "_OpenRecompSettings", "_coexist_defaults", "code_id", "same", "different",
+        ".settings-", ".controls-", "_OpenRecompSettings", "_coexist_defaults", "code_id", "same", "different",
         "unknown", "coexistence", "coexistence_folder", "t5dr_settings_copy",
         r"[vV]?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?",
     }
@@ -540,6 +540,16 @@ class Catalogs(unittest.TestCase):
                 self.assertTrue(untranslated_literals(f'dict(hint="{value}")'))
         self.assertTrue(untranslated_literals('self.say("Choose a runtime")'))
         self.assertTrue(untranslated_literals('tempfile.NamedTemporaryFile(prefix="Choose a file")'))
+
+    def test_python_scan_accepts_controls_temporary_prefix_but_checks_display_contexts(self):
+        self.assertEqual(untranslated_literals(
+            'tempfile.NamedTemporaryFile(prefix=".controls-", suffix=".json")'), [])
+        for field in ("label", "hint", "title", "status"):
+            with self.subTest(field=field):
+                self.assertTrue(untranslated_literals(f'dict({field}=".controls-")'))
+        self.assertTrue(untranslated_literals('self.say(".controls-")'))
+        self.assertTrue(untranslated_literals(
+            'tempfile.NamedTemporaryFile(prefix=".controls-other-", suffix=".json")'))
 
     def test_python_scan_accepts_default_install_globs_but_checks_display_contexts(self):
         for value in ("%USERPROFILE%/Downloads/T5DR-Online-*", "%USERPROFILE%/Desktop/T5DR-Online-*"):
