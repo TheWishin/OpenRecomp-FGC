@@ -28,7 +28,10 @@ def archive(entries=None):
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w") as z:
         for name, data in entries or [("app.exe", b"inert test marker")]:
-            z.writestr(name, data)
+            entry = zipfile.ZipInfo(name)
+            # ZipInfo normalizes Windows separators; keep the unsafe name under test.
+            entry.filename = name
+            z.writestr(entry, data)
     return out.getvalue()
 
 
@@ -145,8 +148,13 @@ class AuthorGameUpdates(unittest.TestCase):
                    [("Dir/a", b"1"), ("dir/b", b"2")],
                    [("dir", b"1"), ("dir/file", b"2")]]
         for values in entries:
-            with self.subTest(values=values), self.assertRaises((gu.GameUpdateError, mf.ManifestError)):
-                gu.GameUpdates._extract(archive(values), self.home)
+            with self.subTest(values=values):
+                raw = archive(values)
+                with zipfile.ZipFile(io.BytesIO(raw)) as z:
+                    self.assertEqual([entry.orig_filename for entry in z.infolist()], [name for name, _ in values])
+                with self.assertRaises((gu.GameUpdateError, mf.ManifestError)):
+                    gu.GameUpdates._extract(raw, self.home)
+                self.assertEqual(list(self.home.iterdir()), [])
         out = io.BytesIO()
         with zipfile.ZipFile(out, "w") as z:
             entry = zipfile.ZipInfo("link")

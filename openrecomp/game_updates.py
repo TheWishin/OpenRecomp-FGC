@@ -281,6 +281,8 @@ class GameUpdates:
                 raise GameUpdateError()
             paths, files, spellings, total = {}, set(), {}, 0
             for entry in entries:
+                if entry.orig_filename != entry.filename:
+                    raise GameUpdateError()
                 name = entry.filename[:-1] if entry.is_dir() else entry.filename
                 mf.safe_relative_path(name)
                 key = name.casefold()

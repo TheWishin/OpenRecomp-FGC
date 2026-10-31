@@ -32,13 +32,13 @@ def untranslated_literals(source):
             ignore_protocol(node.body, values)
             ignore_protocol(node.orelse, values)
 
-    def check_display(node):
+    def check_display(node, protocol=()):
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            if any(ch.isalpha() for ch in node.value) and not node.value.startswith("@") and node.value not in ("1080p", "1440p", "4K", "SLUS-20328", "T5DR Online"):
+            if node.value not in protocol and any(ch.isalpha() for ch in node.value) and not node.value.startswith("@") and node.value not in ("1080p", "1440p", "4K", "SLUS-20328", "T5DR Online"):
                 errors.append((node.lineno, node.value))
         elif isinstance(node, ast.IfExp):
-            check_display(node.body)
-            check_display(node.orelse)
+            check_display(node.body, protocol)
+            check_display(node.orelse, protocol)
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
@@ -106,8 +106,12 @@ def untranslated_literals(source):
                     friend_record = (name == "dict" and kw.arg == "status"
                                      and {item.arg for item in node.keywords}
                                      == {"name", "status", "activity", "invite", "retry"})
+                    # Source checks return a reload instruction alongside localized errors.
+                    source_record = (name == "dict" and kw.arg == "result"
+                                     and {item.arg for item in node.keywords}
+                                     == {"running", "result", "id", "ok"})
                     if not friend_record:
-                        check_display(kw.value)
+                        check_display(kw.value, ("reload",) if source_record else ())
                 if kw.arg in ("id", "kind", "opens", "encoding", "errors", "mode"):
                     ignore(kw.value)
 
@@ -727,6 +731,19 @@ class Catalogs(unittest.TestCase):
         self.assertTrue(untranslated_literals('dict(status="offline")'))
         self.assertTrue(untranslated_literals(source.replace('"offline"', '"Try again later"')))
         self.assertTrue(untranslated_literals(source.replace('status=', 'label=')))
+
+    def test_python_scan_recognizes_only_the_source_snapshot_reload_result(self):
+        for result in ('"reload"', '"reload" if ok else "@generic.requirement_bad_hash"'):
+            source = f'dict(running=False, result={result}, id=sid, ok=ok)'
+            self.assertEqual(untranslated_literals(source), [], source)
+        for result in ('"Choose a file"', '"ready"', '"reload" if ok else "Choose a file"'):
+            source = f'dict(running=False, result={result}, id=sid, ok=ok)'
+            self.assertTrue(untranslated_literals(source), source)
+        for source in ('dict(result="reload")',
+                       'dict(running=False, result="reload", id=sid, ok=ok, label="@start")',
+                       'dict(running=False, label="reload", id=sid, ok=ok)',
+                       'self.say("reload")'):
+            self.assertTrue(untranslated_literals(source), source)
 
     def test_python_scan_accepts_coexistence_paths_but_checks_display_contexts(self):
         values = (
