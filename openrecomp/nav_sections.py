@@ -70,9 +70,7 @@ class Sections:
             return [dict(kind="action", id="folder", label="@onboarding.choose_folder", verb="@go_build",
                          run=lambda: self._go(g, "build"), hint="@t4.onboarding_hint",
                          detail=dict(kicker="@section.online", title="@onboarding.choose_folder", lead="@t4.onboarding_hint", rows=[]))]
-        if g.m.get("adapter") == "t5dr":
-            if g.a.found():
-                return [self._native_item(g)]
+        if g.m.get("adapter") == "t5dr" and not g.a.found():
             return [dict(kind="action", id="folder", label="@onboarding.choose_folder", verb="@go_build",
                          run=lambda: self._go(g, "build"), hint="@onboarding.hint",
                          detail=dict(kicker="@section.online", title="@onboarding.choose_folder", lead="@onboarding.hint", rows=[]))]
@@ -177,7 +175,22 @@ class Sections:
 
     # ---- settings
     def _items_settings(self, g):
-        out = [self._cycler_item(g, s) for s in g.a.settings()]
+        out = []
+        for s in g.a.settings():
+            if s.get("kind") == "folder":
+                value = i18n.literal(s["value"]) if s.get("value") else s.get("display", "")
+                out.append(dict(kind="action", id=s["id"], label=s["label"], value=value,
+                                verb="@change", hint=s.get("hint", ""),
+                                detail=dict(kicker="@setting", title=s["label"], lead=s.get("hint", ""),
+                                            rows=[dict(k="@current", v=value)]),
+                                run=lambda s=s: self._open_picker("setting:" + s["id"], s["label"], [],
+                                                               [s.get("value", "")], "folder")))
+                if s.get("value"):
+                    out.append(dict(kind="action", id="reset:" + s["id"], label="@t5.replay_folder_reset",
+                                    verb="@confirm", hint=s.get("hint", ""),
+                                    run=lambda sid=s["id"]: self._dry("@dry_text") or g.a.set_setting(sid, "")))
+            else:
+                out.append(self._cycler_item(g, s))
         if g.a.native_label:
             out.append(dict(kind="heading", label="@also", mt=12))
             out.append(self._native_item(g))

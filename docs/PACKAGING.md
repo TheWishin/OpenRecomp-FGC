@@ -35,7 +35,8 @@ does not assemble an archive or prove that separately prepared runtime inputs
 are complete. Ship the README and T4 first-run/online guides with the launcher:
 the beta is offline plus direct IP/VPN only, with no lobby and no ranked. The
 T4 portable release remains a separate player-selected install; never bundle it
-or a built game into this launcher's zip. T5DR Online opens the old launcher.
+or a built game into this launcher's zip. T5DR Online uses its installed client;
+the old launcher remains available. See [T5DR_ONLINE.md](T5DR_ONLINE.md).
 
 1. Supply the official Windows CPython 3.12 embeddable distribution, including its
    standard-library `python312.zip`, `python312.dll`, `pythonw.exe` and required

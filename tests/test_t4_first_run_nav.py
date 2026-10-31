@@ -258,7 +258,7 @@ class T4FirstRunNavigation(unittest.TestCase):
         self.assertEqual(self.adapter.calls, [])
         self.assertEqual(self.nav.section(), "online")
 
-    def test_t5dr_online_opens_the_old_launcher_without_shared_login(self):
+    def test_t5dr_online_offers_adapter_login_with_native_fallback(self):
         adapter = Fake(manifest("t5dr", adapter="t5dr"))
         adapter.online_supported = lambda: True
         adapter.online_action = mock.Mock()
@@ -266,11 +266,12 @@ class T4FirstRunNavigation(unittest.TestCase):
         nav.act("confirm")
         nav.act("next")
         ids = [item["id"] for item in nav.items()]
-        self.assertEqual(ids, ["native"])
-        nav.focus["t5dr:online"] = ids.index("native")
+        self.assertIn("login_account", ids)
+        self.assertIn("native", ids)
+        nav.focus["t5dr:online"] = ids.index("login_account")
         nav.act("confirm", device="xbox")
-        self.assertEqual(adapter.calls, [("native",)])
-        adapter.online_action.assert_not_called()
+        self.assertEqual(adapter.calls, [])
+        adapter.online_action.assert_called_once_with("login_account")
 
     def test_downloaded_update_explains_wait_and_does_not_restart_download(self):
         self.nav.on_update_check = mock.Mock()

@@ -3,7 +3,8 @@
 The beta supports T4 offline and online by direct IP or VPN, with no lobby and
 no ranked. There is no account, matchmaking, room, chat, relay, leaderboard or
 server-reported result flow. Lobby-based online stays hidden until its server
-exists. T5DR Online continues to open the old T5DR Online launcher.
+exists. T5DR Online uses its installed lobby client; the old T5DR Online launcher
+remains available. Its separate checks are in [T5DR_ONLINE.md](T5DR_ONLINE.md).
 
 Both players need compatible locally built T4 runtimes and their own supported
 USA SLUS-20328 ISO. The launcher reads the installed T4 build identity and uses

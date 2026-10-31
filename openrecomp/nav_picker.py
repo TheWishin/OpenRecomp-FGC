@@ -76,6 +76,8 @@ class Picker:
             return
         if target == "manifest":
             self.say(self.install(path) if self.install else "")
+        elif target.startswith("setting:"):
+            self.game.a.set_setting(target[8:], path)
         elif target.startswith("source:"):
             game = self.game
             message = self.game.a.set_source(target[7:], path)

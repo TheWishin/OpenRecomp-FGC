@@ -1,5 +1,6 @@
 """Login and search screens through the optional common adapter interface."""
 from . import i18n
+from .nav_keyboard import ONLINE_PASSWORDS
 
 
 class Online:
@@ -62,6 +63,8 @@ class Online:
         self.focus[g.id + ":online"] = 0
 
     def _online_items(self, g):
+        from . import nav_rules
+
         state = g.a.online_state()
         phase = state.get("phase", "offline")
         message = state.get("message") or "@online.login_hint"
@@ -69,6 +72,7 @@ class Online:
         capabilities = state.get("capabilities") or {}
         match_flow = capabilities.get("match_flow", False)
         rows = []
+        rows.extend(nav_rules.detail_rows(state))
         if state.get("name"):
             rows.append(dict(k="@online.name", v=i18n.literal(state["name"])))
         if phase in ("logged_in", "searching", "cancelling", "matched", "starting", "playing", "result", "result_sent"):
@@ -80,6 +84,19 @@ class Online:
                 rows.append(dict(k="@online.opponent", v=i18n.literal(match["opponent"])))
             if match.get("ping") is not None:
                 rows.append(dict(k="@online.ping", v=str(match["ping"])))
+        set_state = state.get("set") or {}
+        if set_state:
+            wins = set_state.get("wins") or []
+            if len(wins) == 2:
+                rows.append(dict(k="@online.set", v=i18n.message("online.set_score", mine=wins[0], theirs=wins[1])))
+            if set_state.get("first_to"):
+                rows.append(dict(k="@online.set", v=i18n.message("online.first_to", wins=set_state["first_to"])))
+            if set_state.get("number") and set_state.get("best_of"):
+                rows.append(dict(k="@online.set", v=i18n.message("online.set_game", number=set_state["number"], best=set_state["best_of"])))
+            if state.get("character_locked"):
+                rows.append(dict(k="@your_fighter", v="@online.character_locked"))
+            if isinstance(set_state.get("next"), dict) and set_state["next"].get("in") is not None:
+                rows.append(dict(k="@online.set", v=i18n.message("online.set_next", seconds=set_state["next"]["in"])))
         title = "@online.match_found" if phase == "matched" else "@online.status"
         if phase in ("result", "result_sent"):
             title = "@online.result"
@@ -119,12 +136,27 @@ class Online:
             out += [action("login_guest", "@online.guest"), action("login_account", "@online.account")]
             if capabilities.get("registration", False):
                 out.append(action("login_register", "@online.register"))
+            from . import nav_accounts
+            out.extend(nav_accounts.rows(self, g, state, action))
         elif phase == "logged_in":
+            fighters = g.a.fighters()
+            if fighters:
+                locked = bool(state.get("character_locked"))
+                chosen = g.a.chosen_fighter()
+                name = next((i18n.literal(f["name"]) for f in fighters if f["key"] == chosen), "@random" if chosen == "random" else i18n.literal(chosen))
+                fighter = dict(kind="action", id="online_fighter", label="@your_fighter",
+                               value=name, disabled=locked,
+                               verb="" if locked else "@change", hint="@online.character_locked" if locked else "@fighter.lead",
+                               detail=dict(kicker="@section.online", title="@your_fighter",
+                                           lead="@online.character_locked" if locked else "@fighter.lead", rows=[]),
+                               run=None if locked else self._open_fighters)
+                out.append(fighter)
             out.append(action("search_casual", "@online.casual", "@online.search_hint"))
             if capabilities.get("ranked", True):
                 out.append(action("search_ranked", "@online.ranked", "@online.search_hint"))
             if capabilities.get("lobby", False):
                 self._online_lobby_items(g, state, out, action)
+                self._online_feature_items(g, state, out, action)
             out.append(action("logout", "@online.logout"))
         elif phase in ("connecting", "searching", "cancelling"):
             out.append(action("cancel", "@cancel" if phase == "connecting" else "@online.cancel"))
@@ -146,9 +178,19 @@ class Online:
             if capabilities.get("rematch", False):
                 out.append(action("rematch", "@online.rematch", "@online.rematch_hint"))
             out.append(action("return_lobby", "@online.return_lobby"))
+        if capabilities.get("leave_set", False):
+            out.append(action("leave_set", "@online.leave_set", "@online.leave_ranked_set" if set_state.get("rated") else "@online.leave_set"))
         if g.a.native_label:
             out.append(self._native_item(g))
         return self._remember_online_rows(g, out, state)
+
+    def _online_feature_items(self, g, state, out, action):
+        from . import nav_accounts, nav_challenges, nav_community, nav_profiles, nav_rules, nav_spectating, nav_tournaments
+
+        for module in (nav_profiles, nav_tournaments, nav_spectating, nav_community, nav_accounts, nav_rules, nav_challenges):
+            out.extend(module.rows(self, g, state, action))
+        nav_community.enhance_rows(out, state)
+        nav_challenges.enhance_rows(out, state)
 
     def _remember_online_rows(self, g, out, state=None):
         state = state or {}
@@ -237,7 +279,7 @@ class Online:
 
     def _online_text_item(self, g, tid, label, hint):
         value = g.a.text_value(tid)
-        if tid.endswith("_password"):
+        if tid in ONLINE_PASSWORDS:
             value = "\u2022" * len(value)
         return dict(kind="action", id=tid, label=label, value=i18n.literal(value),
                     verb="@change", hint=hint,

@@ -60,12 +60,7 @@ class Hub:
             pos = (self.games.index(self.game) + 1) % len(self.games)
             self._select_game(self.games[pos])
         elif a == "play":
-            if self.section() == "online" and self.game.m.get("adapter") == "t5dr":
-                if self.game.a.found():
-                    self._native_item(self.game)["run"]()
-                else:
-                    self.say(self.game.a.status()["detail"])
-            elif self.section() == "online" and (self.game.m.get("adapter") == "t4"
+            if self.section() == "online" and (self.game.m.get("adapter") in ("t4", "t5dr")
                     or getattr(self.game.a, "online_supported", lambda: False)()):
                 self.say(self.game.a.online_state().get("message") or "@online.search_hint")
             else:

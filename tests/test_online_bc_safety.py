@@ -45,17 +45,19 @@ class OnlineBCSafetyTests(unittest.TestCase):
         self.assertIn("login_account", actions)
         self.assertIn("native", actions)
 
-    def test_t5dr_manifest_uses_native_handoff_despite_stale_online_state(self):
+    def test_t5dr_manifest_uses_adapter_without_implicit_native_launch(self):
         adapter, nav = self.navigation()
         adapter.m["adapter"] = "t5dr"
         adapter.snapshot.update(self.social_snapshot())
         for phase in ("offline", "logged_in", "matched", "playing", "result_sent"):
             with self.subTest(phase=phase):
                 adapter.snapshot["phase"] = phase
-                self.assertEqual([item.get("id") for item in nav.items()], ["native"])
-        self.choose(nav, "native")
-        nav.act("play", device="xbox")
-        self.assertEqual(adapter.calls, [("native",), ("native",)])
+                self.assertIn("online_status", [item.get("id") for item in nav.items()])
+                nav.act("play", device="xbox")
+                self.assertEqual(adapter.calls, [])
+        adapter.snapshot["phase"] = "offline"
+        self.choose(nav, "login_guest")
+        self.assertEqual(adapter.calls, [("online", "login_guest")])
         self.assertEqual(adapter.polls, 0)
 
     def test_dry_all_match_steps_and_social_actions_deny_io(self):

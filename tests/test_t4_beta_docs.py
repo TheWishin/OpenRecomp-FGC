@@ -28,11 +28,12 @@ class T4BetaDocsTests(unittest.TestCase):
             self.assertIn(phrase, text)
         self.assertNotIn("t4lobby", text)
 
-    def test_t5dr_player_guide_only_promises_native_launcher_handoff(self):
+    def test_t5dr_player_guide_describes_adapter_screens_and_remaining_checks(self):
         text = self.read("docs/T5DR_ONLINE.md")
         self.assertIn("old T5DR Online launcher", text)
-        self.assertNotIn("controller actions", text)
-        self.assertNotIn("The Online section uses the player's installed T5DR lobby client", text)
+        self.assertIn("controller", text.lower())
+        self.assertIn("installed", text.lower())
+        self.assertIn("Remaining", text)
 
     def test_release_docs_have_no_personal_paths_or_stale_test_result(self):
         paths = [ROOT / "README.md", *(ROOT / "docs").glob("*.md")]

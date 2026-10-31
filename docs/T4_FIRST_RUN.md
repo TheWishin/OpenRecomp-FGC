@@ -1,8 +1,9 @@
 # T4 beta first run and release acceptance
 
 This beta offers T4 offline play and online by direct IP or VPN: no lobby and
-no ranked. Lobby-based online stays hidden until a server exists. T5DR stays
-on the shelf as it is; Online opens the old T5DR Online launcher.
+no ranked. Lobby-based online stays hidden until a server exists. T5DR's
+installed-client Online screens have their own [acceptance scope](T5DR_ONLINE.md);
+the old T5DR Online launcher remains available during the transition.
 
 Sunday is a possible release date only after the owner's two-PC test passes.
 This document describes the implemented launcher flow and required acceptance;
@@ -72,8 +73,8 @@ the complete portable T4 release separately; neither is created by this review.
 - Complete the **two physical PCs** gate in [T4_ONLINE.md](T4_ONLINE.md), with
   both Host/Join roles and the intended direct IP or VPN route. Failed checks
   must prevent launch. A successful preflight is insufficient without real play.
-- Confirm T5DR's Online action opens the old launcher and other shelf behavior
-  remains unchanged. No new T5DR online acceptance scope is introduced here.
+- Check T5DR separately against [T5DR_ONLINE.md](T5DR_ONLINE.md), including its
+  controller screens and old-launcher fallback.
 - Review the real package contents, licenses and runtime inventory. Test signed
   updates and rollback on a private channel if enabled; follow
   [PACKAGING.md](PACKAGING.md) and [INSTALLING.md](INSTALLING.md).

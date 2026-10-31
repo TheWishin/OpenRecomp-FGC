@@ -8,8 +8,9 @@ No release binary or zip was built or packaged during this implementation.
 
 This release candidate is a T4 beta: offline play plus online by direct IP or
 VPN, with no lobby and no ranked. Lobby-based T4 online remains hidden until its
-server exists. T5DR stays on the shelf unchanged and its Online action opens the
-old T5DR Online launcher. A Sunday release depends on the owner's successful
+server exists. T5DR's Online section uses its installed lobby client; the
+old T5DR Online launcher remains available. See [T5DR_ONLINE.md](T5DR_ONLINE.md)
+for its controller screens and acceptance checks. A Sunday release depends on the owner's successful
 two-PC test; see [T4_ONLINE.md](T4_ONLINE.md).
 
 The starter sets `OPENRECOMP_HOME` to the per-user local application data folder's

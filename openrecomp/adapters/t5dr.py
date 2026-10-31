@@ -221,11 +221,17 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         self._exe_launcher()
 
     # ---------------------------------------------------------------- settings
+    def _input_delay_options(self):
+        supported = getattr(self.core, "INPUT_DELAYS", ("auto", "0", "1", "2"))
+        labels = {"auto": "@resolution.auto", "0": "@delay.zero", "1": "@delay.one", "2": "@delay.two"}
+        return [(value, labels.get(value) or self.message("t5.delay_frames", count=int(value)))
+                for value in ("auto",) + tuple(str(n) for n in range(9)) if value in supported]
+
     def settings(self):
         s = self.s
         res = [(k, RES_NAMES.get(k, k)) for k in self.core.INTERNAL_RES_LABELS]
-        delay = [("auto", "@resolution.auto"), ("0", "@delay.zero"), ("1", "@delay.one"), ("2", "@delay.two")]
-        return [
+        delay = self._input_delay_options()
+        out = [
             dict(id="display", label="@display", options=DISPLAY, value=s["display"],
                  hint="@display.hint",
                  lead="@display.lead"),
@@ -246,7 +252,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                  value=s["training"], hint="@training.hint", lead="@training.lead"),
             dict(id="practice", label="@practice_tools", options=YES_NO, value=bool(s["practice"]),
                  hint="@practice.hint", lead="@practice.lead"),
-            dict(id="always_left", label="@always_left", options=YES_NO, value=bool(s["always_left"]),
+            dict(id="always_left", label="@t5.screen_side", options=[(False, "@t5.side_server"), (True, "@t5.side_left")], value=bool(s["always_left"]),
                  hint="@always_left.hint", lead="@always_left.lead"),
             dict(id="mute", label="@mute", options=YES_NO, value=bool(s["mute"]), hint="@mute.hint", lead="@mute.hint"),
             dict(id="replays", label="@save_replays", options=YES_NO, value=bool(s["replays"]),
@@ -256,8 +262,29 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             dict(id="unlock_items", label="@free_items", options=YES_NO, value=bool(s["unlock_items"]),
                  hint="@free_items.hint", lead="@offline_only"),
         ]
+        supported = getattr(self.core, "DEFAULTS", s)
+        for sid, label, hint in (("replay_names", "@t5.replay_names", "@t5.replay_names_hint"),
+                                 ("spectators", "@t5.spectators", "@t5.spectators_hint"),
+                                 ("spectators_ranked", "@t5.spectators_ranked", "@t5.spectators_ranked_hint"),
+                                 ("auto_spectate", "@t5.auto_spectate", "@t5.auto_spectate_hint")):
+            if sid in supported:
+                out.append(dict(id=sid, label=label, options=YES_NO, value=bool(s.get(sid, False)),
+                                hint=hint, lead=hint))
+        if "replay_dir" in supported:
+            folder = s.get("replay_dir") or ""
+            out.append(dict(id="replay_dir", kind="folder", label="@t5.replay_folder", value=folder,
+                            display=folder or "@t5.replay_folder_default", hint="@t5.replay_folder_hint"))
+        return out
 
     def set_setting(self, sid, value):
+        if sid == "input_delay":
+            value = str(value)
+            if value not in {option for option, _label in self._input_delay_options()}:
+                raise ValueError("@not_ready")
+        if sid == "replay_dir":
+            if not isinstance(value, str) or (value and not os.path.isdir(value)):
+                raise ValueError("@t5.replay_folder_missing")
+            self._replays = None
         self.s[sid] = value
         if sid == "internal_res":
             self.s["internal_res_set"] = True
@@ -269,11 +296,16 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
     def text_value(self, tid):
         if tid.startswith("online_"):
             return self.online_text_value(tid)
+        if tid == "replay_dir":
+            return self.s.get("replay_dir") or ""
         return self.s["nickname"] if tid == "nickname" else ""
 
     def set_text_value(self, tid, value):
         if tid.startswith("online_"):
             self.set_online_text_value(tid, value)
+            return
+        if tid == "replay_dir":
+            self.set_setting(tid, value)
             return
         if tid == "nickname":
             self.s["nickname"] = value
@@ -324,6 +356,8 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
 
     def set_fighter(self, key):
         """The same field of the same file the T5DR launcher's character grid writes; the rest stays as it is."""
+        if getattr(self, "_online_character_locked", False):
+            raise RuntimeError("@online.character_locked")
         path = self.online_cfg_path()
         try:
             with open(path, encoding="utf-8") as f:

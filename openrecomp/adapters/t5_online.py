@@ -13,6 +13,7 @@ import time
 import uuid
 
 from .base import NO_WINDOW, add_path
+from . import t5_features
 
 
 class SearchRefused(RuntimeError):
@@ -86,6 +87,7 @@ class Online:
         self._online_results = queue.Queue()
         self._online_guard_at = 0.0
         self._online_lock = threading.RLock()
+        t5_features.init(self)
 
     def _online_nickname(self):
         identity = self.config.get("online_identity") or {}
@@ -176,7 +178,7 @@ class Online:
         if self.online_lobby and self.online_game != "t4":
             capabilities.update(private_rooms=self._online_social_cap("private_rooms"),
                                 friends=self._online_social_cap("friends"))
-        return dict(phase=self._online_phase, message=self._online_message,
+        snapshot = dict(phase=self._online_phase, message=self._online_message,
                     name=self._online_name, account=self._online_account,
                     recovery_codes=list(self._online_recovery_codes),
                     queue=self._online_queue, match=dict(self._online_match),
@@ -189,6 +191,7 @@ class Online:
                     friend_outgoing=[dict(f) for f in self._online_friend_outgoing],
                     invites=[dict(inv) for inv in self._online_invites],
                     outgoing_invite=dict(self._online_outgoing_invite))
+        return t5_features.state(self, snapshot)
 
     def _online_social_cap(self, capability):
         if not self.online_lobby or self.online_game == "t4" or self._online_client is None:
@@ -212,8 +215,8 @@ class Online:
     def set_online_text_value(self, tid, value):
         self._online_init()
         if (tid in self._online_fields and not self._online_busy
-                and (self._online_client is None or tid in ("online_chat", "online_room_name",
-                     "online_room_password", "online_room_code", "online_friend_name"))):
+                and (self._online_client is None or tid not in (
+                     "online_name", "online_password", "online_server", "online_fingerprint"))):
             self._online_fields[tid] = str(value)
             if tid == "online_name":
                 self._online_name_prefill = False
@@ -242,7 +245,8 @@ class Online:
                     server_full="@online.server_full", busy="@online.busy_server",
                     room_locked="@online.room_locked", bad_password="@online.room_locked")
         local = ("@online.client_missing", "@online.build_required", "@online.no_online",
-                 "@online.server_invalid", "@online.game_running", "@online.process_unknown", "@online.cancelled")
+                 "@online.server_invalid", "@online.game_running", "@online.process_unknown", "@online.cancelled",
+                 "@online.watch_unavailable", "@online.rules_unavailable")
         if isinstance(error, RuntimeError) and str(error) in local:
             return str(error)
         if isinstance(error, (ImportError, AttributeError, TypeError)):
@@ -287,6 +291,61 @@ class Online:
             if os.path.isfile(temporary):
                 os.remove(temporary)
 
+    def _online_write_preferences(self, changes):
+        """Merge only non-session preferences into the native file, preserving saved logins."""
+        if not isinstance(changes, dict) or any(key in changes for key in (
+                "sessions", "password", "token", "session")):
+            raise ValueError("@online.save_failed")
+        with self._online_lock:
+            path = self.online_cfg_path()
+            old = os.path.join(os.path.dirname(getattr(self.s, "path", "") or self.root), "online.json")
+            paths = (path, old) if self.online_legacy_config else (path,)
+            cfg = {}
+            for candidate in paths:
+                try:
+                    with open(candidate, encoding="utf-8") as stream:
+                        cfg = json.load(stream)
+                    break
+                except FileNotFoundError:
+                    continue
+            if not isinstance(cfg, dict) or ("sessions" in cfg and not isinstance(cfg["sessions"], dict)):
+                raise ValueError("@online.save_failed")
+            cfg.update(changes)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            temporary = path + "." + uuid.uuid4().hex + ".tmp"
+            try:
+                with open(temporary, "w", encoding="utf-8") as stream:
+                    json.dump(cfg, stream, indent=1)
+                os.replace(temporary, path)
+            finally:
+                if os.path.isfile(temporary):
+                    os.remove(temporary)
+
+    def _online_new_client(self, server, cfg=None):
+        """Construct from this install; the caller owns connect, authorization and close."""
+        cfg = self._online_config() if cfg is None else cfg
+        api = self._online_modules()
+        build = self._online_build(api)
+        entries, _problems = api["servers"].load(user_dir=os.path.dirname(self.online_cfg_path()))
+        default = api["servers"].default_entry(entries)
+        target = server or (default.name if default else self._online_default_server())
+        try:
+            entry = api["servers"].resolve(target, entries)
+            kwargs = entry.client_kwargs()
+        except (ValueError, TypeError):
+            raise RuntimeError("@online.server_invalid") from None
+        fingerprint = self._online_fields.get("online_fingerprint", cfg.get("fingerprint"))
+        if entry.tls != "pin" and fingerprint:
+            kwargs["tls_fingerprint"] = fingerprint
+        options = t5_features.options(self, api["client"], self._online_client_options())
+        client = api["client"](build=build, **options, **kwargs)
+        try:
+            t5_features.client_created(self, client)
+        except Exception:
+            close_client(client)
+            raise
+        return client, target
+
     def _online_login(self, action):
         name = self.online_text_value("online_name").strip()
         password = self._online_fields["online_password"]
@@ -307,19 +366,7 @@ class Online:
         def work():
             client = None
             try:
-                api = self._online_modules()
-                build = self._online_build(api)
-                entries, _problems = api["servers"].load(user_dir=os.path.dirname(self.online_cfg_path()))
-                default = api["servers"].default_entry(entries)
-                target = server or (default.name if default else self._online_default_server())
-                try:
-                    entry = api["servers"].resolve(target, entries)
-                    kwargs = entry.client_kwargs()
-                except (ValueError, TypeError):
-                    raise RuntimeError("@online.server_invalid") from None
-                if entry.tls != "pin" and cfg.get("fingerprint"):
-                    kwargs["tls_fingerprint"] = cfg["fingerprint"]
-                client = api["client"](build=build, **self._online_client_options(), **kwargs)
+                client, target = self._online_new_client(server, cfg)
                 with self._online_lock:
                     if generation != self._online_generation:
                         raise RuntimeError("@online.cancelled")
@@ -337,6 +384,8 @@ class Online:
                     me = client.login(name, password, remember=True)
                 if not isinstance(me, dict):
                     raise RuntimeError("@online.client_missing")
+                self._online_check_request(generation, client)
+                t5_features.logged_in(self, client)
                 warning = ""
                 with self._online_lock:
                     if generation != self._online_generation:
@@ -371,6 +420,8 @@ class Online:
 
     def online_action(self, action):
         self._online_init()
+        if action == "spec_stop" and t5_features.action(self, action, self._online_client):
+            return
         if action == "logout":
             self.online_close()
             self._online_message = "@online.logged_out"
@@ -385,6 +436,8 @@ class Online:
             self._online_message = "@online.cancelled"
             return
         if self._online_busy:
+            return
+        if self._online_client is None and t5_features.offline_action(self, action):
             return
         if action in ("login_guest", "login_account", "login_register", "login_saved"):
             if action == "login_register" and self.online_package != "t5lobby":
@@ -423,7 +476,8 @@ class Online:
                 return mode
             self._online_submit(action, work)
         elif self.online_lobby and self._online_phase == "logged_in":
-            self._online_lobby_action(action, client)
+            if not t5_features.action(self, action, client):
+                self._online_lobby_action(action, client)
 
     def _online_check_request(self, generation, client):
         if generation != self._online_generation or client is not self._online_client:
@@ -703,7 +757,7 @@ class Online:
         return dict(opponent=str(opponent.get("name") or "")[:64], ping=ping.get("ms"))
 
     def _online_completion(self, action, value, error):
-        return False
+        return t5_features.completion(self, action, value, error)
 
     def _online_events(self):
         """Read one queue snapshot. A kick wins over a simultaneous request failure or disconnect."""
@@ -748,7 +802,9 @@ class Online:
             return True, True
         changed = retained
         for event in events:
-            if self.online_match_flow and event.get("t") == "match_found":
+            if t5_features.event(self, event):
+                changed = True
+            elif self.online_match_flow and event.get("t") == "match_found":
                 self._online_invites = []
                 self._online_outgoing_invite = {}
                 self._online_challenge = {}
@@ -807,6 +863,24 @@ class Online:
                 continue
             changed = True
             self._online_busy = False
+            if t5_features.match_request(action):
+                if error:
+                    event_changed, terminal = self._online_events()
+                    changed = changed or event_changed
+                    if terminal:
+                        return True
+                if (self.online_match_flow and self._online_phase in (
+                        "matched", "starting", "playing", "result", "result_sent")):
+                    continue
+                local = isinstance(error, SearchRefused) or (isinstance(error, RuntimeError) and str(error) in (
+                    "@online.game_running", "@online.process_unknown", "@online.cancelled"))
+                if error and not local:
+                    # A lost acknowledgement may have reserved a match. Detach rather than
+                    # leaving an offer or room able to start after the UI reported failure.
+                    message = self._online_error(error)
+                    self.online_close()
+                    self._online_message = message
+                    continue
             if self._online_completion(action, value, error):
                 continue
             match_request = self._online_match_request(action)
@@ -929,12 +1003,14 @@ class Online:
                 and time.monotonic() >= self._online_guard_at):
             self._online_guard_at = time.monotonic() + 1
             self._online_submit("guard", self._online_game_check)
+        changed = t5_features.poll(self) or changed
         return self._online_invite_waits() or changed
 
     def online_close(self):
         self._online_init()
         with self._online_lock:
             self._online_generation += 1
+            t5_features.close(self)
             client, self._online_client = self._online_client, None
         self._online_busy = False
         self._online_phase, self._online_queue = "offline", ""

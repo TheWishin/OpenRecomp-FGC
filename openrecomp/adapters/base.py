@@ -127,6 +127,11 @@ class Adapter:
         Playable clients add capabilities, players, rooms, chat, challenge, room and a text rank.
         Optional social capabilities add friends, friend_incoming, friend_outgoing,
         invites and outgoing_invite. Rematch is offered only while its capability is true.
+        Installed T5DR clients can add capability-gated tournaments, profile, leaderboard,
+        community_stats, spectating, community and challenge_preferences snapshots.
+        Ranked sets expose set and character_locked; optional account tools expose blocks.
+        These are plain, allowlisted views of the selected install's client, never clients
+        or game handles. Reading them does not authorize a request or a game launch.
         A room's invitation code is shown only to its member; room passwords stay private.
         Tickets, addresses, passwords and session tokens never belong in this snapshot.
         Registration may expose one-time recovery codes until the player acknowledges them.

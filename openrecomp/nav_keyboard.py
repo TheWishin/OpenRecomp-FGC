@@ -6,7 +6,8 @@ ONLINE_KEYS = (
     OSK,
     ("!@#$%^&*()", "[]{}<>/\\|=", "+:;\"'`~?-_", ".,01234567"),
 )
-ONLINE_PASSWORDS = ("online_password", "online_room_password")
+ONLINE_PASSWORDS = ("online_password", "online_room_password", "online_current_password", "online_new_password",
+                    "online_repeat_password", "online_recovery_code")
 
 
 class Keyboard:
@@ -15,7 +16,12 @@ class Keyboard:
                  "online_address": "@t4.direct_address",
                  "online_chat": "@online.chat", "online_room_name": "@online.room_name",
                  "online_room_password": "@online.room_password", "online_room_code": "@online.room_code",
-                 "online_friend_name": "@online.friend_name"}.get(tid, "@osk.player_name")
+                 "online_friend_name": "@online.friend_name", "online_tour_name": "@online.tour_name",
+                 "online_tour_clock": "@online.tour_clock", "online_tour_dq": "@online.tour_dq",
+                 "online_profile_name": "@online.profile_lookup",
+                 "online_current_password": "@online120.current_password", "online_new_password": "@online120.new_password",
+                 "online_repeat_password": "@online120.repeat_password", "online_recovery_code": "@online120.recovery_code",
+                 "online_block_name": "@online120.block_name", "online_fingerprint": "@online120.fingerprint"}.get(tid, "@osk.player_name")
         self.osk = dict(tid=tid, text=self.game.a.text_value(tid), row=1, col=0, title=title, page=0)
         self.overlay = "osk"
 

@@ -1,12 +1,86 @@
-# T5DR Online handoff
+# T5DR Online in OpenRecomp
 
-T5DR stays on the shelf as it is. Its Online section opens the player's old
-T5DR Online launcher. Login, matchmaking and any other online features remain
-in that existing launcher, using its own installed version and configuration.
-This T4 beta does not add T5DR screens or change T5DR gameplay, builds or settings.
+The Online section uses the player's installed T5DR lobby client. It connects to
+the same lobby and uses the same build as the old T5DR Online launcher. The old
+launcher remains available during the transition. No client, server, game code,
+game data or game pictures are bundled here. Settings and locally saved replays
+continue to belong to the selected install.
 
-Before release, a person must confirm the Online action opens the installed
-launcher, returns focus sensibly when it closes, and gives a readable error if
-the install is missing. Check the shelf's existing Play, Build, Replays and
-Settings behavior remains unchanged. No T5DR game, launcher or online action
-was started for this source review.
+The controller actions go through the adapter interface. Opening a page or
+reading its state never logs in, joins a queue, starts a match or fetches a server
+list. A login, refresh, invitation, ready check or Watch action must be selected
+explicitly. Auto-spectate is a separate saved opt-in preference. A disconnected
+or replaced session cannot finish a stale request against its replacement.
+
+## Screen comparison
+
+This checklist compares `launcher/` and `lobby/t5lobby/tk_*.py` in the original
+source checkout and the supplied 1.2.0 checkout. Optional features require both
+the selected install's client methods and the lobby server's advertised support.
+Older installs keep their supported behavior; hidden controls do not claim
+capabilities that their client or server lacks.
+
+| Old screen or control | OpenRecomp status and behavior |
+| --- | --- |
+| Login and account (`tk_views`, `tk_tab`) | Guest, account, saved login and registration use the installed client. Password change, forgotten-password recovery, new recovery codes and certificate fingerprint entry are controller-selectable. One-time recovery codes stay visible only until acknowledged; fingerprint edits apply to this session. |
+| Lobby and challenges (`tk_challenges`) | Player list, challenge accept/decline, chat, refresh and explicit match ready checks use adapter actions. Negotiated challenge delay is separate from the local input-delay setting. |
+| Tournaments (`tk_tour`, `tour_client`) | Tournament list and details, sign-up, check-in, withdrawal, organizer actions, called-set acceptance, results and bracket sets are controller-selectable. Creation exposes format, set length, schedule, entry limit, check-in and seeding. The bracket is presented as selectable round/set rows. |
+| Spectating (`tk_spectate`) | Friend, room and tournament watching uses the installed spectator client. Stop affects the spectator's owned process. Spectating yields to the player's own match. Auto-spectate remains opt-in and requires the install's runtime support. |
+| Profile and history (`tk_views`, `tk_ranked_chars`, `tk_history`) | Own and named profiles expose server statistics and history. Ranked-by-character records use the server's games, wins, losses, draws and win rate; rating and rank remain account-level. Own-profile history offers Watch only when the installed replay matcher finds a recording on this PC. Older servers that omit character records do not get invented totals. |
+| Leaderboard (`tk_views`, `tk_challenges`) | Server standings, ranked/casual wins and losses, profile lookup, sorting and pagination use the installed client. |
+| Stats (`tk_stats`) | Server-wide counts and fighter statistics support all/ranked/casual views and sorting. A missing stats capability leaves the page unavailable rather than fabricating data. |
+| Ranked sets and character selection (`tk_tab`, `tk_charsel`) | Set progress, continuation and leaving a set use the native match driver. The character stays locked while the ranked set requires it; controller actions and direct adapter writes both enforce the lock. |
+| Friends (`tk_views`, `tk_tab`) | Requests in both directions, add/remove/cancel, presence, invitations, invitation cooldown and answering invitations use the existing friend client. |
+| Blocked players (`tk_tab`) | Listing, blocking and unblocking players use the installed client, with no local substitute for the server's block rules. |
+| Private rooms (`tk_rooms`) | Named rooms, passwords and invitation codes use the native room methods. Passwords and session tokens stay out of public snapshots. An invitation code is shown only to its room's member. |
+| Community rooms (`tk_rooms`) | Size, rotation, sit-out/return, owner settings and player controls are available where supported. Simultaneous tables expose player pairing, watching and their match/set progress. |
+| FT sets and in-game rematch rules (`tk_casual`, `tk_rooms`) | Casual FT preferences and room FT/rematch policies follow the install's supported client fields. Room-specific policy is kept with the room; it is not replaced with a global launcher setting. |
+| Health handicap and training (`tk_rules`, `tk_rooms`) | Casual health choices follow both server and built-game support, including the older 100% ceiling. Ready and match details show the agreed health and training rules. Training room creation stays with the native room client. |
+| Delay up to 8 (`tk_challenges`) | Challenge delay offers Auto and supported frame counts, capped by the selected opponent's negotiated maximum. The supplied native cores intentionally keep their separate local input-delay preference at Auto/0/1/2. |
+| Screen side (`launcher/core`, `tk_casual`) | Assigned-side preferences and the local Always see me on the left setting retain their native scopes. Mirroring applies to supported casual matches; it does not change ranked rules. |
+| Replay folder (`launcher/core`, `launcher/replays`) | Settings offers controller folder selection and reset to the native default. Recording, browsing and playback use the selected install's folder policy. No replay contents enter this repository. |
+| Auto-spectate and spectator permissions (`tk_spectate`, `launcher/core`) | Auto-spectate, spectator permission and ranked spectator permission are offered only when supported by the selected install. |
+| Developer badge and mentions (`tk_tab`) | Developer marks come from authoritative lobby data. Mention insertion is controller-selectable, and incoming mention highlighting uses the server's mention metadata. A name or chat message cannot grant a developer badge. |
+
+## Remaining differences and limits
+
+The native launcher's optional local-server hosting, firewall helper,
+Discord Rich Presence and desktop notification/foreground-window utilities have
+not been recreated in this online screen work. They depend on desktop or hosting
+integration beyond the adapter's controller screens. Use the installed native
+launcher for those utilities during the transition. OpenRecomp does not change
+system or security settings.
+
+A server history row is not a downloadable replay. Replay playback requires a
+matching replay saved on this PC by the player's own install. Another player's
+profile does not grant access to their replay files. Missing recordings cannot
+be restored from leaderboard or profile statistics.
+
+The row-based bracket exposes tournament information and actions to the pad;
+the old launcher's mouse-driven bracket canvas is not reproduced pixel for
+pixel. Unsupported optional client or server features remain unavailable,
+including on older installations.
+
+## Verification and release checks
+
+Regression tests cover adapter delegation, controller navigation, all seven
+language catalogs and session safety with synthetic data. The local lobby test
+uses literal loopback addresses, temporary server state and a stub game handle.
+It rejects external network access, published server lists, subprocess launches
+and changes to either optional source checkout. Supported protocol behavior is
+tested against the installed client's own local server; unavailable optional
+source trees are reported as skips.
+
+Run the complete repository test command before handover:
+
+```text
+.venv\Scripts\python.exe -m unittest discover -s tests
+```
+
+No launcher window, game, build, published lobby server or matchmaking search was
+started for this implementation. Still required before release: check actual
+pad focus and text layout in all seven languages, two-PC interoperability with
+the old launcher on the same lobby/build, real match and ranked-set continuation,
+spectator startup/yield/stop, room-table concurrency, and replay recording and
+playback in the chosen folder. These checks need the maintainer's own installs
+and game data; unit and loopback tests cannot establish them.

@@ -1,6 +1,6 @@
 """Real lobby protocol on loopback; no launcher window, game, or published server list.
 
-The optional source checkout is read-only. Only build discovery and the game process
+The optional source checkouts are read-only; the 1.2.0 tree is preferred. Only build discovery and the game process
 are replaced: the launcher's workers, installed client, server, NAT and match driver
 all run normally. No protocol responses or events are fabricated.
 """
@@ -22,7 +22,9 @@ from openrecomp.nav import Game, Nav
 
 
 REPO = Path(__file__).resolve().parents[1]
-SOURCE = REPO.parent / "OpenRecomp-work" / "T5DROnline-Source"
+SOURCE_ROOTS = tuple(REPO.parent / "OpenRecomp-work" / name for name in
+                     ("T5DR-codex-integrated", "T5DROnline-Source"))
+SOURCE = next((path for path in SOURCE_ROOTS if path.is_dir()), SOURCE_ROOTS[-1])
 LOOPBACK = "127.0.0.1"
 
 
@@ -39,7 +41,8 @@ class LoopbackOnly:
         self.leaked = False
 
     def source_write(self, path):
-        if isinstance(path, (str, bytes, os.PathLike)) and Path(os.fsdecode(path)).resolve().is_relative_to(SOURCE.resolve()):
+        if (isinstance(path, (str, bytes, os.PathLike)) and any(
+                Path(os.fsdecode(path)).resolve().is_relative_to(root.resolve()) for root in SOURCE_ROOTS)):
             self.reject("local lobby attempted to change its read-only source checkout")
 
     def reject(self, reason):
@@ -154,6 +157,14 @@ class LoopbackGuardTests(unittest.TestCase):
         guard.audit("socket.connect", (None, ("example.invalid", 1234)))
         guard.audit("open", (SOURCE / "lobby" / "servers.json", "r", 0))
         self.assertEqual(guard.violations, [])
+
+    def test_both_optional_checkouts_are_read_only(self):
+        for root in SOURCE_ROOTS:
+            for path in (root / "guard-fixture", str(root / "guard-fixture"),
+                         bytes(str(root / "guard-fixture"), "utf-8")):
+                with self.subTest(root=root.name, kind=type(path).__name__):
+                    with self.assertRaises(AssertionError):
+                        LoopbackOnly().source_write(path)
 
 
 class LocalAdapter(T5Match, Adapter):
@@ -406,7 +417,7 @@ class LocalLobbyTests(unittest.TestCase):
     def state(self, index):
         return self.adapters[index].online_state()
 
-    def choose(self, index, iid):
+    def choose(self, index, iid, button="confirm"):
         adapter, nav = self.adapters[index], self.navs[index]
         self.wait(lambda: not adapter._online_busy, "adapter worker did not finish")
         # Use controller actions to select every requested network operation.
@@ -416,7 +427,7 @@ class LocalLobbyTests(unittest.TestCase):
             self.assertIsNotNone(target, "missing controller action: " + iid)
             focus = nav.focus_index(items)
             if focus == target:
-                nav.act("confirm", device="xbox")
+                nav.act(button, device="xbox")
                 self.assertNotEqual(nav.toast, "@online.failure")
                 return
             nav.act("down" if focus < target else "up", device="xbox")
@@ -563,7 +574,7 @@ class LocalLobbyTests(unittest.TestCase):
         self.login(1, "SocialTwo", "login_register")
         self.adapters[0].set_text_value("online_chat", "hello local lobby")
         self.choose(0, "send_chat")
-        self.wait(lambda: all(any(line == dict(name="SocialOne", text="hello local lobby")
+        self.wait(lambda: all(any(line.get("name") == "SocialOne" and line.get("text") == "hello local lobby"
                                   for line in self.state(i)["chat"]) for i in range(2)),
                   "server chat echo did not reach both adapters")
         self.adapters[0].set_text_value("online_friend_name", "SocialTwo")
@@ -590,6 +601,222 @@ class LocalLobbyTests(unittest.TestCase):
         until = time.monotonic() + 0.2
         self.wait(lambda: time.monotonic() >= until, "challenge observation interval")
         self.assertTrue(all(not a.starts for a in self.adapters))
+
+    def test_profile_ranked_characters_leaderboard_and_stats(self):
+        self.login(0, "ProfileOne", "login_register")
+        self.login(1, "ProfileTwo", "login_register")
+        self.choose(0, "profile_self")
+        self.wait(lambda: self.state(0).get("profile", {}).get("name") == "ProfileOne",
+                  "own profile did not arrive")
+        profile = self.state(0)["profile"]
+        self.assertTrue(profile["account"])
+        self.assertTrue(profile["self"])
+        self.assertEqual(profile["stats"]["ranked"]["games"], 0)
+        if "ranked_chars" in self.server_module.lobby.FEATURES:
+            self.assertEqual(profile["ranked_chars"], [])
+        self.adapters[0].set_text_value("online_profile_name", "ProfileTwo")
+        self.choose(0, "profile_load")
+        self.wait(lambda: self.state(0)["profile"].get("name") == "ProfileTwo",
+                  "other player's profile did not arrive")
+        self.assertFalse(self.state(0)["profile"]["self"])
+        self.assertNotIn("recovery_codes_left", self.state(0)["profile"])
+        self.choose(0, "leaderboard_refresh")
+        self.wait(lambda: not self.adapters[0]._online_busy, "leaderboard did not arrive")
+        # New accounts have not played ranked games and are absent from the board.
+        self.assertEqual(self.state(0)["leaderboard"]["rows"], [])
+        self.assertFalse(self.state(0)["leaderboard"]["has_next"])
+        self.choose(0, "stats_refresh")
+        self.wait(lambda: "accounts" in self.state(0).get("community_stats", {}),
+                  "community statistics did not arrive")
+        stats = self.state(0)["community_stats"]
+        self.assertEqual(stats["accounts"], 2)
+        self.assertEqual(stats["matches"], 0)
+        self.assertEqual(stats["fighters"], [])
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
+
+    def test_tournament_signup_bracket_and_cancel_without_accepting_a_set(self):
+        self.login(0, "TourOne", "login_register")
+        self.login(1, "TourTwo", "login_register")
+        self.choose(0, "tour_refresh")
+        self.wait(lambda: self.state(0).get("tournaments", {}).get("can_create"),
+                  "local organizer rights did not arrive")
+        self.adapters[0].set_text_value("online_tour_name", "Local controller cup")
+        # No check-in window: the organizer may start this local bracket immediately.
+        for _ in range(7):
+            if not self.state(0)["tournaments"]["options"]["checkin_minutes"]:
+                break
+            self.choose(0, "tour_option:checkin_minutes")
+        self.assertEqual(self.state(0)["tournaments"]["options"]["checkin_minutes"], 0)
+        self.choose(0, "tour_create")
+        self.wait(lambda: bool(self.state(0)["tournaments"]["selected"]),
+                  "tournament was not created")
+        tid = self.state(0)["tournaments"]["selected"]
+        self.choose(0, "tour_join:" + tid)
+        self.wait(lambda: self.state(0)["tournaments"]["detail"].get("you", {}).get("entrant"),
+                  "organizer did not join")
+        self.choose(1, "tour_refresh")
+        self.wait(lambda: any(str(row["id"]) == tid for row in self.state(1)["tournaments"]["rows"]),
+                  "peer did not see tournament")
+        self.choose(1, "tour_select:" + tid)
+        self.wait(lambda: str(self.state(1)["tournaments"]["detail"].get("id")) == tid,
+                  "peer did not load tournament")
+        self.choose(1, "tour_join:" + tid)
+        self.wait(lambda: self.state(1)["tournaments"]["detail"].get("you", {}).get("entrant"),
+                  "peer did not join")
+        self.choose(0, "tour_refresh_detail:" + tid)
+        self.wait(lambda: len(self.state(0)["tournaments"]["detail"].get("entrants", [])) == 2,
+                  "organizer did not see both entrants")
+        self.choose(0, "tour_start:" + tid)
+        self.choose(0, "tour_confirm:tour_start:" + tid)
+        self.wait(lambda: self.state(0)["tournaments"]["detail"].get("state") == "running",
+                  "tournament did not start")
+        self.assertTrue(self.state(0)["tournaments"]["detail"]["bracket"]["sets"])
+        self.wait(lambda: bool(self.state(0)["tournaments"]["call"]),
+                  "tournament set call was not delivered")
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
+        self.assertTrue(self.both("logged_in"))
+        self.choose(0, "tour_cancel:" + tid)
+        self.choose(0, "tour_confirm:tour_cancel:" + tid)
+        self.wait(lambda: self.state(0)["tournaments"]["detail"].get("state") == "cancelled",
+                  "organizer did not cancel tournament")
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
+
+    def test_community_tables_first_to_sit_out_and_host_kick(self):
+        self.login(0, "TableOne", "login_register")
+        self.login(1, "TableTwo", "login_register")
+        if not self.state(0)["capabilities"].get("room_tables"):
+            self.skipTest("optional local server has no simultaneous room tables")
+        self.choose(0, "community_option:size", "right")
+        self.choose(0, "community_option:size", "right")
+        self.choose(0, "community_option:mode", "right")
+        self.choose(0, "community_option:first_to", "right")
+        self.choose(0, "community_option:first_to", "right")
+        self.adapters[0].set_text_value("online_room_name", "Local tables")
+        self.choose(0, "community_create")
+        self.wait(lambda: bool(self.state(0).get("community", {}).get("room")),
+                  "community room did not arrive")
+        room = self.state(0)["community"]["room"]
+        self.assertTrue(room["host"])
+        self.assertEqual(room["size"], 4)
+        self.assertEqual(room["mode"], "tables")
+        self.assertEqual(room["first_to"], 3)
+        self.assertEqual(len(room["tables"]), 2)
+        rid = room["id"]
+        # Sitting out before the peer arrives prevents even a local match offer.
+        self.choose(0, "community_sit_out")
+        self.wait(lambda: not self.state(0)["community"]["room"]["in_line"],
+                  "host did not sit out")
+        self.choose(1, "refresh_rooms")
+        self.wait(lambda: any(row["id"] == rid for row in self.state(1)["rooms"]),
+                  "community room did not appear in peer's list")
+        self.choose(1, "join_room:" + rid)
+        self.wait(lambda: len(self.state(0)["community"]["room"]["members"]) == 2,
+                  "peer did not join community room")
+        peer = next(row["id"] for row in self.state(0)["community"]["room"]["members"]
+                    if row["name"] == "TableTwo")
+        self.choose(0, "community_kick:" + peer)
+        self.wait(lambda: len(self.state(0)["community"]["room"]["members"]) == 1,
+                  "host kick did not remove peer")
+        self.wait(lambda: not self.state(1)["community"]["room"],
+                  "kicked peer retained community room")
+        self.assertTrue(self.both("logged_in"))
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
+
+    def test_server_dev_badge_and_pad_mention(self):
+        self.login(0, "BadgeOne", "login_register")
+        self.login(1, "BadgeTwo", "login_register")
+        if not self.state(0)["capabilities"].get("badges"):
+            self.skipTest("optional local server has no developer badges")
+
+        async def grant_badge():
+            account = self.server.store.account("BadgeOne")
+            self.server.store.set_badge(account["id"], "dev")
+            self.server.poll_badges()
+        # Use the server's admin storage operation; the following lobby/chat
+        # messages are produced by the real server, not injected test events.
+        asyncio.run_coroutine_threadsafe(grant_badge(), self.loop).result(5)
+        self.choose(1, "refresh_players")
+        self.wait(lambda: any(row["name"] == "BadgeOne" and row.get("badge") == "dev"
+                              for row in self.state(1)["players"]),
+                  "authoritative developer badge did not arrive")
+        self.choose(0, "refresh_players")
+        self.wait(lambda: any(row["name"] == "BadgeTwo" for row in self.state(0)["players"]),
+                  "mention target did not arrive")
+        peer = next(row["id"] for row in self.state(0)["players"] if row["name"] == "BadgeTwo")
+        self.choose(0, "mention:" + peer)
+        self.assertEqual(self.adapters[0].text_value("online_chat"), "@BadgeTwo ")
+        self.choose(0, "send_chat")
+        self.wait(lambda: any(row.get("name") == "BadgeOne" and row.get("mentioned")
+                              and row.get("badge") == "dev" for row in self.state(1)["chat"]),
+                  "server-resolved mention did not reach its recipient")
+        self.wait(lambda: any(row.get("text") == "@BadgeTwo" for row in self.state(0)["chat"]),
+                  "sender did not receive its chat echo")
+        self.assertFalse(self.state(0)["chat"][-1]["mentioned"])
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
+
+    def test_spectator_privacy_preferences_without_a_watch_or_game(self):
+        client = self.login(0, "WatchLocal")
+        self.assertTrue(self.state(0)["capabilities"]["spectating"])
+        self.assertEqual(client.spec_prefs, (True, False))
+        self.assertEqual(self.state(0)["spectating"]["targets"], [])
+        self.assertFalse(self.state(0)["spectating"]["active"])
+        self.adapters[0].s.update(spectators=False, spectators_ranked=True)
+        self.wait(lambda: client.spec_prefs == (False, True), "spectator preferences did not update")
+        player = self.server.by_name["watchlocal"]
+        self.wait(lambda: (player.spec_allow, player.spec_ranked) == (False, True),
+                  "server did not apply spectator privacy preferences")
+        self.assertFalse(self.adapters[0].starts)
+
+    def test_challenge_delay_eight_first_to_and_side_without_starting(self):
+        self.login(0, "ChoiceOne")
+        self.login(1, "ChoiceTwo")
+        prefs = self.state(0).get("challenge_preferences", {})
+        if prefs.get("delay_max") != 8 or not prefs.get("sets_supported"):
+            self.skipTest("optional local server has no delay-eight casual sets")
+        self.choose(0, "refresh_players")
+        self.wait(lambda: any(row["name"] == "ChoiceTwo" for row in self.state(0)["players"]),
+                  "challenge target did not arrive")
+        peer = next(row["id"] for row in self.state(0)["players"] if row["name"] == "ChoiceTwo")
+        for _ in range(9):
+            self.choose(0, "challenge_delay", "right")
+        for _ in range(2):
+            self.choose(0, "challenge_first_to", "right")
+            self.choose(0, "challenge_side", "right")
+        self.wait(lambda: not self.adapters[0]._online_busy, "challenge choices were not applied")
+        self.assertEqual(self.state(0)["challenge_preferences"]["delay"], "8")
+        self.assertEqual(self.state(0)["challenge_preferences"]["first_to"], 3)
+        self.assertEqual(self.state(0)["challenge_preferences"]["side"], 1)
+        self.choose(0, "challenge:" + peer)
+        self.wait(lambda: bool(self.state(1)["challenge"]), "challenge was not delivered")
+        incoming = self.state(1)["challenge_preferences"]["incoming"]
+        self.assertEqual(incoming["delay"]["frames"], 8)
+        self.assertEqual(incoming["first_to"], 3)
+        self.assertEqual(incoming["wish"]["side"], 1)
+        self.choose(1, "accept_challenge")
+        self.wait(lambda: self.both("matched"), "first-to challenge was not matched")
+        self.assertTrue(all(self.state(index)["set"]["first_to"] == 3 for index in range(2)))
+        self.assertTrue(all(self.state(index)["set"]["casual"] for index in range(2)))
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
+
+    def test_ranked_set_character_lock_and_cancel_before_ready(self):
+        self.login(0, "RankOne", "login_register")
+        self.login(1, "RankTwo", "login_register")
+        self.choose(0, "search_ranked")
+        self.wait(lambda: self.state(0)["phase"] == "searching", "local ranked queue did not start")
+        self.choose(1, "search_ranked")
+        self.wait(lambda: self.both("matched"), "local ranked set was not found")
+        for index in range(2):
+            snapshot = self.state(index)
+            self.assertTrue(snapshot["set"]["rated"])
+            self.assertTrue(snapshot["set"]["locked"])
+            self.assertEqual(snapshot["set"]["best_of"], 3)
+            self.assertTrue(snapshot["character_locked"])
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
+        self.choose(0, "cancel_match")
+        self.wait(lambda: self.state(0)["phase"] == "offline", "ranked ready check did not cancel")
+        self.assertFalse(self.state(0)["character_locked"])
+        self.assertFalse(self.state(0)["set"])
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
 
 
 if __name__ == "__main__":

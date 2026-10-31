@@ -29,8 +29,9 @@ checks for matching build, compiler/MSVC, ISO hash and two-way UDP reachability,
 then a separate Start game action. Collect logs saves local diagnostic zip files.
 See [T4 Online and release checks](docs/T4_ONLINE.md). There is no T4 account,
 matchmaking, room, chat, relay or result-reporting service in this beta. Lobby-based
-online stays hidden until its server exists. T5DR stays on the shelf unchanged;
-its Online section opens the old T5DR Online launcher. Seven language catalogs
+online stays hidden until its server exists. T5DR's Online section uses its installed
+lobby client, with controller screens described in [T5DR_ONLINE.md](docs/T5DR_ONLINE.md).
+The old T5DR Online launcher remains available during the transition. Seven language catalogs
 are included; native-speaker and controller layout review remain release checks.
 
 Automated tests exercise launcher logic with fakes and inert temporary files.

@@ -111,16 +111,20 @@ class T4BetaNavigation(unittest.TestCase):
         self.nav._activate(dict(kind="action", disabled=True, run=lambda: self.a.calls.append("bad")))
         self.assertEqual(self.a.calls, [])
 
-    def test_t5dr_online_uses_old_launcher_even_if_adapter_claims_online(self):
+    def test_t5dr_online_uses_adapter_and_play_does_not_launch_native(self):
         self.a.m.update(id="t5dr", adapter="t5dr")
+        self.a.snapshot["capabilities"] = dict(lobby=True, ranked=True)
         nav = Nav([Game(self.a.m, self.a)])
         nav.screen = "hub"
         nav.sec["t5dr"] = "online"
-        self.assertEqual([item.get("id") for item in nav.items()], ["native"])
-        nav.act("confirm", device="xbox")
-        self.assertEqual(self.a.calls, [("native",)])
+        ids = [item.get("id") for item in nav.items()]
+        self.assertIn("login_guest", ids)
+        self.assertIn("native", ids)
         nav.act("play", device="xbox")
-        self.assertEqual(self.a.calls, [("native",), ("native",)])
+        self.assertEqual(self.a.calls, [])
+        nav.focus["t5dr:online"] = ids.index("login_guest")
+        nav.act("confirm", device="xbox")
+        self.assertEqual(self.a.calls, [("online", "login_guest")])
         self.assertFalse(any(prompt["action"] == "play" for prompt in nav.view()["prompts"]))
 
     def test_missing_t4_does_not_offer_unusable_host_join_actions(self):
