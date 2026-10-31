@@ -5,7 +5,8 @@ from .nav_keyboard import ONLINE_PASSWORDS
 
 class Online:
     def _direct_online_back(self, g):
-        self._online_action(g, "disconnect")
+        if not self._online_action(g, "disconnect"):
+            return
         self.screen = "start"
         self.start_focus = self.games.index(g)
 
@@ -55,12 +56,15 @@ class Online:
 
     def _online_action(self, g, action):
         if self._dry("@online.status"):
-            return
+            return True
+        success = True
         try:
             g.a.online_action(action)
         except Exception:  # noqa: BLE001 -- no raw server details or credentials in an error toast
             self.say("@online.failure", 12)
+            success = False
         self.focus[g.id + ":online"] = 0
+        return success
 
     def _online_items(self, g):
         from . import nav_rules
@@ -199,7 +203,7 @@ class Online:
         challenge_id = (state.get("challenge") or {}).get("id")
         invite_id = (state.get("outgoing_invite") or {}).get("id")
         rows = [(item.get("id"), challenge_id if item.get("id") in ("accept_challenge", "decline_challenge")
-                 else invite_id if item.get("id") == "cancel_invite" else None)
+                 else invite_id if item.get("id") == "cancel_invite" else None, item.get("target"))
                 for item in out]
         previous = self.online_rows.get(g.id)
         index = self.focus.get(g.id + ":online", 0)

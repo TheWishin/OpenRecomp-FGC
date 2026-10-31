@@ -60,14 +60,17 @@ def _targets(owner):
     if not _supported(client):
         return []
     out = []
-    for friend in (getattr(client, "friend_list", None) or {}).get("friends") or ():
-        if friend.get("watch") and isinstance(friend.get("name"), str):
+    friends = getattr(client, "friend_list", None)
+    friends = friends.get("friends") if isinstance(friends, dict) else None
+    for friend in friends if isinstance(friends, list) else ():
+        if isinstance(friend, dict) and friend.get("watch") and isinstance(friend.get("name"), str):
             name = friend["name"][:64]
             out.append(dict(id="spec_watch_friend:" + name, kind="friend", name=name,
                             target=dict(name=name)))
-    rooms = list(getattr(client, "rooms", None) or ())
+    rooms = getattr(client, "rooms", None)
+    rooms = [room for room in rooms if isinstance(room, dict)] if isinstance(rooms, list) else []
     mine = getattr(client, "my_room", None)
-    if mine and not any(r.get("id") == mine.get("id") for r in rooms):
+    if isinstance(mine, dict) and mine and not any(r.get("id") == mine.get("id") for r in rooms):
         rooms.append(mine)
     for room in rooms:
         rid = str(room.get("id") or "")[:80]
@@ -75,7 +78,10 @@ def _targets(owner):
             continue
         name = str(room.get("name") or rid)[:80]
         if room.get("mode") == "tables":
-            for table in room.get("tables") or ():
+            tables = room.get("tables")
+            for table in tables if isinstance(tables, list) else ():
+                if not isinstance(table, dict):
+                    continue
                 tid = table.get("id")
                 if table.get("watch") and isinstance(tid, (str, int)):
                     out.append(dict(id="spec_watch_table:" + rid + ":" + str(tid), kind="table",
@@ -161,6 +167,14 @@ def _request(owner, client, target, automatic=False):
     def work():
         owner._online_check_request(generation, client)
         if owner._spec_pending != (epoch, client, automatic):
+            return None
+        if _busy(owner):
+            raise RuntimeError("@online.cancelled")
+        problem = owner._online_game_check()
+        if problem:
+            raise RuntimeError(problem)
+        owner._online_check_request(generation, client)
+        if owner._spec_pending != (epoch, client, automatic) or _busy(owner):
             return None
         kwargs = dict(target)
         # The older client has no table argument or generation barrier.

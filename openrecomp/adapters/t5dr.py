@@ -244,19 +244,35 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             previous.release()
         guard = LaunchGuard("t5dr")
         guard.acquire()
+        game = None
         try:
             running = game_process_running()
             if running is None:
                 raise RuntimeError("@online.process_unknown")
             if running:
                 raise RuntimeError("@online.game_running")
-            self.game = self.core.GameRun(self.s.out_dir, self.s)
-            result = self.game.start(extra_env=extra_env)
+            game = self.core.GameRun(self.s.out_dir, self.s)
+            self.game = game
+            result = game.start(extra_env=extra_env)
+            self._game_guard = guard
+            guard.watch(game.running)
         except Exception:
-            guard.release()
+            if game is None:
+                guard.release()
+            else:
+                self._game_guard = guard
+                try:
+                    game.stop()
+                except Exception:  # retain ownership even when stopping fails
+                    pass
+                try:
+                    if game.running():
+                        guard.watch(game.running)
+                    else:
+                        guard.release()
+                except Exception:  # an unknown child or failed monitor must keep its reservation
+                    pass
             raise
-        self._game_guard = guard
-        guard.watch(self.game.running)
         return result
 
     def running(self):

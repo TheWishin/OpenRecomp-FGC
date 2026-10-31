@@ -4,6 +4,7 @@ import importlib
 from importlib.machinery import PathFinder
 import io
 import json
+import math
 import os
 import queue
 import subprocess
@@ -366,8 +367,9 @@ class Online:
                 source = next((path for path in sources if os.path.isfile(path)), sources[0])
                 directory = os.path.dirname(source)
         entries, _problems = api["servers"].load(user_dir=directory)
-        default = api["servers"].default_entry(entries)
-        target = server or (default.name if default else self._online_default_server())
+        # A blank field has the same loopback meaning as saved-session lookup.
+        # Never send its credentials to an installed directory's default server.
+        target = server or self._online_default_server()
         try:
             entry = api["servers"].resolve(target, entries)
             kwargs = entry.client_kwargs()
@@ -568,9 +570,7 @@ class Online:
                 continue
             retry = friend.get("retry")
             retry = max(0, min(retry, 86400)) if isinstance(retry, int) and not isinstance(retry, bool) else 0
-            wait = getattr(self._online_client, "invite_wait", None)
-            if callable(wait):
-                retry = wait(friend["name"])
+            retry = self._online_invite_wait(friend["name"], retry)
             self._online_friends.append(dict(name=str(friend["name"])[:64],
                 status=friend.get("status") if friend.get("status") in ("online", "in_match", "offline") else "offline",
                 activity=str(friend.get("activity") or "")[:64], invite=friend.get("invite") == "ok", retry=retry))
@@ -609,13 +609,25 @@ class Online:
             return False
         return True
 
+    def _online_invite_wait(self, name, fallback=0):
+        wait = getattr(self._online_client, "invite_wait", None)
+        if not callable(wait):
+            return fallback
+        try:
+            retry = wait(name)
+            if isinstance(retry, (int, float)) and not isinstance(retry, bool) and math.isfinite(retry):
+                return max(0, min(retry, 86400))
+        except Exception:  # an incompatible installed timer must not crash polling or permit an invite
+            pass
+        return 86400
+
     def _online_invite_waits(self):
         wait = getattr(self._online_client, "invite_wait", None)
         if not callable(wait):
             return False
         changed = False
         for friend in self._online_friends:
-            retry = wait(friend["name"])
+            retry = self._online_invite_wait(friend["name"], friend["retry"])
             if retry != friend["retry"]:
                 friend["retry"] = retry
                 changed = True
@@ -751,8 +763,7 @@ class Online:
             return lambda: client.remove_friend(target)
         if prefix in ("invite_friend", "invite_room") and target in friends:
             friend = friends[target]
-            wait = getattr(client, "invite_wait", None)
-            retry = wait(target) if callable(wait) else friend.get("retry", 0)
+            retry = self._online_invite_wait(target, friend.get("retry", 0))
             if retry:
                 self._online_message = "@online.invite_wait"
                 return None

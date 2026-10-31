@@ -19,8 +19,9 @@ or replaced session cannot finish a stale request against its replacement.
 
 ## Screen comparison
 
-This checklist compares `launcher/` and `lobby/t5lobby/tk_*.py` in the original
-source checkout and the supplied 1.2.0 checkout. Optional features require both
+This table describes the adapter's intended counterparts to the native
+`launcher/` and `lobby/t5lobby/tk_*.py` screens. It is not a fresh verification
+against either external source checkout or an installed 1.2.0 runtime. Optional features require both
 the selected install's client methods and the lobby server's advertised support.
 Older installs keep their supported behavior; hidden controls do not claim
 capabilities that their client or server lacks.
@@ -68,13 +69,16 @@ including on older installations.
 
 ## Verification and release checks
 
-Regression tests cover adapter delegation, controller navigation, all seven
-language catalogs and session safety with synthetic data. The local lobby test
-uses literal loopback addresses, temporary server state and a stub game handle.
-It rejects external network access, published server lists, subprocess launches
-and changes to either optional source checkout. Supported protocol behavior is
-tested against the installed client's own local server; unavailable optional
-source trees are reported as skips.
+Regression tests cover adapter delegation, controller navigation, catalog
+structure in all seven languages and session safety with synthetic data.
+The optional local lobby test is designed to use literal loopback addresses,
+temporary server state and a stub game handle, with guards against external
+network access, published server lists, subprocess launches and changes to its
+optional source checkouts. It needs external native sources; unavailable or
+disallowed sources must be reported as skips. External native integration is
+opt-in; the repository-only test run must leave it disabled. Its presence is not evidence that
+protocol integration passed in this repository-only audit. Catalog structure
+tests do not establish translation quality or readable layout.
 
 Run the complete repository test command before handover:
 
@@ -89,3 +93,5 @@ the old launcher on the same lobby/build, real match and ranked-set continuation
 spectator startup/yield/stop, room-table concurrency, and replay recording and
 playback in the chosen folder. These checks need the maintainer's own installs
 and game data; unit and loopback tests cannot establish them.
+For a short initial review without login, search or game launch, use the German
+[20-minute pad check](HAND_CHECK.md). The checks above remain separate release gates.

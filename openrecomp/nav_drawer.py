@@ -4,20 +4,33 @@ from . import i18n
 
 class Drawer:
     def _drawer_items(self):
-        out = [dict(label="@language", value="@language." + self.language, language=True, hint="@language_hint"),
-               dict(label="@display_mode", value="@fullscreen" if self.fullscreen else "@windowed", fullscreen=True, hint="@display_mode_hint"),
-               dict(label="@motion", value="@motion_reduced" if self.reduced_motion else "@motion_full", motion=True, hint="@motion_hint")]
+        out = [dict(id="language", label="@language", value="@language." + self.language, language=True, hint="@language_hint"),
+               dict(id="display", label="@display_mode", value="@fullscreen" if self.fullscreen else "@windowed", fullscreen=True, hint="@display_mode_hint"),
+               dict(id="motion", label="@motion", value="@motion_reduced" if self.reduced_motion else "@motion_full", motion=True, hint="@motion_hint")]
         phase = self.update_state.get("phase", "idle")
         update_hint = {"checking": "@updates.checking", "installing": "@updates.installing", "current": "@updates.current",
                        "waiting": "@updates.waiting", "unconfigured": "@updates.unconfigured", "error": "@updates.failed"}.get(phase, "@updates.hint")
-        out.append(dict(label="@updates.check", value=self.update_state.get("version", ""), update=True, hint=update_hint))
+        out.append(dict(id="updates", label="@updates.check", value=self.update_state.get("version", ""), update=True, hint=update_hint))
         for g in self.games:
             if g.a.found() and g.a.native_label:
-                out.append(dict(label=g.a.native_label, value=g.short, game=g, hint=i18n.message("native_hint", name=g.a.native_label)))
+                out.append(dict(id="native:" + g.id, label=g.a.native_label, value=g.short, game=g, hint=i18n.message("native_hint", name=g.a.native_label)))
+        rows = [item["id"] for item in out]
+        previous = getattr(self, "drawer_rows", None)
+        index = self.drawer_focus
+        if (not 0 <= index < len(rows) or previous is not None
+                and (index >= len(previous) or previous[index] != rows[index])):
+            self.drawer_focus = 0
+        self.drawer_rows = rows
         return out
 
     def _drawer(self, a):
+        previous = getattr(self, "drawer_rows", None)
+        index = self.drawer_focus
         items = self._drawer_items()
+        if a in ("confirm", "left", "right") and previous is not None and (
+                not 0 <= index < len(previous) or index >= len(items)
+                or previous[index] != self.drawer_rows[index]):
+            return
         if a == "up":
             self.drawer_focus = max(0, self.drawer_focus - 1)
         elif a == "down":

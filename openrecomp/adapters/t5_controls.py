@@ -2,6 +2,7 @@
 import importlib.util
 import os
 import sys
+import tempfile
 import time
 
 from .base import add_path
@@ -193,19 +194,30 @@ class Controls:
             raise RuntimeError("@controls.disconnected")
         ce = self._controls_modules[0]
         read_path = session["editor"].path
+        temporary = None
         try:
-            # The installed editor keeps unknown fields. Save its edited document only
-            # after the player accepts, in this launcher's own controls file.
+            # The installed editor keeps unknown fields. Publish private edits only
+            # after its complete save succeeds, keeping existing bindings on failure.
             target = getattr(self.s, "controls_write_path", None)
             if target is not None:
-                os.makedirs(os.path.dirname(target), exist_ok=True)
-                session["editor"].path = target
+                folder = os.path.dirname(target)
+                os.makedirs(folder, exist_ok=True)
+                target = self.s.controls_write_path
+                with tempfile.NamedTemporaryFile(dir=folder, prefix=".controls-", suffix=".json", delete=False) as stream:
+                    temporary = stream.name
+                session["editor"].path = temporary
             session["editor"].bind(pending["dev"], ce.SCOPE_PORT, pending["slot"], [pending["source"]])
             session["editor"].save()
+            if target is not None:
+                os.replace(temporary, self.s.controls_write_path)
+                session["editor"].path = target
         except Exception:
             session["editor"] = ce.ControlsEditor.load(read_path)
             self.cancel_binding()
             raise
+        finally:
+            if temporary is not None and os.path.exists(temporary):
+                os.unlink(temporary)
         session["capture"] = session["pending"] = None
         session["state"] = dict(state="done")
 

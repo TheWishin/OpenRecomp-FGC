@@ -1,5 +1,6 @@
 """Tournament views and commands delegated to the selected install's lobby client."""
 import copy
+import math
 import time
 
 
@@ -115,11 +116,13 @@ def _set(owner, sid):
                  if str(row.get("id")) == sid), None)
 
 
-def _submit(owner, client, operation, call):
+def _submit(owner, client, operation, call, detail=None):
     generation = owner._online_generation
 
     def work():
         owner._online_check_request(generation, client)
+        if detail is not None and (owner._online_tours["stale"] or owner._online_tours["detail"] is not detail):
+            raise RuntimeError("@online.cancelled")
         return call()
     owner._online_submit("feature_tour:" + operation, work)
 
@@ -214,7 +217,21 @@ def action(owner, request, client):
             owner._online_message = problem
             return True
         tid, _, sid = target.partition(":")
-        _submit(owner, client, "accept:" + target, lambda: client.tour_accept(tid, sid))
+        generation = owner._online_generation
+        def accept():
+            if (getattr(owner, "_online_phase", "logged_in") != "logged_in"
+                    or data["call"] is not call or call.get("accepted")
+                    or call.get("expires", 0) <= time.monotonic()):
+                raise RuntimeError("@online.cancelled")
+            problem = owner._online_game_check()
+            if problem:
+                raise RuntimeError(problem)
+            owner._online_check_request(generation, client)
+            if (getattr(owner, "_online_phase", "logged_in") != "logged_in"
+                    or data["call"] is not call or call.get("expires", 0) <= time.monotonic()):
+                raise RuntimeError("@online.cancelled")
+            return client.tour_accept(tid, sid)
+        _submit(owner, client, "accept:" + target, accept)
         return True
     if verb == "tour_confirm":
         if target != data["pending"]:
@@ -232,7 +249,7 @@ def _change(owner, client, request, confirmed=False):
     verb, _, target = request.partition(":")
     tid, _, extra = target.partition(":")
     detail = data["detail"]
-    if not tid or tid != data["selected"] or str(detail.get("id")) != tid:
+    if data["stale"] or not tid or tid != data["selected"] or str(detail.get("id")) != tid:
         return True
     current = detail.get("state")
     you = detail.get("you") or {}
@@ -247,7 +264,7 @@ def _change(owner, client, request, confirmed=False):
             return True
         method = getattr(client, verb, None)
         if callable(method):
-            _submit(owner, client, "detail:" + tid, lambda: method(tid))
+            _submit(owner, client, "detail:" + tid, lambda: method(tid), detail=detail)
         return True
     if not detail.get("can_manage"):
         return True
@@ -263,7 +280,8 @@ def _change(owner, client, request, confirmed=False):
         kwargs["set"] = extra
         if operation.startswith("win"):
             kwargs["winner"] = int(operation[-1])
-            if not (row.get("p") or [None, None])[kwargs["winner"]]:
+            players = row.get("p") or []
+            if len(players) <= kwargs["winner"] or not players[kwargs["winner"]]:
                 return True
             operation = "override" if row.get("state") == "done" else "report"
     elif operation == "dq":
@@ -278,7 +296,7 @@ def _change(owner, client, request, confirmed=False):
         data["pending"] = request
         return True
     if callable(getattr(client, "tour_admin", None)):
-        _submit(owner, client, "detail:" + tid, lambda: client.tour_admin(tid, operation, **kwargs))
+        _submit(owner, client, "detail:" + tid, lambda: client.tour_admin(tid, operation, **kwargs), detail=detail)
     return True
 
 
@@ -336,7 +354,11 @@ def event(owner, value):
     elif kind == "tour_call":
         accepted = value.get("accepted")
         deadline = value.get("deadline")
-        seconds = max(0, deadline) if isinstance(deadline, (int, float)) else 0
+        try:
+            seconds = max(0, deadline) if (type(deadline) in (int, float) and math.isfinite(deadline)
+                                         and deadline <= 86400) else 0
+        except OverflowError:
+            seconds = 0
         data["call"] = dict(tournament=_fields(value.get("tournament"), ("id", "name")),
                             set=_fields(value.get("set"), ("id", "bracket", "round")),
                             opponent=_fields(value.get("opponent"), ("name",)),

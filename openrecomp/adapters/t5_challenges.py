@@ -190,10 +190,14 @@ def action(owner, action, client):
         def work():
             from .t5_online import SearchRefused
             owner._online_check_request(generation, client)
+            if owner._online_phase != "logged_in":
+                raise SearchRefused("@online.cancelled")
             problem = owner._online_game_check()
             if problem:
                 raise SearchRefused(problem)
             owner._online_check_request(generation, client)
+            if owner._online_phase != "logged_in":
+                raise SearchRefused("@online.cancelled")
             return dict(reply=_send(client, target, delay, first_to), player=target, name=name,
                         first_to=first_to, delay=delay)
         owner._online_submit(PREFIX + "send", work)

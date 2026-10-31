@@ -118,6 +118,7 @@ def _profile_rows(nav, g, state, action):
             replay_id = row["replay_id"]
             replay = _detail("profile_history_replay:" + str(index), "@watch", "@online.history", details)
             replay["verb"] = "@watch"
+            replay["target"] = replay_id
             replay["run"] = lambda replay_id=replay_id: nav._play_replay(g, replay_id)
             out.append(replay)
     if state.get("profile_history_offset", 0):

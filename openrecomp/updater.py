@@ -307,17 +307,21 @@ def _archive_members(archive, version):
 
 def _work_root(root):
     root = Path(root).resolve()
-    return root.with_name(root.name + ".update")
+    work = root.with_name(root.name + ".update")
+    if work.is_symlink() or work.is_junction():
+        raise UpdateError("The update workspace must not be a link.")
+    return work
 
 
 def _check_user_home(root):
     home = os.environ.get("OPENRECOMP_HOME") or os.path.join(
         os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "OpenRecomp")
     home = Path(os.path.expandvars(os.path.expanduser(home))).resolve()
-    for item in PROGRAM_ITEMS:
-        target = (Path(root).resolve() / item).resolve()
+    targets = [(Path(root).resolve() / item).resolve() for item in PROGRAM_ITEMS]
+    targets.append(_work_root(root).resolve())
+    for target in targets:
         if home == target or target in home.parents or home in target.parents:
-            raise UpdateError("The player data folder overlaps program files; move player data before updating.")
+            raise UpdateError("The player data folder overlaps program files or the update workspace; move player data before updating.")
 
 
 def _require_upgrade(root, release):
@@ -654,18 +658,27 @@ def confirm_startup(root):
         marker.write_text(json.dumps(dict(token=value["token"])), encoding="utf-8")
         os.environ.pop(CONFIRM_ENV, None)
         return True
-    except (OSError, ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError, UpdateError):
         return False
 
 
 def update_result(root):
     """Consume the last helper result once; contains status/version, never player paths."""
-    work = _work_root(root)
-    if not work.is_dir():
+    try:
+        work = _work_root(root)
+        if not work.is_dir():
+            return None
+        transactions = list(work.iterdir())
+    except (OSError, UpdateError):
         return None
     candidates = []
-    for result in work.glob("*/result.json"):
+    for transaction in transactions:
         try:
+            if transaction.is_symlink() or transaction.is_junction() or not transaction.is_dir():
+                continue
+            result = transaction / "result.json"
+            if result.is_symlink() or result.is_junction():
+                continue
             candidates.append((result.stat().st_mtime, result))
         except OSError:
             continue

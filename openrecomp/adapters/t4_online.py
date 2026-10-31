@@ -103,6 +103,8 @@ class T4Direct:
         return dest
 
     def _direct_process(self, command, cancel, env=None):
+        if cancel.is_set():
+            raise RuntimeError("@online.cancelled")
         proc = subprocess.Popen(command, cwd=self.root, env=env, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
         try:
@@ -254,8 +256,13 @@ class T4Direct:
                     if generation != self._direct_generation:
                         raise RuntimeError("@online.cancelled")
                     self._direct_log_baseline = self._direct_log_stamps()
-                    self.start(extra_env=env)
-                    self._online_owned_run = self.run
+                    previous = getattr(self, "run", None)
+                    try:
+                        self.start(extra_env=env)
+                    finally:
+                        # Keep a post-start failure reachable by Disconnect/Stop.
+                        if getattr(self, "run", None) is not previous:
+                            self._online_owned_run = self.run
             self._direct_submit(action, start)
         elif action == "collect_logs":
             cancel = self._direct_cancel = threading.Event()

@@ -6,7 +6,7 @@
 # OpenRecomp-FGC
 
 **Launcher for all your Recomps.** One fullscreen launcher for native PC ports of console games, made to be used from
-the couch: everything works with a controller, and mouse and keyboard still work. Button prompts follow the device you
+the couch: designed for controller use, with mouse and keyboard support too. Physical-pad acceptance is still required. Button prompts follow the device you
 used last.
 
 > OpenRecomp-FGC contains **no game data**: no ISO, no packages, no keys, no BIOS, no translated game code, no game art.
@@ -44,6 +44,8 @@ online guide. Before handover run
 `.venv\Scripts\python.exe -m unittest discover -s tests` and record its result.
 The source-only package check is
 `.venv\Scripts\python.exe tools\package_release.py --scan-only`.
+The owner can start with the German [20-minute pad check](docs/HAND_CHECK.md);
+it does not replace the longer release checks.
 
 ## Start
 

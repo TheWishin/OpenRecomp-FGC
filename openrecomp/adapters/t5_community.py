@@ -38,7 +38,24 @@ def _members(room):
 
 def _room(owner):
     room = getattr(owner._online_client, "my_room", None)
-    return room if isinstance(room, dict) else {}
+    if not isinstance(room, dict) or not room:
+        return {}
+    room = dict(room)
+    for key in ("players", "line", "tables"):
+        if not isinstance(room.get(key), list):
+            room[key] = []
+    room["line"] = [_text(pid) for pid in room["line"][:200] if isinstance(pid, (str, int))]
+    room["tables"] = [dict(table) for table in room["tables"][:16] if isinstance(table, dict)]
+    for table in room["tables"]:
+        players = table.get("players")
+        table["players"] = [_text(pid) for pid in players if isinstance(pid, (str, int))] if isinstance(players, list) else []
+        info = table.get("set")
+        table["set"] = dict(info) if isinstance(info, dict) else {}
+        if not isinstance(table["set"].get("wins"), list):
+            table["set"]["wins"] = []
+    if not isinstance(room.get("guesses"), dict):
+        room["guesses"] = {}
+    return room
 
 
 def _host(owner, room):
@@ -59,7 +76,9 @@ def state(owner):
     client = owner._online_client
     room = _room(owner)
     private = _cap(client, "private_rooms_ok")
-    maximum = ((getattr(client, "welcome", None) or {}).get("room_limits") or {}).get("max_size")
+    welcome = getattr(client, "welcome", None)
+    limits = welcome.get("room_limits") if isinstance(welcome, dict) else None
+    maximum = limits.get("max_size") if isinstance(limits, dict) else None
     maximum = max(2, _number(maximum, 8, 16))
     tables = [dict(id=_text(t.get("id")), players=[_text(p) for p in (t.get("players") or [])[:2]],
                    playing=bool(t.get("match")),
@@ -80,7 +99,8 @@ def state(owner):
     me = getattr(client, "me", None) or {}
     current["in_line"] = isinstance(me, dict) and me.get("id") in current["line"]
     badges = _cap(client, "badges_ok")
-    roster = {p.get("id"): p for p in getattr(client, "players", None) or [] if isinstance(p, dict)}
+    roster = getattr(client, "players", None)
+    roster = {_text(p.get("id")): p for p in roster if isinstance(p, dict)} if isinstance(roster, list) else {}
     players = []
     for player in owner._online_players:
         row = dict(player)
@@ -223,9 +243,15 @@ def action(owner, requested, client):
     if work is not None:
         def checked():
             owner._online_check_request(generation, client)
-            problem = owner._online_game_check() if requested in ("community_create", "community_pair") else ""
+            if owner._online_phase != "logged_in":
+                raise RuntimeError("@online.cancelled")
+            problem = owner._online_game_check() if requested in (
+                "community_create", "community_pair", "community_back_in_line") else ""
             if problem:
                 raise RuntimeError(problem)
+            owner._online_check_request(generation, client)
+            if owner._online_phase != "logged_in":
+                raise RuntimeError("@online.cancelled")
             return work()
         owner._online_submit(PREFIX + requested, checked)
     return True

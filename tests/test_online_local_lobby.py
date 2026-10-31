@@ -1,6 +1,7 @@
 """Real lobby protocol on loopback; no launcher window, game, or published server list.
 
-The optional source checkouts are read-only; the 1.2.0 tree is preferred. Only build discovery and the game process
+External-source integration requires OPENRECOMP_TEST_LOCAL_LOBBY=1. The optional
+source checkouts are read-only; the 1.2.0 tree is preferred. Only build discovery and the game process
 are replaced: the launcher's workers, installed client, server, NAT and match driver
 all run normally. No protocol responses or events are fabricated.
 """
@@ -24,7 +25,7 @@ from openrecomp.nav import Game, Nav
 REPO = Path(__file__).resolve().parents[1]
 SOURCE_ROOTS = tuple(REPO.parent / "OpenRecomp-work" / name for name in
                      ("T5DR-codex-integrated", "T5DROnline-Source"))
-SOURCE = next((path for path in SOURCE_ROOTS if path.is_dir()), SOURCE_ROOTS[-1])
+SOURCE = SOURCE_ROOTS[-1]
 LOOPBACK = "127.0.0.1"
 
 
@@ -217,6 +218,10 @@ class LocalAdapter(T5Match, Adapter):
 class LocalLobbyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if os.environ.get("OPENRECOMP_TEST_LOCAL_LOBBY") != "1":
+            raise unittest.SkipTest("external-source lobby integration requires explicit opt-in")
+        global SOURCE
+        SOURCE = next((path for path in SOURCE_ROOTS if path.is_dir()), SOURCE_ROOTS[-1])
         if not SOURCE.is_dir():
             raise unittest.SkipTest("real lobby source checkout missing: " + str(SOURCE))
         # A present but incompatible checkout is a failure, not an optional skip.

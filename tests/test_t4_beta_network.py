@@ -334,8 +334,9 @@ class DirectBetaTests(unittest.TestCase):
         proc = mock.Mock()
         proc.poll.side_effect = [None, 0]
         proc.returncode = 0
-        cancel = threading.Event()
-        cancel.set()
+        cancel = mock.Mock()
+        cancel.is_set.return_value = False
+        cancel.wait.return_value = True
         with mock.patch("openrecomp.adapters.t4_online.subprocess.Popen", return_value=proc):
             with self.assertRaisesRegex(RuntimeError, "@online.cancelled"):
                 self.a._direct_process(["fake-tool"], cancel)

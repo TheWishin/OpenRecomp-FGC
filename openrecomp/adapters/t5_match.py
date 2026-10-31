@@ -291,6 +291,8 @@ class T5Match(Online):
             mid = event.get("match") or getattr(ticket, "match_id", None)
             if mid != current:
                 return True
+            if ticket is not None and getattr(ticket, "match_id", current) != current:
+                return True
             event = dict(event, match=mid)
             identity = (mid, id(ticket) if ticket is not None else "continue")
             previous = getattr(self, "_online_start_seen", None)
@@ -512,6 +514,11 @@ class T5Match(Online):
                 self._online_check_request(generation, client)
                 current = driver or self._online_make_driver(client, generation)
                 try:
+                    with self._online_lock:
+                        self._online_check_request(generation, client)
+                        # Cancellation must own a new driver even before its worker result
+                        # reaches the UI thread, including any game it has started.
+                        self._online_driver = current
                     for event in events:
                         self._online_check_request(generation, client)
                         offer = getattr(current, "offer_ingame_ui", None)

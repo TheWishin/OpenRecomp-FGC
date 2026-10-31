@@ -42,7 +42,7 @@ SOURCE_GROUPS = {
                             "OFL-IBMPlexMono.txt", "OFL-IBMPlexSans.txt"),
     "games": ("t4.json", "t5dr.json"),
     "docs": ("PACKAGING.md", "INSTALLING.md", "UPDATES.md", "T4_FIRST_RUN.md", "T4_ONLINE.md", "T5DR_ONLINE.md",
-             "T5DR_COEXISTENCE.md"),
+             "T5DR_COEXISTENCE.md", "HAND_CHECK.md"),
 }
 SOURCE_FILES = {folder + "/" + name for folder, names in SOURCE_GROUPS.items() for name in names}
 SOURCE_FILES.update(("LICENSE", "README.md"))
@@ -320,10 +320,18 @@ def validate_release(version, channel):
         raise PackageError("Choose this project's unique lowercase release channel")
 
 
+def output_folder(path):
+    path = Path(os.path.abspath(path))
+    for part in (path, *path.parents):
+        if part.is_symlink() or part.is_junction():
+            raise PackageError("Release output must not use links or junctions")
+    return path
+
+
 def assemble(root, runtime, starter, licenses, contract_path, output, version, channel):
     """Explicit invocation only: checks all inputs before creating a release zip."""
     validate_release(version, channel)
-    root, output, starter = Path(root), Path(output), Path(starter)
+    root, output, starter = Path(root), output_folder(output), Path(starter)
     contract = json.loads(Path(contract_path).read_text(encoding="utf-8"))
     if not isinstance(contract, dict):
         raise PackageError("Inventory must be a JSON object")
@@ -339,8 +347,9 @@ def assemble(root, runtime, starter, licenses, contract_path, output, version, c
     scan_file(starter, "OpenRecomp.exe", library=True)
     basename = "OpenRecomp-" + version
     archive = output / (basename + ".zip")
-    if archive.exists() or (output / "SHA256SUMS").exists():
-        raise PackageError("Refusing to overwrite release artifacts")
+    for artifact in (archive, output / "SHA256SUMS"):
+        if artifact.exists() or artifact.is_symlink() or artifact.is_junction():
+            raise PackageError("Refusing to overwrite release artifacts")
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="openrecomp-package-", dir=output) as temporary:
         stage = Path(temporary) / basename
@@ -371,7 +380,8 @@ def assemble(root, runtime, starter, licenses, contract_path, output, version, c
                 z.write(path, basename + "/" + name)
         unpacked = sum(p.stat().st_size for p in checked_files(stage).values())
     checksum = digest(archive)
-    (output / "SHA256SUMS").write_text(f"{checksum}  {archive.name}\n", encoding="ascii")
+    with (output / "SHA256SUMS").open("x", encoding="ascii") as sums:
+        sums.write(f"{checksum}  {archive.name}\n")
     return {"archive": archive.name, "zip_bytes": archive.stat().st_size, "unpacked_bytes": unpacked,
             "sha256": checksum}
 

@@ -140,6 +140,7 @@ class T4(T4Online, Adapter):
             if previous is not None and proc is not None and proc.poll() is not None:
                 previous.release()
             reservation = LaunchGuard("t4").acquire()
+            started = False
             try:
                 exe, _why = self.core.find_runtime(self.s)
                 if not exe:
@@ -150,12 +151,31 @@ class T4(T4Online, Adapter):
                 if active:
                     raise RuntimeError("@online.game_running")
                 pid = self._start(extra_env)
+                started = True
+                self._launch_guard = reservation
+                run = self.run
+                reservation.watch(lambda: self._launch_active(run))
             except Exception:
-                reservation.release()
+                run = self.run
+                proc = getattr(run, "proc", None)
+                try:
+                    active = callable(getattr(proc, "poll", None)) and self._launch_active(run)
+                except Exception:
+                    active = True
+                if active:
+                    if started:
+                        try:
+                            run.stop()
+                        except Exception:  # noqa: BLE001 -- preserve the handle for another stop
+                            pass
+                    self._launch_guard = reservation
+                    try:
+                        reservation.watch(lambda: self._launch_active(run))
+                    except Exception:  # noqa: BLE001 -- an unwatched reservation must stay held
+                        pass
+                else:
+                    reservation.release()
                 raise
-            self._launch_guard = reservation
-            run = self.run
-            reservation.watch(lambda: run.proc.poll() is None)
             return pid
 
     def _start(self, extra_env=None):
@@ -170,7 +190,9 @@ class T4(T4Online, Adapter):
         graphics = self._graphics_values()
 
         def env_with_extra(s, exe=None):
-            env = real_env(s, exe)
+            # A normal Play must not inherit a previous direct-IP session.
+            env = {key: value for key, value in real_env(s, exe).items()
+                   if key.upper() != "TEKKEN4_NET" and not key.upper().startswith("TEKKEN4_NET_")}
             if self.core.graphics_support(exe)["aa"]:
                 env["TEKKEN4_AA"] = graphics["aa"]
             env["TEKKEN4_HUD"] = graphics["hud"]
@@ -181,15 +203,48 @@ class T4(T4Online, Adapter):
                 env.pop(name, None)
             return env
         self.core.game_env = env_with_extra
+        lock_acquired = False
         try:
-            run.start()
-        finally:
-            self.core.game_env = real_env
-        self.core.take_run_lock("openrecomp")
-        self.run = run
-        self._run_waiter = threading.Thread(target=self._wait, args=(run,), daemon=True)
-        self._run_waiter.start()
+            try:
+                run.start()
+            finally:
+                self.core.game_env = real_env
+            self.run = run
+            self.core.take_run_lock("openrecomp")
+            lock_acquired = True
+            self._run_waiter = threading.Thread(target=self._wait, args=(run,), daemon=True)
+            self._run_waiter.start()
+        except Exception:
+            if lock_acquired:
+                self._unwaited_run = run
+            proc = getattr(run, "proc", None)
+            try:
+                active = callable(getattr(proc, "poll", None)) and proc.poll() is None
+            except Exception:
+                active = True
+            if active:
+                self.run = run
+                try:
+                    run.stop()
+                except Exception:  # noqa: BLE001 -- keep the handle and reservation for another stop
+                    pass
+            if lock_acquired:
+                try:
+                    self._launch_active(run)
+                except Exception:  # noqa: BLE001 -- unknown exit/lock state must keep the reservation
+                    pass
+            raise
         return run.proc.pid
+
+    def _launch_active(self, run):
+        active = run.proc.poll() is None
+        # A failed waiter cannot release the native lock; do so only after confirmed exit.
+        if not active and getattr(self, "_unwaited_run", None) is run:
+            with self._settings_lock:
+                if self._unwaited_run is run:
+                    self.core.release_run_lock()
+                    self._unwaited_run = None
+        return active
 
     def _wait(self, run):
         try:
@@ -201,11 +256,13 @@ class T4(T4Online, Adapter):
             self.core.save_settings(self.s)
 
     def running(self):
-        return bool(self.run and self.run.proc and self.run.proc.poll() is None)
+        return bool(self.run and self.run.proc and self._launch_active(self.run))
 
     def stop(self):
         if self.run:
             self.run.stop()
+            if getattr(self, "_unwaited_run", None) is self.run:
+                self._launch_active(self.run)
 
     def open_native(self):
         script = os.path.join(self.root, "launcher", "t4_launcher.pyw")
