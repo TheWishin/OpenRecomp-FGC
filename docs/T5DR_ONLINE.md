@@ -6,6 +6,11 @@ launcher remains available during the transition. No client, server, game code,
 game data or game pictures are bundled here. Settings and locally saved replays
 continue to belong to the selected install.
 
+For the gradual move from 1.1.9, see [Keep both launchers](T5DR_COEXISTENCE.md).
+It describes existing settings, saved login, controls and replay reuse, the
+private settings-copy drill, the shared build rule and returning to the old
+launcher. Opening OpenRecomp does not authorize a migration or a rebuild.
+
 The controller actions go through the adapter interface. Opening a page or
 reading its state never logs in, joins a queue, starts a match or fetches a server
 list. A login, refresh, invitation, ready check or Watch action must be selected

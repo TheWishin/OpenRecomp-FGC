@@ -8,6 +8,8 @@ import threading
 import time
 from types import SimpleNamespace
 
+from .t5_coexist import readonly_imports
+
 
 def init(owner):
     if hasattr(owner, "_spec_epoch"):
@@ -23,7 +25,8 @@ def init(owner):
 
 def _module(owner, name):
     owner._online_modules()
-    module = importlib.import_module(owner.online_package + "." + name)
+    with readonly_imports():
+        module = importlib.import_module(owner.online_package + "." + name)
     root = os.path.normcase(os.path.realpath(os.path.join(owner.root, "lobby", owner.online_package)))
     origin = os.path.normcase(os.path.realpath(getattr(module, "__file__", "")))
     if os.path.commonpath((root, origin)) != root:

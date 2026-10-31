@@ -2,6 +2,8 @@
 import importlib
 import os
 
+from .t5_coexist import readonly_imports
+
 
 PREFIX = "feature_rules:"
 
@@ -42,7 +44,8 @@ def client_options(owner):
     options = dict(match_rules=False, life150=False)
     owner._online_modules()
     try:
-        module = importlib.import_module(owner.online_package + ".match_driver")
+        with readonly_imports():
+            module = importlib.import_module(owner.online_package + ".match_driver")
         root = os.path.normcase(os.path.realpath(os.path.join(owner.root, "lobby", owner.online_package)))
         origin = os.path.normcase(os.path.realpath(getattr(module, "__file__", "")))
         if os.path.commonpath((root, origin)) != root:

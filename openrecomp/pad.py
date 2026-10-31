@@ -8,6 +8,8 @@ import os
 import sys
 import time
 
+from .adapters.t5_coexist import readonly_imports
+
 # (source name of a pressed thing, action); the names are padnav's, so both readers end in one table
 SOURCES = (("A", "confirm"), ("B", "back"), ("X", "x"), ("Y", "social"), ("LB", "prev"), ("RB", "next"), ("START", "play"), ("BACK", "switchGame"),
            ("DUP", "up"), ("DDOWN", "down"), ("DLEFT", "left"), ("DRIGHT", "right"))
@@ -196,7 +198,8 @@ class PlayStationReader:
             if lobby in sys.path:
                 sys.path.remove(lobby)
             sys.path.insert(0, lobby)
-            module = importlib.import_module("t5lobby.padnav")
+            with readonly_imports():
+                module = importlib.import_module("t5lobby.padnav")
             if local_origin(getattr(module, "__file__", None)):
                 self.source = module.HidSource()
         except Exception:  # noqa: BLE001 -- no PlayStation pads then, XInput still works

@@ -933,5 +933,17 @@
     "online.history_no_return": "Ein Spieler ist nicht rechtzeitig zurückgekehrt",
     "auto": "Automatisch",
     "back": "Zurück",
-    "online.room": "Raum"
+    "online.room": "Raum",
+    "t5.coexist.install_invalid": "Wähle einen T5DR-Online-Installationsordner. Es wurde nichts verändert.",
+    "t5.coexist.title": "T5DR-Installation verwenden",
+    "t5.coexist.hint": "Verwendet dein vorhandenes Spiel und deine Replays. Es wird nichts automatisch kopiert.",
+    "t5.coexist.settings": "Änderungen an Einstellungen bleiben in OpenRecomp. Die Einstellungen deines alten Launchers bleiben erhalten.",
+    "t5.coexist.login": "Deine gespeicherte Anmeldung kann hier verwendet werden. Die Anmeldedatei deines alten Launchers bleibt erhalten.",
+    "t5.coexist.build_match": "Das erstellte Spiel passt zur Code ID dieser Installation.",
+    "t5.coexist.build_differs": "Das erstellte Spiel hat eine andere Code ID. Diese gemeinsame Installation muss im eigenen Launcher neu erstellt werden.",
+    "t5.coexist.build_unknown": "Die Code ID des erstellten Spiels konnte nicht geprüft werden. Prüfe sie im alten Launcher.",
+    "t5.coexist.build_blocked": "Das Erstellen verändert die gemeinsame Installation. Nutze dafür deren eigenen Launcher oder wähle eine separate Installation.",
+    "t5.coexist.source": "Vorhandene T5DR-Installation",
+    "t5.coexist.choose_install": "T5DR-Installation wählen",
+    "t5.coexist.choose_hint": "Wähle den Ordner mit deinem alten T5DR-Launcher. Deine Dateien bleiben an ihrem Platz."
 }

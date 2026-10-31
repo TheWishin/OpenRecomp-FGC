@@ -4,6 +4,12 @@ The updater is implemented, but production updates remain disabled until the own
 the release channel and public signing key. No T4 or T5DR release can be used as a launcher
 update. Game installations and the player's settings are outside the program transaction.
 
+For a gradual move from T5DR Online 1.1.9, use the separate
+[coexistence and private update-drill guide](T5DR_COEXISTENCE.md). Its headless
+`tools/update_drill.py` checks an explicitly supplied settings-folder copy;
+it does not run this signed update transaction or qualify a packaged release.
+Keep the original T5DR installation and its launcher intact during that drill.
+
 ## Owner decisions before the first release
 
 Set these constants in `openrecomp/updater.py`, review them, and include them in the initial

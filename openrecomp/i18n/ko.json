@@ -933,5 +933,17 @@
     "online.history_no_return": "플레이어가 제때 복귀하지 않음",
     "auto": "자동",
     "back": "뒤로",
-    "online.room": "방"
+    "online.room": "방",
+    "t5.coexist.install_invalid": "T5DR Online 설치 폴더를 선택하세요. 변경된 내용은 없습니다.",
+    "t5.coexist.title": "기존 T5DR 설치 사용",
+    "t5.coexist.hint": "기존 게임과 리플레이를 사용합니다. 자동으로 복사되는 파일은 없습니다.",
+    "t5.coexist.settings": "설정 변경은 OpenRecomp에 저장됩니다. 이전 런처의 설정은 그대로 유지됩니다.",
+    "t5.coexist.login": "저장된 로그인을 여기서 사용할 수 있습니다. 이전 런처의 로그인 파일은 유지됩니다.",
+    "t5.coexist.build_match": "빌드된 게임이 이 설치의 Code ID와 일치합니다.",
+    "t5.coexist.build_differs": "빌드된 게임의 Code ID가 다릅니다. 이 공유 설치의 전용 런처에서 다시 빌드해야 합니다.",
+    "t5.coexist.build_unknown": "빌드된 게임의 Code ID를 확인할 수 없습니다. 이전 런처에서 확인하세요.",
+    "t5.coexist.build_blocked": "빌드하면 공유 설치가 변경됩니다. 전용 런처에서 빌드하거나 별도 설치를 선택하세요.",
+    "t5.coexist.source": "기존 T5DR 설치",
+    "t5.coexist.choose_install": "T5DR 설치 선택",
+    "t5.coexist.choose_hint": "이전 T5DR 런처가 있는 폴더를 선택하세요. 파일은 현재 위치에 유지됩니다."
 }

@@ -36,6 +36,8 @@ class Sections:
         for sid in g.a.quick_settings():
             if sid in by_id:
                 out.append(self._cycler_item(g, by_id[sid]))
+        if getattr(g.a, "coexistence_state", lambda: dict(active=False))()["active"]:
+            out.extend(self._coexistence_items(g))
         if g.a.native_label:
             out.append(self._native_item(g))
         return out
@@ -119,6 +121,12 @@ class Sections:
 
     # ---- build
     def _items_build(self, g):
+        if getattr(g.a, "coexistence_state", lambda: dict(active=False))()["active"]:
+            return self._coexistence_items(g, choose=True) + [dict(
+                kind="action", id="build", label="@build_game", disabled=True,
+                hint="@t5.coexist.build_blocked",
+                detail=dict(kicker="@section.build", title="@build_game",
+                            lead="@t5.coexist.build_blocked", rows=[]))]
         state = g.a.build_state()
         source_state = g.a.source_state()
         out = []
@@ -175,7 +183,7 @@ class Sections:
 
     # ---- settings
     def _items_settings(self, g):
-        out = []
+        out = self._coexistence_items(g, choose=True) if getattr(g.a, "coexistence_state", lambda: dict(active=False))()["active"] else []
         for s in g.a.settings():
             if s.get("kind") == "folder":
                 value = i18n.literal(s["value"]) if s.get("value") else s.get("display", "")
@@ -197,4 +205,25 @@ class Sections:
         if not out:
             out.append(dict(kind="action", id="none", label="@no_settings", verb="", hint="@no_settings_hint",
                             detail=dict(kicker="@section.settings", title="@no_settings", lead="@no_settings_hint", rows=[])))
+        return out
+
+    def _coexistence_items(self, g, choose=False):
+        state = g.a.coexistence_state()
+        compatibility = {"same": "@t5.coexist.build_match", "different": "@t5.coexist.build_differs"}
+        build = compatibility.get(state["build"], "@t5.coexist.build_unknown")
+        source = i18n.literal(state["source"])
+        out = [dict(kind="action", id="coexistence", label="@t5.coexist.title", hint="@t5.coexist.hint",
+                    detail=dict(kicker="@t5.coexist.title", title="@t5.coexist.title",
+                                lead="@t5.coexist.hint", rows=[
+                                    dict(k="@t5.coexist.source", v=source),
+                                    dict(k="@version", v=build),
+                                    dict(k="@section.settings", v="@t5.coexist.settings"),
+                                    dict(k="@section.online", v="@t5.coexist.login")]))]
+        if choose:
+            out.append(dict(kind="action", id="coexistence_folder", label="@t5.coexist.choose_install",
+                            verb="@choose", hint="@t5.coexist.choose_hint",
+                            detail=dict(kicker="@t5.coexist.title", title="@t5.coexist.choose_install",
+                                        lead="@t5.coexist.choose_hint", rows=[]),
+                            run=lambda: self._open_picker("source:folder", "@t5.coexist.choose_install",
+                                                          [], [state["source"]], "folder")))
         return out

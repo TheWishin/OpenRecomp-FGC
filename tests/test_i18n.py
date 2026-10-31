@@ -175,6 +175,10 @@ def untranslated_literals(source):
         "build_id", "elf_sha1", "net", "strict_hello", "delay_match", r"[0-9a-f]{16}",
         r"[A-Za-z0-9_.+ -]{1,100}", r"[0-9a-f]{64}", r"[0-9a-f]{40}",
         "stdout.txt", "stderr.txt", "wb",
+        "launcher.json", "settings.json", "controls.json", "servers.json", "t5dr_build.json", "PS3_CONTROLS",
+        ".settings-", "_OpenRecompSettings", "_coexist_defaults", "code_id", "same", "different",
+        "unknown", "coexistence", "coexistence_folder", "t5dr_settings_copy",
+        r"[vV]?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?",
     }
     # Exact native-client actions, payload fields and runtime names. Display contexts
     # are checked above even when their value is a recognized protocol token.
@@ -654,6 +658,23 @@ class Catalogs(unittest.TestCase):
         self.assertTrue(untranslated_literals('dict(status="offline")'))
         self.assertTrue(untranslated_literals(source.replace('"offline"', '"Try again later"')))
         self.assertTrue(untranslated_literals(source.replace('status=', 'label=')))
+
+    def test_python_scan_accepts_coexistence_paths_but_checks_display_contexts(self):
+        values = (
+            "launcher.json", "settings.json", "controls.json", "servers.json", "t5dr_build.json",
+            "PS3_CONTROLS", ".settings-", "_OpenRecompSettings", "_coexist_defaults",
+            "code_id", "same", "different", "unknown", "coexistence",
+            "coexistence_folder", "t5dr_settings_copy",
+            r"[vV]?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?",
+        )
+        for value in values:
+            with self.subTest(value=value):
+                self.assertEqual(untranslated_literals(f'token = {value!r}'), [])
+                for field in ("label", "hint", "title", "status"):
+                    self.assertTrue(untranslated_literals(f'dict({field}={value!r})'))
+                self.assertTrue(untranslated_literals(f'self.say({value!r})'))
+        self.assertTrue(untranslated_literals('token = "Choose an existing installation"'))
+        self.assertTrue(untranslated_literals('token = "coexistence-player-message"'))
 
     def test_qml_has_no_player_facing_literals(self):
         forbidden = ("Quick access", "Recent sets", "Choose your fighter", "Your main:", "Folder", "File", "MAIN")

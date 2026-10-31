@@ -13,6 +13,7 @@ import time
 import uuid
 
 from .base import NO_WINDOW, add_path
+from .t5_coexist import readonly_imports
 from . import t5_features
 
 
@@ -115,18 +116,44 @@ class Online:
     def _online_client_options(self):
         return dict(auto_ready=False, reconnect=0, blind_ready=True, port_mapping=False)
 
-    def _online_config(self):
+    def _online_config_paths(self, writable=False):
+        path = self.online_cfg_path()
+        if getattr(self.s, "coexistence", False):
+            sources = tuple(self.s.legacy_online_paths)
+            if writable:
+                target = os.path.normcase(os.path.realpath(path))
+                if any(target == os.path.normcase(os.path.realpath(source)) for source in sources):
+                    raise ValueError("@online.save_failed")
+                return (path,)
+            return (path,) + sources
         old = os.path.join(os.path.dirname(getattr(self.s, "path", "") or self.root), "online.json")
-        paths = (self.online_cfg_path(), old) if self.online_legacy_config else (self.online_cfg_path(),)
-        for path in paths:
+        return (path, old) if self.online_legacy_config else (path,)
+
+    def _online_config(self):
+        paths = self._online_config_paths()
+        private = None
+        for index, path in enumerate(paths):
             try:
                 with open(path, encoding="utf-8") as stream:
                     cfg = json.load(stream)
                 if isinstance(cfg, dict):
+                    if getattr(self.s, "coexistence", False):
+                        if index == 0:
+                            private = cfg
+                            continue
+                        # The old launcher's preferred file wins over its legacy fallback.
+                        # Overrides are merged only in memory; no old sessions are copied.
+                        if private is not None:
+                            sessions = cfg.get("sessions")
+                            own_sessions = private.get("sessions")
+                            merged = dict(cfg, **private)
+                            if isinstance(sessions, dict) and isinstance(own_sessions, dict):
+                                merged["sessions"] = dict(sessions, **own_sessions)
+                            return merged
                     return cfg
             except (OSError, ValueError):
                 continue
-        return {}
+        return private or {}
 
     def _online_modules(self):
         if not hasattr(self, "_online_api"):
@@ -151,10 +178,11 @@ class Online:
             if lobby in sys.path:
                 sys.path.remove(lobby)
             add_path(lobby)
-            client = importlib.import_module(self.online_package + ".client")
-            buildid = importlib.import_module(self.online_package + ".buildid")
-            servers = importlib.import_module(self.online_package + ".servers")
-            proto = importlib.import_module(self.online_package + ".proto")
+            with readonly_imports():
+                client = importlib.import_module(self.online_package + ".client")
+                buildid = importlib.import_module(self.online_package + ".buildid")
+                servers = importlib.import_module(self.online_package + ".servers")
+                proto = importlib.import_module(self.online_package + ".proto")
             if not all(local_origin(getattr(module, "__file__", None))
                        for module in (client, buildid, servers, proto)):
                 raise RuntimeError("@online.client_missing")
@@ -167,6 +195,9 @@ class Online:
         key = self._online_fields["online_server"].strip().lower() or self._online_default_server()
         sessions = self._online_config().get("sessions") or {}
         saved = sessions.get(key) if isinstance(sessions, dict) else None
+        rejected = getattr(self, "_online_rejected_sessions", {})
+        if isinstance(saved, dict) and saved.get("token") == rejected.get(key):
+            return None
         return saved if isinstance(saved, dict) and isinstance(saved.get("token"), str) and saved["token"] else None
 
     def online_state(self):
@@ -258,8 +289,7 @@ class Online:
     def _online_write_session(self, server, name, token, expected=None):
         """Merge a fresh file; no password is ever stored, and unrelated native settings survive."""
         path = self.online_cfg_path()
-        old = os.path.join(os.path.dirname(getattr(self.s, "path", "") or self.root), "online.json")
-        paths = (path, old) if self.online_legacy_config else (path,)
+        paths = self._online_config_paths(writable=True)
         cfg = {}
         for candidate in paths:
             try:
@@ -292,14 +322,13 @@ class Online:
                 os.remove(temporary)
 
     def _online_write_preferences(self, changes):
-        """Merge only non-session preferences into the native file, preserving saved logins."""
+        """Merge only non-session preferences into the writable file, preserving saved logins."""
         if not isinstance(changes, dict) or any(key in changes for key in (
                 "sessions", "password", "token", "session")):
             raise ValueError("@online.save_failed")
         with self._online_lock:
             path = self.online_cfg_path()
-            old = os.path.join(os.path.dirname(getattr(self.s, "path", "") or self.root), "online.json")
-            paths = (path, old) if self.online_legacy_config else (path,)
+            paths = self._online_config_paths(writable=True)
             cfg = {}
             for candidate in paths:
                 try:
@@ -326,7 +355,13 @@ class Online:
         cfg = self._online_config() if cfg is None else cfg
         api = self._online_modules()
         build = self._online_build(api)
-        entries, _problems = api["servers"].load(user_dir=os.path.dirname(self.online_cfg_path()))
+        directory = os.path.dirname(self.online_cfg_path())
+        if getattr(self.s, "coexistence", False) and not os.path.isfile(os.path.join(directory, "servers.json")):
+            sources = self.s.legacy_online_paths
+            if sources:
+                source = next((path for path in sources if os.path.isfile(path)), sources[0])
+                directory = os.path.dirname(source)
+        entries, _problems = api["servers"].load(user_dir=directory)
         default = api["servers"].default_entry(entries)
         target = server or (default.name if default else self._online_default_server())
         try:
@@ -402,6 +437,10 @@ class Online:
                 if action == "login_saved" and getattr(error, "code", "") == "auth_failed":
                     with self._online_lock:
                         if generation == self._online_generation:
+                            if getattr(self.s, "coexistence", False):
+                                rejected = getattr(self, "_online_rejected_sessions", {})
+                                rejected[(server or self._online_default_server()).strip().lower()] = saved["token"]
+                                self._online_rejected_sessions = rejected
                             try:
                                 self._online_write_session(server or self._online_default_server(), None, None,
                                                            expected=saved["token"])

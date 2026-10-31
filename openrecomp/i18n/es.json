@@ -933,5 +933,17 @@
     "online.history_no_return": "Un jugador no regresó a tiempo",
     "auto": "Automático",
     "back": "Volver",
-    "online.room": "Sala"
+    "online.room": "Sala",
+    "t5.coexist.install_invalid": "Elige una carpeta de instalación de T5DR Online. No se ha cambiado nada.",
+    "t5.coexist.title": "Usar tu instalación de T5DR",
+    "t5.coexist.hint": "Usa tu juego y tus repeticiones existentes. No se copia nada automáticamente.",
+    "t5.coexist.settings": "Los cambios de ajustes quedan en OpenRecomp. Los ajustes de tu lanzador anterior se conservan.",
+    "t5.coexist.login": "Puedes usar aquí tu sesión guardada. Se conserva el archivo de acceso de tu lanzador anterior.",
+    "t5.coexist.build_match": "El juego compilado coincide con el Code ID de esta instalación.",
+    "t5.coexist.build_differs": "El juego compilado tiene otro Code ID. Esta instalación compartida necesita recompilarse desde su propio lanzador.",
+    "t5.coexist.build_unknown": "No se pudo comprobar el Code ID del juego compilado. Abre el lanzador anterior para comprobarlo.",
+    "t5.coexist.build_blocked": "Compilar modifica la instalación compartida. Usa su propio lanzador o elige otra instalación.",
+    "t5.coexist.source": "Instalación existente de T5DR",
+    "t5.coexist.choose_install": "Elegir instalación de T5DR",
+    "t5.coexist.choose_hint": "Elige la carpeta que contiene tu lanzador anterior de T5DR. Tus archivos se quedan donde están."
 }

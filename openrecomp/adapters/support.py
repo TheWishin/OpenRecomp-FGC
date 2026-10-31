@@ -4,6 +4,8 @@ import os
 import sys
 import threading
 
+from .t5_coexist import readonly_imports
+
 
 FINDINGS = {
     "package_version": ("@support.finding.package_version.title", "@support.finding.package_version.fix"),
@@ -31,7 +33,8 @@ class T5Support:
         module = importlib.util.module_from_spec(spec)
         sys.modules[name] = module
         try:
-            spec.loader.exec_module(module)
+            with readonly_imports():
+                spec.loader.exec_module(module)
         except Exception:
             sys.modules.pop(name, None)
             raise

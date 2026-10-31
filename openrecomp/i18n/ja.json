@@ -933,5 +933,17 @@
     "online.history_no_return": "プレイヤーが時間内に復帰せず",
     "auto": "自動",
     "back": "戻る",
-    "online.room": "ルーム"
+    "online.room": "ルーム",
+    "t5.coexist.install_invalid": "T5DR Onlineのインストールフォルダーを選んでください。何も変更されていません。",
+    "t5.coexist.title": "既存のT5DRを使用",
+    "t5.coexist.hint": "既存のゲームとリプレイを使用します。自動でコピーされるものはありません。",
+    "t5.coexist.settings": "設定の変更はOpenRecompに保存されます。以前のランチャーの設定はそのまま残ります。",
+    "t5.coexist.login": "保存済みのログインをここでも使用できます。以前のランチャーのログインファイルは保持されます。",
+    "t5.coexist.build_match": "ビルド済みのゲームは、このインストールのCode IDと一致しています。",
+    "t5.coexist.build_differs": "ビルド済みのゲームのCode IDが異なります。この共有インストール専用のランチャーで再ビルドが必要です。",
+    "t5.coexist.build_unknown": "ビルド済みのゲームのCode IDを確認できませんでした。以前のランチャーで確認してください。",
+    "t5.coexist.build_blocked": "ビルドすると共有インストールが変更されます。専用のランチャーでビルドするか、別のインストールを選んでください。",
+    "t5.coexist.source": "既存のT5DRインストール",
+    "t5.coexist.choose_install": "T5DRのインストール先を選択",
+    "t5.coexist.choose_hint": "以前のT5DRランチャーがあるフォルダーを選んでください。ファイルは現在の場所に保持されます。"
 }

@@ -5,6 +5,7 @@ import sys
 import time
 
 from .base import add_path
+from .t5_coexist import readonly_imports
 
 
 class Controls:
@@ -19,7 +20,8 @@ class Controls:
         module = importlib.util.module_from_spec(spec)
         sys.modules[name] = module
         try:
-            spec.loader.exec_module(module)
+            with readonly_imports():
+                spec.loader.exec_module(module)
         except Exception:
             sys.modules.pop(name, None)
             raise
@@ -190,11 +192,18 @@ class Controls:
         if pending is None or "source" not in pending:
             raise RuntimeError("@controls.disconnected")
         ce = self._controls_modules[0]
+        read_path = session["editor"].path
         try:
+            # The installed editor keeps unknown fields. Save its edited document only
+            # after the player accepts, in this launcher's own controls file.
+            target = getattr(self.s, "controls_write_path", None)
+            if target is not None:
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                session["editor"].path = target
             session["editor"].bind(pending["dev"], ce.SCOPE_PORT, pending["slot"], [pending["source"]])
             session["editor"].save()
         except Exception:
-            session["editor"] = ce.ControlsEditor.load(session["editor"].path)
+            session["editor"] = ce.ControlsEditor.load(read_path)
             self.cancel_binding()
             raise
         session["capture"] = session["pending"] = None

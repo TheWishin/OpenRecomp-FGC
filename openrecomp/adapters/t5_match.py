@@ -6,6 +6,7 @@ import queue
 import threading
 
 from .t5_online import Online, SearchRefused
+from .t5_coexist import readonly_imports
 from .. import i18n
 
 
@@ -72,7 +73,8 @@ class T5Match(Online):
 
     def _online_driver_module(self):
         self._online_modules()
-        module = importlib.import_module(self.online_package + ".match_driver")
+        with readonly_imports():
+            module = importlib.import_module(self.online_package + ".match_driver")
         root = os.path.normcase(os.path.realpath(os.path.join(self.root, "lobby", self.online_package)))
         origin = os.path.normcase(os.path.realpath(getattr(module, "__file__", "")))
         try:

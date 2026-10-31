@@ -33,6 +33,8 @@ online stays hidden until its server exists. T5DR's Online section uses its inst
 lobby client, with controller screens described in [T5DR_ONLINE.md](docs/T5DR_ONLINE.md).
 The old T5DR Online launcher remains available during the transition. Seven language catalogs
 are included; native-speaker and controller layout review remain release checks.
+For the gradual move from 1.1.9, see [Keep both T5DR launchers](docs/T5DR_COEXISTENCE.md):
+existing-install use, separate preferences, the private settings-copy drill and rollback.
 
 Automated tests exercise launcher logic with fakes and inert temporary files.
 They do not prove real two-PC synchronization, physical pad operation, visual

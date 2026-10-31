@@ -9,6 +9,9 @@
  "accent": "#F0414E",
  "adapter": "t5dr",
  "source": "PS3 package (.pkg + .rap)",
- "locations": [],
+ "locations": [
+  "%USERPROFILE%/Downloads/T5DR-Online-*",
+  "%USERPROFILE%/Desktop/T5DR-Online-*"
+ ],
  "sections": ["play", "online", "build", "replays", "settings"]
 }

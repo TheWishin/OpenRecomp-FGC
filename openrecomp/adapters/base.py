@@ -48,6 +48,10 @@ class Adapter:
         return dict(status="@not_found", version="@none_lower", players="@no", last="@never",
                     detail=self.message("game_not_found", name=self.m["short"]))
 
+    def coexistence_state(self):
+        """An existing install reused in place: active, source folder and build compatibility."""
+        return dict(active=False, source="", build="unknown")
+
     def hero(self):
         return ""
 
@@ -251,6 +255,15 @@ class Missing(Adapter):
                 self._source_state = dict(running=False, result="@t4.install_failed", id=sid, ok=False)
                 return "@t4.install_failed"
             return "@t4.installing"
+        if self.m.get("adapter") == "t5dr":
+            from .t5dr import find_root
+            root = find_root(self.m, {"roots": {self.m["id"]: path}})
+            if not root:
+                return "@t5.coexist.install_invalid"
+            previous = (self.config.get("roots") or {}).get(self.m["id"])
+            if not previous or os.path.normcase(os.path.realpath(previous)) != os.path.normcase(os.path.realpath(root)):
+                self.config.pop("t5dr_settings_copy", None)
+            path = root
         self.config.setdefault("roots", {})[self.m["id"]] = path
         return "reload"
 

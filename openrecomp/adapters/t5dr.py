@@ -20,6 +20,8 @@ from .support import T5Support
 from .t5_match import T5Match
 from .t5_online import game_process_running
 from .launch_guard import LaunchGuard
+from .t5_coexist import load_settings, readonly_imports
+from .t5_compatibility import build_compatibility
 from ..manifest import art_dir
 
 DISPLAY = [("window", "@display.window"), ("window1080", "@display.1080"), ("window1440", "@display.1440"),
@@ -34,22 +36,59 @@ RANK_TAG = re.compile(r"\s*\[\d+\]$")
 def version_key(root):
     try:
         with open(os.path.join(root, "release.json"), encoding="utf-8") as f:
-            parts = json.load(f).get("version", "0").split(".")
-        return tuple(int(p) for p in parts)
+            version = json.load(f).get("version", "0")
+        match = re.fullmatch(r"[vV]?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?", version)
+        if match:
+            return tuple(int(p) for p in match.group(1, 2, 3)) + (not bool(match.group(4)),)
+    except (OSError, ValueError, AttributeError, TypeError):
+        pass
+    return (0,)
+
+
+def install_root(path):
+    """An install, or the only install immediately inside its enclosing folder."""
+    if os.path.isfile(os.path.join(path, "launcher", "core.py")):
+        return os.path.abspath(path)
+    try:
+        with os.scandir(path) as entries:
+            found = [entry.path for entry in entries if entry.is_dir()
+                     and os.path.isfile(os.path.join(entry.path, "launcher", "core.py"))]
+    except OSError:
+        return None
+    return os.path.abspath(found[0]) if len(found) == 1 else None
+
+
+def _has_build(root):
+    out_dir = os.path.join(root, "native")
+    try:
+        with open(os.path.join(root, "launcher.json"), encoding="utf-8") as stream:
+            settings = json.load(stream)
+        selected = settings.get("out_dir") or settings.get("out")
+        if isinstance(selected, str) and selected:
+            out_dir = selected if os.path.isabs(selected) else os.path.join(root, selected)
     except (OSError, ValueError, AttributeError):
-        return (0,)
+        pass
+    try:
+        with open(os.path.join(out_dir, "build", "t5dr_build.json"), encoding="utf-8") as stream:
+            stamp = json.load(stream)
+        return isinstance(stamp, dict) and bool(stamp.get("code_id"))
+    except (OSError, ValueError):
+        return False
 
 
 def find_root(manifest, config):
     """The newest installed T5DR Online with a built game; else the newest install."""
     chosen = (config.get("roots") or {}).get(manifest["id"]) or os.environ.get("OPENRECOMP_T5DR_ROOT")
     if chosen:
-        return chosen if os.path.isfile(os.path.join(chosen, "launcher", "core.py")) else None
-    found = [p for p in expand_locations(manifest.get("locations", []))
-             if os.path.isfile(os.path.join(p, "launcher", "core.py"))]
+        return install_root(chosen)
+    found = []
+    for path in expand_locations(manifest.get("locations", [])):
+        root = install_root(path)
+        if root and root not in found:
+            found.append(root)
     if not found:
         return None
-    built = [p for p in found if os.path.isfile(os.path.join(p, "runtime", "t5dr.exe"))]
+    built = [p for p in found if _has_build(p)]
     return max(built or found, key=version_key)
 
 
@@ -75,7 +114,8 @@ def load_runtime(root, name):
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     try:
-        spec.loader.exec_module(module)
+        with readonly_imports():
+            spec.loader.exec_module(module)
     except BaseException:
         sys.modules.pop(name, None)
         raise
@@ -99,7 +139,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             replays_mod = load_runtime(root, "replays")
         self.core = core
         self.rp = replays_mod
-        self.s = core.Settings()
+        self.s = load_settings(core, root, settings_source=config.get("t5dr_settings_copy"))
         self.game = None
         self.build = None
         self.build_steps = {}
@@ -116,9 +156,20 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         return True
 
     def state(self, fresh=False):
-        if self._state is None or fresh:
-            self._state = self.core.game_state(self.s.out_dir)
+        if self._state is None or fresh or getattr(self.s, "coexistence", False):
+            self._state = dict(self.core.game_state(self.s.out_dir))
+            if getattr(self.s, "coexistence", False):
+                compatibility = self.coexistence_state()["build"]
+                self._state["compatibility"] = compatibility
+                if compatibility == "different":
+                    self._state.update(ok=False, needs_rebuild=True)
+                elif compatibility == "unknown" and self._state.get("built"):
+                    self._state["ok"] = False
         return self._state
+
+    def coexistence_state(self):
+        return dict(active=bool(getattr(self.s, "coexistence", False)), source=self.root,
+                    build=build_compatibility(self.release(), self.s.out_dir))
 
     def ready(self):
         return bool(self.state()["ok"])
@@ -137,7 +188,11 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         last = entries[0].when.strftime("%d.%m., %H:%M") if entries and entries[0].when else "@never"
         version = self.release().get("version") or "@development"
         if st["ok"]:
-            status, detail = "@ready", "@t5.ready_detail"
+            status, detail = "@ready", "@t5.coexist.build_match" if st.get("compatibility") == "same" else "@t5.ready_detail"
+        elif st.get("compatibility") == "different":
+            status, detail = "@build_again", "@t5.coexist.build_differs"
+        elif st.get("compatibility") == "unknown" and st.get("built"):
+            status, detail = "@not_ready", "@t5.coexist.build_unknown"
         elif st["needs_rebuild"]:
             status, detail = "@build_again", "@t5.rebuild_detail"
         else:
@@ -164,7 +219,8 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
 
     def _make_hero(self, gid, path):
         try:
-            fa = importlib.import_module("t5lobby.fighter_art")
+            with readonly_imports():
+                fa = importlib.import_module("t5lobby.fighter_art")
             src = fa.ra.find_sources(self.s.out_dir)
             if not src:
                 return
@@ -338,12 +394,16 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         return self.face(gid) if gid is not None else ""
 
     def online_cfg_path(self):
+        if getattr(self.s, "coexistence", False):
+            return self.s.online_config_path
         base = os.environ.get("T5_ONLINE_DIR")
         if base:
             return os.path.join(base, "online.json")
         return os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "T5DROnline", "online.json")
 
     def _online_cfg(self):
+        if getattr(self.s, "coexistence", False):
+            return self._online_config()
         try:
             with open(self.online_cfg_path(), encoding="utf-8") as f:
                 cfg = json.load(f)
@@ -358,6 +418,9 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         """The same field of the same file the T5DR launcher's character grid writes; the rest stays as it is."""
         if getattr(self, "_online_character_locked", False):
             raise RuntimeError("@online.character_locked")
+        if getattr(getattr(self, "s", None), "coexistence", False):
+            self._online_write_preferences(dict(char=key))
+            return
         path = self.online_cfg_path()
         try:
             with open(path, encoding="utf-8") as f:
@@ -445,6 +508,16 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         ]
 
     def set_source(self, sid, path):
+        if sid == "folder":
+            root = find_root(self.m, dict(roots={self.m["id"]: path}))
+            if not root:
+                return "@t5.coexist.install_invalid"
+            if os.path.normcase(os.path.realpath(root)) != os.path.normcase(os.path.realpath(self.root)):
+                self.config.pop("t5dr_settings_copy", None)
+            self.config.setdefault("roots", {})[self.m["id"]] = root
+            return "reload"
+        if getattr(self.s, "coexistence", False) and sid in ("pkg", "rap"):
+            raise RuntimeError("@t5.coexist.build_blocked")
         self.s[sid] = path
         self.s.save()
         self._state = None
@@ -455,11 +528,15 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                      hint="@responsive.hint", lead="@responsive.lead")]
 
     def build_ready(self):
+        if getattr(self.s, "coexistence", False):
+            return "@t5.coexist.build_blocked"
         if not self.s["pkg"] or not self.s["rap"]:
             return "@choose_package_license"
         return ""
 
     def build_start(self, force=False):
+        if getattr(self.s, "coexistence", False):
+            raise RuntimeError("@t5.coexist.build_blocked")
         self.build_steps = {}
         self.build_step = ""
         self.build_fraction = 0.0
