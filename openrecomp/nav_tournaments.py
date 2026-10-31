@@ -88,7 +88,8 @@ def rows(nav, game, state, action):
         if current in ("signup", "checkin"):
             verb = "leave" if you.get("entrant") else "join"
             if verb == "leave" or you.get("build_ok", True):
-                out.append(action("tour_" + verb + ":" + tid, "@online.tour_" + verb))
+                label = "@online.tour_leave" if verb == "leave" else "@online.tour_join"
+                out.append(action("tour_" + verb + ":" + tid, label))
             if current == "checkin" and you.get("entrant") and not you.get("checked_in"):
                 out.append(action("tour_checkin:" + tid, "@online.tour_checkin"))
         elif current == "running" and you.get("entrant") and not you.get("dq") and not you.get("place"):
