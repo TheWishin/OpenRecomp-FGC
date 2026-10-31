@@ -119,6 +119,7 @@ def untranslated_literals(source):
         "T5DR Online.exe", "T5DROnline", "online.json", "release.json", "lobby", "t5lobby", "tools", "data",
         "cache", "fighters", "fighters.json", "python", "python.exe", "t4", "t5dr", "hero.png",
         "Downloads", "Desktop", "APPDATA", "OPENRECOMP_T4_ROOT", "OPENRECOMP_T5DR_ROOT", "T5_ONLINE_DIR",
+        "%USERPROFILE%/Downloads/T5DR-Online-*", "%USERPROFILE%/Desktop/T5DR-Online-*",
         ".json", ".iso", "*.iso", ".pkg", ".rap", ".openrecomp.tmp", "logs\\build_game.log",
         "--search", "-Force", "openrecomp", "taskkill", "/T", "/F", "/PID", "W", "L",
         "controls_edit.py", "controls_ui.py", "padmap.py", "padnav.py", "__init__.py", ".py", "replays.py", "launcher.log",
@@ -522,6 +523,13 @@ class Catalogs(unittest.TestCase):
                 self.assertTrue(untranslated_literals(f'dict(hint="{value}")'))
         self.assertTrue(untranslated_literals('self.say("Choose a runtime")'))
         self.assertTrue(untranslated_literals('tempfile.NamedTemporaryFile(prefix="Choose a file")'))
+
+    def test_python_scan_accepts_default_install_globs_but_checks_display_contexts(self):
+        for value in ("%USERPROFILE%/Downloads/T5DR-Online-*", "%USERPROFILE%/Desktop/T5DR-Online-*"):
+            with self.subTest(value=value):
+                self.assertEqual(untranslated_literals(f'locations = ["{value}"]'), [])
+                self.assertTrue(untranslated_literals(f'dict(label="{value}")'))
+                self.assertTrue(untranslated_literals(f'self.say("{value}")'))
 
     def test_python_scan_rejects_untranslated_texts_and_f_strings(self):
         examples = [

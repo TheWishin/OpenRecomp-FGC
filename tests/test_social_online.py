@@ -28,7 +28,7 @@ class SocialClient(LobbyClient):
     def create_room(self, **kwargs):
         self.calls.append(("create", kwargs))
         self.room_code = "TEST-CODE" if kwargs.get("private") == "code" else None
-        return dict(id="mine", name="Mine", lock=kwargs.get("private"), password="hidden")
+        return dict(id="mine", name="Mine", lock=kwargs.get("private"), password="fake-native-room-secret")
 
     def join_room(self, room_id=None, **kwargs):
         self.calls.append(("join", room_id, kwargs))
@@ -52,7 +52,7 @@ class SocialClient(LobbyClient):
 
     def invite(self, name, kind):
         self.calls.append(("invite", name, kind))
-        return dict(invite="outgoing", name=name, kind=kind, token="hidden")
+        return dict(invite="outgoing", name=name, kind=kind, token="fake-outgoing-invite-secret")
 
     def answer_invite(self, invite_id, accept):
         self.calls.append(("invite_answer", invite_id, accept))
@@ -96,7 +96,8 @@ class SocialOnlineTests(unittest.TestCase):
         self.assertIn(("create", dict(name=None, ranked=False, private="password", password="fake-room-password")), self.client.calls)
         self.assertEqual(self.a.text_value("online_room_password"), "")
         self.assertNotIn("fake-room-password", json.dumps(self.a.online_state()))
-        self.assertNotIn("hidden", json.dumps(self.a.online_state()))
+        self.assertNotIn("password", self.a.online_state()["room"])
+        self.assertNotIn("fake-native-room-secret", json.dumps(self.a.online_state()))
 
     def test_initial_friends_before_login_completion_use_cached_native_snapshot(self):
         self.action("logout")
@@ -159,16 +160,23 @@ class SocialOnlineTests(unittest.TestCase):
         self.action("invite_friend:Friend")
         self.assertIn(("invite", "Friend", "casual"), self.client.calls)
         self.assertEqual(self.a.online_state()["outgoing_invite"]["id"], "outgoing")
+        self.assertNotIn("token", self.a.online_state()["outgoing_invite"])
+        self.assertNotIn("fake-outgoing-invite-secret", json.dumps(self.a.online_state()))
         self.action("cancel_invite")
         self.assertIn(("invite_cancel", "outgoing"), self.client.calls)
-        self.client.events.put(dict(t="invited", invite="incoming", **{"from": dict(name="Friend", token="hidden")}))
+        self.client.events.put(dict(t="invited", invite="incoming",
+                                    **{"from": dict(name="Friend", token="fake-incoming-invite-secret")}))
         self.a.online_poll()
+        self.assertEqual(self.a.online_state()["invites"][0]["id"], "incoming")
+        self.assertNotIn("token", self.a.online_state()["invites"][0])
+        self.assertNotIn("fake-incoming-invite-secret", json.dumps(self.a.online_state()))
         self.action("accept_invite:unknown")
         self.assertNotIn(("invite_answer", "unknown", True), self.client.calls)
         self.action("decline_invite:incoming")
         self.assertIn(("invite_answer", "incoming", False), self.client.calls)
         self.assertEqual(self.a.online_state()["invites"], [])
-        self.assertNotIn("hidden", json.dumps(self.a.online_state()))
+        self.assertNotIn("fake-incoming-invite-secret", json.dumps(self.a.online_state()))
+        self.assertNotIn("fake-outgoing-invite-secret", json.dumps(self.a.online_state()))
 
     def test_t4_day_one_cannot_use_private_rooms_or_friends_even_with_rich_client(self):
         self.a.online_game = "t4"

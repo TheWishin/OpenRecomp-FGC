@@ -85,9 +85,23 @@ class Discovery(unittest.TestCase):
 
     def test_builtin_manifest_finds_downloaded_release_and_wrapped_extraction(self):
         builtin = json.loads((Path(__file__).parent.parent / "games" / "t5dr.json").read_text(encoding="utf-8"))
+        self.assertEqual(builtin["locations"], [])
         root = self.install("Downloads/T5DR-Online-1.1.9/T5DR-Online-1.1.9", built=True)
         with mock.patch.dict(os.environ, USERPROFILE=str(self.folder)):
             self.assertEqual(t5dr.find_root(builtin, {}), str(root))
+
+    def test_default_discovery_covers_desktop_with_empty_or_absent_locations(self):
+        root = self.install("Desktop/T5DR-Online-1.1.9", built=True)
+        for manifest in (MANIFEST, dict(id="t5dr", adapter="t5dr")):
+            with self.subTest(manifest=manifest), mock.patch.dict(os.environ, USERPROFILE=str(self.folder)):
+                self.assertEqual(t5dr.find_root(manifest, {}), str(root))
+
+    def test_custom_locations_do_not_fall_back_to_default_discovery(self):
+        chosen = self.install("custom", version="1.1.9")
+        self.install("Downloads/T5DR-Online-1.2.0", version="1.2.0", built=True)
+        with mock.patch.dict(os.environ, USERPROFILE=str(self.folder)):
+            self.assertEqual(self.find(chosen), str(chosen))
+            self.assertIsNone(self.find(self.folder / "missing"))
 
     def test_unreadable_or_nonobject_versions_do_not_break_discovery(self):
         root = self.install("malformed")

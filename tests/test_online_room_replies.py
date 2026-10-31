@@ -28,15 +28,17 @@ class RoomReplies(unittest.TestCase):
         self.a.online_poll()
 
     def test_tuple_room_reply_uses_only_the_public_member_snapshot(self):
-        room = dict(id="mine", name="Private room", lock="code", password="hidden")
+        room = dict(id="mine", name="Private room", lock="code", password="fake-native-room-secret")
         self.client.room_code = "ABCD-EFGH-JKLM"
-        self.client.create_room = mock.Mock(return_value=(room, "hidden"))
+        self.client.create_room = mock.Mock(return_value=(room, "fake-room-reply-secret"))
         self.action("create_code_room")
         state = self.a.online_state()
         self.assertEqual(state["room"]["id"], "mine")
         self.assertEqual(state["room"]["lock"], "code")
         self.assertEqual(state["room"]["code"], "ABCD-EFGH-JKLM")
-        self.assertNotIn("hidden", json.dumps(state))
+        self.assertNotIn("password", state["room"])
+        self.assertNotIn("fake-native-room-secret", json.dumps(state))
+        self.assertNotIn("fake-room-reply-secret", json.dumps(state))
 
     def test_match_before_join_reply_keeps_member_room_and_invite_code(self):
         code = "ABCD-EFGH-JKLM"
@@ -46,7 +48,7 @@ class RoomReplies(unittest.TestCase):
         def join(**kwargs):
             self.client.room_code = kwargs["code"]
             self.client.events.put(dict(t="match_found"))
-            return dict(id="joined", lock="code", password="hidden")
+            return dict(id="joined", lock="code", password="fake-native-room-secret")
 
         self.client.join_room = join
         self.action("join_room_code")
@@ -55,7 +57,8 @@ class RoomReplies(unittest.TestCase):
         self.assertEqual(state["message"], message)
         self.assertEqual(state["room"]["id"], "joined")
         self.assertEqual(state["room"]["code"], code)
-        self.assertNotIn("hidden", json.dumps(state))
+        self.assertNotIn("password", state["room"])
+        self.assertNotIn("fake-native-room-secret", json.dumps(state))
 
     def test_room_and_tournament_drafts_survive_a_pending_lobby_reply(self):
         calls = list(self.client.calls)

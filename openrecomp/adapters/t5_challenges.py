@@ -89,16 +89,17 @@ def client_created(owner, client):
     _apply(client, owner._t5_challenge_prefs)
 
 
-def _apply(client, prefs):
+def _apply(client, prefs, previous=None):
     setter = getattr(client, "set_casual_prefs", None)
-    if callable(setter):
+    if callable(setter) and (previous is None or any(prefs[key] != previous[key] for key in ("side", "stage"))):
         stage = prefs["stage"]
         if _ok(client, "casual_ok") and stage != "random" and stage not in _stages(client):
             stage = "random"
         setter(prefs["side"], stage)
-    client.casual_first_to = prefs["first_to"]
+    if previous is None or prefs["first_to"] != previous["first_to"]:
+        client.casual_first_to = prefs["first_to"]
     setter = getattr(client, "set_auto_skip_after_round", None)
-    if callable(setter):
+    if callable(setter) and (previous is None or prefs["auto_skip"] != previous["auto_skip"]):
         setter(prefs["auto_skip"])
 
 
@@ -154,6 +155,7 @@ def action(owner, action, client):
         prefs = _preferences(owner, action, client)
         if prefs is None:
             return True
+        previous = dict(owner._t5_challenge_prefs)
 
         def work():
             owner._online_check_request(generation, client)
@@ -161,7 +163,7 @@ def action(owner, action, client):
                 casual_stage=prefs["stage"], casual_first_to=prefs["first_to"],
                 auto_skip_after_round=prefs["auto_skip"]))
             owner._online_check_request(generation, client)
-            _apply(client, prefs)
+            _apply(client, prefs, previous)
             return prefs
         owner._online_submit(PREFIX + "preferences", work)
     elif action.startswith("cancel_challenge:"):

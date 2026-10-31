@@ -27,6 +27,9 @@ class FeatureBridgeTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(dir=os.getcwd())
         self.addCleanup(self.directory.cleanup)
+        self.env = mock.patch.dict(os.environ, T5_ONLINE_DIR=self.directory.name)
+        self.env.start()
+        self.addCleanup(self.env.stop)
         self.module = feature()
         self.patch = mock.patch.object(t5_features, "MODULES", (self.module,))
         self.patch.start()
@@ -223,12 +226,15 @@ class FeatureBridgeTests(unittest.TestCase):
         self.assertEqual(order, ["created", "connect", "login", "logged_in"])
 
     def test_preference_merge_preserves_native_sessions_and_unrelated_fields(self):
+        with open(self.a.online_cfg_path(), "w", encoding="utf-8") as stream:
+            json.dump(dict(native_setting=dict(keep=True)), stream)
         self.a._online_write_session("local", "PadUser", "fake-session")
         self.a._online_write_preferences(dict(challenge_delay=8, casual_first_to=3))
         with open(self.a.online_cfg_path(), encoding="utf-8") as stream:
             saved = json.load(stream)
         self.assertEqual(saved["sessions"]["local"]["token"], "fake-session")
         self.assertEqual(saved["name"], "PadUser")
+        self.assertEqual(saved["native_setting"], dict(keep=True))
         self.assertEqual(saved["challenge_delay"], 8)
         self.assertEqual(saved["casual_first_to"], 3)
         with self.assertRaises(ValueError):
@@ -241,6 +247,18 @@ class FeatureBridgeTests(unittest.TestCase):
             stream.write("{malformed-native-config")
         with self.assertRaises(ValueError):
             self.a._online_write_preferences(dict(challenge_delay=8))
+        with open(path, encoding="utf-8") as stream:
+            self.assertEqual(stream.read(), "{malformed-native-config")
+
+    def test_online_preferences_are_isolated_to_fixture_directory(self):
+        self.assertEqual(self.a.online_cfg_path(), os.path.join(self.directory.name, "online.json"))
+
+    def test_session_merge_does_not_replace_malformed_native_file(self):
+        path = self.a.online_cfg_path()
+        with open(path, "w", encoding="utf-8") as stream:
+            stream.write("{malformed-native-config")
+        with self.assertRaises(ValueError):
+            self.a._online_write_session("local", "PadUser", "fake-session")
         with open(path, encoding="utf-8") as stream:
             self.assertEqual(stream.read(), "{malformed-native-config")
 

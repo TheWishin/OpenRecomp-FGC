@@ -134,6 +134,28 @@ class ChallengePreferencesTests(unittest.TestCase):
         self.assertIn(("skip", True), self.owner._online_client.calls)
         self.assertTrue(self.owner.saved[-1]["auto_skip_after_round"])
 
+    def test_pad_delay_and_first_to_cycle_do_not_resend_unrelated_native_preferences(self):
+        challenges.client_created(self.owner, self.owner._online_client)
+        self.owner._online_client.calls.clear()
+        for frames in range(9):
+            self.action("challenge_option:delay:" + str(frames))
+        for first_to in (2, 3):
+            self.action("challenge_option:first_to:" + str(first_to))
+        self.assertEqual(self.owner._online_client.calls, [])
+        self.assertEqual(self.owner._online_client.casual_first_to, 3)
+        for side in (0, 1):
+            self.action("challenge_option:side:" + str(side))
+        self.action("challenge:peer")
+        self.assertEqual(self.owner._online_client.calls,
+                         [("prefs", 0, "random"), ("prefs", 1, "random"), ("challenge", "peer", 8, 3)])
+
+    def test_unchanged_preferences_do_not_repeat_native_setters(self):
+        challenges.client_created(self.owner, self.owner._online_client)
+        self.owner._online_client.calls.clear()
+        for choice in ("delay:auto", "first_to:1", "side:any", "stage:random", "auto_skip:off"):
+            self.action("challenge_option:" + choice)
+        self.assertEqual(self.owner._online_client.calls, [])
+
     def test_client_created_applies_preferences_before_login(self):
         owner = Owner(dict(casual_side=0, casual_stage="test-stage", casual_first_to=3, auto_skip_after_round=True))
         challenges.client_created(owner, owner._online_client)

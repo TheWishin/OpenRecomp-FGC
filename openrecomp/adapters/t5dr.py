@@ -82,7 +82,9 @@ def find_root(manifest, config):
     if chosen:
         return install_root(chosen)
     found = []
-    for path in expand_locations(manifest.get("locations", [])):
+    locations = manifest.get("locations") or ["%USERPROFILE%/Downloads/T5DR-Online-*",
+                                               "%USERPROFILE%/Desktop/T5DR-Online-*"]
+    for path in expand_locations(locations):
         root = install_root(path)
         if root and root not in found:
             found.append(root)

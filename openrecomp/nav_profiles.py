@@ -10,6 +10,23 @@ _BOARD_LABELS = (("place", "@online.place"), ("rating", "@rating"), ("rank", "@o
                  ("wins", "@online.wins"), ("losses", "@online.losses"),
                  ("ranked_wins", "@online.ranked_wins"), ("ranked_losses", "@online.ranked_losses"),
                  ("casual_wins", "@online.casual_wins"), ("casual_losses", "@online.casual_losses"))
+_HISTORY_STATUS_LABELS = {
+    "confirmed": "@online.history_confirmed", "onesided": "@online.history_onesided",
+    "forfeit": "@online.history_forfeit", "resolved": "@online.history_resolved",
+    "disputed": "@online.history_disputed", "void": "@online.history_void",
+    "training": "@online.history_training",
+}
+_HISTORY_REASON_LABELS = {
+    "desync": "@online.history_desync", "too_short": "@online.history_too_short",
+    "disputed": "@online.history_disputed", "crash": "@online.history_crash",
+    "early_quit": "@online.history_early_quit", "quit": "@online.history_quit",
+    "disconnect": "@online.history_disconnect", "connection": "@online.history_connection",
+    "no_report": "@online.history_no_report", "both_left": "@online.history_both_left",
+    "timeout": "@online.history_timeout", "crash_repeat": "@online.history_crash_repeat",
+    "early_quit_repeat": "@online.history_early_quit_repeat", "no_report_repeat": "@online.history_no_report_repeat",
+    "score_mismatch": "@online.history_score_mismatch", "no_result": "@online.history_no_result",
+    "set_restart": "@online.history_set_restart", "no_return": "@online.history_no_return",
+}
 
 
 def _detail(iid, title, kicker, details, hint="@online.profile_hint", value=""):
@@ -73,10 +90,12 @@ def _profile_rows(nav, g, state, action):
         result = {"win": "@online.result_win", "won": "@online.result_win", "loss": "@online.result_loss",
                   "lost": "@online.result_loss", "draw": "@online.draws"}.get(row.get("result"), "@online.result_none")
         details = [dict(k="@date", v=_stamp(row.get("time"))), dict(k="@result", v=result)]
-        if row.get("status"):
-            details.append(dict(k="@online.history_status", v="@online.history_" + row["status"]))
-        if row.get("reason"):
-            details.append(dict(k="@online.history_reason", v="@online.history_" + row["reason"]))
+        status = _HISTORY_STATUS_LABELS.get(row.get("status"))
+        reason = _HISTORY_REASON_LABELS.get(row.get("reason"))
+        if status:
+            details.append(dict(k="@online.history_status", v=status))
+        if reason:
+            details.append(dict(k="@online.history_reason", v=reason))
         for key in ("you_char", "opp_char"):
             if row.get(key):
                 details.append(dict(k="@fighter" if key == "you_char" else "@online.opponent",
