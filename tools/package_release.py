@@ -29,6 +29,7 @@ SOURCE_GROUPS = {
                    "pad.py", "ranks.py", "updater.py", "update_service.py"),
     "openrecomp/adapters": ("__init__.py", "base.py", "launch_guard.py", "support.py", "t4.py", "t4_install.py",
                            "t4_online.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py",
+                           "t5_coexist.py", "t5_compatibility.py",
                            "t5_accounts.py", "t5_challenges.py", "t5_community.py", "t5_features.py",
                            "t5_profiles.py", "t5_rules.py", "t5_spectating.py", "t5_tournaments.py"),
     "openrecomp/data": ("t4_ranks.json",),
@@ -40,7 +41,8 @@ SOURCE_GROUPS = {
                             "IBMPlexSans-500.ttf", "IBMPlexSans-600.ttf", "OFL-BigShoulders.txt",
                             "OFL-IBMPlexMono.txt", "OFL-IBMPlexSans.txt"),
     "games": ("t4.json", "t5dr.json"),
-    "docs": ("PACKAGING.md", "INSTALLING.md", "UPDATES.md", "T4_FIRST_RUN.md", "T4_ONLINE.md", "T5DR_ONLINE.md"),
+    "docs": ("PACKAGING.md", "INSTALLING.md", "UPDATES.md", "T4_FIRST_RUN.md", "T4_ONLINE.md", "T5DR_ONLINE.md",
+             "T5DR_COEXISTENCE.md"),
 }
 SOURCE_FILES = {folder + "/" + name for folder, names in SOURCE_GROUPS.items() for name in names}
 SOURCE_FILES.update(("LICENSE", "README.md"))
