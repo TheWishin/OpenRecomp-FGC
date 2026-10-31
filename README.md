@@ -14,28 +14,33 @@ used last.
 
 ## Status
 
-Development version. The following adapter workflows are implemented; installed-game and
-release-runtime acceptance checks remain outstanding:
+T4 beta release candidate. Its scope is T4 offline play and online by direct IP or
+VPN: no lobby and no ranked. Release depends on the owner's two-PC test and the
+clean-PC checks below; a Sunday release is a target, not a completed acceptance result.
 
 | Game | How it connects | Sections |
 |---|---|---|
 | Tekken 5: Dark Resurrection | an installed [T5DR Online](https://github.com/TheWishin/T5DROnline) | Play, Online, Build, Replays, Settings |
-| Tekken 4 (USA, SLUS-20328) | a portable release of the Tekken 4 recomp with its bundled build tools and `t4lobby` client | Play, Online, Build, Settings |
+| Tekken 4 (USA, SLUS-20328) | a portable release of the Tekken 4 recomp with its bundled build tools | Play, Online (direct IP/VPN), Build, Settings |
 | Free slots | a manifest (below) | what the manifest says |
 
-The T4 adapter implements casual quick match, player challenges, open rooms, chat, and one game process per match with
-manual results. Ranked is unavailable for T4. See [T4 Online and release checks](docs/T4_ONLINE.md), including the
-shared-account server requirement. T5DR's Online section opens its existing T5DR Online launcher. The T4 integration
-has only been exercised with fake installed clients, not real servers or games. Other native online features have a
-shortcut to each game's launcher. Seven
-language catalogs are included; native-speaker and controller layout review remain release checks.
+T4 Online offers Host or Join, an on-screen keyboard for the host's IP address,
+checks for matching build, compiler/MSVC, ISO hash and two-way UDP reachability,
+then a separate Start game action. Collect logs saves local diagnostic zip files.
+See [T4 Online and release checks](docs/T4_ONLINE.md). There is no T4 account,
+matchmaking, room, chat, relay or result-reporting service in this beta. Lobby-based
+online stays hidden until its server exists. T5DR stays on the shelf unchanged;
+its Online section opens the old T5DR Online launcher. Seven language catalogs
+are included; native-speaker and controller layout review remain release checks.
 
-Automated tests exercise launcher logic with fakes, inert temporary files and offscreen QML scenes. They do not prove
-compatibility with an installed lobby API, native report scrubbing, real NAT/TLS behavior, the compiled starter or a
-packaged update. See the manual acceptance checks in [INSTALLING.md](docs/INSTALLING.md),
-[PACKAGING.md](docs/PACKAGING.md) and the online guides. The required test command is
-`.venv\Scripts\python.exe -m unittest discover -s tests`; the checkout's virtual environment currently cannot start
-its configured base interpreter, so no passing full-suite result is claimed.
+Automated tests exercise launcher logic with fakes and inert temporary files.
+They do not prove real two-PC synchronization, physical pad operation, visual
+readability, the compiled starter or a packaged update. See the acceptance checks
+in [INSTALLING.md](docs/INSTALLING.md), [PACKAGING.md](docs/PACKAGING.md) and the
+online guide. Before handover run
+`.venv\Scripts\python.exe -m unittest discover -s tests` and record its result.
+The source-only package check is
+`.venv\Scripts\python.exe tools\package_release.py --scan-only`.
 
 ## Start
 

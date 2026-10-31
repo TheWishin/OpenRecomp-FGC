@@ -6,6 +6,12 @@ whole zip to a writable folder and open `OpenRecomp.exe`. They do not install Py
 runtime must be prepared separately before the offline packaging tool can assemble a release.
 No release binary or zip was built or packaged during this implementation.
 
+This release candidate is a T4 beta: offline play plus online by direct IP or
+VPN, with no lobby and no ranked. Lobby-based T4 online remains hidden until its
+server exists. T5DR stays on the shelf unchanged and its Online action opens the
+old T5DR Online launcher. A Sunday release depends on the owner's successful
+two-PC test; see [T4_ONLINE.md](T4_ONLINE.md).
+
 The starter sets `OPENRECOMP_HOME` to the per-user local application data folder's
 `OpenRecomp` directory unless the player already supplies an override. Configuration, game
 manifests, locally extracted T4 installs and player-created pictures belong there. Keep an
@@ -63,7 +69,9 @@ moving the extracted launcher to a second folder. Check both default data storag
 
 Use a controller alone to register a player's own T4 folder and its original release zip,
 then check play/build handoff through that install's core. Check every supported controller
-and language, including the pre-Python startup failure message. No real install was opened
+and language at 1080p and Windows 150% scaling, including the pre-Python startup failure
+message. Complete the host/join/check/start/log-collection/Back walk on two physical PCs.
+No real install was opened
 and no game was started while implementing these changes.
 
 On a private test release channel, exercise valid updates, a foreign project's zip, changed

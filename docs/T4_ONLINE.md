@@ -1,111 +1,81 @@
-﻿# T4 Online in OpenRecomp
+# T4 direct IP / VPN beta
 
-T4 uses the shared login and lobby screens through the player's installed
-`t4lobby` package. Game handover delegates ticket conversion to that install's
-`t4lobby.t4game.game_env`; a missing or foreign helper is refused. No lobby
-implementation or game code is shipped here. The clean T4 source supplied for
-this task documents this private package but does not contain it, so the actual
-helper and client API remain unverified against an installation.
+The beta supports T4 offline and online by direct IP or VPN, with no lobby and
+no ranked. There is no account, matchmaking, room, chat, relay, leaderboard or
+server-reported result flow. Lobby-based online stays hidden until its server
+exists. T5DR Online continues to open the old T5DR Online launcher.
 
-The runtime package must implement the protocol described by T4's `docs/LOBBY.md`
-and `SERVER_HANDOFF_T4.md`: protocol 1, game `t4`, default port 7791, and T4 build
-identity from `t4net_build.txt`. A T5DR server, build identity, or certificate pin
-must not be used for T4.
+Both players need compatible locally built T4 runtimes and their own supported
+USA SLUS-20328 ISO. The launcher reads the installed T4 build identity and uses
+the same build/compiler/ISO and UDP checks as T4's `tools\net_play.ps1`.
+It does not build a game or repair an incompatible installation during a check.
 
-## Day-one flow
+## Controller walk
 
-The controller can log in, start casual quick match, challenge a player from the
-lobby list, accept or decline challenges, create/join/leave open rooms, and read
-or send lobby chat. Accounts are optional when the server supports them. Ranked,
-leaderboards, private/password/code rooms, friends and invitations, tournaments,
-spectating, regional relay selection, Discord presence, and extra match-rule
-controls stay hidden, as required by the day-one handoff.
+1. Select T4, then Online with LB/RB. One player chooses **Host** (P1); the
+   other chooses **Join** (P2).
+2. The joining player enters the host's IPv4 address using the **on-screen
+   keyboard**. Use the host's VPN address when both PCs use the same VPN.
+   The default UDP port is 7400. Arrange the address with the other player
+   outside the launcher; this beta has no player directory.
+3. Both players select **Check connection**. The check waits up to 90 seconds
+   for the peer. It compares the build identity, compiler/MSVC version and ISO
+   SHA-256 hash, then checks two-way UDP reachability. Each check explains its
+   status in the selected language. A missing identity, mismatch, invalid ISO
+   or unreachable peer prevents Start game. Back cancels a pending check.
+4. After all checks pass, each player selects **Start game**. This is a separate
+   action; a successful check never launches T4 by itself. Choose characters
+   and stage in T4's normal menus. This beta does not promise direct entry into
+   a fight, trusted match results or persistent sessions with new opponents.
+5. To stop the owned T4 process and return, hold View + Menu (Share + Options)
+   on one controller for two seconds. An external game is never taken over.
+6. After closing T4, **Collect logs** calls the installed T4
+   `tools\collect_test_logs.ps1` and writes diagnostic zip files in the launcher's
+   local user folder. Collection uses the owned check/run records and includes
+   filtered netplay log lines, validated build/preflight metadata and basic
+   hardware facts. The installed collector redacts paths and network addresses;
+   it excludes raw stdout/stderr, saves, game data and pictures. Its behavior
+   must be verified against the shipped T4 release. Review each zip before
+   sharing it outside the PC. **Back** returns through the launcher screens.
 
-A found match requires explicit ready acceptance. While waiting, the launcher
-shows that it is waiting for the peer and whether a direct connection or the main
-server's relay is being prepared. Each match starts a new T4 process; characters
-and stage are chosen in the game's VS BATTLE menus, with the host as P1. The
-installed client owns NAT traversal, port handover, and the relay bridge and stays
-alive through the match. A direct-to-relay fallback stops the old owned process
-before a replacement ticket starts another one. Duplicate start delivery must
-not start a second run.
+Direct IP requires a working UDP route. The launcher does not configure a router,
+VPN or firewall and supplies no NAT traversal or relay fallback. A blocked route
+is a failed reachability check, not proof that either player's build is wrong.
+The owner must check both the preflight UDP traffic and the actual game traffic
+in the intended network setup.
 
-The launcher follows only the new run's connection and frame evidence. When the
-game exits, it asks for win, loss, or no result and shows the server's confirmation,
-dispute, or void response. T4 has no game result file: these remain manual reports.
-Peer quit, lost connection, incompatible build, ready timeout, and relay/UDP
-failures have catalog messages. Return to the lobby is available after the result.
-T4 rematch inside a running game remains outside day-one scope.
+## Settings
 
-Searching, ready acceptance, and launching refuse while another launcher has a
-live T4 game. The installed core's run lock and process inspection are retained;
-OpenRecomp also reserves launch ownership until its child exits. Unknown process
-state is a refusal. An external game is never taken over or stopped.
+**Connection diagnostics** is an opt-in switch, **off by default**. It sets
+`TEKKEN4_NET_DIAG` for online play and may add timing/logging overhead. Enable it
+before a test when the maintainer asks, then collect the diagnostic zip files.
+The launcher does not expose experimental run-ahead, packet simulation, forced
+frame limits or screenshot/desync-dump switches as beta player settings.
+Ordinary graphics and sound settings keep their existing defaults.
 
-The client's public API replaces its bridge at the next match's NAT setup or
-releases it when the client closes. OpenRecomp does not invoke private bridge
-methods after reporting a result.
+## Release gate: two physical PCs
 
-## Accounts and deployment
+Source reading and fake tests cannot approve real online play. Before a Sunday
+release, the owner must use two physical PCs and record a successful host/join
+test on the intended direct IP or VPN route. Repeat with the PCs' roles reversed.
 
-Use the existing T5DR account name and password. There is no separate T4
-registration flow in this launcher. Passwords are cleared after submission and
-never saved. Saved sessions are scoped to their game and server; a T5DR session
-or certificate fingerprint must not be sent to T4. A later login can displace an
-earlier connection; a `kicked` state requires deliberate login and never triggers
-automatic login.
+- Use only a pad for address entry, checks, start, cancel, log collection and Back.
+  Check all seven languages at 1080p and Windows 150% scaling, including long
+  translated error messages and visible focus.
+- Deliberately try a different build, compiler/MSVC version and ISO hash, a
+  missing/stale identity, an invalid address and an unreachable peer. Each must
+  fail before launch, explain recovery, and permit retry or Back.
+- Check timeout, cancellation, peer departure, game failure and repeated sessions.
+  Refuse duplicate starts and an already running T4 from another launcher. Old
+  check results must not authorize changed settings or a new peer.
+- Verify real gameplay synchronization, sustained speed, sound, both local pads,
+  disconnect behavior and the return chord. A passing UDP check alone is not
+  a passing game test.
+- Check diagnostics off/on and the collected zip files on both PCs. Keep player
+  logs and reports local; no game data, saves or personal paths belong in this
+  public repository.
 
-The handoff describes separate game servers and databases, without a shared
-authentication service. The operator must arrange for the existing account
-identity to be accepted by T4; OpenRecomp cannot make independent databases share
-accounts or invent a cross-server sign-on exchange. T4 needs its own server
-configuration and certificate trust. Public password/session authentication
-requires TLS under the installed client's existing security rules.
-
-`openrecomp/data/t4_ranks.json` is a display-only table. The maintainer must check
-its rating boundaries and rank names before enabling them. The shipped names
-are blank, so no rank text appears; the table does not enable ranked matches.
-
-## Manual release checks
-
-Regression tests use fake clients, tickets, processes, logs, and pad actions.
-They could not run because the workspace's existing virtual environment cannot
-start its Python interpreter; the required unittest suite remains unverified.
-Even passing fake tests cannot establish the installed client's signatures,
-event order, timing, or real relay lifecycle. No launcher,
-real server, search, game, or build was started for this change. `Nav.dry` must
-suppress online actions, polling, saved-setting writes, and game launch.
-
-Against an isolated local T4 lobby:
-
-1. Check same-install imports, the `t4game.game_env` helper, T4 build identity,
-   default port 7791, and refusal of a T5DR server or incompatible build. Missing
-   client/build/helper must give a localized error and leave no game running.
-2. Use only a controller for guest, account, saved login, cancellation, logout,
-   ready acceptance/decline, result answers, and return to the lobby. Check all
-   seven languages, readable messages, focus changes, masking, and long chat.
-3. Check the player list, challenge acceptance/decline, open room creation,
-   joining/leaving, and chat. Check stale targets and server refusal. Verify all
-   features excluded from the day-one scope remain hidden.
-4. Exercise quick match through found, accept, peer-ready wait, connection
-   preparation, launch, process exit, manual report, and server confirmation.
-   Try host and join, each result answer, disputed results, ready timeouts, peer
-   quit, and disconnection at every stage.
-5. Check cancellation during launch, duplicate start events, an already running
-   game in either launcher, two OpenRecomp instances, unknown process inspection,
-   and ownership after process exit. Repeat matches to expose stale tickets or
-   log evidence; old lines must not describe the new game as connected/playing.
-6. Force relay and a silent direct path followed by relay fallback. Check the
-   punched port or loopback bridge, old-process exit before replacement launch,
-   and resource release on logout/disconnect. After a result, check the next
-   match replaces the old bridge without leaving an old game process alive.
-7. Check the existing account is accepted on both services, saved tokens stay
-   scoped to their server, and alternating logins do not cause an automatic-login
-   loop after a kick.
-
-Two physical PCs are still required for real NAT/WAN/relay behavior, human play,
-rollback synchronization, sustained game speed, and the relay bandwidth limits
-in the handoff. The handoff also leaves direct fight, persistent game mode,
-in-session rematch, game-side results, ranked, release server provisioning, and
-steady 60 fps as separate work. Offscreen QML and fake inputs cannot prove
-physical-controller behavior or visual readability on a real display.
+The launcher window, a game, a build and real networking were not started for
+this source review. Runtime compatibility and the two-PC result remain release
+acceptance work; see [T4_FIRST_RUN.md](T4_FIRST_RUN.md) and
+[PACKAGING.md](PACKAGING.md) for the other gates.

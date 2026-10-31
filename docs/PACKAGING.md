@@ -1,4 +1,4 @@
-# Package 8: launcher distribution and updates
+# Launcher distribution and updates
 
 The release is a Windows x64 zip with a native `OpenRecomp.exe`, a private CPython
 3.12, PySide6 Essentials 6.8.2.1, shiboken6 6.8.2.1 and the launcher source.
@@ -24,6 +24,18 @@ The tool neither downloads dependencies nor invokes a compiler. Before running
 it, prepare reviewed offline inputs in a separate release workspace. Never place
 game data, player information, keys, executable game code or screenshots in this
 repository. No installed virtual environment is accepted as a runtime input.
+
+Before preparing a payload, check this source tree without a runtime, starter,
+download, compiler or game:
+
+    .venv\Scripts\python.exe tools\package_release.py --scan-only
+
+This validates the launcher source selection and scans the selected files. It
+does not assemble an archive or prove that separately prepared runtime inputs
+are complete. Ship the README and T4 first-run/online guides with the launcher:
+the beta is offline plus direct IP/VPN only, with no lobby and no ranked. The
+T4 portable release remains a separate player-selected install; never bundle it
+or a built game into this launcher's zip. T5DR Online opens the old launcher.
 
 1. Supply the official Windows CPython 3.12 embeddable distribution, including its
    standard-library `python312.zip`, `python312.dll`, `pythonw.exe` and required

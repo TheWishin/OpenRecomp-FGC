@@ -25,8 +25,8 @@ SOURCE_GROUPS = {
                    "nav_dialog.py", "nav_drawer.py", "nav_grid.py", "nav_hub.py", "nav_keyboard.py",
                    "nav_online.py", "nav_picker.py", "nav_sections.py", "nav_shelf.py", "nav_tools.py",
                    "pad.py", "ranks.py", "updater.py", "update_service.py"),
-    "openrecomp/adapters": ("__init__.py", "base.py", "support.py", "t4.py", "t4_install.py",
-                           "t4_online.py", "t5dr.py", "t5_controls.py", "t5_online.py"),
+    "openrecomp/adapters": ("__init__.py", "base.py", "launch_guard.py", "support.py", "t4.py", "t4_install.py",
+                           "t4_online.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py"),
     "openrecomp/data": ("t4_ranks.json",),
     "openrecomp/i18n": ("__init__.py", "de.json", "en.json", "es.json", "fr.json", "ja.json", "ko.json", "pt-BR.json"),
     "openrecomp/ui": ("Glyph.qml", "Hub.qml", "Main.qml", "Overlays.qml", "ResultCell.qml", "Shelf.qml"),
@@ -36,8 +36,10 @@ SOURCE_GROUPS = {
                             "IBMPlexSans-500.ttf", "IBMPlexSans-600.ttf", "OFL-BigShoulders.txt",
                             "OFL-IBMPlexMono.txt", "OFL-IBMPlexSans.txt"),
     "games": ("t4.json", "t5dr.json"),
+    "docs": ("PACKAGING.md", "INSTALLING.md", "UPDATES.md", "T4_FIRST_RUN.md", "T4_ONLINE.md"),
 }
 SOURCE_FILES = {folder + "/" + name for folder, names in SOURCE_GROUPS.items() for name in names}
+SOURCE_FILES.update(("LICENSE", "README.md"))
 RUNTIME_ROOTS = {"pythonw.exe", "python.exe", "python3.dll", "python312.dll", "python312.zip",
                  "vcruntime140.dll", "vcruntime140_1.dll", "LICENSE.txt", "DLLs", "Lib",
                  "libcrypto-3.dll", "libssl-3.dll", "libffi-8.dll", "sqlite3.dll", "python.cat"}
@@ -161,7 +163,9 @@ def scan_stream(stream, name, library=False):
         if not library:
             if re.search(rb"[A-Za-z]:\\(?:Users|Documents and Settings)\\|/home/[^/\s]+/|/Users/[^/\s]+/", data):
                 raise PackageError("Personal paths cannot be packaged: " + name)
-            if re.search(rb"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", data):
+            # Require a complete address token. Glyph tables can contain runs
+            # of @-separated bytes that only resemble a substring of an address.
+            if re.search(rb"(?<![A-Za-z0-9._%+@-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.@-])", data):
                 raise PackageError("Personal email addresses cannot be packaged: " + name)
         tail = data[-512:]
         block = stream.read(128 * 1024)
@@ -277,15 +281,16 @@ def source_files(root):
                     raise PackageError("Unexpected source payload: " + name)
                 scan_file(p, name)
                 selected[name] = p
-    if set(selected) != SOURCE_FILES:
-        raise PackageError("The explicit launcher source payload is incomplete")
-    for name in ("LICENSE", "docs/PACKAGING.md", "docs/INSTALLING.md", "docs/UPDATES.md"):
+    documents = SOURCE_FILES - {name for name in SOURCE_FILES if name.startswith(("openrecomp/", "games/"))}
+    for name in sorted(documents):
         p = Path(root) / name
         if (p.is_symlink() or p.is_junction() or not p.is_file()
                 or p.parent.is_symlink() or p.parent.is_junction()):
             raise PackageError("Source links cannot be packaged")
         scan_file(p, name)
         selected[name] = p
+    if set(selected) != SOURCE_FILES:
+        raise PackageError("The explicit launcher source payload is incomplete")
     return selected
 
 
@@ -367,12 +372,23 @@ def assemble(root, runtime, starter, licenses, contract_path, output, version, c
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--scan-only", action="store_true", help="Check the launcher source payload without assembling a release")
     for arg in ("runtime", "starter", "licenses", "inventory", "out", "version", "channel"):
-        parser.add_argument("--" + arg, required=True)
+        parser.add_argument("--" + arg)
     args = parser.parse_args(argv)
     try:
-        facts = assemble(ROOT, args.runtime, args.starter, args.licenses, args.inventory,
-                         args.out, args.version, args.channel)
+        if args.scan_only:
+            if any(getattr(args, name) is not None for name in ("runtime", "starter", "licenses", "inventory", "out", "version", "channel")):
+                parser.error("--scan-only cannot be combined with release assembly arguments")
+            selected = source_files(ROOT)
+            facts = {"scan": "passed", "source_files": len(selected)}
+        else:
+            missing = ["--" + name for name in ("runtime", "starter", "licenses", "inventory", "out", "version", "channel")
+                       if getattr(args, name) is None]
+            if missing:
+                parser.error("the following arguments are required: " + ", ".join(missing))
+            facts = assemble(ROOT, args.runtime, args.starter, args.licenses, args.inventory,
+                             args.out, args.version, args.channel)
     except (OSError, ValueError, zipfile.BadZipFile) as e:
         parser.exit(1, "Package refused: " + str(e) + "\n")
     print(json.dumps(facts, sort_keys=True))
