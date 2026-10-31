@@ -8,6 +8,7 @@ ONLINE_KEYS = (
 )
 ONLINE_PASSWORDS = ("online_password", "online_room_password", "online_current_password", "online_new_password",
                     "online_repeat_password", "online_recovery_code")
+CHAT_TEXT_LIMITS = dict(online_private_chat=200, online_private_report_reason=200)
 
 
 class Keyboard:
@@ -15,6 +16,8 @@ class Keyboard:
         title = {"online_name": "@online.name", "online_password": "@online.password", "online_server": "@online.server",
                  "online_address": "@t4.direct_address",
                  "online_chat": "@online.chat", "online_room_name": "@online.room_name",
+                 "online_private_chat": "@online_chat.private_compose",
+                 "online_private_report_reason": "@online_chat.report_reason",
                  "online_room_password": "@online.room_password", "online_room_code": "@online.room_code",
                  "online_friend_name": "@online.friend_name", "online_tour_name": "@online.tour_name",
                  "online_tour_clock": "@online.tour_clock", "online_tour_dq": "@online.tour_dq",
@@ -23,6 +26,8 @@ class Keyboard:
                  "online_repeat_password": "@online120.repeat_password", "online_recovery_code": "@online120.recovery_code",
                  "online_block_name": "@online120.block_name", "online_fingerprint": "@online120.fingerprint"}.get(tid, "@osk.player_name")
         self.osk = dict(tid=tid, text=self.game.a.text_value(tid), row=1, col=0, title=title, page=0)
+        if tid in CHAT_TEXT_LIMITS:
+            self.osk["text"] = self.osk["text"][:CHAT_TEXT_LIMITS[tid]]
         self.overlay = "osk"
 
     def _osk_keys(self):
@@ -57,19 +62,25 @@ class Keyboard:
             if o["row"] == len(keys):
                 kind = OSK_ACTIONS[o["col"]][0]
                 if kind == "space":
-                    o["text"] += " "
+                    self._osk_append(" ")
                 elif kind == "del":
                     o["text"] = o["text"][:-1]
                 else:
                     self._osk_done()
             else:
-                o["text"] += keys[o["row"]][o["col"]]
+                self._osk_append(keys[o["row"]][o["col"]])
+
+    def _osk_append(self, text):
+        o = self.osk
+        o["text"] += text
+        if o["tid"] in CHAT_TEXT_LIMITS:
+            o["text"] = o["text"][:CHAT_TEXT_LIMITS[o["tid"]]]
 
     def type_text(self, text):
         """A physical keyboard in the on-screen keyboard."""
         if self.overlay == "osk":
             self.device = "kb"
-            self.osk["text"] += text if self.osk["tid"].startswith("online_") else text.upper()
+            self._osk_append(text if self.osk["tid"].startswith("online_") else text.upper())
 
     def _osk_done(self):
         if not self._dry("@dry_text"):

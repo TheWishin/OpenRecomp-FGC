@@ -270,6 +270,11 @@ class Online:
         threading.Thread(target=run, name="openrecomp-lobby", daemon=True).start()
 
     def _online_error(self, error, saved=False):
+        if t5_features.enabled(self):
+            from . import t5_moderation
+            notice = t5_moderation.refusal(self, error)
+            if notice:
+                return notice
         code = getattr(error, "code", "")
         if not isinstance(code, str):
             code = ""

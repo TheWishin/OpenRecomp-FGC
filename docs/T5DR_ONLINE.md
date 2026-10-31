@@ -37,7 +37,10 @@ capabilities that their client or server lacks.
 | Stats (`tk_stats`) | Server-wide counts and fighter statistics support all/ranked/casual views and sorting. A missing stats capability leaves the page unavailable rather than fabricating data. |
 | Ranked sets and character selection (`tk_tab`, `tk_charsel`) | Set progress, continuation and leaving a set use the native match driver. The character stays locked while the ranked set requires it; controller actions and direct adapter writes both enforce the lock. |
 | Friends (`tk_views`, `tk_tab`) | Requests in both directions, add/remove/cancel, presence, invitations, invitation cooldown and answering invitations use the existing friend client. |
-| Blocked players (`tk_tab`) | Listing, blocking and unblocking players use the installed client, with no local substitute for the server's block rules. |
+| Blocked players (`tk_tab`) | Per-player blocking, listing and unblocking use the installed client and appear only when the server advertises blocks. |
+| Mutes (`tk_tab`, `tk_rooms`) | Each listed player has a pad-selectable mute toggle. The personal mute list supports refresh and unmute, including players who have left the lobby. Controls require negotiated mute support. |
+| Private chat (`tk_private_chat`) | Conversations show unread counts and session-only history. Compose and report-reason fields use the on-screen keyboard. Reports send only one to five explicitly selected original server messages; signed receipts remain inside the adapter. Controls require negotiated private-chat support. |
+| Chat filter notices | Known server refusals are translated into notices. The 1.2.0 protocol has no separate filter capability, so notices appear after the server supplies them. |
 | Private rooms (`tk_rooms`) | Named rooms, passwords and invitation codes use the native room methods. Passwords and session tokens stay out of public snapshots. An invitation code is shown only to its room's member. |
 | Community rooms (`tk_rooms`) | Size, rotation, sit-out/return, owner settings and player controls are available where supported. Simultaneous tables expose player pairing, watching and their match/set progress. |
 | FT sets and in-game rematch rules (`tk_casual`, `tk_rooms`) | Casual FT preferences and room FT/rematch policies follow the install's supported client fields. Room-specific policy is kept with the room; it is not replaced with a global launcher setting. |
@@ -71,6 +74,10 @@ including on older installations.
 
 Regression tests cover adapter delegation, controller navigation, catalog
 structure in all seven languages and session safety with synthetic data.
+Mute, private-chat, unread, explicit-report, block and filter-notice loopback
+cases are included where the optional local server supports them. The current
+chat-controls implementation has not been executed here: the repository's
+virtual environment cannot start its configured Python 3.12 interpreter.
 The optional local lobby test is designed to use literal loopback addresses,
 temporary server state and a stub game handle, with guards against external
 network access, published server lists, subprocess launches and changes to its

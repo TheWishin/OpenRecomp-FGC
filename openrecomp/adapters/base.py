@@ -134,6 +134,9 @@ class Adapter:
         Installed T5DR clients can add capability-gated tournaments, profile, leaderboard,
         community_stats, spectating, community and challenge_preferences snapshots.
         Ranked sets expose set and character_locked; optional account tools expose blocks.
+        Negotiated chat tools add moderation (mute rows and server notices) and private_chat
+        (session threads, unread counts and explicitly selected report lines). Private-message
+        receipts stay inside the adapter; only display text and opaque line ids reach screens.
         These are plain, allowlisted views of the selected install's client, never clients
         or game handles. Reading them does not authorize a request or a game launch.
         A room's invitation code is shown only to its member; room passwords stay private.

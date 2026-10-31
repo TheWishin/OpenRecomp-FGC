@@ -189,9 +189,11 @@ class Online:
         return self._remember_online_rows(g, out, state)
 
     def _online_feature_items(self, g, state, out, action):
-        from . import nav_accounts, nav_challenges, nav_community, nav_profiles, nav_rules, nav_spectating, nav_tournaments
+        from . import (nav_accounts, nav_challenges, nav_community, nav_moderation, nav_private_chat,
+                       nav_profiles, nav_rules, nav_spectating, nav_tournaments)
 
-        for module in (nav_profiles, nav_tournaments, nav_spectating, nav_community, nav_accounts, nav_rules, nav_challenges):
+        for module in (nav_profiles, nav_tournaments, nav_spectating, nav_community, nav_accounts, nav_rules,
+                       nav_challenges, nav_moderation, nav_private_chat):
             out.extend(module.rows(self, g, state, action))
         nav_community.enhance_rows(out, state)
         nav_challenges.enhance_rows(out, state)

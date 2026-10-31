@@ -18,10 +18,13 @@ def state(owner):
     init(owner)
     client = owner._online_client
     account = bool(owner._online_account)
+    welcome = getattr(client, "welcome", None)
+    features = welcome.get("features") if isinstance(welcome, dict) else None
+    blocks = isinstance(features, (list, tuple)) and "blocks" in features
     return dict(capabilities=dict(
         account_tools=bool(account and client and callable(getattr(client, "change_password", None))
                            and callable(getattr(client, "new_recovery_codes", None))),
-        account_blocks=bool(client and all(callable(getattr(client, method, None))
+        account_blocks=bool(blocks and client and all(callable(getattr(client, method, None))
                                           for method in ("blocks", "block", "unblock"))),
         account_recovery=True),
         blocks=[dict(row) for row in owner._account_blocks])
@@ -123,6 +126,8 @@ def action(owner, operation, client):
 
         def work():
             owner._online_check_request(generation, client)
+            if owner._online_phase != "logged_in" or not state(owner)["capabilities"]["account_blocks"]:
+                raise RuntimeError("@online.cancelled")
             if operation == "account_block":
                 client.block(name)
             elif operation.startswith("account_unblock:"):

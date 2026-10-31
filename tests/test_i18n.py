@@ -296,6 +296,13 @@ def untranslated_literals(source):
         "watch-status.json", "watch-verdict.json", "welcome", "when", "win", "win_rate", "win0", "win1",
         "window", "window1080", "window1440", "winner", "winrate", "wins", "wins_needed", "wish", "wrong",
         "wrong_passwords", "x", "you", "you_char", "your_match", ".2f", ".1f", ".0f", "+g",
+        ".t5_moderation", ".t5_private_chat", "feature_moderation:", "feature_private:",
+        "moderation", "moderation_block:", "moderation_mute:", "moderation_muted:",
+        "moderation_notice", "moderation_refresh_mutes", "moderation_unmute:", "mutes", "mutes_ok",
+        "online_private_chat", "online_private_report_reason", "private_", "private_chat",
+        "private_close", "private_empty", "private_message", "private_message:", "private_open:",
+        "private_read", "private_report", "private_reports", "private_select:", "private_send",
+        "receipt", "to",
     })
     formats = {
         'f"{platform} RECOMP"', 'f"slot{i}"', 'f"{self.game.id}:{self.section()}"', 'f"{letter}:\\\\"',
@@ -660,6 +667,20 @@ class Catalogs(unittest.TestCase):
         for value in ("feature_tour:New player message", "new_native_protocol_token",
                       "watch-new-player-message.json"):
             self.assertTrue(untranslated_literals(f'token = {value!r}'))
+
+    def test_python_scan_accepts_chat_protocol_but_checks_visible_contexts(self):
+        values = (".t5_moderation", ".t5_private_chat", "feature_moderation:", "feature_private:",
+                  "moderation_mute:", "moderation_unmute:", "moderation_block:",
+                  "online_private_chat", "online_private_report_reason", "private_open:",
+                  "private_send", "private_select:", "private_report", "receipt")
+        for value in values:
+            with self.subTest(value=value):
+                self.assertEqual(untranslated_literals(f'token = {value!r}'), [])
+                for field in ("label", "title", "hint", "status"):
+                    self.assertTrue(untranslated_literals(f'dict({field}={value!r})'))
+                self.assertTrue(untranslated_literals(f'self.say({value!r})'))
+        self.assertTrue(untranslated_literals('self.say("Message blocked: hate terms are not allowed.")'))
+        self.assertTrue(untranslated_literals('token = "private_new_player_message"'))
 
     def test_python_scan_accepts_beta_switches_but_checks_their_display_labels(self):
         for value in ("online_address", "host", "join", "collect_logs", "disconnect", "direct_back",

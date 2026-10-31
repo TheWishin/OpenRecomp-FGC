@@ -293,6 +293,14 @@ class LocalLobbyTests(unittest.TestCase):
             ready_timeout=20, register_timeout=4, punch_timeout=1.5,
             relay_timeout=5, result_timeout=3, invite_retry_seconds=0,
             lobby_interval=0.02, log_level="WARNING")
+        if hasattr(cfg, "chat_filter_path"):
+            # A harmless synthetic policy keeps this drill independent of the
+            # operator's real filter list and exercises real rejection replies.
+            policy = self.directory / "chat-policy.json"
+            policy.write_text(json.dumps(dict(version=1, terms=[dict(term="localfiltertoken")])),
+                              encoding="utf-8")
+            cfg.chat_filter = True
+            cfg.chat_filter_path = str(policy)
 
         def serve():
             asyncio.set_event_loop(self.loop)
@@ -606,6 +614,104 @@ class LocalLobbyTests(unittest.TestCase):
         until = time.monotonic() + 0.2
         self.wait(lambda: time.monotonic() >= until, "challenge observation interval")
         self.assertTrue(all(not a.starts for a in self.adapters))
+
+    def test_pad_mute_list_unmute_and_block(self):
+        self.login(0, "MuteOne", "login_register")
+        self.login(1, "MuteTwo", "login_register")
+        if not self.state(0)["capabilities"].get("mutes"):
+            self.skipTest("optional local server has no player mutes")
+        self.choose(0, "refresh_players")
+        self.wait(lambda: any(row["name"] == "MuteTwo" for row in self.state(0)["players"]),
+                  "mute target did not arrive")
+        peer = next(row["id"] for row in self.state(0)["players"] if row["name"] == "MuteTwo")
+        self.choose(0, "moderation_mute:" + peer)
+        self.wait(lambda: any(row["name"] == "MuteTwo" for row in self.state(0)["moderation"]["mutes"]),
+                  "mute acknowledgement did not update the list")
+        self.choose(0, "moderation_refresh_mutes")
+        self.wait(lambda: not self.adapters[0]._online_busy, "mute list refresh did not finish")
+        self.assertEqual(self.state(0)["moderation"]["mutes"], [dict(name="MuteTwo", guest=False)])
+        self.adapters[1].set_text_value("online_chat", "muted local message")
+        self.choose(1, "send_chat")
+        self.wait(lambda: any(row["text"] == "muted local message" for row in self.state(1)["chat"]),
+                  "muted sender did not receive its own public echo")
+        self.assertFalse(any(row["text"] == "muted local message" for row in self.state(0)["chat"]))
+        self.choose(0, "moderation_unmute:MuteTwo")
+        self.wait(lambda: not self.state(0)["moderation"]["mutes"], "unmute did not update the list")
+        self.adapters[1].set_text_value("online_chat", "unmuted local message")
+        self.choose(1, "send_chat")
+        self.wait(lambda: any(row["text"] == "unmuted local message" for row in self.state(0)["chat"]),
+                  "unmute did not restore public delivery")
+        if self.state(0)["capabilities"].get("blocks"):
+            self.choose(0, "moderation_block:" + peer)
+            self.wait(lambda: any(row["name"] == "MuteTwo" for row in self.state(0)["blocks"]),
+                      "pad block did not update server block list")
+            self.choose(0, "account_unblock:MuteTwo")
+            self.wait(lambda: not self.state(0)["blocks"], "pad unblock did not restore block list")
+        self.assertTrue(self.both("logged_in"))
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
+
+    def test_pad_private_chat_unread_read_and_explicit_report(self):
+        self.login(0, "PrivateOne", "login_register")
+        self.login(1, "PrivateTwo", "login_register")
+        if not self.state(0)["capabilities"].get("private_chat"):
+            self.skipTest("optional local server has no private chat")
+        self.choose(0, "refresh_players")
+        self.wait(lambda: any(row["name"] == "PrivateTwo" for row in self.state(0)["players"]),
+                  "private chat target did not arrive")
+        peer = next(row["id"] for row in self.state(0)["players"] if row["name"] == "PrivateTwo")
+        self.choose(0, "private_open:" + peer)
+        self.choose(0, "online_private_chat")
+        self.assertEqual(self.navs[0].overlay, "osk")
+        # Enter the first letter with the pad and finish with the pad's Done key.
+        self.navs[0].act("confirm", device="xbox")
+        self.navs[0].act("play", device="xbox")
+        self.assertEqual(self.adapters[0].text_value("online_private_chat"), "q")
+        self.choose(0, "private_send")
+        self.wait(lambda: self.state(1)["private_chat"]["unread"] == 1,
+                  "incoming private message did not mark the conversation unread")
+        received = self.state(1)["private_chat"]["threads"][0]
+        self.assertEqual(received["name"], "PrivateOne")
+        self.assertEqual(received["messages"][0]["text"], "q")
+        unread_row = next(row for row in self.navs[1].items()
+                          if row.get("id") == "private_open:" + received["id"])
+        self.assertTrue(unread_row.get("value"), "unread conversation has no controller-visible marker")
+        self.assertFalse(any(row["text"] == "q" for row in self.state(1)["chat"]))
+        self.assertNotIn("receipt", json.dumps(self.state(1)))
+        self.choose(1, "private_open:" + received["id"])
+        self.assertEqual(self.state(1)["private_chat"]["unread"], 0)
+        line_id = received["messages"][0]["id"]
+        self.choose(1, "private_select:" + line_id)
+        self.adapters[1].set_text_value("online_private_report_reason", "local protocol check")
+        self.choose(1, "private_report")
+
+        async def reports():
+            return self.server.store.private_reports()
+
+        self.wait(lambda: not self.adapters[1]._online_busy, "explicit report did not finish")
+        saved = asyncio.run_coroutine_threadsafe(reports(), self.loop).result(5)
+        self.assertEqual(len(saved), 1)
+        self.assertEqual(saved[0]["peer_name"], "PrivateOne")
+        self.assertEqual(saved[0]["reason"], "local protocol check")
+        self.assertEqual([row["text"] for row in saved[0]["lines"]], ["q"])
+        self.assertTrue(self.both("logged_in"))
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
+
+    def test_chat_filter_rejection_notice_and_ordinary_chat_recovery(self):
+        self.login(0, "FilterOne")
+        self.login(1, "FilterTwo")
+        if not hasattr(self.server.cfg, "chat_filter_path"):
+            self.skipTest("optional local server has no chat filter")
+        self.adapters[0].set_text_value("online_chat", "localfiltertoken")
+        self.choose(0, "send_chat")
+        self.wait(lambda: self.state(0).get("moderation", {}).get("notice") == "@online_chat.filter_blocked",
+                  "real filter rejection did not produce its localized notice")
+        self.assertFalse(any(row["text"] == "localfiltertoken" for row in self.state(1)["chat"]))
+        self.adapters[0].set_text_value("online_chat", "ordinary local chat")
+        self.choose(0, "send_chat")
+        self.wait(lambda: any(row["text"] == "ordinary local chat" for row in self.state(1)["chat"]),
+                  "ordinary chat did not recover after a filter rejection")
+        self.assertTrue(self.both("logged_in"))
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
 
     def test_profile_ranked_characters_leaderboard_and_stats(self):
         self.login(0, "ProfileOne", "login_register")

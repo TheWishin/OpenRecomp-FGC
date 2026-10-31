@@ -11,6 +11,7 @@ from openrecomp import nav_accounts
 class Client:
     def __init__(self):
         self.calls = []
+        self.welcome = dict(features=["blocks"])
         self.session = "previous-local-session"
         self.rows = [dict(name="Rival", guest=False, token="never-expose", address="never-expose")]
 
@@ -101,6 +102,22 @@ class AccountTests(unittest.TestCase):
     def password(self, current="current-secret", new=" new-secret ", repeat=" new-secret "):
         self.owner._online_fields.update(online_current_password=current, online_new_password=new,
                                          online_repeat_password=repeat)
+
+    def test_block_methods_without_server_feature_do_not_offer_or_send_actions(self):
+        self.owner._online_client.welcome = dict(features=[])
+        self.assertFalse(t5_accounts.state(self.owner)["capabilities"]["account_blocks"])
+        self.owner._online_fields["online_block_name"] = "Rival"
+        for operation in ("accounts_refresh_blocks", "account_block", "account_unblock:Rival"):
+            self.assertTrue(t5_accounts.action(self.owner, operation, self.owner._online_client))
+        self.assertIsNone(self.owner.pending)
+        self.assertEqual(self.owner._online_client.calls, [])
+
+    def test_withdrawn_block_feature_cancels_queued_request(self):
+        self.owner._online_fields["online_block_name"] = "Rival"
+        t5_accounts.action(self.owner, "account_block", self.owner._online_client)
+        self.owner._online_client.welcome = dict(features=[])
+        self.owner.finish()
+        self.assertEqual(self.owner._online_client.calls, [])
 
     def test_password_change_clears_fields_and_replaces_only_saved_session(self):
         self.password()
