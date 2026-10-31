@@ -43,11 +43,15 @@ def _catalog(code):
         return {}
 
 
+def template(code, key):
+    """Return an unformatted catalog message for a consumer that supplies values later."""
+    english = catalog("en").get(key, key)
+    return catalog(code).get(key, english)
+
+
 def text(code, key, **values):
     """Return a catalog message, always falling back to English then its key."""
-    english = catalog("en").get(key, key)
-    message = catalog(code).get(key, english)
-    return message.format(**values)
+    return template(code, key).format(**values)
 
 
 def message(key, **values):

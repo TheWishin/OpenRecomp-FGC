@@ -226,6 +226,78 @@ class TournamentTests(unittest.TestCase):
         self.assertEqual(self.owner._online_tours["rows"], [])
         self.assertEqual(self.owner._online_tours["detail"], {})
 
+    def test_already_observed_changes_preserve_controller_review_until_confirmation(self):
+        nav = types.SimpleNamespace(_online_text_item=lambda game, tid, label, hint: dict(id=tid, label=label))
+        action = lambda iid, label, hint="": dict(id=iid, label=label, detail=dict(rows=[]))
+        for kind in ("tour_changed", "tour_notice"):
+            for current_revision, revision in ((0, 0), (4, 0), (4, 3), (4, 4)):
+                with self.subTest(kind=kind, current_revision=current_revision, revision=revision):
+                    self.setUp()
+                    self.client.current["rev"] = current_revision
+                    self.select()
+                    self.owner.act("tour_start:cup")
+                    summary = dict(id="cup", rev=revision)
+                    event = dict(t=kind, **summary) if kind == "tour_changed" else dict(t=kind, tournament=summary)
+                    self.assertTrue(tours.event(self.owner, event))
+                    self.assertEqual(self.owner._online_tours["pending"], "tour_start:cup")
+                    self.assertFalse(self.owner._online_tours["stale"])
+                    self.assertFalse(self.owner._online_tour_refresh["detail_dirty"])
+                    snapshot = tours.state(self.owner)
+                    snapshot.update(account=True, name="Host")
+                    rows = nav_tournaments.rows(nav, types.SimpleNamespace(a=self.owner), snapshot, action)
+                    self.assertIn("tour_confirm:tour_start:cup", [row.get("id") for row in rows])
+                    self.assertFalse(any(row[0] == "admin" for row in self.client.calls))
+                    self.owner.act("tour_confirm:tour_start:cup")
+                    self.assertEqual(self.client.calls[-1], ("admin", "cup", "start", {}))
+
+    def test_unknown_or_new_changes_invalidate_review_and_reject_old_confirmation(self):
+        for kind in ("tour_changed", "tour_notice"):
+            for revision in (None, True, False, -1, 4.0, "4", 5):
+                with self.subTest(kind=kind, revision=revision):
+                    self.setUp()
+                    self.client.current["rev"] = 4
+                    self.select()
+                    self.owner.act("tour_start:cup")
+                    summary = dict(id="cup")
+                    if revision is not None:
+                        summary["rev"] = revision
+                    event = dict(t=kind, **summary) if kind == "tour_changed" else dict(t=kind, tournament=summary)
+                    self.assertTrue(tours.event(self.owner, event))
+                    self.assertTrue(self.owner._online_tours["stale"])
+                    self.assertEqual(self.owner._online_tours["pending"], "")
+                    self.assertTrue(self.owner._online_tour_refresh["detail_dirty"])
+                    self.owner.act("tour_confirm:tour_start:cup")
+                    self.assertFalse(any(row[0] == "admin" for row in self.client.calls))
+
+    def test_observed_revision_requires_valid_selected_detail(self):
+        for kind in ("tour_changed", "tour_notice"):
+            for detail_id, revision in (("cup", None), ("cup", True), ("cup", False),
+                                        ("cup", -1), ("cup", 4.0), ("cup", "4"), ("other", 4)):
+                with self.subTest(kind=kind, detail_id=detail_id, revision=revision):
+                    self.setUp()
+                    self.select()
+                    self.owner.act("tour_start:cup")
+                    self.owner._online_tours["detail"].update(id=detail_id)
+                    if revision is not None:
+                        self.owner._online_tours["detail"]["rev"] = revision
+                    summary = dict(id="cup", rev=0)
+                    event = dict(t=kind, **summary) if kind == "tour_changed" else dict(t=kind, tournament=summary)
+                    self.assertTrue(tours.event(self.owner, event))
+                    self.assertTrue(self.owner._online_tours["stale"])
+                    self.assertEqual(self.owner._online_tours["pending"], "")
+                    self.assertTrue(self.owner._online_tour_refresh["detail_dirty"])
+
+    def test_preserved_review_revalidates_organizer_permission_at_confirmation(self):
+        self.client.current["rev"] = 4
+        self.select()
+        self.owner.act("tour_start:cup")
+        tours.event(self.owner, dict(t="tour_changed", id="cup", rev=4))
+        self.assertEqual(self.owner._online_tours["pending"], "tour_start:cup")
+        self.owner._online_tours["detail"]["can_manage"] = False
+        self.owner.act("tour_confirm:tour_start:cup")
+        self.assertEqual(self.owner._online_tours["pending"], "")
+        self.assertFalse(any(row[0] == "admin" for row in self.client.calls))
+
     def test_event_refresh_coalesces_native_fetches_without_snapshot_side_effects(self):
         self.select()
         self.owner._online_phase = "logged_in"

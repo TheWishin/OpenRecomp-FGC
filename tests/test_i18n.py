@@ -374,6 +374,23 @@ class Catalogs(unittest.TestCase):
         with mock.patch("openrecomp.i18n.catalog", side_effect=lambda code: english if code == "en" else german):
             self.assertEqual(i18n.text("de", "quick_access"), "Quick access")
 
+    def test_templates_keep_native_countdown_placeholders_in_every_language(self):
+        for code in i18n.LANGUAGES:
+            for key in ("online.rematch_countdown", "online.set_next"):
+                with self.subTest(code=code, key=key):
+                    template = i18n.template(code, key)
+                    self.assertEqual(template, i18n.catalog(code)[key])
+                    self.assertIn("{seconds}", template)
+                    self.assertEqual(template.format(seconds=5), i18n.text(code, key, seconds=5))
+
+    def test_template_uses_localized_english_and_key_fallbacks_without_formatting(self):
+        english = {"countdown": "Next in {seconds}", "fallback": "Wait {seconds}"}
+        german = {"countdown": "Weiter in {seconds}"}
+        with mock.patch("openrecomp.i18n.catalog", side_effect=lambda code: english if code == "en" else german):
+            self.assertEqual(i18n.template("de", "countdown"), "Weiter in {seconds}")
+            self.assertEqual(i18n.template("de", "fallback"), "Wait {seconds}")
+            self.assertEqual(i18n.template("de", "missing.key"), "missing.key")
+
     def test_shared_input_delay_wording_matches_t5dr(self):
         expected = {
             "de": "Online-Input-Delay", "es": "Input delay online", "fr": "Input delay en ligne",

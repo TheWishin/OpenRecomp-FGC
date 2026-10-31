@@ -179,6 +179,7 @@ class T5Match(Online):
         """Resolve catalog text only at the installed game's local menu boundary."""
         language = self.config.get("language")
         text = lambda key, **values: i18n.text(language, key, **values)
+        template = lambda key: i18n.template(language, key)
         rule = event.get("rematch_ui") if isinstance(event.get("rematch_ui"), dict) else {}
         community = rule.get("kind") == "community"
         ready = event.get("t") == "match_found"
@@ -189,10 +190,10 @@ class T5Match(Online):
                     cancel=text("online.ingame_sit_out" if community else "cancel"),
                     next="" if community else text("online.ingame_next"),
                     waiting=text("online.waiting_peer_ready"), expired=text("online.ingame_expired"),
-                    auto=text("online.rematch_countdown", seconds="{seconds}"),
+                    auto=template("online.rematch_countdown"),
                     community_title=text("online.community"), community_waiting=text("online.community_hint"),
                     community_sitting_out=text("online.ingame_sit_out"),
-                    community_next=text("online.set_next", seconds="{seconds}"),
+                    community_next=template("online.set_next"),
                     rotation=text("online.rotation_winner" if rule.get("rotation") == "winner" else "online.rotation_queue"),
                     sit_out=text("online.ingame_sit_out"), back_to_line=text("online.ingame_back_in_line"))
 

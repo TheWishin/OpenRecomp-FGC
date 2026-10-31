@@ -358,6 +358,15 @@ def event(owner, value):
             tournament.get("id") if isinstance(tournament, dict) else None)
         owner._online_tour_refresh["list_dirty"] = True
         if str(changed_id or "") == data["selected"]:
+            detail = data["detail"]
+            changed = value if kind == "tour_changed" else tournament
+            revision = changed.get("rev") if isinstance(changed, dict) else None
+            current_revision = detail.get("rev")
+            # A delayed notification can describe the detail already reviewed.
+            if (str(detail.get("id") or "") == data["selected"]
+                    and type(revision) is int and type(current_revision) is int
+                    and 0 <= revision <= current_revision):
+                return True
             data["stale"] = True
             data["pending"] = ""
             owner._online_tour_refresh["detail_dirty"] = True
