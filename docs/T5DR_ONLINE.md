@@ -75,9 +75,8 @@ including on older installations.
 Regression tests cover adapter delegation, controller navigation, catalog
 structure in all seven languages and session safety with synthetic data.
 Mute, private-chat, unread, explicit-report, block and filter-notice loopback
-cases are included where the optional local server supports them. The current
-chat-controls implementation has not been executed here: the repository's
-virtual environment cannot start its configured Python 3.12 interpreter.
+cases are included where the optional local server supports them. Record the
+current test results and any skipped checks with each handover.
 The optional local lobby test is designed to use literal loopback addresses,
 temporary server state and a stub game handle, with guards against external
 network access, published server lists, subprocess launches and changes to its
