@@ -49,7 +49,7 @@ Column {
                     color: t.active ? hub.root.panel : "transparent"
                     Behavior on color { enabled: !hub.root.reducedMotion; ColorAnimation { duration: 100 } }
                     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 4; color: hub.v.accent; visible: !!parent.t.active }
-                    Text { anchors.centerIn: parent; width: parent.width - 28; height: 60; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; text: parent.t.label || ""; color: parent.t.active ? hub.root.textC : hub.root.muted; font.family: hub.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: 36; minimumPixelSize: 26; fontSizeMode: Text.Fit; elide: Text.ElideRight }
+                    Text { textFormat: Text.PlainText; anchors.centerIn: parent; width: parent.width - 28; height: 60; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; text: parent.t.label || ""; color: parent.t.active ? hub.root.textC : hub.root.muted; font.family: hub.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: 36; minimumPixelSize: 26; fontSizeMode: Text.Fit; elide: Text.ElideRight }
                     TapHandler { onTapped: hub.root.backend.clickTab(parent.t.id) }
                 }
             }
@@ -109,7 +109,7 @@ Column {
                                     width: Math.min(implicitWidth, 240); elide: Text.ElideMiddle
                                     textFormat: Text.PlainText; text: row.r.value || ""; color: row.r.focused ? "#0E0F11" : (row.r.missing ? hub.v.accent : hub.root.muted); font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 26
                                 }
-                                Text { visible: !!row.r.verb; width: Math.min(implicitWidth, 200); elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: row.r.verb || ""; color: "#0E0F11"; font.family: hub.root.sans; font.weight: Font.DemiBold; font.pixelSize: 26 }
+                                Text { textFormat: Text.PlainText; visible: !!row.r.verb; width: Math.min(implicitWidth, 200); elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: row.r.verb || ""; color: "#0E0F11"; font.family: hub.root.sans; font.weight: Font.DemiBold; font.pixelSize: 26 }
                                 Glyph { visible: !!row.r.verb; g: hub.v.confirmInk; anchors.verticalCenter: parent.verticalCenter }
                             }
                             TapHandler { onTapped: hub.root.backend.clickRow(row.r.index) }
@@ -117,8 +117,8 @@ Column {
                     }
                 }
             }
-            Text { visible: hub.v.more.up; x: 720; y: 2; text: "▲"; color: hub.root.muted; font.pixelSize: 18 }
-            Text { visible: hub.v.more.down; x: 720; anchors.bottom: parent.bottom; anchors.bottomMargin: 2; text: "▼"; color: hub.root.muted; font.pixelSize: 18 }
+            Text { textFormat: Text.PlainText; visible: hub.v.more.up; x: 720; y: 2; text: "▲"; color: hub.root.muted; font.pixelSize: 18 }
+            Text { textFormat: Text.PlainText; visible: hub.v.more.down; x: 720; anchors.bottom: parent.bottom; anchors.bottomMargin: 2; text: "▼"; color: hub.root.muted; font.pixelSize: 18 }
         }
 
         // ---------------------------------------------------------------- the detail panel
@@ -126,7 +126,7 @@ Column {
             width: 1160; height: parent.height
             color: hub.root.panel
             clip: true
-            Text { x: 1160 - implicitWidth - 8; y: -90; text: hub.v.numeral; color: "#1A1C20"; font.family: hub.root.display; font.weight: Font.Black; font.pixelSize: 980 }
+            Text { textFormat: Text.PlainText; x: 1160 - implicitWidth - 8; y: -90; text: hub.v.numeral; color: "#1A1C20"; font.family: hub.root.display; font.weight: Font.Black; font.pixelSize: 980 }
             Image {
                 visible: !!hub.v.hero && hub.v.tabs.length > 0 && (hub.d.images || []).length === 0 && !hub.d.image
                 source: hub.v.hero || ""
@@ -142,7 +142,7 @@ Column {
                     width: parent.width; spacing: 0
                     transformOrigin: Item.TopLeft
                     scale: Math.min(1, parent.height / Math.max(1, implicitHeight))
-                    Text { width: parent.width; text: hub.d.kicker || ""; elide: Text.ElideRight; color: hub.v.accent; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 24 }
+                    Text { textFormat: Text.PlainText; width: parent.width; text: hub.d.kicker || ""; elide: Text.ElideRight; color: hub.v.accent; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 24 }
                     Text { objectName: "detailTitle"; width: parent.width; topPadding: 8; textFormat: Text.PlainText; text: hub.d.title || ""; wrapMode: Text.Wrap; lineHeight: 0.95; color: hub.root.textC; font.family: hub.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: hub.hasImages ? 64 : 72 }
                     Text { objectName: "detailLead"; width: parent.width; topPadding: 12; visible: !!hub.d.lead; textFormat: Text.PlainText; text: hub.d.lead || ""; wrapMode: Text.Wrap; lineHeight: 1.1; color: hub.root.textC; font.family: hub.root.sans; font.pixelSize: 28 }
                     Item { width: 1; height: 16 }
@@ -185,7 +185,7 @@ Column {
                         visible: (hub.d.results || []).length > 0
                         spacing: 8
                         topPadding: 16
-                        Text { text: hub.v.recentSets; width: 260; elide: Text.ElideRight; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
+                        Text { textFormat: Text.PlainText; text: hub.v.recentSets; width: 260; elide: Text.ElideRight; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
                         Repeater {
                             model: (hub.d.results || []).length
                             ResultCell { required property int index; c: hub.root.ok(hub.d.results, index); accent: hub.v.accent; root: hub.root }
@@ -200,7 +200,7 @@ Column {
                 width: 860; height: 112
                 color: hub.root.bone
                 Rectangle { width: 6; height: parent.height; color: hub.v.accent }
-                Text { x: 40; width: parent.width - 152; height: parent.height - 24; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; minimumPixelSize: 36; fontSizeMode: Text.Fit; anchors.verticalCenter: parent.verticalCenter; text: hub.d.primary || ""; color: "#0E0F11"; font.family: hub.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 60 }
+                Text { textFormat: Text.PlainText; x: 40; width: parent.width - 152; height: parent.height - 24; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; minimumPixelSize: 36; fontSizeMode: Text.Fit; anchors.verticalCenter: parent.verticalCenter; text: hub.d.primary || ""; color: "#0E0F11"; font.family: hub.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 60 }
                 Glyph { anchors.right: parent.right; anchors.rightMargin: 40; anchors.verticalCenter: parent.verticalCenter; size: 56; g: hub.d.primaryG || ({}) }
                 TapHandler { onTapped: hub.root.backend.clickPrimary() }
             }

@@ -15,6 +15,7 @@ from .nav_drawer import Drawer
 from .nav_grid import Grid
 from .nav_hub import Hub
 from .nav_keyboard import Keyboard
+from .nav_library import Library
 from .nav_online import Online
 from .nav_picker import Picker
 from .nav_sections import Sections
@@ -31,10 +32,11 @@ class Game:
         self.accent = manifest["accent"]
 
 
-class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online):
+class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online, Library):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None,
-                 on_update_check=None, on_update_install=None):
+                 on_update_check=None, on_update_install=None, on_game_preview=None, on_game_accept=None,
+                 on_game_remove=None, on_game_update_check=None, on_game_update_install=None):
         self.games = games
         self.on_quit = on_quit or (lambda: None)
         self.install = install              # path -> message; a player's manifest (the free slots)
@@ -79,6 +81,18 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         self.update_version = ""
         self.online_rows = {}
         self.source_checks = {}
+        self.on_game_preview = on_game_preview
+        self.on_game_accept = on_game_accept
+        self.on_game_remove = on_game_remove
+        self.on_game_update_check = on_game_update_check
+        self.on_game_update_install = on_game_update_install
+        self.library_request = 0
+        self.library_pending = ""
+        self.library_busy = False
+        self.library_preview = None
+        self.library_page = 0
+        self.library_game = ""
+        self.library_offer = None
 
     def act(self, action, device=None):
         if device:
@@ -132,6 +146,12 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         self.toast_left = seconds
 
     def _handle(self, a):
+        if self.library_busy:
+            if a == "back" and self.overlay == "dialog" and self.confirm_kind.startswith("library_"):
+                self._cancel_library()
+            else:
+                self.say("@library.busy")
+            return
         if a == "quit":
             return self.request_quit()
         if a == "returnGame":
@@ -178,6 +198,9 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         self.say("@t4.returning", 8)
 
     def request_quit(self):
+        if self.library_busy:
+            self.say("@library.busy", 12)
+            return False
         busy = next((g for g in self.games if g.a.source_state().get("running") or g.a.build_state().get("running")), None)
         if busy:
             self._cancel_hold()
@@ -200,6 +223,9 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         return self.dry
 
     def start_game(self, g):
+        if self.library_busy:
+            self.say("@library.busy")
+            return
         if self._dry(i18n.message("dry_start", name=i18n.literal(g.short))):
             return
         if g.a.running():

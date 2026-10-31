@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "games": [
+    {
+      "id": "tt2",
+      "title": "Tekken Tag Tournament 2",
+      "repository": null,
+      "status": "placeholder"
+    }
+  ]
+}

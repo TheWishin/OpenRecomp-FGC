@@ -25,7 +25,7 @@ Item {
                 Rectangle { anchors.fill: parent; color: tile.t.focused ? "#15171A" : (tile.t.free ? "#090A0B" : "#0B0C0E") }
 
                 // A quiet numeral leaves the game colour to the small accents.
-                Text {
+                Text { textFormat: Text.PlainText;
                     text: tile.t.num || ""
                     x: tile.t.focused ? tile.width - implicitWidth - 40 : tile.width - implicitWidth - 12
                     y: tile.t.focused ? (tile.t.free ? 60 : -60) : (tile.t.free ? 300 : 360)
@@ -70,10 +70,10 @@ Item {
                         color: tile.t.focused ? (tile.t.accent || "#ECE9E1") : "transparent"
                         border.width: 2
                         border.color: tile.t.accent || "#ECE9E1"
-                        Text { id: badgeText; anchors.centerIn: parent; text: tile.t.badge || ""; color: tile.t.focused ? "#0E0F11" : (tile.t.accent || "#ECE9E1"); font.family: shelf.root.mono; font.weight: Font.DemiBold; font.pixelSize: 18 }
+                        Text { textFormat: Text.PlainText; id: badgeText; anchors.centerIn: parent; text: tile.t.badge || ""; color: tile.t.focused ? "#0E0F11" : (tile.t.accent || "#ECE9E1"); font.family: shelf.root.mono; font.weight: Font.DemiBold; font.pixelSize: 18 }
                     }
                     Item { width: 1; height: 12 }
-                    Text {
+                    Text { textFormat: Text.PlainText;
                         width: parent.width
                         text: tile.t.name || ""
                         wrapMode: Text.Wrap
@@ -85,7 +85,7 @@ Item {
                         font.capitalization: Font.AllUppercase
                         font.pixelSize: tile.t.focused ? 80 : (tile.t.free ? 34 : 48)
                     }
-                    Text {
+                    Text { textFormat: Text.PlainText;
                         width: parent.width
                         text: tile.t.subtitle || ""
                         wrapMode: Text.Wrap
@@ -102,8 +102,8 @@ Item {
                             readonly property var r: shelf.root.ok(tile.t.rows, index)
                             width: 500; height: 48; color: "transparent"
                             Rectangle { width: parent.width; height: 1; color: "#2A2D32" }
-                            Text { width: parent.width * 0.46; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: parent.r.k || ""; color: "#A3A5AB"; font.family: shelf.root.sans; font.pixelSize: 26 }
-                            Text { width: parent.width * 0.52; horizontalAlignment: Text.AlignRight; elide: Text.ElideMiddle; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; text: parent.r.v || ""; color: "#ECE9E1"; font.family: shelf.root.mono; font.weight: Font.Medium; font.pixelSize: 26 }
+                            Text { textFormat: Text.PlainText; width: parent.width * 0.46; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: parent.r.k || ""; color: "#A3A5AB"; font.family: shelf.root.sans; font.pixelSize: 26 }
+                            Text { textFormat: Text.PlainText; width: parent.width * 0.52; horizontalAlignment: Text.AlignRight; elide: Text.ElideMiddle; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; text: parent.r.v || ""; color: "#ECE9E1"; font.family: shelf.root.mono; font.weight: Font.Medium; font.pixelSize: 26 }
                         }
                     }
                     Item { width: 1; height: tile.t.focused ? 14 : 0 }
@@ -115,10 +115,10 @@ Item {
                             model: (tile.t.results || []).length
                             ResultCell { required property int index; c: shelf.root.ok(tile.t.results, index); accent: tile.t.accent || "#ECE9E1"; root: shelf.root }
                         }
-                        Text { visible: (tile.t.results || []).length === 0; width: 500; elide: Text.ElideRight; text: tile.t.empty || ""; color: "#A3A5AB"; font.family: shelf.root.sans; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
+                        Text { textFormat: Text.PlainText; visible: (tile.t.results || []).length === 0; width: 500; elide: Text.ElideRight; text: tile.t.empty || ""; color: "#A3A5AB"; font.family: shelf.root.sans; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
                     }
                     Item { width: 1; height: tile.t.focused ? 12 : 0 }
-                    Text {
+                    Text { textFormat: Text.PlainText;
                         visible: !!tile.t.focused
                         width: parent.width
                         text: (tile.t.sections || []).join(" · ")
@@ -136,7 +136,7 @@ Item {
                     anchors.bottom: parent.bottom
                     width: parent.width; height: 104
                     color: "#F2EFE6"
-                    Text { x: 64; width: parent.width - 208; height: parent.height - 16; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: 32; anchors.verticalCenter: parent.verticalCenter; text: tile.t.bar || ""; color: "#0E0F11"; font.family: shelf.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
+                    Text { textFormat: Text.PlainText; x: 64; width: parent.width - 208; height: parent.height - 16; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: 32; anchors.verticalCenter: parent.verticalCenter; text: tile.t.bar || ""; color: "#0E0F11"; font.family: shelf.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
                     Glyph { anchors.right: parent.right; anchors.rightMargin: 64; anchors.verticalCenter: parent.verticalCenter; size: 56; g: shelf.root.v.confirmInk }
                 }
                 TapHandler { onTapped: shelf.root.backend.clickTile(tile.index) }

@@ -73,6 +73,8 @@ class Drawer:
         self.on_language(self.language)
 
     def _update_busy(self):
+        if getattr(self, "library_busy", False):
+            return True
         for g in self.games:
             if (g.a.running() or g.a.build_state().get("running") or g.a.source_state().get("running")
                     or g.a.support_state().get("running")):

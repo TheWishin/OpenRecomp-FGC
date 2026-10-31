@@ -27,14 +27,15 @@ SOURCE_GROUPS = {
                    "nav_accounts.py", "nav_challenges.py", "nav_community.py", "nav_moderation.py",
                    "nav_private_chat.py", "nav_profiles.py",
                    "nav_rules.py", "nav_spectating.py", "nav_tournaments.py",
-                   "pad.py", "ranks.py", "updater.py", "update_service.py"),
+                   "pad.py", "ranks.py", "updater.py", "update_service.py",
+                   "game_library.py", "game_updates.py", "nav_library.py"),
     "openrecomp/adapters": ("__init__.py", "base.py", "launch_guard.py", "support.py", "t4.py", "t4_install.py",
                            "t4_online.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py",
                            "t5_coexist.py", "t5_compatibility.py",
                            "t5_accounts.py", "t5_challenges.py", "t5_community.py", "t5_features.py",
                            "t5_moderation.py", "t5_private_chat.py", "t5_profiles.py", "t5_rules.py",
                            "t5_spectating.py", "t5_tournaments.py"),
-    "openrecomp/data": ("t4_ranks.json",),
+    "openrecomp/data": ("t4_ranks.json", "known_games.json"),
     "openrecomp/i18n": ("__init__.py", "de.json", "en.json", "es.json", "fr.json", "ja.json", "ko.json", "pt-BR.json"),
     "openrecomp/ui": ("Glyph.qml", "Hub.qml", "Main.qml", "Overlays.qml", "ResultCell.qml", "Shelf.qml"),
     "openrecomp/ui/assets": ("icon.ico", "icon.svg", "logo-mark-light.svg", "logo-mark.svg", "logo-wordmark-light.svg", "logo-wordmark.svg"),
@@ -44,7 +45,7 @@ SOURCE_GROUPS = {
                             "OFL-IBMPlexMono.txt", "OFL-IBMPlexSans.txt"),
     "games": ("t4.json", "t5dr.json"),
     "docs": ("PACKAGING.md", "INSTALLING.md", "UPDATES.md", "T4_FIRST_RUN.md", "T4_ONLINE.md", "T5DR_ONLINE.md",
-             "T5DR_COEXISTENCE.md", "HAND_CHECK.md"),
+             "T5DR_COEXISTENCE.md", "HAND_CHECK.md", "ADD_YOUR_GAME.md"),
 }
 SOURCE_FILES = {folder + "/" + name for folder, names in SOURCE_GROUPS.items() for name in names}
 SOURCE_FILES.update(("LICENSE", "README.md"))

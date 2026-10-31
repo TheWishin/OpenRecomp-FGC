@@ -1,8 +1,11 @@
 """What a game must offer the launcher. The screens only ever talk to this interface."""
 import glob
+import hashlib
+import json
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 
 NO_WINDOW = 0x08000000 if os.name == "nt" else 0
@@ -275,34 +278,69 @@ class Missing(Adapter):
 
 
 class Generic(Adapter):
-    """Any finished recomp: the manifest names its exe (and optionally args, cwd and environment)."""
+    """A declarative game: read data, and run only its executable on an explicit action."""
 
     def __init__(self, manifest, config=None):
         super().__init__(manifest, config)
         self.proc = None
+        self._source_state = dict(running=False, result="", id="", ok=False)
+
+    @property
+    def root(self):
+        return (self.config.get("roots") or {}).get(self.m["id"], "")
+
+    def _path(self, relative):
+        from ..manifest import ManifestError, resolve_path
+        if not self.root:
+            raise RuntimeError("@generic.root_missing")
+        try:
+            return resolve_path(self.root, relative)
+        except ManifestError as e:
+            raise RuntimeError("@generic.root_missing") from e
 
     def exe(self):
+        if self.m.get("schema_version") == 1:
+            if not self.m["exe"].lower().endswith(".exe"):
+                raise RuntimeError("@not_ready")
+            return self._path(self.m["exe"])
         return os.path.expandvars(self.m["exe"])
 
     def found(self):
+        if self.m.get("schema_version") == 1:
+            return bool(self.root) and os.path.isdir(self.root)
         return os.path.isfile(self.exe())
 
     def ready(self):
-        return self.found()
+        try:
+            return os.path.isfile(self.exe())
+        except (ValueError, RuntimeError):
+            return False
 
     def status(self):
-        if self.found():
-            return dict(status="@ready", version=str(self.m.get("version", "@unknown")), players="@no",
+        from .. import i18n
+        if self.ready():
+            installed = (self.config.get("game_versions") or {}).get(self.m["id"], self.m.get("version"))
+            version = i18n.literal(installed) if self.m.get("schema_version") == 1 and installed else str(self.m.get("version", "@unknown"))
+            return dict(status="@ready", version=version, players="@no",
                         last="@unknown", detail="@generic_hint")
         return dict(status="@not_found", version="@none_lower", players="@no", last="@never",
-                    detail=self.message("file_missing", path=self.exe()))
+                    detail="@generic.root_missing" if not self.found() else "@generic.build_manual")
 
     def start(self, extra_env=None):
+        if self.running():
+            raise RuntimeError("@generic.running")
+        if not self.ready():
+            raise RuntimeError("@not_ready")
         env = dict(os.environ)
-        env.update({str(k): str(v) for k, v in (self.m.get("env") or {}).items()})
+        if self.m.get("schema_version") != 1:
+            env.update({str(k): str(v) for k, v in (self.m.get("env") or {}).items()})
         env.update(extra_env or {})
-        cwd = os.path.expandvars(self.m.get("cwd") or os.path.dirname(self.exe()))
-        self.proc = subprocess.Popen([self.exe()] + [str(a) for a in self.m.get("args") or []], cwd=cwd, env=env)
+        if self.m.get("schema_version") == 1:
+            cwd = self._path(self.m["cwd"]) if self.m.get("cwd") else self.root
+        else:
+            cwd = os.path.expandvars(self.m.get("cwd") or os.path.dirname(self.exe()))
+        self.proc = subprocess.Popen([self.exe()] + list(self.m.get("args") or []), cwd=cwd, env=env,
+                                     shell=False)
         return self.proc.pid
 
     def running(self):
@@ -311,6 +349,140 @@ class Generic(Adapter):
     def stop(self):
         if self.running():
             self.proc.terminate()
+
+    def hero(self):
+        try:
+            path = self._path(self.m["logo"]) if self.m.get("logo") else ""
+            if (path and path.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))
+                    and os.path.isfile(path) and os.path.getsize(path) <= 8 * 1024 * 1024):
+                return path
+            return ""
+        except (OSError, ValueError, RuntimeError):
+            return ""
+
+    def settings(self):
+        from .. import i18n
+        declared = self.m.get("settings") or {}
+        if not declared or not self.found():
+            return []
+        try:
+            values = self._read_settings()
+        except RuntimeError:
+            self.problem = "@generic.settings_error"
+            return []
+        return [dict(id=c["id"], label=i18n.literal(c["label"]), hint="@generic.controls_hint" if c["id"] == "controls" else "",
+                     lead="", options=[(o["value"], i18n.literal(o["label"])) for o in c["options"]],
+                     value=values.get(c["key"], c["options"][0]["value"])) for c in declared["cyclers"]]
+
+    def _read_settings(self):
+        try:
+            path = self._path(self.m["settings"]["file"])
+            with open(path, "rb") as stream:
+                data = stream.read(1024 * 1024 + 1)
+            if len(data) > 1024 * 1024:
+                raise ValueError
+            value = json.loads(data)
+            if not isinstance(value, dict):
+                raise ValueError
+            return value
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError, RuntimeError) as e:
+            raise RuntimeError("@generic.settings_error") from e
+
+    def set_setting(self, sid, value):
+        if self.running():
+            raise RuntimeError("@generic.running")
+        declared = self.m.get("settings") or {}
+        cycler = next((c for c in declared.get("cyclers", []) if c["id"] == sid), None)
+        if not cycler or not any(type(o["value"]) is type(value) and o["value"] == value for o in cycler["options"]):
+            raise RuntimeError("@generic.settings_error")
+        values = self._read_settings()
+        values[cycler["key"]] = value
+        temporary = None
+        try:
+            path = self._path(declared["file"])
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=os.path.dirname(path),
+                                             suffix=".json", delete=False) as stream:
+                temporary = stream.name
+                json.dump(values, stream, ensure_ascii=False, indent=1, allow_nan=False)
+            # Recheck containment immediately before replacing an existing file.
+            os.replace(temporary, self._path(declared["file"]))
+        except (OSError, ValueError, RuntimeError) as e:
+            raise RuntimeError("@generic.settings_error") from e
+        finally:
+            if temporary is not None and os.path.exists(temporary):
+                os.unlink(temporary)
+
+    def sources(self):
+        from .. import i18n
+        out = [dict(id="folder", label="@game_folder", value=i18n.literal(self.root) if self.root else "@missing",
+                    ok=self.found(), kind="folder", exts=[], dirs=[self.root] if self.root else [], hint="@folder_hint")]
+        supplied = (self.config.get("generic_sources") or {}).get(self.m["id"], {})
+        for requirement in self.m.get("requirements") or []:
+            checked = supplied.get(requirement["id"], {})
+            out.append(dict(id=requirement["id"], label=i18n.literal(requirement["label"]),
+                            value=i18n.literal(checked["path"]) if checked.get("path") else "@missing",
+                            ok=checked.get("sha256") == requirement["sha256"].lower(), exts=[".iso"] if requirement["kind"] == "iso" else [],
+                            dirs=[], kind="file", hint=self.message("generic.requirement_hint", version=i18n.literal(requirement["version"]),
+                                                                   sha256=i18n.literal(requirement["sha256"]))))
+        return out
+
+    def set_source(self, sid, path):
+        if self.running() or self._source_state["running"]:
+            raise RuntimeError("@generic.running")
+        if sid == "folder":
+            if not os.path.isdir(path):
+                raise RuntimeError("@generic.root_missing")
+            self.config.setdefault("roots", {})[self.m["id"]] = os.path.realpath(path)
+            return "reload"
+        requirement = next((r for r in self.m.get("requirements", []) if r["id"] == sid), None)
+        if not requirement or not os.path.isfile(path):
+            raise RuntimeError("@generic.requirement_bad_hash")
+        self.config.setdefault("generic_sources", {}).setdefault(self.m["id"], {}).pop(sid, None)
+        self._source_state = dict(running=True, result="", id=sid, ok=False)
+
+        def check():
+            try:
+                digest = hashlib.sha256()
+                with open(path, "rb") as stream:
+                    for block in iter(lambda: stream.read(1024 * 1024), b""):
+                        digest.update(block)
+                ok = digest.hexdigest() == requirement["sha256"].lower()
+                if ok:
+                    self.config.setdefault("generic_sources", {}).setdefault(self.m["id"], {})[sid] = dict(path=path, sha256=digest.hexdigest())
+                self._source_state = dict(running=False, result="reload" if ok else "@generic.requirement_bad_hash", id=sid, ok=ok)
+            except OSError:
+                self._source_state = dict(running=False, result="@generic.requirement_bad_hash", id=sid, ok=False)
+
+        try:
+            self._source_thread = threading.Thread(target=check, daemon=True)
+            self._source_thread.start()
+        except RuntimeError:
+            self._source_state = dict(running=False, result="@generic.requirement_bad_hash", id=sid, ok=False)
+        return "@generic.source_checking"
+
+    def source_state(self):
+        return dict(self._source_state)
+
+    def build_ready(self):
+        from .. import i18n
+        return i18n.literal(self.m["build"]["instructions"]) if self.m.get("build") else "@no_build_here"
+
+    def online_items(self):
+        mode = (self.m.get("online") or {}).get("mode", "none")
+        if mode == "own":
+            return [dict(kind="action", id="own", label="@generic.own_online", verb="@start", hint="@generic.own_online_hint",
+                         detail=dict(kicker="@section.online", title="@generic.own_online", lead="@generic.own_online_hint", rows=[]))]
+        if mode == "lobby":
+            return [dict(kind="action", id="none", label="@generic.lobby_arrangement", disabled=True,
+                         hint="@generic.lobby_arrangement", detail=dict(kicker="@section.online", title="@generic.lobby_arrangement", lead="@generic.lobby_arrangement", rows=[]))]
+        return []
+
+    def run_online(self, item_id):
+        if item_id == "own" and (self.m.get("online") or {}).get("mode") == "own":
+            self.start()
+        return ""
 
 
 class ProcessBuild:

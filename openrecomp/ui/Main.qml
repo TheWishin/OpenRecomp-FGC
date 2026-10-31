@@ -59,23 +59,23 @@ Window {
                     Row {
                         visible: win.v.screen === "hub"; spacing: 12; anchors.verticalCenter: parent.verticalCenter
                         Rectangle { width: 14; height: 14; color: win.v.accent; anchors.verticalCenter: parent.verticalCenter }
-                        Text { width: Math.min(implicitWidth, 280); elide: Text.ElideRight; text: win.v.gameShort; color: win.muted; font.family: win.sans; font.pixelSize: 26 }
+                        Text { textFormat: Text.PlainText; width: Math.min(implicitWidth, 280); elide: Text.ElideRight; text: win.v.gameShort; color: win.muted; font.family: win.sans; font.pixelSize: 26 }
                         Rectangle {
                             visible: !!win.v.badge
                             anchors.verticalCenter: parent.verticalCenter
                             width: hubBadge.implicitWidth + 16; height: 30
                             color: "transparent"; border.width: 2; border.color: win.v.accent
-                            Text { id: hubBadge; anchors.centerIn: parent; text: win.v.badge || ""; color: win.v.accent; font.family: win.mono; font.weight: Font.DemiBold; font.pixelSize: 18 }
+                            Text { textFormat: Text.PlainText; id: hubBadge; anchors.centerIn: parent; text: win.v.badge || ""; color: win.v.accent; font.family: win.mono; font.weight: Font.DemiBold; font.pixelSize: 18 }
                         }
                     }
                 }
                 Row {
                     anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 36
-                    Text { visible: win.v.screen === "hub"; width: Math.min(implicitWidth, 320); elide: Text.ElideRight; text: win.v.topline; color: win.muted; font.family: win.mono; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
+                    Text { textFormat: Text.PlainText; visible: win.v.screen === "hub"; width: Math.min(implicitWidth, 320); elide: Text.ElideRight; text: win.v.topline; color: win.muted; font.family: win.mono; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
                     Row {
                         spacing: 12; anchors.verticalCenter: parent.verticalCenter
                         Glyph { g: win.v.social; size: 40 }
-                        Text { width: Math.min(implicitWidth, 260); elide: Text.ElideRight; text: win.v.quickAccess; color: win.textC; font.family: win.sans; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
+                        Text { textFormat: Text.PlainText; width: Math.min(implicitWidth, 260); elide: Text.ElideRight; text: win.v.quickAccess; color: win.textC; font.family: win.sans; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
                         TapHandler { onTapped: win.backend.press("social") }
                     }
                 }
@@ -98,7 +98,7 @@ Window {
                     anchors.left: parent.left; anchors.leftMargin: 48; anchors.right: deviceLabel.left; anchors.rightMargin: 32; anchors.verticalCenter: parent.verticalCenter
                     height: 52; text: win.v.hint; textFormat: Text.PlainText; color: win.textC; font.family: win.sans; font.pixelSize: 28; minimumPixelSize: 18; fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2; verticalAlignment: Text.AlignVCenter
                 }
-                Text {
+                Text { textFormat: Text.PlainText;
                     id: deviceLabel
                     anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter
                     width: 320; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight
@@ -120,7 +120,7 @@ Window {
                             width: (1824 - Math.max(0, win.v.prompts.length - 1) * 20) / Math.max(1, win.v.prompts.length)
                             spacing: 12
                             Glyph { id: promptGlyph; g: parent.p.g || ({}); size: 40; anchors.verticalCenter: parent.verticalCenter }
-                            Text { objectName: "promptLabel"; width: parent.width - promptGlyph.width - 12; height: 44; text: parent.p.label || ""; color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 26; minimumPixelSize: 20; fontSizeMode: Text.Fit; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter; anchors.verticalCenter: parent.verticalCenter }
+                            Text { textFormat: Text.PlainText; objectName: "promptLabel"; width: parent.width - promptGlyph.width - 12; height: 44; text: parent.p.label || ""; color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 26; minimumPixelSize: 20; fontSizeMode: Text.Fit; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter; anchors.verticalCenter: parent.verticalCenter }
                             TapHandler { onTapped: win.backend.press(parent.p.action) }
                         }
                     }
@@ -136,7 +136,7 @@ Window {
             anchors.right: parent.right; anchors.rightMargin: 48; y: 88
             width: Math.min(toastText.implicitWidth + 56, 860); height: toastText.implicitHeight + 36
             color: win.textC
-            Text { id: toastText; x: 28; y: 18; width: Math.min(implicitWidth, 804); text: win.v.toast; color: "#0E0F11"; wrapMode: Text.Wrap; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 26 }
+            Text { textFormat: Text.PlainText; id: toastText; x: 28; y: 18; width: Math.min(implicitWidth, 804); text: win.v.toast; color: "#0E0F11"; wrapMode: Text.Wrap; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 26 }
         }
     }
 }

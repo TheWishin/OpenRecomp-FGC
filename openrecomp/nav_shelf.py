@@ -21,7 +21,7 @@ class Shelf:
         return None
 
     def can_reload_games(self):
-        return not self.binding_game and not self._update_busy()
+        return not self.library_busy and not self.binding_game and not self._update_busy()
 
     def set_games(self, games):
         if not self.can_reload_games():
@@ -66,7 +66,10 @@ class Shelf:
             g = self.game_by_id(ids[self.start_focus])
             if g is None:
                 if a == "confirm":
-                    self._open_picker("manifest", "@choose_manifest", [".json"], [mf.BUILTIN_DIR, os.path.expanduser("~\\Downloads")], "file")
+                    if self.on_game_preview:
+                        self._ask("library_source")
+                    else:
+                        self._open_picker("manifest", "@choose_manifest", [".json"], [mf.BUILTIN_DIR, os.path.expanduser("~\\Downloads")], "file")
             elif a == "confirm":
                 self._select_game(g)
                 if g.a.source_state().get("running"):
@@ -77,6 +80,10 @@ class Shelf:
                     self._open_picker("source:" + source["id"], "@onboarding.choose_folder", source["exts"], source["dirs"], source["kind"])
                 else:
                     self.screen = "hub"
+            elif a == "x" and g.m.get("schema_version") == 1 and g.m.get("adapter") == "generic":
+                self._select_game(g)
+                self.library_game = g.id
+                self._ask("library_manage")
             elif a == "play":
                 self._select_game(g)
                 self.start_game(g)
@@ -113,7 +120,7 @@ class Shelf:
             else:
                 t.update(badge="", num="+", name="@free_slot" if not foc else "@add_recomp", subtitle="@another_game" if foc else "", accent="#ECE9E1", hero="",
                          rows=[dict(k="@name_colour", v="@manifest"), dict(k="@sections", v="@manifest"), dict(k="@build_exe", v="@manifest")],
-                         results=[], empty="@manifest_screens", sections=[], bar="@choose_manifest")
+                         results=[], empty="@manifest_screens", sections=[], bar="@library.add" if self.on_game_preview else "@choose_manifest")
             tiles.append(t)
         v["shelf"] = dict(tiles=tiles, x=x, w=total)
         g = self.game_by_id(ids[focus])
@@ -131,10 +138,12 @@ class Shelf:
             v["prompts"] = [self.prompt("confirm", "@onboarding.choose_folder" if self._folder_source(g) else ("@open" if ready else "@go_build")), self.prompt("right", "@choose_game")]
             if ready:
                 v["prompts"].append(self.prompt("play", "@play"))
+            if g.m.get("schema_version") == 1 and g.m.get("adapter") == "generic":
+                v["prompts"].append(self.prompt("x", "@library.manage"))
             v["prompts"] += [self.prompt("switchGame", "@switch_game"), self.prompt("social", "@quick_access"), self.prompt("back", "@quit")]
         else:
             v["hint"] = "@onboarding.empty" if not self.games else "@manifest_hint"
-            v["prompts"] = [self.prompt("confirm", "@choose_manifest"), self.prompt("right", "@choose_game"), self.prompt("social", "@quick_access"), self.prompt("back", "@quit")]
+            v["prompts"] = [self.prompt("confirm", "@library.add" if self.on_game_preview else "@choose_manifest"), self.prompt("right", "@choose_game"), self.prompt("social", "@quick_access"), self.prompt("back", "@quit")]
 
     def click_tile(self, index):
         self._cancel_hold()

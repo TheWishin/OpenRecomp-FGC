@@ -304,6 +304,10 @@ def untranslated_literals(source):
         "private_read", "private_report", "private_reports", "private_select:", "private_send",
         "receipt", "to",
     })
+    technical.update({
+        ".exe", ".png", ".jpg", ".jpeg", ".webp", "preview", "library_repository", "library_folder", "library_source", "library_manage",
+        "library_loading", "library_preview", "library_remove", "library_update",
+    })
     formats = {
         'f"{platform} RECOMP"', 'f"slot{i}"', 'f"{self.game.id}:{self.section()}"', 'f"{letter}:\\\\"',
         'f"v{version}"', 'f"face_{gid:02d}.png"', 'f"hero_{gid:02d}.png"',
@@ -533,6 +537,15 @@ class Catalogs(unittest.TestCase):
         self.assertTrue(untranslated_literals('def quick_settings(self):\n'
                                              '    self.say("Choose a setting")\n'
                                              '    return ["resolution"]\n'))
+
+    def test_python_scan_accepts_library_protocol_but_checks_visible_text(self):
+        for value in (".exe", ".png", ".jpg", ".jpeg", ".webp", "preview", "library_repository", "library_source", "library_manage",
+                      "library_loading", "library_preview", "library_remove", "library_update"):
+            with self.subTest(value=value):
+                self.assertEqual(untranslated_literals(f'token = {value!r}'), [])
+                self.assertTrue(untranslated_literals(f'dict(label={value!r})'))
+                self.assertTrue(untranslated_literals(f'self.say({value!r})'))
+        self.assertTrue(untranslated_literals('token = "library_player_warning"'))
 
     def test_python_scan_accepts_runtime_names_and_temporary_file_prefix(self):
         source = ('for name in ("core", "replays"):\n'

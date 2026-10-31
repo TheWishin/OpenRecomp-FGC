@@ -81,27 +81,15 @@ for two seconds to stop the game and return to the launcher.
 
 ## Add a game
 
-Press A on a free slot and pick a manifest, or copy the file to `%LOCALAPPDATA%\OpenRecomp\games`. A finished recomp only
-needs this:
+Press A on a free slot, then enter a GitHub `owner/repo` or choose a local folder.
+Review the author, required files and third-party warning before accepting the game.
+Each game keeps its own releases, login and servers; removing it from the shelf leaves
+its files and player data in place. The T5DR launcher remains available alongside this one.
 
-```json
-{
- "id": "mygame",
- "title": "My Game",
- "subtitle": "PS2 Recomp",
- "platform": "PS2",
- "numeral": "M",
- "accent": "#2FC4B2",
- "adapter": "generic",
- "exe": "D:\\MyGame\\game.exe",
- "args": [],
- "env": {},
- "sections": ["play", "settings"]
-}
-```
-
-A game with its own build, settings or online play gets an adapter in `openrecomp/adapters/`. The screens only talk to
-the interface in `adapters/base.py`, so a new adapter changes no screen.
+Recomp authors can publish one `openrecomp-game.json` file using the
+[versioned manifest specification](docs/ADD_YOUR_GAME.md). The Generic adapter needs no
+launcher code from them for basic launching and declared JSON settings. Tekken Tag
+Tournament 2 has a placeholder in the small known-games catalog until its repository is known.
 
 ## Layout
 

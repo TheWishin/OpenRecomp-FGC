@@ -18,7 +18,7 @@ Item {
         Column {
             id: dialogColumn
             x: 64; y: 56; width: 732; spacing: 16
-            Text { width: parent.width; text: ov.v.dialog.title; wrapMode: Text.Wrap; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 88; lineHeight: 0.95 }
+            Text { textFormat: Text.PlainText; width: parent.width; text: ov.v.dialog.title; wrapMode: Text.Wrap; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 88; lineHeight: 0.95 }
             Text { width: parent.width; text: ov.v.dialog.text; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: ov.root.textC; font.family: ov.root.sans; font.pixelSize: 30; bottomPadding: 24 }
             Row {
                 spacing: 12
@@ -28,7 +28,7 @@ Item {
                         required property int index
                         readonly property var o: ov.root.ok(ov.v.dialog.options, index)
                         width: 360; height: 104; color: o.focused ? ov.root.bone : "#24272C"
-                        Text { anchors.centerIn: parent; width: parent.width - 24; horizontalAlignment: Text.AlignHCenter; text: parent.o.label || ""; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: 24; color: parent.o.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
+                        Text { textFormat: Text.PlainText; anchors.centerIn: parent; width: parent.width - 24; horizontalAlignment: Text.AlignHCenter; text: parent.o.label || ""; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: 24; color: parent.o.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
                         TapHandler { onTapped: ov.root.backend.clickEntry(parent.index) }
                     }
                 }
@@ -44,7 +44,7 @@ Item {
         color: ov.root.panel
         Item {
             y: 40; width: parent.width; height: parent.height - 40
-            Text { x: 48; width: parent.width - 96; elide: Text.ElideRight; text: ov.v.quickAccess; bottomPadding: 20; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 72 }
+            Text { textFormat: Text.PlainText; x: 48; width: parent.width - 96; elide: Text.ElideRight; text: ov.v.quickAccess; bottomPadding: 20; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 72 }
             Item {
                 objectName: "drawerViewport"
                 y: 112; width: parent.width; height: parent.height - y; clip: true
@@ -59,8 +59,8 @@ Item {
                             readonly property var r: ov.root.ok(ov.v.drawer.rows, index)
                             width: 780; height: r.focused ? 92 : 76
                             color: r.focused ? ov.root.bone : "transparent"
-                            Text { x: 48; width: 330; height: parent.height - 12; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: 28; verticalAlignment: Text.AlignVCenter; anchors.verticalCenter: parent.verticalCenter; text: parent.r.label || ""; color: parent.r.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: parent.r.focused ? 44 : 36 }
-                            Text { width: 310; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight; anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; text: parent.r.value || ""; color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.sans; font.pixelSize: 26 }
+                            Text { textFormat: Text.PlainText; x: 48; width: 330; height: parent.height - 12; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: 28; verticalAlignment: Text.AlignVCenter; anchors.verticalCenter: parent.verticalCenter; text: parent.r.label || ""; color: parent.r.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: parent.r.focused ? 44 : 36 }
+                            Text { textFormat: Text.PlainText; width: 310; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight; anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; text: parent.r.value || ""; color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.sans; font.pixelSize: 26 }
                             TapHandler { onTapped: ov.root.backend.clickEntry(parent.index) }
                         }
                     }
@@ -76,8 +76,8 @@ Item {
         color: ov.root.panel
         Row {
             x: 32; y: 24; spacing: 28
-            Text { text: ov.v.fighterTitle; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
-            Text { visible: !!ov.v.grid.main; text: ov.v.fighterMain + (ov.v.grid.main || ""); color: ov.root.muted; font.family: ov.root.sans; font.pixelSize: 26; anchors.baseline: parent.children[0].baseline }
+            Text { textFormat: Text.PlainText; text: ov.v.fighterTitle; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
+            Text { textFormat: Text.PlainText; visible: !!ov.v.grid.main; text: ov.v.fighterMain + (ov.v.grid.main || ""); color: ov.root.muted; font.family: ov.root.sans; font.pixelSize: 26; anchors.baseline: parent.children[0].baseline }
         }
         Grid {
             x: 32; y: 96; columns: 9; spacing: 6
@@ -105,7 +105,7 @@ Item {
                             Image { required property int index; width: 70; height: 70; source: (ov.v.grid.mosaic || [])[index] || ""; asynchronous: true; mipmap: true }
                         }
                     }
-                    Text {
+                    Text { textFormat: Text.PlainText;
                         anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 8
                         width: parent.width - 8; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
                         text: cell.c.name || ""
@@ -117,7 +117,7 @@ Item {
                         anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 6
                         width: mainTag.implicitWidth + 12; height: mainTag.implicitHeight + 4
                         color: "#0E0F11"
-                        Text { id: mainTag; anchors.centerIn: parent; text: ov.v.mainLabel; color: ov.root.bone; font.family: ov.root.mono; font.weight: Font.DemiBold; font.pixelSize: 16 }
+                        Text { textFormat: Text.PlainText; id: mainTag; anchors.centerIn: parent; text: ov.v.mainLabel; color: ov.root.bone; font.family: ov.root.mono; font.weight: Font.DemiBold; font.pixelSize: 16 }
                     }
                     TapHandler { onTapped: ov.root.backend.clickCell(cell.index) }
                 }
@@ -172,9 +172,9 @@ Item {
         color: ov.root.panel
         Column {
             x: 48; y: 32; width: 1304
-            Text { width: parent.width; elide: Text.ElideRight; text: ov.v.picker.title; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 64 }
-            Text { width: parent.width; bottomPadding: 16; text: ov.v.picker.path; elide: Text.ElideMiddle; color: ov.root.muted; font.family: ov.root.mono; font.pixelSize: 24 }
-            Text { objectName: "pickerMessage"; width: parent.width; height: 64; text: ov.v.picker.message || ""; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; color: ov.root.textC; font.family: ov.root.sans; font.pixelSize: 26 }
+            Text { textFormat: Text.PlainText; width: parent.width; elide: Text.ElideRight; text: ov.v.picker.title; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 64 }
+            Text { textFormat: Text.PlainText; width: parent.width; bottomPadding: 16; text: ov.v.picker.path; elide: Text.ElideMiddle; color: ov.root.muted; font.family: ov.root.mono; font.pixelSize: 24 }
+            Text { textFormat: Text.PlainText; objectName: "pickerMessage"; width: parent.width; height: 64; text: ov.v.picker.message || ""; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; color: ov.root.textC; font.family: ov.root.sans; font.pixelSize: 26 }
             Repeater {
                 model: ov.v.picker.rows.length
                 Rectangle {
@@ -182,13 +182,13 @@ Item {
                     readonly property var r: ov.root.ok(ov.v.picker.rows, index)
                     width: 1304; height: 60
                     color: r.focused ? ov.root.bone : "transparent"
-                    Text { x: 20; width: 160; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: parent.r.kind === "dir" ? ov.v.folder : (parent.r.kind === "pick" ? ov.v.pick : ov.v.file); color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.mono; font.pixelSize: 22 }
-                    Text { x: 200; width: 1080; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideMiddle; text: parent.r.name || ""; color: parent.r.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.sans; font.weight: parent.r.kind === "file" ? Font.DemiBold : Font.Normal; font.pixelSize: 30 }
+                    Text { textFormat: Text.PlainText; x: 20; width: 160; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: parent.r.kind === "dir" ? ov.v.folder : (parent.r.kind === "pick" ? ov.v.pick : ov.v.file); color: parent.r.focused ? "#0E0F11" : ov.root.muted; font.family: ov.root.mono; font.pixelSize: 22 }
+                    Text { textFormat: Text.PlainText; x: 200; width: 1080; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideMiddle; text: parent.r.name || ""; color: parent.r.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.sans; font.weight: parent.r.kind === "file" ? Font.DemiBold : Font.Normal; font.pixelSize: 30 }
                     TapHandler { onTapped: ov.root.backend.clickEntry(parent.r.index) }
                 }
             }
         }
-        Text { visible: ov.v.picker.up; x: 1360; y: 130; text: "▲"; color: ov.root.muted; font.pixelSize: 18 }
-        Text { visible: ov.v.picker.down; x: 1360; y: 890; text: "▼"; color: ov.root.muted; font.pixelSize: 18 }
+        Text { textFormat: Text.PlainText; visible: ov.v.picker.up; x: 1360; y: 130; text: "▲"; color: ov.root.muted; font.pixelSize: 18 }
+        Text { textFormat: Text.PlainText; visible: ov.v.picker.down; x: 1360; y: 890; text: "▼"; color: ov.root.muted; font.pixelSize: 18 }
     }
 }

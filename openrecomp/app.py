@@ -1,8 +1,11 @@
 """The Qt side: one window, one QML scene, one Backend object between the scene and Nav."""
 import argparse
 import ctypes
+import copy
 import os
+import queue
 import sys
+import threading
 
 from PySide6.QtCore import QObject, QTimer, Property, Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QFontDatabase, QGuiApplication, QIcon, QWindow
@@ -14,6 +17,8 @@ from .nav import Game, Nav
 from .pad import Pads, PlayStationReader, WinMMPlayStationReader, XInputReader
 from .update_service import UpdateService
 from . import updater
+from .game_library import Library
+from .game_updates import GameUpdates
 
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right", Qt.Key_Return: "confirm", Qt.Key_Enter: "confirm",
@@ -34,13 +39,21 @@ class Backend(QObject):
     def __init__(self, launch_env=None, parent=None, windowed=False):
         super().__init__(parent)
         self.config = mf.load_config()
+        self.library = Library(self.config)
+        self._library_results = queue.Queue()
+        self._library_work = None
+        self._game_offers = {}
+        self._game_updaters = {}
         games, problems = load_games(self.config)
         self.nav = Nav(games, on_quit=self._quit, install=self._install, launch_env=launch_env,
                        language=self.config.get("language"), on_language=self._save_language,
                        last_game=self.config.get("last_game"), on_game=self._save_game,
                        fullscreen=self.config.get("fullscreen", True) and not windowed,
                        reduced_motion=self.config.get("reduced_motion", False), on_preferences=self._save_preferences,
-                       on_update_check=self._check_updates, on_update_install=self._install_update)
+                       on_update_check=self._check_updates, on_update_install=self._install_update,
+                       on_game_preview=self._preview_game, on_game_accept=self._accept_game,
+                       on_game_remove=self._remove_game, on_game_update_check=self._check_game_update,
+                       on_game_update_install=self._install_game_update)
         self.updates = UpdateService(busy=self._update_busy, quit=self._quit)
         self._offered_update = False
         self._update_phase = "idle"
@@ -75,6 +88,8 @@ class Backend(QObject):
         self.timer.start()
 
     def _update_busy(self):
+        if getattr(self, "_library_work", None) is not None:
+            return True
         if self.nav.binding_active():
             return True
         for game in self.nav.games:
@@ -114,6 +129,122 @@ class Backend(QObject):
             self._offered_update = self.nav.offer_update()
             changed = changed or self._offered_update
         return changed
+
+    def _library_job(self, kind, operation, game_id=""):
+        if self._library_work is not None or self._update_busy():
+            return "@library.busy"
+        request = self.nav.library_request
+        self._library_work = (kind, request, game_id)
+        self.nav.library_busy = True
+
+        def work():
+            try:
+                result, failed = operation(), False
+            except Exception:  # noqa: BLE001 -- never expose local paths or network response text
+                result, failed = None, True
+            self._library_results.put((kind, request, game_id, result, failed))
+
+        try:
+            threading.Thread(target=work, daemon=True).start()
+        except Exception:  # noqa: BLE001 -- a missing worker must leave navigation usable
+            self._library_work = None
+            self.nav.library_busy = False
+            return "@library.failed"
+        return "@library.loading"
+
+    def _preview_game(self, source):
+        return self._library_job("preview", lambda: self.library.preview(source))
+
+    def _reload_library(self):
+        games, problems = load_games(self.config)
+        if not self.nav.set_games(games):
+            return "@library.busy"
+        self._load_pads(games)
+        return problems[0] if problems else "@library.saved"
+
+    def _accept_game(self, preview):
+        if not self.nav.can_reload_games():
+            return "@library.busy"
+        try:
+            self.library.accept(preview)
+            self._game_offers.clear()
+            self._game_updaters.clear()
+            return self._reload_library()
+        except Exception:  # noqa: BLE001 -- registration errors use the selected language
+            return "@library.failed"
+
+    def _remove_game(self, game_id):
+        if not self.nav.can_reload_games():
+            return "@library.busy"
+        try:
+            self.library.remove(game_id)
+            self._game_offers.pop(game_id, None)
+            self._game_updaters.pop(game_id, None)
+            return self._reload_library()
+        except Exception:  # noqa: BLE001 -- game folders and their data are never removed
+            return "@library.failed"
+
+    def _check_game_update(self, game_id):
+        if self._library_work is not None:
+            return "@library.busy"
+        game = self.nav.game_by_id(game_id)
+        if game is None or game.m.get("adapter") != "generic":
+            return "@library.failed"
+        manifest = copy.deepcopy(game.m)
+        service = GameUpdates(copy.deepcopy(self.config))
+        self._game_updaters[game_id] = service
+        return self._library_job("check", lambda: service.check(manifest), game_id)
+
+    def _install_game_update(self, game_id):
+        if self._library_work is not None:
+            return "@library.busy"
+        game = self.nav.game_by_id(game_id)
+        offer = self._game_offers.get(game_id)
+        if game is None or offer is None or game.m.get("adapter") != "generic":
+            return "@library.failed"
+        manifest = copy.deepcopy(game.m)
+        service = self._game_updaters.get(game_id)
+        if service is None:
+            return "@library.failed"
+        service.config = copy.deepcopy(self.config)
+
+        def install():
+            root = service.install(manifest, offer)
+            return dict(root=root, version=offer["version"])
+
+        return self._library_job("install", install, game_id)
+
+    def _poll_library(self):
+        try:
+            kind, request, game_id, result, failed = self._library_results.get_nowait()
+        except queue.Empty:
+            return False
+        self._library_work = None
+        self.nav.library_busy = False
+        if failed:
+            self.nav.fail_game_request(request=request)
+        elif kind == "preview":
+            self.nav.complete_game_preview(result, request=request)
+        elif kind == "check":
+            if request == self.nav.library_request:
+                self._game_offers[game_id] = result
+                self.nav.complete_game_update(result, request=request)
+        elif kind == "install":
+            # Extraction is already complete in a separate version directory. Publish
+            # the new root only on this thread, preserving unrelated live preferences.
+            previous = copy.deepcopy(self.config)
+            self.config.setdefault("roots", {})[game_id] = result["root"]
+            self.config.setdefault("game_versions", {})[game_id] = result["version"]
+            try:
+                mf.save_config(self.config)
+                self._game_offers.pop(game_id, None)
+                self._game_updaters.pop(game_id, None)
+                self.nav.say(self._reload_library())
+            except Exception:  # noqa: BLE001 -- keep the previous registration on save failure
+                self.config.clear()
+                self.config.update(previous)
+                self.nav.say("@library.failed")
+        return True
 
     def _save_language(self, language):
         self.config["language"] = language
@@ -191,6 +322,8 @@ class Backend(QObject):
             self.nav.release("confirm")
         changed = self.nav.tick(dt)
         changed = self._poll_updates() or changed
+        if hasattr(self, "_poll_library"):
+            changed = self._poll_library() or changed
         running = any(g.a.running() for g in self.nav.games)
         active = active and not running
         capturing = self.nav.binding_active()

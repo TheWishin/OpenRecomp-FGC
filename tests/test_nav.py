@@ -1,5 +1,6 @@
 """The launcher driven by actions alone, with a fake game: every test records what the game was asked to do."""
 import collections
+import json
 import os
 import sys
 import tempfile
@@ -485,7 +486,10 @@ class Manifests(unittest.TestCase):
             try:
                 src = os.path.join(d, "mine.json")
                 with open(src, "w", encoding="utf-8") as f:
-                    f.write('{"id":"mine","title":"Mein Spiel","numeral":"M","accent":"#00FF00","adapter":"generic","exe":"C:\\\\x.exe"}')
+                    json.dump(dict(schema_version=1, id="mine", title="Mein Spiel", numeral="M",
+                                   accent="#00FF00", adapter="generic", exe="game.exe", platform="PC",
+                                   author="Example Author", repository="example/recomp", license="MIT",
+                                   credits=["Example Author"]), f)
                 m = mf.install(src)
                 self.assertEqual(m["sections"], ["play", "settings"])
                 self.assertTrue(os.path.isfile(os.path.join(d, "games", "mine.json")))

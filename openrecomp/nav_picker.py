@@ -39,7 +39,7 @@ class Picker:
                     try:
                         if e.is_dir():
                             folders.append(dict(name=e.name, path=e.path, kind="dir"))
-                        elif p["kind"] in ("file", "file_or_folder") and os.path.splitext(e.name)[1].lower() in p["exts"]:
+                        elif p["kind"] in ("file", "file_or_folder") and (not p["exts"] or os.path.splitext(e.name)[1].lower() in p["exts"]):
                             files.append(dict(name=e.name, path=e.path, kind="file"))
                     except OSError:
                         pass
@@ -74,7 +74,9 @@ class Picker:
         if (target == "manifest" or target.startswith("source:")) and not self.can_reload_games():
             self.say("@library.busy")
             return
-        if target == "manifest":
+        if target == "library_folder":
+            self._preview_game(path)
+        elif target == "manifest":
             self.say(self.install(path) if self.install else "")
         elif target.startswith("setting:"):
             self.game.a.set_setting(target[8:], path)

@@ -13,7 +13,7 @@ CHAT_TEXT_LIMITS = dict(online_private_chat=200, online_private_report_reason=20
 
 class Keyboard:
     def _open_osk(self, tid):
-        title = {"online_name": "@online.name", "online_password": "@online.password", "online_server": "@online.server",
+        title = {"library_repository": "@library.repository", "online_name": "@online.name", "online_password": "@online.password", "online_server": "@online.server",
                  "online_address": "@t4.direct_address",
                  "online_chat": "@online.chat", "online_room_name": "@online.room_name",
                  "online_private_chat": "@online_chat.private_compose",
@@ -25,13 +25,13 @@ class Keyboard:
                  "online_current_password": "@online120.current_password", "online_new_password": "@online120.new_password",
                  "online_repeat_password": "@online120.repeat_password", "online_recovery_code": "@online120.recovery_code",
                  "online_block_name": "@online120.block_name", "online_fingerprint": "@online120.fingerprint"}.get(tid, "@osk.player_name")
-        self.osk = dict(tid=tid, text=self.game.a.text_value(tid), row=1, col=0, title=title, page=0)
+        self.osk = dict(tid=tid, text="" if tid == "library_repository" else self.game.a.text_value(tid), row=1, col=0, title=title, page=0)
         if tid in CHAT_TEXT_LIMITS:
             self.osk["text"] = self.osk["text"][:CHAT_TEXT_LIMITS[tid]]
         self.overlay = "osk"
 
     def _osk_keys(self):
-        return ONLINE_KEYS[self.osk["page"]] if self.osk["tid"].startswith("online_") else OSK
+        return ONLINE_KEYS[self.osk["page"]] if self.osk["tid"].startswith("online_") or self.osk["tid"] == "library_repository" else OSK
 
     def _osk(self, a):
         o = self.osk
@@ -56,7 +56,7 @@ class Keyboard:
         elif a == "back":
             self.overlay = None
             self.osk = None
-        elif a == "social" and o["tid"].startswith("online_"):
+        elif a == "social" and (o["tid"].startswith("online_") or o["tid"] == "library_repository"):
             o["page"] = (o["page"] + 1) % len(ONLINE_KEYS)
         elif a == "confirm":
             if o["row"] == len(keys):
@@ -73,6 +73,8 @@ class Keyboard:
     def _osk_append(self, text):
         o = self.osk
         o["text"] += text
+        if o["tid"] == "library_repository":
+            o["text"] = o["text"][:140]
         if o["tid"] in CHAT_TEXT_LIMITS:
             o["text"] = o["text"][:CHAT_TEXT_LIMITS[o["tid"]]]
 
@@ -80,9 +82,15 @@ class Keyboard:
         """A physical keyboard in the on-screen keyboard."""
         if self.overlay == "osk":
             self.device = "kb"
-            self._osk_append(text if self.osk["tid"].startswith("online_") else text.upper())
+            self._osk_append(text if self.osk["tid"].startswith("online_") or self.osk["tid"] == "library_repository" else text.upper())
 
     def _osk_done(self):
+        if self.osk["tid"] == "library_repository":
+            source = self.osk["text"].strip()
+            self.overlay = None
+            self.osk = None
+            self._preview_game(source)
+            return
         if not self._dry("@dry_text"):
             text = self.osk["text"] if self.osk["tid"] in ONLINE_PASSWORDS else self.osk["text"].strip()
             self.game.a.set_text_value(self.osk["tid"], text)
@@ -96,8 +104,8 @@ class Keyboard:
         rows.append([dict(label="@" + label, row=len(keys), col=c, focused=o["row"] == len(keys) and o["col"] == c) for c, (_k, label) in enumerate(OSK_ACTIONS)])
         text = "•" * len(o["text"]) if o["tid"] in ONLINE_PASSWORDS else o["text"]
         v["osk"] = dict(rows=rows, text=text + "_", title=o["title"])
-        online = o["tid"].startswith("online_")
-        v["hint"] = "@online.keyboard_hint" if online else "@osk_hint"
+        online = o["tid"].startswith("online_") or o["tid"] == "library_repository"
+        v["hint"] = "@library.repository_hint" if o["tid"] == "library_repository" else ("@online.keyboard_hint" if online else "@osk_hint")
         v["prompts"] = [self.prompt("confirm", "@enter"), self.prompt("x", "@osk.delete"), self.prompt("play", "@osk.done"), self.prompt("back", "@cancel")]
         if online:
             v["prompts"].append(self.prompt("social", "@online.keyboard_page"))
