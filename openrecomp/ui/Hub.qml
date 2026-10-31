@@ -82,8 +82,9 @@ Column {
                         height: r.heading ? 44 + (r.mt || 0) : Math.min(r.focused ? 100 : 84, (listArea.height - 32) / Math.max(1, hub.v.rows.length))
                         Text {
                             visible: !!row.r.heading
-                            x: 48; anchors.bottom: parent.bottom
+                            x: 48; width: parent.width - 96; height: 40; anchors.bottom: parent.bottom
                             textFormat: Text.PlainText; text: row.r.label || ""; color: hub.root.muted; font.family: hub.root.mono; font.pixelSize: 22
+                            minimumPixelSize: 18; fontSizeMode: Text.Fit; verticalAlignment: Text.AlignVCenter
                         }
                         Rectangle {
                             visible: !row.r.heading
@@ -98,7 +99,7 @@ Column {
                                 textFormat: Text.PlainText; text: row.r.label || ""
                                 color: row.r.focused ? "#0E0F11" : (row.r.hold ? hub.v.accent : (row.r.disabled ? "#8A8D94" : hub.root.textC))
                                 font.family: hub.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: row.r.focused ? 52 : 42
-                                minimumPixelSize: 32; fontSizeMode: Text.Fit; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter
+                                minimumPixelSize: 22; fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2; verticalAlignment: Text.AlignVCenter
                             }
                             Row {
                                 id: rowAction
@@ -132,59 +133,65 @@ Column {
                 width: 760; height: 760; x: 1160 - 640; y: 30
                 opacity: 0.22; asynchronous: true; mipmap: true; fillMode: Image.PreserveAspectFit
             }
-            Column {
-                id: detailContent
+            Item {
                 objectName: "detailContent"
-                x: 72; y: 32; width: 1016; spacing: 0
-                Text { width: parent.width; text: hub.d.kicker || ""; elide: Text.ElideRight; color: hub.v.accent; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 24 }
-                Text { objectName: "detailTitle"; width: parent.width; topPadding: 8; textFormat: Text.PlainText; text: hub.d.title || ""; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; lineHeight: 0.95; color: hub.root.textC; font.family: hub.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: hub.hasImages ? 64 : 72 }
-                Text { width: parent.width; topPadding: 12; visible: !!hub.d.lead; textFormat: Text.PlainText; text: hub.d.lead || ""; wrapMode: Text.Wrap; maximumLineCount: hub.hasImages ? 2 : (hub.d.leadLines || 3); elide: Text.ElideRight; lineHeight: 1.1; color: hub.root.textC; font.family: hub.root.sans; font.pixelSize: 28 }
-                Item { width: 1; height: 16 }
-                Row {
-                    visible: hub.hasImages
-                    spacing: 12
-                    bottomPadding: 16
-                    Repeater {
-                        model: (hub.d.images || []).length
+                x: 72; y: 32; width: 1016
+                height: Math.min(detailContent.implicitHeight, parent.height - y - (hub.d.primary ? 160 : 32))
+                Column {
+                    id: detailContent
+                    width: parent.width; spacing: 0
+                    transformOrigin: Item.TopLeft
+                    scale: Math.min(1, parent.height / Math.max(1, implicitHeight))
+                    Text { width: parent.width; text: hub.d.kicker || ""; elide: Text.ElideRight; color: hub.v.accent; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 24 }
+                    Text { objectName: "detailTitle"; width: parent.width; topPadding: 8; textFormat: Text.PlainText; text: hub.d.title || ""; wrapMode: Text.Wrap; lineHeight: 0.95; color: hub.root.textC; font.family: hub.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: hub.hasImages ? 64 : 72 }
+                    Text { objectName: "detailLead"; width: parent.width; topPadding: 12; visible: !!hub.d.lead; textFormat: Text.PlainText; text: hub.d.lead || ""; wrapMode: Text.Wrap; lineHeight: 1.1; color: hub.root.textC; font.family: hub.root.sans; font.pixelSize: 28 }
+                    Item { width: 1; height: 16 }
+                    Row {
+                        visible: hub.hasImages
+                        spacing: 12
+                        bottomPadding: 16
+                        Repeater {
+                            model: (hub.d.images || []).length
+                            Rectangle {
+                                required property int index
+                                width: 96; height: 96; color: "#1B1D21"
+                                Image { anchors.fill: parent; source: (hub.d.images || [])[parent.index] || ""; asynchronous: true; mipmap: true; fillMode: Image.PreserveAspectFit }
+                            }
+                        }
                         Rectangle {
-                            required property int index
+                            visible: !!hub.d.image
                             width: 96; height: 96; color: "#1B1D21"
-                            Image { anchors.fill: parent; source: (hub.d.images || [])[parent.index] || ""; asynchronous: true; mipmap: true; fillMode: Image.PreserveAspectFit }
+                            Image { anchors.fill: parent; source: hub.d.image || ""; asynchronous: true; mipmap: true; fillMode: Image.PreserveAspectFit }
                         }
                     }
                     Rectangle {
-                        visible: !!hub.d.image
-                        width: 96; height: 96; color: "#1B1D21"
-                        Image { anchors.fill: parent; source: hub.d.image || ""; asynchronous: true; mipmap: true; fillMode: Image.PreserveAspectFit }
+                        visible: (hub.d.progress === undefined ? -1 : hub.d.progress) >= 0
+                        objectName: "buildProgress"
+                        width: parent.width; height: 16; color: "#24272C"
+                        Rectangle { height: parent.height; width: parent.width * Math.max(0, hub.d.progress === undefined ? 0 : hub.d.progress); color: hub.v.accent }
                     }
-                }
-                Rectangle {
-                    visible: (hub.d.progress === undefined ? -1 : hub.d.progress) >= 0
-                    objectName: "buildProgress"
-                    width: parent.width; height: 16; color: "#24272C"
-                    Rectangle { height: parent.height; width: parent.width * Math.max(0, hub.d.progress === undefined ? 0 : hub.d.progress); color: hub.v.accent }
-                }
-                Repeater {
-                    model: (hub.d.rows || []).length
-                    Rectangle {
-                        required property int index
-                        readonly property var r: hub.root.ok(hub.d.rows, index)
-                        width: detailContent.width; height: (hub.d.rows || []).length > 5 ? 38 : (hub.hasImages ? 44 : 48); color: "transparent"
-                        Rectangle { width: parent.width; height: 1; color: hub.root.line }
-                        Text { width: parent.width * 0.45; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: parent.r.k || ""; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26 }
-                        Text { width: parent.width * 0.53; horizontalAlignment: Text.AlignRight; elide: Text.ElideMiddle; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; textFormat: Text.PlainText; text: parent.r.v || ""; color: parent.r.accent ? hub.v.accent : hub.root.textC; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 26 }
-                    }
-                }
-                Row {
-                    visible: (hub.d.results || []).length > 0
-                    spacing: 8
-                    topPadding: 16
-                    Text { text: hub.v.recentSets; width: 260; elide: Text.ElideRight; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
                     Repeater {
-                        model: (hub.d.results || []).length
-                        ResultCell { required property int index; c: hub.root.ok(hub.d.results, index); accent: hub.v.accent; root: hub.root }
+                        model: (hub.d.rows || []).length
+                        Rectangle {
+                            required property int index
+                            readonly property var r: hub.root.ok(hub.d.rows, index)
+                            width: detailContent.width; height: Math.max((hub.d.rows || []).length > 5 ? 38 : (hub.hasImages ? 44 : 48), Math.max(detailKey.implicitHeight, detailValue.implicitHeight) + 12); color: "transparent"
+                            Rectangle { width: parent.width; height: 1; color: hub.root.line }
+                            Text { id: detailKey; objectName: "detailKey"; width: parent.width * 0.45; wrapMode: Text.Wrap; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: parent.r.k || ""; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26 }
+                            Text { id: detailValue; objectName: "detailValue"; width: parent.width * 0.53; horizontalAlignment: Text.AlignRight; wrapMode: Text.Wrap; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; textFormat: Text.PlainText; text: parent.r.v || ""; color: parent.r.accent ? hub.v.accent : hub.root.textC; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 26 }
+                        }
                     }
-                }
+                    Row {
+                        visible: (hub.d.results || []).length > 0
+                        spacing: 8
+                        topPadding: 16
+                        Text { text: hub.v.recentSets; width: 260; elide: Text.ElideRight; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
+                        Repeater {
+                            model: (hub.d.results || []).length
+                            ResultCell { required property int index; c: hub.root.ok(hub.d.results, index); accent: hub.v.accent; root: hub.root }
+                        }
+                    }
+                    }
             }
             Rectangle {
                 objectName: "primaryAction"

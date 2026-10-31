@@ -66,14 +66,20 @@ class Sections:
 
     # ---- online
     def _items_online(self, g):
-        if getattr(g.a, "online_supported", lambda: False)():
-            return self._online_items(g)
+        if g.m.get("adapter") == "t4" and not g.a.found():
+            return [dict(kind="action", id="folder", label="@onboarding.choose_folder", verb="@go_build",
+                         run=lambda: self._go(g, "build"), hint="@t4.onboarding_hint",
+                         detail=dict(kicker="@section.online", title="@onboarding.choose_folder", lead="@t4.onboarding_hint", rows=[]))]
         if g.m.get("adapter") == "t5dr":
             if g.a.found():
                 return [self._native_item(g)]
             return [dict(kind="action", id="folder", label="@onboarding.choose_folder", verb="@go_build",
                          run=lambda: self._go(g, "build"), hint="@onboarding.hint",
                          detail=dict(kicker="@section.online", title="@onboarding.choose_folder", lead="@onboarding.hint", rows=[]))]
+        if g.m.get("adapter") == "t4" or (g.a.online_state().get("capabilities") or {}).get("direct_ip"):
+            return self._direct_online_items(g)
+        if getattr(g.a, "online_supported", lambda: False)():
+            return self._online_items(g)
         out = []
         for it in g.a.online_items():
             it = dict(it)

@@ -26,6 +26,14 @@ GRAPHICS_OPTIONS = {
     "anisotropic": [("1", "@off"), ("2", "@anisotropic.two"), ("4", "@anisotropic.four"),
                     ("8", "@anisotropic.eight"), ("16", "@anisotropic.sixteen")],
 }
+BETA_DISABLED_SWITCHES = (
+    "TEKKEN4_RUNAHEAD", "TEKKEN4_NET_HASH_PROFILE", "TEKKEN4_NET_COST_PROFILE",
+    "TEKKEN4_NET_COALESCE", "TEKKEN4_NET_STRICT_HELLO", "TEKKEN4_RB_AUDIO_TIMELINE",
+    "TEKKEN4_NET_DELAY_MATCH", "TEKKEN4_NET_SIM_SAFE_WAIT",
+)
+BETA_HARNESS_SWITCHES = (
+    "TEKKEN4_NET_END", "TEKKEN4_NET_SHOTS", "TEKKEN4_NET_DESYNC_DUMP", "TEKKEN4_NET_SIM",
+)
 
 
 def find_root(manifest, config):
@@ -106,7 +114,7 @@ class T4(T4Online, Adapter):
         if not problems and last.get("ok") is False:
             detail = self.message("t4.play_failed", error=last.get("note") or str(last.get("exit", "?")))
         return dict(status="@ready" if not problems else "@not_built", version="SLUS-20328",
-                    players="@not_yet", last=friendly_time(last.get("time", "")),
+                    players="@t4.direct_title", last=friendly_time(last.get("time", "")),
                     detail=detail)
 
     def hero(self):
@@ -115,12 +123,15 @@ class T4(T4Online, Adapter):
         return path if os.path.isfile(path) else ""
 
     # ---------------------------------------------------------------- playing
+    def _online_work_active(self):
+        return (getattr(self, "_direct_busy", False)
+                or getattr(self, "_online_phase", "") in ("checking", "checked", "starting", "playing"))
+
     def start(self, extra_env=None):
         with self._play_lock:
             if self._source_state["running"] or (self.build and self.build.running()):
                 raise RuntimeError("@t4.work_busy")
-            if (getattr(self, "_online_phase", "") in ("starting", "playing")
-                    and not (extra_env or {}).get("TEKKEN4_NET")):
+            if self._online_work_active() and not (extra_env or {}).get("TEKKEN4_NET"):
                 raise RuntimeError("@online.game_running")
             proc = getattr(self.run, "proc", None)
             if callable(getattr(proc, "poll", None)) and self.running():
@@ -165,6 +176,9 @@ class T4(T4Online, Adapter):
             env["TEKKEN4_HUD"] = graphics["hud"]
             env["TEKKEN4_ANISO"] = graphics["anisotropic"]
             env.update(extra_env or {})
+            env.update(self._beta_env())
+            for name in BETA_HARNESS_SWITCHES:
+                env.pop(name, None)
             return env
         self.core.game_env = env_with_extra
         try:
@@ -199,6 +213,16 @@ class T4(T4Online, Adapter):
         self.core.subprocess.Popen([python, script], cwd=self.root, creationflags=self.core.NO_WINDOW)
 
     # ---------------------------------------------------------------- settings
+    def _net_diagnostics(self):
+        saved = self.config.get("t4_diagnostics")
+        return isinstance(saved, dict) and saved.get("net_diagnostics") is True
+
+    def _beta_env(self):
+        # The Sunday experiments have no two-PC acceptance evidence yet.
+        env = {name: "0" for name in BETA_DISABLED_SWITCHES}
+        env["TEKKEN4_NET_DIAG"] = "1" if self._net_diagnostics() else "0"
+        return env
+
     def _graphics_values(self):
         # The core only saves boolean AA; advanced choices belong to this launcher's config.
         saved = self.config.get("t4_graphics") or {}
@@ -233,9 +257,22 @@ class T4(T4Online, Adapter):
                  hint="@unlock_all.hint", lead="@unlock_all.lead"),
             dict(id="debug_panel", label="@debug_window", options=yes_no, value=bool(self.s.get("debug_panel")),
                  hint="@debug.hint", lead="@debug.lead"),
+            dict(id="net_diagnostics", label="@t4.net_diagnostics", options=yes_no,
+                 value=self._net_diagnostics(),
+                 hint="@t4.net_diagnostics_hint", lead="@t4.net_diagnostics_lead"),
         ]
 
     def set_setting(self, sid, value):
+        if self._online_work_active():
+            raise RuntimeError("@t4.work_busy")
+        if sid == "net_diagnostics":
+            if type(value) is not bool:
+                return
+            if not isinstance(self.config.get("t4_diagnostics"), dict):
+                self.config["t4_diagnostics"] = {}
+            self.config["t4_diagnostics"][sid] = value
+            save_config(self.config)
+            return
         if sid in GRAPHICS_OPTIONS:
             if value not in [v for v, _label in GRAPHICS_OPTIONS[sid]]:
                 return
@@ -276,7 +313,7 @@ class T4(T4Online, Adapter):
     def set_source(self, sid, path):
         if self._source_state["running"]:
             return "@t4.installing" if self._source_state["id"] == "folder" else "@iso.checking"
-        if self.running() or (self.build and self.build.running()):
+        if self._online_work_active() or self.running() or (self.build and self.build.running()):
             return "@t4.work_busy"
         if sid == "folder":
             self._source_state = dict(running=True, result="", id=sid, ok=False)
@@ -339,6 +376,8 @@ class T4(T4Online, Adapter):
         return dict(self._source_state)
 
     def build_ready(self):
+        if self._online_work_active():
+            return "@t4.work_busy"
         if self._source_state["running"]:
             return "@t4.installing" if self._source_state["id"] == "folder" else "@iso.checking"
         if self._needs_toolchain():
@@ -347,7 +386,7 @@ class T4(T4Online, Adapter):
         return "" if iso and self._verified_iso == self._iso_stamp(iso) and self._verified_iso else "@iso.choose_first"
 
     def build_start(self, force=False):
-        if self.running() or (self.build and self.build.running()):
+        if self._online_work_active() or self.running() or (self.build and self.build.running()):
             raise RuntimeError("@t4.work_busy")
         problem = self.build_ready()
         if problem:

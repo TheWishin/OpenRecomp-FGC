@@ -31,6 +31,10 @@ class MatchClient(Client):
 
 
 class Subject(T4):
+    # Only this fake opts into future lobby regression coverage.
+    online_direct_ip = False
+    online_lobby = True
+
     def __init__(self, directory):
         core = SimpleNamespace(load_settings=lambda: {}, play_problems=lambda s: [],
                                find_runtime=lambda s: (os.path.join(directory, "bin", "ps2EntryRunner.exe"), "fake"),

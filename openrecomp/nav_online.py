@@ -3,6 +3,55 @@ from . import i18n
 
 
 class Online:
+    def _direct_online_back(self, g):
+        self._online_action(g, "disconnect")
+        self.screen = "start"
+        self.start_focus = self.games.index(g)
+
+    def _direct_online_items(self, g):
+        state = g.a.online_state()
+        phase = state.get("phase", "offline")
+        busy = bool(state.get("busy")) or phase in ("checking", "starting", "playing")
+        message = state.get("message") or "@t4.direct_hint"
+        checks = state.get("checks") or []
+        role = state.get("role", "host")
+        rows = [dict(k="@t4.direct_role", v="@t4.direct_role_host" if role == "host" else "@t4.direct_role_join")]
+        rows += [dict(k=check["label"], v=check["value"], accent=check.get("ok") is False) for check in checks]
+        out = [dict(kind="action", id="online_status", label="@t4.direct_title", hint=message,
+                    detail=dict(kicker="@section.online", title="@t4.direct_title", lead=message,
+                                leadLines=6, rows=rows))]
+
+        def action(iid, label, hint=message, disabled=False):
+            return dict(kind="action", id=iid, label=label, disabled=disabled,
+                        verb="" if disabled else "@confirm", hint=hint,
+                        detail=dict(kicker="@t4.direct_title", title=label, lead=hint, leadLines=6, rows=[]),
+                        run=None if disabled else lambda: self._online_action(g, iid))
+
+        out += [action("host", "@t4.direct_host", "@t4.direct_hint", busy),
+                action("join", "@t4.direct_join", "@t4.direct_hint", busy)]
+        address = self._online_text_item(g, "online_address", "@t4.direct_address", "@t4.direct_address_hint")
+        address["detail"]["rows"] = [dict(k="@current", v=i18n.literal(g.a.text_value("online_address")))]
+        if busy:
+            address.update(disabled=True, run=None, verb="")
+        out.append(address)
+        out.append(action("check", "@t4.direct_check", "@t4.direct_hint", busy))
+        for check in checks:
+            out.append(dict(kind="action", id="check:" + check["id"], label=check["label"],
+                            value=check["value"], hint=check["value"],
+                            detail=dict(kicker="@t4.direct_checks", title=check["label"], lead=check["value"],
+                                        leadLines=6, rows=[])))
+        if phase == "checked" and checks and all(check.get("ok") is True for check in checks):
+            out.append(action("start_match", "@t4.direct_start"))
+        elif phase in ("checking", "starting"):
+            out.append(action("cancel_match", "@cancel"))
+        elif phase == "playing":
+            out.append(action("stop_match", "@online.stop_match"))
+        out.append(action("collect_logs", "@t4.direct_logs", disabled=busy))
+        back = action("direct_back", "@t4.direct_back", "@t4.direct_hint")
+        back["run"] = lambda: self._direct_online_back(g)
+        out.append(back)
+        return self._remember_online_rows(g, out)
+
     def _online_action(self, g, action):
         if self._dry("@online.status"):
             return
@@ -99,6 +148,10 @@ class Online:
             out.append(action("return_lobby", "@online.return_lobby"))
         if g.a.native_label:
             out.append(self._native_item(g))
+        return self._remember_online_rows(g, out, state)
+
+    def _remember_online_rows(self, g, out, state=None):
+        state = state or {}
         # A reply can replace Cancel with Search, or reorder lobby targets between
         # input events. Never let the old row index authorize the replacement.
         challenge_id = (state.get("challenge") or {}).get("id")

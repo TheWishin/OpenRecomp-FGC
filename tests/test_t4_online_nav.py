@@ -1,4 +1,4 @@
-"""T4 day-one lobby navigation uses fake snapshots and controller actions only."""
+"""Hidden future lobby navigation uses generic fakes and controller actions only."""
 import json
 from pathlib import Path
 import unittest

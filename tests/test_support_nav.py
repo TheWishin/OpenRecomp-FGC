@@ -81,7 +81,7 @@ class SupportNavigation(unittest.TestCase):
 
 class ToolScenes(unittest.TestCase):
     def test_optional_sections_and_binding_dialogs_load_in_every_catalog(self):
-        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
         os.environ.setdefault("QT_QUICK_BACKEND", "software")
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QGuiApplication

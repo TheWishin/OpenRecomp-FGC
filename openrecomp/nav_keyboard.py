@@ -12,6 +12,7 @@ ONLINE_PASSWORDS = ("online_password", "online_room_password")
 class Keyboard:
     def _open_osk(self, tid):
         title = {"online_name": "@online.name", "online_password": "@online.password", "online_server": "@online.server",
+                 "online_address": "@t4.direct_address",
                  "online_chat": "@online.chat", "online_room_name": "@online.room_name",
                  "online_room_password": "@online.room_password", "online_room_code": "@online.room_code",
                  "online_friend_name": "@online.friend_name"}.get(tid, "@osk.player_name")

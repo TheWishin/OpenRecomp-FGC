@@ -65,6 +65,8 @@ def untranslated_literals(source):
         elif isinstance(node, ast.Assign):
             if any(isinstance(t, ast.Name) and t.id in ("GLYPHS", "TRAIL", "OSK", "ONLINE_KEYS", "__all__") for t in node.targets):
                 ignore(node.value)  # physical button names, keyboard keys, exports
+            if any(isinstance(t, ast.Name) and t.id == "PREFLIGHT_SCRIPT" for t in node.targets):
+                ignore(node.value)  # internal PowerShell wrapper, never screen copy
             if any(isinstance(t, ast.Name) and t.id in ("SECTION_TITLES", "DEVICE_LABEL", "OSK_ACTIONS") for t in node.targets):
                 for child in ast.walk(node.value):
                     if isinstance(child, ast.Constant) and child.value in english:
@@ -160,6 +162,19 @@ def untranslated_literals(source):
         "openrecomp-t5-match", "openrecomp-t5-match-close",
         "[a-z0-9_-]+", "invalid game id", "OpenRecomp-FGC-launches", ".lock", "a+b",
         "openrecomp-game-reservation",
+        "online_address", "host", "join", "collect_logs", "disconnect", "direct_back",
+        "TEKKEN4_RUNAHEAD", "TEKKEN4_NET_DIAG", "TEKKEN4_NET_HASH_PROFILE",
+        "TEKKEN4_NET_COST_PROFILE", "TEKKEN4_NET_COALESCE", "TEKKEN4_NET_STRICT_HELLO",
+        "TEKKEN4_RB_AUDIO_TIMELINE", "TEKKEN4_NET_DELAY_MATCH", "TEKKEN4_NET_SIM_SAFE_WAIT",
+        "TEKKEN4_NET_END", "TEKKEN4_NET_SHOTS", "TEKKEN4_NET_DESYNC_DUMP", "TEKKEN4_NET_SIM",
+        "compiler", "iso", "udp", "checked", "stopping", "peer", "t4-online", "game", "disc", "SLUS_203.28",
+        "net_preflight.ps1", "t4net_build.json", "check-", "check.ps1", "preflight.json",
+        "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
+        "-Tool", "-BuildStamp", "-Iso", "-Elf", "-Output", "-Peer", "-Port", "-AsHost",
+        "-RunDir", "-OutputDirectory", "collect_test_logs.ps1", "openrecomp-t4-direct",
+        "build_id", "elf_sha1", "net", "strict_hello", "delay_match", r"[0-9a-f]{16}",
+        r"[A-Za-z0-9_.+ -]{1,100}", r"[0-9a-f]{64}", r"[0-9a-f]{40}",
+        "stdout.txt", "stderr.txt", "wb",
     }
     formats = {
         'f"{platform} RECOMP"', 'f"slot{i}"', 'f"{self.game.id}:{self.section()}"', 'f"{letter}:\\\\"',
@@ -475,6 +490,31 @@ class Catalogs(unittest.TestCase):
                     self.assertTrue(untranslated_literals(f'dict({field}={value!r})'), field)
         self.assertTrue(untranslated_literals('token = "openrecomp-player-message"'))
         self.assertTrue(untranslated_literals('token = "join_room_new_message"'))
+
+    def test_python_scan_accepts_beta_switches_but_checks_their_display_labels(self):
+        for value in ("online_address", "host", "join", "collect_logs", "disconnect", "direct_back",
+                      "TEKKEN4_RUNAHEAD", "TEKKEN4_NET_DIAG", "TEKKEN4_NET_HASH_PROFILE",
+                      "TEKKEN4_NET_COST_PROFILE", "TEKKEN4_NET_COALESCE", "TEKKEN4_NET_STRICT_HELLO",
+                      "TEKKEN4_RB_AUDIO_TIMELINE", "TEKKEN4_NET_DELAY_MATCH", "TEKKEN4_NET_SIM_SAFE_WAIT",
+                      "TEKKEN4_NET_END", "TEKKEN4_NET_SHOTS", "TEKKEN4_NET_DESYNC_DUMP", "TEKKEN4_NET_SIM"):
+            with self.subTest(value=value):
+                self.assertEqual(untranslated_literals(f'token = {value!r}'), [])
+                self.assertTrue(untranslated_literals(f'dict(label={value!r})'))
+                self.assertTrue(untranslated_literals(f'self.say({value!r})'))
+        self.assertTrue(untranslated_literals('token = "TEKKEN4_PLAYER_MESSAGE"'))
+
+    def test_python_scan_accepts_preflight_protocol_but_keeps_display_checks(self):
+        source = ('PREFLIGHT_SCRIPT = "param([string]$Tool)\\n. $Tool"\n'
+                  'command = ["powershell.exe", "-NoProfile", "-File", "net_preflight.ps1"]\n'
+                  'checks = ("build", "compiler", "iso", "udp")\n')
+        self.assertEqual(untranslated_literals(source), [])
+        for value in ("powershell.exe", "compiler", "udp", "net_preflight.ps1", "-NoProfile", "stopping",
+                      r"[A-Za-z0-9_.+ -]{1,100}", r"[0-9a-f]{64}", r"[0-9a-f]{40}"):
+            with self.subTest(value=value):
+                self.assertEqual(untranslated_literals(f'token = {value!r}'), [])
+                self.assertTrue(untranslated_literals(f'dict(label={value!r})'))
+                self.assertTrue(untranslated_literals(f'self.say({value!r})'))
+        self.assertTrue(untranslated_literals('script = "param([string]$Tool)"'))
 
     def test_python_scan_recognizes_only_the_friend_snapshot_status_enum(self):
         source = ('dict(name=friend["name"], status="online" if active else "offline", '

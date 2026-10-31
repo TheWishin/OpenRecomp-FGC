@@ -60,8 +60,14 @@ class Drawer:
         self.on_language(self.language)
 
     def _update_busy(self):
-        return any(g.a.running() or g.a.build_state().get("running") or g.a.source_state().get("running") or g.a.support_state().get("running")
-                   or g.a.online_state().get("phase", "offline") not in ("", "offline", "error", "kicked") for g in self.games)
+        for g in self.games:
+            if (g.a.running() or g.a.build_state().get("running") or g.a.source_state().get("running")
+                    or g.a.support_state().get("running")):
+                return True
+            online = g.a.online_state()
+            if online.get("busy") or online.get("phase", "offline") not in ("", "offline", "error", "kicked"):
+                return True
+        return False
 
     def _check_update(self):
         if self.update_state.get("phase") in ("checking", "installing", "waiting"):

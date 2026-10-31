@@ -96,7 +96,7 @@ Window {
                 Text {
                     objectName: "focusHint"
                     anchors.left: parent.left; anchors.leftMargin: 48; anchors.right: deviceLabel.left; anchors.rightMargin: 32; anchors.verticalCenter: parent.verticalCenter
-                    text: win.v.hint; color: win.textC; font.family: win.sans; font.pixelSize: 28; elide: Text.ElideRight
+                    height: 52; text: win.v.hint; textFormat: Text.PlainText; color: win.textC; font.family: win.sans; font.pixelSize: 28; minimumPixelSize: 18; fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2; verticalAlignment: Text.AlignVCenter
                 }
                 Text {
                     id: deviceLabel

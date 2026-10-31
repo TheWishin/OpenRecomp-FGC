@@ -134,7 +134,7 @@ Item {
         Column {
             id: oskColumn
             x: 64; y: 48; width: 1112; spacing: 8
-            Text { width: parent.width; elide: Text.ElideRight; text: ov.v.osk.title; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 64 }
+            Text { objectName: "oskTitle"; width: parent.width; height: 84; fontSizeMode: Text.Fit; minimumPixelSize: 32; textFormat: Text.PlainText; text: ov.v.osk.title; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 64 }
             Rectangle {
                 width: parent.width; height: 88; color: ov.root.bar
                 Text { x: 28; width: parent.width - 56; elide: Text.ElideLeft; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: ov.v.osk.text; color: ov.root.textC; font.family: ov.root.mono; font.weight: Font.Medium; font.pixelSize: 48 }
@@ -155,7 +155,7 @@ Item {
                             readonly property var k: ov.root.ok(keyRow.keys, index)
                             width: (1112 - 8 * (keyRow.keys.length - 1)) / keyRow.keys.length; height: 72
                             color: k.focused ? ov.root.bone : "#24272C"
-                            Text { anchors.centerIn: parent; text: parent.k.label || ""; color: parent.k.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.mono; font.weight: Font.DemiBold; font.pixelSize: 30 }
+                            Text { objectName: "oskKeyLabel"; anchors.centerIn: parent; width: parent.width - 16; height: parent.height - 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; fontSizeMode: Text.Fit; minimumPixelSize: 20; textFormat: Text.PlainText; text: parent.k.label || ""; color: parent.k.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.mono; font.weight: Font.DemiBold; font.pixelSize: 30 }
                             TapHandler { onTapped: ov.root.backend.clickKey(parent.k.row, parent.k.col) }
                         }
                     }

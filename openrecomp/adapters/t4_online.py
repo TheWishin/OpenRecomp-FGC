@@ -1,13 +1,383 @@
-"""T4's process-mode match flow over the common installed lobby client."""
+"""T4 direct-IP beta checks and the dormant future lobby process flow."""
 import importlib
+import ipaddress
+import json
 import os
+import queue
 import re
+import subprocess
 import threading
 import time
+import uuid
 
+from .base import NO_WINDOW
 from .t5_online import Online, SearchRefused, game_process_running
 from ..manifest import user_dir
 from ..ranks import t4_rank_name
+
+
+DIRECT_CHECKS = ("build", "compiler", "iso", "udp")
+DIRECT_LABELS = dict(build="@t4.direct_check_build", compiler="@t4.direct_check_compiler",
+                     iso="@t4.direct_check_iso", udp="@t4.direct_check_udp")
+DIRECT_FAILURES = dict(build="@t4.direct_build_mismatch", compiler="@t4.direct_compiler_mismatch",
+                       iso="@t4.direct_iso_mismatch", udp="@t4.direct_unreachable")
+IDENTITY_RULES = dict(build_id=r"[0-9a-f]{16}", compiler=r"[A-Za-z0-9_.+ -]{1,100}",
+                      iso_sha256=r"[0-9a-f]{64}", elf_sha1=r"[0-9a-f]{40}",
+                      net=r"[0-9]{1,3}", strict_hello=r"[01]", delay_match=r"[01]")
+# Call the installed tools, never copy their implementation or start net_play.ps1 during checks.
+PREFLIGHT_SCRIPT = r'''
+param([string]$Tool, [string]$BuildStamp, [string]$Iso, [string]$Elf,
+      [string]$Output, [string]$Peer, [int]$Port, [switch]$AsHost)
+$ErrorActionPreference = 'Stop'
+. $Tool
+@{side = $(if ($AsHost) {'host'} else {'join'}); port = $Port; delay = 'auto'} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path (Split-Path -Parent $Output) 'run_info.json') -Encoding UTF8
+$identity = New-T4NetIdentity -BuildStampJson $BuildStamp -IsoPath $Iso
+if ((Get-FileHash -LiteralPath $Elf -Algorithm SHA1).Hash.ToLowerInvariant() -cne $identity.elf_sha1) {
+    throw 'stale_elf'
+}
+$identity | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path (Split-Path -Parent $Output) 'build_identity.json') -Encoding UTF8
+Invoke-T4NetPreflight -AsHost ([bool]$AsHost) -Peer $Peer -Port $Port -Identity $identity -TimeoutSeconds 90 -OutputPath $Output
+'''
+
+
+class DirectCheckError(RuntimeError):
+    def __init__(self, message, checks=None, run_dir=None):
+        super().__init__(message)
+        self.checks = checks or {}
+        self.run_dir = run_dir
+
+
+class T4Direct:
+    online_direct_ip = True
+    direct_port = 7400
+
+    def _direct_init(self):
+        if hasattr(self, "_direct_results"):
+            return
+        self._direct_results = queue.Queue()
+        self._direct_generation = 0
+        self._direct_cancel = threading.Event()
+        self._direct_role, self._direct_address = "host", ""
+        self._direct_phase, self._direct_message = "offline", "@t4.direct_hint"
+        self._direct_checks, self._direct_verified = {}, None
+        self._direct_last_run = None
+        self._direct_log_baseline = {}
+        self._direct_busy = False
+        self._direct_stopping = False
+        self._direct_worker = None
+        self._online_lock = threading.RLock()
+        self._online_phase = "offline"
+
+    def _direct_status(self, phase, message):
+        self._direct_phase = self._online_phase = phase
+        self._direct_message = message
+
+    def _direct_state(self):
+        self._direct_init()
+        checks = [dict(id=key, label=DIRECT_LABELS[key], ok=self._direct_checks.get(key),
+                       value=("@t4.direct_match" if key != "udp" else "@t4.direct_passed")
+                       if self._direct_checks.get(key) is True else
+                       DIRECT_FAILURES[key] if self._direct_checks.get(key) is False else "@t4.direct_pending")
+                  for key in DIRECT_CHECKS]
+        return dict(phase=self._direct_phase, message=self._direct_message, checks=checks,
+                    role=self._direct_role, busy=self._direct_busy,
+                    name="", account=False, queue="", match={}, saved_available=False,
+                    capabilities=dict(direct_ip=True, ranked=False, lobby=False, match_flow=False))
+
+    @staticmethod
+    def _direct_stamp(path):
+        stat = os.stat(path)
+        return os.path.realpath(path), stat.st_size, stat.st_mtime_ns
+
+    @staticmethod
+    def _direct_user_folder():
+        dest = os.path.realpath(os.path.join(user_dir(), "t4-online"))
+        checkout = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        try:
+            inside = os.path.commonpath((checkout, dest)) == checkout
+        except ValueError:
+            inside = False
+        if inside:
+            raise RuntimeError("@t4.direct_logs_failed")
+        os.makedirs(dest, exist_ok=True)
+        return dest
+
+    def _direct_process(self, command, cancel, env=None):
+        proc = subprocess.Popen(command, cwd=self.root, env=env, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
+        try:
+            while proc.poll() is None:
+                if cancel.wait(0.1):
+                    proc.terminate()
+                    proc.wait(timeout=5)
+                    raise RuntimeError("@online.cancelled")
+            return proc.returncode
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=5)
+
+    def _direct_preflight(self, role, address, cancel):
+        if not self.ready():
+            raise DirectCheckError("@online.build_required")
+        problem = self._online_game_check()
+        if problem:
+            raise DirectCheckError(problem)
+        exe, _why = self.core.find_runtime(self.s)
+        tool = os.path.join(self.root, "tools", "net_preflight.ps1")
+        stamp = os.path.join(os.path.dirname(exe), "t4net_build.json")
+        iso = self.core.effective_iso(self.s)
+        elf = os.path.join(self.root, "game", "disc", "SLUS_203.28")
+        paths = (exe, stamp, iso, elf, tool)
+        try:
+            stamps = tuple(self._direct_stamp(path) for path in paths)
+        except (OSError, TypeError):
+            raise DirectCheckError("@t4.direct_identity_failed") from None
+        run_dir = os.path.join(self._direct_user_folder(), "check-" + uuid.uuid4().hex)
+        os.makedirs(run_dir)
+        wrapper = os.path.join(run_dir, "check.ps1")
+        output = os.path.join(run_dir, "preflight.json")
+        with open(wrapper, "w", encoding="utf-8") as stream:
+            stream.write(PREFLIGHT_SCRIPT)
+        command = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                   "-File", wrapper, "-Tool", tool, "-BuildStamp", stamp, "-Iso", iso,
+                   "-Elf", elf, "-Output", output, "-Peer", address or "0.0.0.0",
+                   "-Port", str(self.direct_port)]
+        if role == "host":
+            command.append("-AsHost")
+        env = dict(os.environ, TEKKEN4_NET_STRICT_HELLO="0", TEKKEN4_NET_DELAY_MATCH="0",
+                   TEKKEN4_NET_PORT="0", TEKKEN4_NET_BIND="")
+        try:
+            code = self._direct_process(command, cancel, env)
+            try:
+                with open(output, encoding="utf-8-sig") as stream:
+                    report = json.load(stream)
+            except (OSError, ValueError):
+                raise DirectCheckError("@t4.direct_identity_failed") from None
+            mismatch = report.get("mismatch_fields") or []
+            checks = dict(build=not any(key in mismatch for key in
+                                       ("build_id", "elf_sha1", "net", "strict_hello", "delay_match")),
+                          compiler="compiler" not in mismatch, iso="iso_sha256" not in mismatch,
+                          udp=True if report.get("status") == "ok" else None) if report.get("peer") else {}
+            if code or report.get("status") != "ok":
+                reason = report.get("reason")
+                if reason == "udp_timeout":
+                    checks["udp"] = False
+                key = ("compiler" if "compiler" in mismatch else
+                       "iso" if "iso_sha256" in mismatch else "build")
+                message = (DIRECT_FAILURES[key] if reason == "build_mismatch" else
+                           "@t4.direct_unreachable" if reason == "udp_timeout" else "@t4.direct_failed")
+                raise DirectCheckError(message, checks, run_dir)
+            local, peer = report.get("local"), report.get("peer")
+            if (mismatch or not isinstance(local, dict) or not isinstance(peer, dict)
+                    or any(not isinstance(local.get(key), str) or not re.fullmatch(pattern, local[key])
+                           or local[key] != peer.get(key) for key, pattern in IDENTITY_RULES.items())):
+                raise DirectCheckError("@t4.direct_identity_failed")
+            if stamps != tuple(self._direct_stamp(path) for path in paths):
+                raise DirectCheckError("@t4.direct_identity_failed")
+            identity = report.get("local") or {}
+            if not re.fullmatch(r"[0-9a-f]{16}", str(identity.get("build_id", ""))):
+                raise DirectCheckError("@t4.direct_identity_failed")
+            return dict(paths=paths, stamps=stamps, build=identity["build_id"],
+                        checks=dict.fromkeys(DIRECT_CHECKS, True), checked_at=time.monotonic(), run_dir=run_dir)
+        except DirectCheckError as error:
+            error.run_dir = run_dir
+            raise
+        finally:
+            os.remove(wrapper)
+
+    def _direct_submit(self, action, work):
+        generation = self._direct_generation
+        self._direct_busy = True
+
+        def run():
+            try:
+                value, error = work(), None
+            except Exception as exc:  # noqa: BLE001 -- raw paths and tool errors stay out of the view
+                value, error = None, exc
+            self._direct_results.put((generation, action, value, error))
+        try:
+            self._direct_worker = threading.Thread(target=run, name="openrecomp-t4-direct", daemon=True)
+            self._direct_worker.start()
+        except Exception:
+            self._direct_busy = False
+            self._direct_status("error", "@t4.direct_failed")
+
+    def _direct_action(self, action):
+        self._direct_init()
+        if action in ("disconnect", "cancel_match", "stop_match"):
+            return self._direct_close()
+        if self._direct_busy or self._direct_phase == "playing":
+            return
+        if action in ("host", "join"):
+            self._direct_role = action
+            self._direct_verified, self._direct_checks = None, {}
+            self._direct_status("offline", "@t4.direct_hint")
+        elif action == "check":
+            if self._direct_role == "join":
+                try:
+                    address = ipaddress.IPv4Address(self._direct_address.strip())
+                    if address.is_unspecified or address.is_multicast or int(address) == 0xffffffff:
+                        raise ValueError("peer")
+                except ValueError:
+                    self._direct_verified, self._direct_checks = None, {}
+                    self._direct_status("error", "@t4.direct_invalid_address")
+                    return
+            self._direct_verified, self._direct_checks = None, {}
+            self._direct_cancel = threading.Event()
+            cancel, role, address = self._direct_cancel, self._direct_role, self._direct_address.strip()
+            self._direct_status("checking", "@t4.direct_checking")
+            self._direct_submit(action, lambda: self._direct_preflight(role, address, cancel))
+        elif action == "start_match":
+            verified = self._direct_verified
+            if (self._direct_phase != "checked" or not verified
+                    or time.monotonic() - verified["checked_at"] > 60):
+                self._direct_verified = None
+                self._direct_status("error", "@t4.direct_check_required")
+                return
+            self._direct_status("starting", "@online.starting")
+            generation, role, address = self._direct_generation, self._direct_role, self._direct_address.strip()
+
+            def start():
+                if verified["stamps"] != tuple(self._direct_stamp(path) for path in verified["paths"]):
+                    raise DirectCheckError("@t4.direct_identity_failed")
+                problem = self._online_game_check()
+                if problem:
+                    raise DirectCheckError(problem)
+                env = dict(TEKKEN4_NET=("host:" + str(self.direct_port) if role == "host" else
+                                       "join:" + address + ":" + str(self.direct_port)),
+                           TEKKEN4_NET_BUILD=verified["build"], TEKKEN4_NET_DELAY="auto",
+                           TEKKEN4_NET_STRICT_HELLO="0", TEKKEN4_NET_DELAY_MATCH="0", TEKKEN4_NET_PORT="0",
+                           TEKKEN4_NET_BIND="", TEKKEN4_NET_PEER="", TEKKEN4_NET_KEY="", TEKKEN4_NET_SEED="",
+                           TEKKEN4_NET_TIMEOUT="90")
+                with self._online_lock:
+                    if generation != self._direct_generation:
+                        raise RuntimeError("@online.cancelled")
+                    self._direct_log_baseline = self._direct_log_stamps()
+                    self.start(extra_env=env)
+                    self._online_owned_run = self.run
+            self._direct_submit(action, start)
+        elif action == "collect_logs":
+            cancel = self._direct_cancel = threading.Event()
+            self._direct_submit(action, lambda: self._direct_collect_logs(cancel))
+
+    def _direct_collect_logs(self, cancel):
+        tool = os.path.join(self.root, "tools", "collect_test_logs.ps1")
+        dest = self._direct_user_folder()
+        owned = self._direct_last_run
+        if not owned:
+            raise DirectCheckError("@t4.direct_logs_failed")
+        source = owned["run_dir"]
+        command = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                   "-File", tool, "-RunDir", source, "-OutputDirectory", dest]
+        if self._direct_process(command, cancel):
+            raise DirectCheckError("@t4.direct_logs_failed")
+
+    def _direct_log_stamps(self):
+        out = {}
+        folder = os.path.realpath(getattr(self.core, "SAVE_DIR", ""))
+        checkout = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        try:
+            if os.path.commonpath((checkout, folder)) == checkout:
+                return out
+        except ValueError:
+            pass
+        # Fixed diagnostic names only. No cards, screenshots, replay data or arbitrary paths.
+        for name in ("net.log", "rb_frames.log", "stdout.txt", "stderr.txt"):
+            path = os.path.join(folder, name)
+            try:
+                info = os.lstat(path)
+                if (os.path.realpath(path) != path or os.path.islink(path)
+                        or getattr(info, "st_file_attributes", 0) & 0x400):
+                    continue
+                with open(path, "rb") as stream:
+                    prefix = stream.read(4096)
+                out[name] = (path, info.st_size, info.st_mtime_ns, prefix)
+            except OSError:
+                continue
+        return out
+
+    def _direct_snapshot_logs(self):
+        owned = self._direct_last_run
+        if not owned:
+            return
+        for name, (path, size, stamp, prefix) in self._direct_log_stamps().items():
+            previous = self._direct_log_baseline.get(name)
+            if previous and (size, stamp) == previous[1:3]:
+                continue
+            # A runtime may append or replace its log at launch. Include only this run's suffix.
+            offset = previous[1] if previous and size >= previous[1] and prefix.startswith(previous[3]) else 0
+            if size - offset > 64 * 1024 * 1024:
+                continue
+            try:
+                with open(path, "rb") as stream:
+                    stream.seek(offset)
+                    data = stream.read(64 * 1024 * 1024 + 1)
+                if self._direct_stamp(path)[1:] != (size, stamp) or len(data) > 64 * 1024 * 1024:
+                    continue
+                with open(os.path.join(owned["run_dir"], name), "wb") as stream:
+                    stream.write(data)
+            except OSError:
+                continue
+
+    def _direct_poll(self):
+        self._direct_init()
+        self._online_reap_owned()
+        changed = False
+        worker = self._direct_worker
+        if (self._direct_stopping and getattr(self, "_online_owned_run", None) is None
+                and (worker is None or not worker.is_alive())):
+            self._direct_stopping = self._direct_busy = False
+            self._direct_status("offline", "@t4.direct_hint")
+            changed = True
+        while True:
+            try:
+                generation, action, value, error = self._direct_results.get_nowait()
+            except queue.Empty:
+                break
+            if generation != self._direct_generation:
+                continue
+            self._direct_busy = False
+            changed = True
+            if error:
+                self._direct_verified = None
+                self._direct_checks = error.checks if isinstance(error, DirectCheckError) else {}
+                if isinstance(error, DirectCheckError) and error.run_dir:
+                    self._direct_last_run = dict(run_dir=error.run_dir)
+                self._direct_status("error", str(error) if isinstance(error, DirectCheckError)
+                                    else "@t4.direct_failed")
+            elif action == "check":
+                self._direct_verified, self._direct_checks = value, value["checks"]
+                self._direct_last_run = value
+                self._direct_status("checked", "@t4.direct_checked")
+            elif action == "start_match":
+                self._direct_status("playing", "@online.playing")
+            elif action == "collect_logs":
+                self._direct_message = "@t4.direct_logs_saved"
+        if self._direct_phase == "playing":
+            run = getattr(self, "_online_owned_run", None)
+            if run is None or run.proc.poll() is not None:
+                self._direct_verified = None
+                if run is not None:
+                    self._direct_stopping = self._direct_busy = True
+                self._direct_status("stopping" if run is not None else "offline", "@t4.direct_finished")
+                changed = True
+        return changed
+
+    def _direct_close(self):
+        self._direct_init()
+        with self._online_lock:
+            self._direct_generation += 1
+            self._direct_cancel.set()
+            self._direct_verified = None
+            self._direct_stopping = self._direct_busy = True
+            self._online_stop_owned()
+            worker = self._direct_worker
+            if (getattr(self, "_online_owned_run", None) is None
+                    and (worker is None or not worker.is_alive())):
+                self._direct_stopping = self._direct_busy = False
+            self._direct_status("stopping" if self._direct_stopping else "offline",
+                                "@t4.returning" if self._direct_stopping else "@t4.direct_hint")
 
 
 def ticket_env(ticket):
@@ -27,12 +397,12 @@ def ticket_env(ticket):
     return env
 
 
-class T4Online(Online):
+class T4Online(T4Direct, Online):
     online_package = "t4lobby"
     online_game = "t4"
     online_port = 7791
     online_ranked = False
-    online_lobby = True
+    online_lobby = False
     online_match_flow = True
     online_legacy_config = False
 
@@ -55,6 +425,8 @@ class T4Online(Online):
         return t4_rank_name(rating)
 
     def online_state(self):
+        if self.online_direct_ip:
+            return self._direct_state()
         state = super().online_state()
         if state["phase"] == "offline" and state["message"] == "@online.offline":
             state["message"] = "@t4.online_setup_hint"
@@ -102,9 +474,19 @@ class T4Online(Online):
         return "@online.process_unknown" if running is None else ("@online.game_running" if running else "")
 
     def text_value(self, tid):
+        if self.online_direct_ip:
+            self._direct_init()
+            return self._direct_address if tid == "online_address" else ""
         return self.online_text_value(tid) if tid.startswith("online_") else ""
 
     def set_text_value(self, tid, value):
+        if self.online_direct_ip:
+            self._direct_init()
+            if tid == "online_address" and not self._direct_busy and self._direct_phase != "playing":
+                self._direct_address = str(value).strip()[:256]
+                self._direct_verified, self._direct_checks = None, {}
+                self._direct_status("offline", "@t4.direct_hint")
+            return
         if tid.startswith("online_"):
             self.set_online_text_value(tid, value)
 
@@ -252,6 +634,8 @@ class T4Online(Online):
         return False
 
     def online_action(self, action):
+        if self.online_direct_ip:
+            return self._direct_action(action)
         self._online_init()
         if (action in ("login_guest", "login_account", "login_saved")
                 and self._online_client is None and not self._online_busy):
@@ -335,6 +719,22 @@ class T4Online(Online):
         run = getattr(self, "_online_owned_run", None)
         waiter = getattr(self, "_run_waiter", None)
         if run is not None and run.proc.poll() is not None and (waiter is None or not waiter.is_alive()):
+            if self.online_direct_ip:
+                stopping = getattr(self, "_online_stopper", None)
+                if stopping and stopping[0] is run and stopping[1] is not None and stopping[1].is_alive():
+                    return
+                self._direct_stopping = self._direct_busy = True
+                self._direct_status("stopping", "@t4.direct_finished")
+
+                def capture():
+                    try:
+                        self._direct_snapshot_logs()
+                    finally:
+                        with self._online_lock:
+                            if self._online_owned_run is run:
+                                self._online_owned_run = None
+                self._online_stopper = (run, self._online_stop_submit(capture))
+                return
             with self._online_lock:
                 if self._online_owned_run is run:
                     self._online_owned_run = None
@@ -366,6 +766,8 @@ class T4Online(Online):
                 if run.proc.poll() is not None and (waiter is None or not waiter.is_alive()):
                     with self._online_lock:
                         if self._online_owned_run is run:
+                            if self.online_direct_ip:
+                                self._direct_snapshot_logs()
                             self._online_owned_run = None
             except Exception:  # noqa: BLE001 -- closing the lobby must still close its sockets
                 pass
@@ -414,6 +816,8 @@ class T4Online(Online):
                         self._online_evidence["reason"] = reason
 
     def online_poll(self):
+        if self.online_direct_ip:
+            return self._direct_poll()
         if hasattr(self, "_online_lock"):
             self._online_reap_owned()
         changed = super().online_poll()
@@ -461,6 +865,8 @@ class T4Online(Online):
         return changed
 
     def online_close(self):
+        if self.online_direct_ip:
+            return self._direct_close()
         self._online_init()
         with self._online_lock:
             self._online_authorized = False

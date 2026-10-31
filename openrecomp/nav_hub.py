@@ -50,13 +50,23 @@ class Hub:
             pos = secs.index(self.section())
             self.sec[self.game.id] = secs[(pos + (-1 if a == "prev" else 1)) % len(secs)]
         elif a == "back":
-            self.screen = "start"
-            self.start_focus = self.games.index(self.game)
+            if self.section() == "online" and (self.game.m.get("adapter") == "t4"
+                    or (self.game.a.online_state().get("capabilities") or {}).get("direct_ip")):
+                self._direct_online_back(self.game)
+            else:
+                self.screen = "start"
+                self.start_focus = self.games.index(self.game)
         elif a == "switchGame":
             pos = (self.games.index(self.game) + 1) % len(self.games)
             self._select_game(self.games[pos])
         elif a == "play":
-            if self.section() == "online" and getattr(self.game.a, "online_supported", lambda: False)():
+            if self.section() == "online" and self.game.m.get("adapter") == "t5dr":
+                if self.game.a.found():
+                    self._native_item(self.game)["run"]()
+                else:
+                    self.say(self.game.a.status()["detail"])
+            elif self.section() == "online" and (self.game.m.get("adapter") == "t4"
+                    or getattr(self.game.a, "online_supported", lambda: False)()):
                 self.say(self.game.a.online_state().get("message") or "@online.search_hint")
             else:
                 self.start_game(self.game)
@@ -77,6 +87,8 @@ class Hub:
         it["set"](values[(pos + step) % len(values)])
 
     def _activate(self, it):
+        if it.get("disabled"):
+            return
         kind = it.get("kind")
         if kind == "cycler":
             self._cycle(it, 1)
@@ -133,7 +145,8 @@ class Hub:
         if it.get("replay") is not None:
             prompts.append(self.prompt("x", "@hide_result" if self.show_results else "@show_result"))
         prompts.append(self.prompt("back", "@games"))
-        if g.a.ready() and not (sec == "online" and getattr(g.a, "online_supported", lambda: False)()):
+        if g.a.ready() and not (sec == "online" and (g.m.get("adapter") in ("t4", "t5dr")
+                or getattr(g.a, "online_supported", lambda: False)())):
             prompts.append(self.prompt("play", "@play"))
         prompts += [self.prompt("social", "@quick_access"), self.prompt("switchGame", "@switch_game")]
         v["prompts"] = prompts

@@ -118,7 +118,11 @@ class Adapter:
         return False
 
     def online_state(self):
-        """Read-only login/lobby/match snapshot; reading it never starts a request.
+        """Read-only online snapshot; reading it never starts a request.
+
+        Direct-IP clients expose capabilities.direct_ip, role, busy and checks.
+        Each check has id, label, value and ok; address editing uses text_value
+        and set_text_value with online_address, never the public snapshot.
 
         Playable clients add capabilities, players, rooms, chat, challenge, room and a text rank.
         Optional social capabilities add friends, friend_incoming, friend_outgoing,
@@ -130,7 +134,11 @@ class Adapter:
         return dict(phase="offline", message="", name="", account=False, queue="", match={}, saved_available=False)
 
     def online_action(self, action):
-        """Request a login, lobby action or match step; all are controller-selectable string ids."""
+        """Request a controller-selectable action.
+
+        Direct-IP actions are host, join, check, start_match, cancel_match,
+        stop_match, collect_logs and disconnect. Checks never launch a game.
+        """
         pass
 
     def online_poll(self):

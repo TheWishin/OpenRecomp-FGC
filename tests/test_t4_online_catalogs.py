@@ -1,4 +1,4 @@
-"""All day-one T4 lobby controls have translated text."""
+"""The hidden future lobby retains translated text without enabling its controls."""
 import unittest
 
 from openrecomp import i18n

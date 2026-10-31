@@ -3,7 +3,7 @@ import os
 import sys
 import unittest
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ.setdefault("QT_QUICK_BACKEND", "software")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -84,6 +84,7 @@ def spin(ms=40):
 class Scene(unittest.TestCase):
     def test_every_screen_without_a_warning(self):
         app = QGuiApplication.instance() or QGuiApplication(sys.argv[:1])
+        self.assertEqual(app.platformName(), "offscreen")
         for name in os.listdir(os.path.join(UI_DIR, "fonts")):
             if name.endswith(".ttf"):
                 QFontDatabase.addApplicationFont(os.path.join(UI_DIR, "fonts", name))

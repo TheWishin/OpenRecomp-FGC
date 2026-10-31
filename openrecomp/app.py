@@ -81,8 +81,10 @@ class Backend(QObject):
             adapter = game.a
             if (adapter.running() or adapter.build_state().get("running")
                     or adapter.source_state().get("running")
-                    or adapter.support_state().get("running")
-                    or adapter.online_state().get("phase", "offline") not in ("offline", "error", "kicked")):
+                    or adapter.support_state().get("running")):
+                return True
+            online = adapter.online_state()
+            if online.get("busy") or online.get("phase", "offline") not in ("offline", "error", "kicked"):
                 return True
         return False
 
