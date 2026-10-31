@@ -82,6 +82,26 @@ class AuthorGameUpdates(unittest.TestCase):
         self.assertEqual((old / "saves" / "marker.txt").read_text(), "keep")
         self.assertTrue(old.exists())
 
+    def test_retry_after_unsaved_install_uses_a_fresh_version_folder(self):
+        old = self.home / "old"
+        old.mkdir()
+        (old / "app.exe").write_bytes(b"previous inert marker")
+        self.config["roots"] = {"sample": str(old)}
+        self.config["game_versions"] = {"sample": "v1.0.0"}
+        previous = copy.deepcopy(self.config)
+        orphan = Path(self.service.install(self.m, self.service.check(self.m)))
+        (orphan / "app.exe").write_bytes(b"changed inert marker")
+        service = gu.GameUpdates(previous, fetch=self.fetch)
+        root = Path(service.install(self.m, service.check(self.m)))
+        self.assertNotEqual(root, orphan)
+        self.assertEqual(root.parent, orphan.parent)
+        self.assertEqual((root / "app.exe").read_bytes(), b"inert test marker")
+        self.assertEqual((orphan / "app.exe").read_bytes(), b"changed inert marker")
+        self.assertEqual((old / "app.exe").read_bytes(), b"previous inert marker")
+        self.assertEqual(previous["roots"]["sample"], str(root))
+        self.assertEqual(previous["game_versions"]["sample"], "v1.2.3")
+        self.assertEqual(self.fetch.call_count, 4)
+
     def test_hash_mismatch_cannot_change_active_root(self):
         self.config["roots"] = {"sample": "unchanged"}
         offer = self.service.check(self.m)
@@ -194,6 +214,18 @@ class AuthorGameUpdates(unittest.TestCase):
     def test_remote_first_install_ignores_manifest_version_without_executable(self):
         self.m["version"] = "v1.2.3"
         self.assertIsNotNone(self.service.check(self.m))
+
+    def test_prerelease_check_ignores_releases_without_the_configured_asset(self):
+        self.m["releases"]["channel"] = "prerelease"
+        historical = copy.deepcopy(self.release)
+        historical["tag_name"] = "v1.0.0"
+        historical["assets"][0]["name"] = "old-package.zip"
+        self.service.fetch = mock.Mock(return_value=json.dumps([self.release, historical]).encode())
+        self.assertEqual(self.service.check(self.m)["version"], "v1.2.3")
+        self.assertEqual(self.service.fetch.call_count, 1)
+        self.assertNotIn("roots", self.config)
+        self.service.fetch = mock.Mock(return_value=json.dumps([historical]).encode())
+        self.assertIsNone(self.service.check(self.m))
 
     def test_stale_offer_cannot_downgrade_changed_install(self):
         offer = self.service.check(self.m)

@@ -121,6 +121,33 @@ class GenericManifestTests(unittest.TestCase):
                 with self.assertRaises(mf.ManifestError):
                     mf.install(source)
 
+    def test_large_compact_manifest_remains_loadable_after_install(self):
+        manifest = public_manifest(
+            args=["x" * 1024] * 8,
+            settings=dict(file="settings.json", cyclers=[
+                dict(id=f"setting{index}", key=f"setting{index}", label="Setting",
+                     options=[dict(value=value, label="x" * 140) for value in range(32)])
+                for index in range(10)]))
+        raw = json.dumps(manifest, separators=(",", ":")).encode()
+        self.assertLess(len(raw), mf.MAX_MANIFEST_BYTES)
+        self.assertGreater(len(json.dumps(mf.validate_external(manifest), indent=1).encode()), mf.MAX_MANIFEST_BYTES)
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder, mock.patch.dict(os.environ, OPENRECOMP_HOME=folder):
+            source = Path(folder) / "manifest.json"
+            source.write_bytes(raw)
+            installed = mf.install(source)
+            destination = Path(folder) / "games" / "example.json"
+            self.assertLessEqual(destination.stat().st_size, mf.MAX_MANIFEST_BYTES)
+            self.assertEqual(installed, mf.load_file(destination))
+
+    def test_install_checks_size_after_adding_defaults(self):
+        raw = json.dumps(public_manifest(), separators=(",", ":")).encode()
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder, mock.patch.dict(os.environ, OPENRECOMP_HOME=folder):
+            source = Path(folder) / "manifest.json"
+            source.write_bytes(raw)
+            with mock.patch.object(mf, "MAX_MANIFEST_BYTES", len(raw)), self.assertRaises(mf.ManifestError):
+                mf.install(source)
+            self.assertFalse((Path(folder) / "games").exists())
+
     def test_restart_rejects_injected_legacy_user_manifest(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as folder, mock.patch.dict(os.environ, OPENRECOMP_HOME=folder):
             games = Path(folder) / "games"

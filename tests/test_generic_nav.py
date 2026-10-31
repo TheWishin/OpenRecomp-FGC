@@ -2,7 +2,7 @@
 import unittest
 from unittest import mock
 
-from openrecomp import i18n
+from openrecomp import i18n, manifest as mf
 from openrecomp.nav import Game, Nav
 from openrecomp.nav_keyboard import ONLINE_KEYS
 from test_nav import Fake, manifest
@@ -34,6 +34,21 @@ class GenericNavigation(unittest.TestCase):
         preview.assert_called_once_with("author/project")
         self.assertEqual(nav.confirm_kind, "library_preview")
         self.assertIsNotNone(nav.library_preview)
+
+    def test_game_ids_cannot_hide_the_free_registration_slot(self):
+        games = []
+        for index in range(mf.TOTAL_SLOTS):
+            m = manifest(f"slot{index}")
+            m["schema_version"] = 1
+            games.append(Game(m, Fake(m)))
+        nav = Nav(games, on_game_preview=mock.Mock(), language="en")
+        ids = nav.tile_ids()
+        self.assertEqual(len(set(ids)), len(ids))
+        self.assertEqual(sum(tile["free"] for tile in nav.view()["shelf"]["tiles"]), 1)
+        for _ in games:
+            nav.act("right", device="xbox")
+        nav.act("confirm", device="xbox")
+        self.assertEqual(nav.confirm_kind, "library_source")
 
     def test_local_folder_choice_goes_through_preview_not_install(self):
         preview = mock.Mock(return_value=self.preview())

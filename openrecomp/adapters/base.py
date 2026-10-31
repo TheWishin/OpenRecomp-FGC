@@ -339,7 +339,7 @@ class Generic(Adapter):
             cwd = self._path(self.m["cwd"]) if self.m.get("cwd") else self.root
         else:
             cwd = os.path.expandvars(self.m.get("cwd") or os.path.dirname(self.exe()))
-        self.proc = subprocess.Popen([self.exe()] + list(self.m.get("args") or []), cwd=cwd, env=env,
+        self.proc = subprocess.Popen([self.exe()] + [str(a) for a in self.m.get("args") or []], cwd=cwd, env=env,
                                      shell=False)
         return self.proc.pid
 

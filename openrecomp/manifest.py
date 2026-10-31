@@ -312,6 +312,9 @@ def load_all(dirs=None):
 def install(path):
     """Atomically register a public manifest, without copying game files or executing code."""
     m = validate_external(load_file(path))
+    data = json.dumps(m, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    if len(data) > MAX_MANIFEST_BYTES:
+        raise ManifestError("The manifest exceeds the size limit.")
     os.makedirs(user_games_dir(), exist_ok=True)
     dest = os.path.join(user_games_dir(), m["id"] + ".json")
     if os.path.islink(dest):
@@ -319,10 +322,10 @@ def install(path):
     resolve_path(user_games_dir(), m["id"] + ".json")
     tmp = None
     try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=user_games_dir(),
+        with tempfile.NamedTemporaryFile(mode="wb", dir=user_games_dir(),
                                          prefix=".manifest-", suffix=".tmp", delete=False) as f:
             tmp = f.name
-            json.dump(m, f, ensure_ascii=False, indent=1)
+            f.write(data)
         os.replace(tmp, dest)
     except OSError as e:
         raise ManifestError("Cannot save the manifest.") from e

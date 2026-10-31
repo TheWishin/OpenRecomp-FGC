@@ -11,6 +11,7 @@ import stat
 import tempfile
 import urllib.parse
 import urllib.request
+import uuid
 import zipfile
 
 from . import manifest as mf
@@ -186,6 +187,11 @@ class GameUpdates:
             candidates = []
             for release in raw:
                 if isinstance(release, dict) and release.get("draft") is False:
+                    assets = release.get("assets")
+                    if isinstance(assets, list) and not any(
+                            isinstance(asset, dict) and asset.get("name") == m["releases"]["asset"]
+                            for asset in assets):
+                        continue
                     candidates.append(self._release(m, release))
             if not candidates:
                 return None
@@ -210,15 +216,16 @@ class GameUpdates:
         if base.resolve() != expected:
             raise GameUpdateError()
         base.mkdir(parents=True, exist_ok=True)
-        destination = base / (offer["version"] + "-" + offer["sha256"][:16])
-        if destination.exists() or destination.is_symlink():
-            raise GameUpdateError()
         stage = Path(tempfile.mkdtemp(prefix=".update-", dir=base))
         try:
             self._extract(raw, stage)
             if not Path(mf.resolve_path(str(stage), m["exe"])).is_file():
                 raise GameUpdateError()
             self._preserve_data(m, stage)
+            name = offer["version"] + "-" + offer["sha256"][:16]
+            destination = base / name
+            while destination.exists() or destination.is_symlink() or os.path.isjunction(destination):
+                destination = base / (name + "-" + uuid.uuid4().hex)
             stage.rename(destination)
         except (OSError, ValueError, zipfile.BadZipFile, RuntimeError, mf.ManifestError) as exc:
             raise GameUpdateError() from exc

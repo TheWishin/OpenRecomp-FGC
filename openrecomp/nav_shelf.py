@@ -10,7 +10,13 @@ class Shelf:
     def tile_ids(self):
         ids = [g.id for g in self.games]
         free = max(1, mf.TOTAL_SLOTS - len(ids))
-        return ids + [f"slot{i}" for i in range(free)]
+        slots, index = [], 0
+        while len(slots) < free:
+            slot = f"slot{index}"
+            if slot not in ids:
+                slots.append(slot)
+            index += 1
+        return ids + slots
 
     def game_by_id(self, gid):
         return next((g for g in self.games if g.id == gid), None)

@@ -237,12 +237,16 @@ class Backend(QObject):
             self.config.setdefault("game_versions", {})[game_id] = result["version"]
             try:
                 mf.save_config(self.config)
-                self._game_offers.pop(game_id, None)
-                self._game_updaters.pop(game_id, None)
-                self.nav.say(self._reload_library())
             except Exception:  # noqa: BLE001 -- keep the previous registration on save failure
                 self.config.clear()
                 self.config.update(previous)
+                self.nav.say("@library.failed")
+                return True
+            try:
+                self._game_offers.pop(game_id, None)
+                self._game_updaters.pop(game_id, None)
+                self.nav.say(self._reload_library())
+            except Exception:  # noqa: BLE001 -- the saved registration must stay in sync with disk
                 self.nav.say("@library.failed")
         return True
 

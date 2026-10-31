@@ -1,4 +1,5 @@
 """Game-library workers publish results on the backend thread, without a window."""
+import copy
 import queue
 from types import SimpleNamespace
 import unittest
@@ -71,6 +72,43 @@ class GenericBackendTests(unittest.TestCase):
         service.install.assert_called_once_with(game.m, offer)
         self.assertEqual(service.config, backend.config)
         self.assertIsNot(service.config, backend.config)
+
+    def test_install_reload_failure_keeps_the_saved_registration(self):
+        config = {"roots": {"example": "previous-version"},
+                  "game_versions": {"example": "v1.0.0"}, "language": "de"}
+        nav = SimpleNamespace(library_busy=True, say=mock.Mock())
+        backend = SimpleNamespace(nav=nav, config=config, _library_results=queue.Queue(),
+                                  _library_work=("install", 3, "example"),
+                                  _game_offers={"example": {}}, _game_updaters={"example": mock.Mock()},
+                                  _reload_library=mock.Mock(side_effect=OSError("unavailable controller")))
+        backend._library_results.put(("install", 3, "example",
+                                      dict(root="new-version", version="v2.0.0"), False))
+        saved = []
+        with mock.patch.object(app.mf, "save_config", side_effect=lambda value: saved.append(copy.deepcopy(value))):
+            app.Backend._poll_library(backend)
+        self.assertEqual(config, saved[0])
+        self.assertEqual(config["roots"]["example"], "new-version")
+        self.assertEqual(config["game_versions"]["example"], "v2.0.0")
+        self.assertEqual(config["language"], "de")
+        nav.say.assert_called_once_with("@library.failed")
+        self.assertFalse(nav.library_busy)
+
+    def test_install_save_failure_restores_registration_without_reloading(self):
+        config = {"roots": {"example": "previous-version"}, "game_versions": {"example": "v1.0.0"}}
+        previous = copy.deepcopy(config)
+        nav = SimpleNamespace(library_busy=True, say=mock.Mock())
+        backend = SimpleNamespace(nav=nav, config=config, _library_results=queue.Queue(),
+                                  _library_work=("install", 3, "example"),
+                                  _game_offers={"example": {}}, _game_updaters={"example": mock.Mock()},
+                                  _reload_library=mock.Mock())
+        backend._library_results.put(("install", 3, "example",
+                                      dict(root="new-version", version="v2.0.0"), False))
+        with mock.patch.object(app.mf, "save_config", side_effect=OSError("unavailable config")):
+            app.Backend._poll_library(backend)
+        self.assertEqual(config, previous)
+        backend._reload_library.assert_not_called()
+        nav.say.assert_called_once_with("@library.failed")
+        self.assertFalse(nav.library_busy)
 
 
 if __name__ == "__main__":

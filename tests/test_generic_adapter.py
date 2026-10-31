@@ -51,6 +51,14 @@ class GenericAdapter(unittest.TestCase):
             Generic(self.manifest, {}).start()
         launch.assert_not_called()
 
+    def test_legacy_manifest_arguments_are_still_converted_to_strings(self):
+        manifest = dict(id="legacy", adapter="generic", exe="game.exe", args=["--port", 1234])
+        adapter = Generic(manifest)
+        with mock.patch.object(adapter, "ready", return_value=True), mock.patch("subprocess.Popen") as launch:
+            adapter.start()
+        self.assertEqual(launch.call_args.args[0], ["game.exe", "--port", "1234"])
+        self.assertIs(launch.call_args.kwargs["shell"], False)
+
     def test_runtime_paths_reject_traversal_even_if_validation_was_bypassed(self):
         self.manifest["exe"] = "../outside.exe"
         self.assertFalse(self.adapter.ready())
