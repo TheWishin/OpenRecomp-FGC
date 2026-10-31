@@ -38,13 +38,25 @@ class OnlineBCSafetyTests(unittest.TestCase):
                     friend_outgoing=[dict(name="Pending")], invites=[dict(id="invite", name="Friend")],
                     outgoing_invite=dict(id="sent", name="Friend"))
 
-    def test_t5dr_manifest_routes_to_shared_online_flow(self):
+    def test_generic_manifest_routes_to_shared_online_flow(self):
         adapter, nav = self.navigation()
-        adapter.m["adapter"] = "t5dr"
         actions = {item.get("id") for item in nav.items()}
         self.assertIn("login_guest", actions)
         self.assertIn("login_account", actions)
         self.assertIn("native", actions)
+
+    def test_t5dr_manifest_uses_native_handoff_despite_stale_online_state(self):
+        adapter, nav = self.navigation()
+        adapter.m["adapter"] = "t5dr"
+        adapter.snapshot.update(self.social_snapshot())
+        for phase in ("offline", "logged_in", "matched", "playing", "result_sent"):
+            with self.subTest(phase=phase):
+                adapter.snapshot["phase"] = phase
+                self.assertEqual([item.get("id") for item in nav.items()], ["native"])
+        self.choose(nav, "native")
+        nav.act("play", device="xbox")
+        self.assertEqual(adapter.calls, [("native",), ("native",)])
+        self.assertEqual(adapter.polls, 0)
 
     def test_dry_all_match_steps_and_social_actions_deny_io(self):
         adapter, nav = self.navigation()
@@ -84,9 +96,8 @@ class OnlineBCSafetyTests(unittest.TestCase):
         self.assertEqual(adapter.calls, [])
         self.assertEqual(nav.focus[adapter.m["id"] + ":online"], 0)
 
-    def test_t4_day_one_hides_unsupported_social_and_rematch_rows(self):
+    def test_generic_lobby_hides_unsupported_social_and_rematch_rows(self):
         adapter, nav = self.navigation()
-        adapter.m["adapter"] = "t4"
         adapter.snapshot.update(self.social_snapshot())
         adapter.snapshot["capabilities"] = dict(lobby=True, match_flow=True, ranked=False)
         actions = {item.get("id") for item in nav.items()}
@@ -97,6 +108,27 @@ class OnlineBCSafetyTests(unittest.TestCase):
         self.assertTrue(actions.isdisjoint(unsupported))
         adapter.snapshot["phase"] = "result_sent"
         self.assertNotIn("rematch", {item.get("id") for item in nav.items()})
+
+    def test_t4_manifest_keeps_direct_beta_despite_stale_lobby_state(self):
+        adapter, nav = self.navigation()
+        adapter.m["adapter"] = "t4"
+        adapter.snapshot.update(self.social_snapshot())
+        adapter.snapshot["capabilities"]["rematch"] = True
+        unsupported = {"login_guest", "login_account", "login_saved", "search_casual", "search_ranked",
+                       "challenge:other", "create_room", "join_room:public", "send_chat", "online_chat",
+                       "create_password_room", "create_code_room", "join_room_code", "refresh_friends",
+                       "add_friend", "invite_friend:Friend", "invite_room:Friend", "accept_invite:invite",
+                       "result_win", "result_loss", "result_none", "rematch", "return_lobby", "native"}
+        for phase in ("offline", "logged_in", "matched", "playing", "result", "result_sent"):
+            with self.subTest(phase=phase):
+                adapter.snapshot["phase"] = phase
+                actions = {item.get("id") for item in nav.items()}
+                self.assertTrue({"host", "join", "online_address", "check", "collect_logs", "direct_back"} <= actions)
+                self.assertTrue(actions.isdisjoint(unsupported))
+                self.assertNotIn("start_match", actions)
+        adapter.snapshot["phase"] = "offline"
+        self.choose(nav, "host")
+        self.assertEqual(adapter.calls, [("online", "host")])
 
     def test_kicked_session_ignores_late_login_completion_and_cannot_reconnect_itself(self):
         directory = self.enterContext(tempfile.TemporaryDirectory(dir=os.getcwd()))

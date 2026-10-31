@@ -723,6 +723,7 @@ class T4Online(T4Direct, Online):
                 stopping = getattr(self, "_online_stopper", None)
                 if stopping and stopping[0] is run and stopping[1] is not None and stopping[1].is_alive():
                     return
+                self._direct_verified = None
                 self._direct_stopping = self._direct_busy = True
                 self._direct_status("stopping", "@t4.direct_finished")
 

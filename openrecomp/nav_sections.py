@@ -165,7 +165,7 @@ class Sections:
                       and (not state["result"] or state["result"] in ("@build_finished", "@t4.build_finished")))
         if first_play:
             lead = "@t4.build_next"
-        out.append(dict(kind="action", id="build", label="@start_game" if first_play else "@build_game", disabled=bool(problem) and not first_play, verb="@play" if first_play else ("@files_missing" if problem else "@build"), run=(lambda: self.start_game(g)) if first_play else build,
+        out.append(dict(kind="action", id="build", label="@start_game" if first_play else "@build_game", verb="@play" if first_play else ("@files_missing" if problem else "@build"), run=(lambda: self.start_game(g)) if first_play else build,
                         hint=lead, detail=dict(kicker=st["status"], title="@start_game" if first_play else "@build_game", lead=lead, rows=state["steps"], primary="@play" if first_play else ("" if problem else "@build"))))
         if not problem:
             def rebuild():

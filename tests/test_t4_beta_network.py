@@ -206,6 +206,39 @@ class DirectBetaTests(unittest.TestCase):
         self.a.online_action("start_match")
         self.assertEqual(len(self.a.starts), 1)
 
+    def test_failed_exit_invalidates_checks_before_owned_logs_finish(self):
+        self.play()
+        run = self.a._online_owned_run
+        pending = []
+
+        def defer(work):
+            pending.append(work)
+            return SimpleNamespace(is_alive=lambda: bool(pending))
+
+        with mock.patch.object(self.a, "_online_stop_submit", side_effect=defer), \
+                mock.patch.object(self.a, "_direct_snapshot_logs") as capture:
+            self.a.exit_code = 1
+            self.a.online_poll()
+            self.assertIsNone(self.a._direct_verified)
+            self.assertIs(self.a._online_owned_run, run)
+            self.assertEqual(self.a.online_state()["phase"], "stopping")
+            self.assertTrue(self.a.online_state()["busy"])
+            with mock.patch.object(self.a, "_direct_submit") as work:
+                for action in ("check", "start_match", "collect_logs"):
+                    self.a.online_action(action)
+                work.assert_not_called()
+            self.a.online_poll()
+            self.assertEqual(len(pending), 1)
+            capture.assert_not_called()
+            pending.pop()()
+            self.a.online_poll()
+            capture.assert_called_once_with()
+        self.assertIsNone(self.a._online_owned_run)
+        self.assertEqual(self.a.online_state()["phase"], "offline")
+        self.assertFalse(self.a.online_state()["busy"])
+        self.a.online_action("start_match")
+        self.assertEqual(len(self.a.starts), 1)
+
     def test_log_collector_receives_only_the_owned_folder(self):
         self.check()
         with mock.patch.object(self.a, "_direct_user_folder", return_value=self.temp.name), \
