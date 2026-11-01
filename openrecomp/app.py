@@ -8,7 +8,7 @@ import sys
 import threading
 
 from PySide6.QtCore import QObject, QTimer, Property, Qt, QUrl, Signal, Slot
-from PySide6.QtGui import QFontDatabase, QGuiApplication, QIcon, QWindow
+from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QIcon, QWindow
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401 -- so the scene's root comes back as a QQuickWindow
 
@@ -265,7 +265,7 @@ class Backend(QObject):
         if self.window is not None:
             changed = self.window.property("wantFull") != fullscreen
             self.window.setProperty("wantFull", fullscreen)
-            if changed and not self.window.isMinimized():
+            if changed and not self.window.windowState() & Qt.WindowMinimized:
                 self.window.showFullScreen() if fullscreen else self.window.showNormal()
 
     def _load_pads(self, games):
@@ -489,10 +489,8 @@ class Backend(QObject):
 
 def make_engine(backend, full):
     # Windows supplies these CJK fonts; Qt falls back to them when a catalog needs them.
-    QFontDatabase.addApplicationFallbackFontFamily("Big Shoulders", "Yu Gothic UI")
-    QFontDatabase.addApplicationFallbackFontFamily("Big Shoulders", "Malgun Gothic")
-    QFontDatabase.addApplicationFallbackFontFamily("IBM Plex Sans", "Yu Gothic UI")
-    QFontDatabase.addApplicationFallbackFontFamily("IBM Plex Sans", "Malgun Gothic")
+    for family in ("Big Shoulders", "IBM Plex Sans"):
+        QFont.insertSubstitutions(family, ["Yu Gothic UI", "Malgun Gothic"])
     for name in os.listdir(os.path.join(UI_DIR, "fonts")):
         if name.lower().endswith(".ttf"):
             QFontDatabase.addApplicationFont(os.path.join(UI_DIR, "fonts", name))

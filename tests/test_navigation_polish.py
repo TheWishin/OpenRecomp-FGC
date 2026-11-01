@@ -3,6 +3,8 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
+from PySide6.QtCore import Qt
+
 from openrecomp.app import Backend
 from openrecomp.nav import Game, Nav
 from test_nav import Fake, manifest
@@ -124,7 +126,7 @@ class NavigationPolish(unittest.TestCase):
 
     def test_backend_saves_preference_and_applies_window_mode(self):
         backend = SimpleNamespace(config={}, window=mock.Mock())
-        backend.window.isMinimized.return_value = False
+        backend.window.windowState.return_value = Qt.WindowNoState
         with mock.patch("openrecomp.app.mf.save_config") as save:
             Backend._save_game(backend, "b")
             self.assertEqual(backend.config["last_game"], "b")
