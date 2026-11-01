@@ -49,7 +49,7 @@ def template(code, key):
     return catalog(code).get(key, english)
 
 
-def text(code, key, **values):
+def text(code, key, /, **values):
     """Return a catalog message, always falling back to English then its key."""
     return template(code, key).format(**values)
 

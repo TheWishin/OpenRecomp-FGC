@@ -56,6 +56,21 @@ class CatalogAudit(unittest.TestCase):
                     for field in fields:
                         self.assertIn(values[field], rendered)
 
+    def test_game_failure_code_formats_in_every_language(self):
+        key = "t4.source.game_failed"
+        for code in i18n.LANGUAGES:
+            with self.subTest(code=code):
+                expected = i18n.catalog(code)[key].format(code=17)
+                self.assertEqual(i18n.text(code, key, code=17), expected)
+
+    def test_deferred_game_failure_code_localizes_in_every_language(self):
+        key = "t4.source.game_failed"
+        message = i18n.message(key, code=17)
+        for code in i18n.LANGUAGES:
+            with self.subTest(code=code):
+                expected = i18n.catalog(code)[key].format(code=17)
+                self.assertEqual(i18n.localize(message, code), expected)
+
     def test_unparseable_locale_uses_the_next_detection_method(self):
         with mock.patch.object(i18n.locale, "getlocale", side_effect=ValueError("unknown locale")), \
                 mock.patch.object(i18n.locale, "getdefaultlocale", return_value=("de_DE", "UTF-8")):
