@@ -76,7 +76,8 @@ class UpdaterTests(unittest.TestCase):
 
     def test_only_plain_versions(self):
         self.assertEqual(u.version_key("v2.10.0"), (2, 10, 0))
-        for value in ("2.0.0", "V2.0.0", "v2.0.0-rc1", "v2.0.0+build", "v02.0.0", "v2.0.0\n"):
+        for value in ("2.0.0", "V2.0.0", "v2.0.0-rc1", "v2.0.0+build", "v02.0.0", "v2.0.0\n",
+                      "v1\u0662.0.0", "v1.2\u0662.0", "v1.2.3\u0662"):
             with self.subTest(value=value):
                 self.assertIsNone(u.version_key(value))
                 with self.assertRaises(u.UpdateError):

@@ -34,7 +34,7 @@ MAX_UNPACKED = 3 * MAX_ZIP
 PROGRAM_ITEMS = ("OpenRecomp.exe", "openrecomp_boot.py", "python", "openrecomp", "games",
                  "LICENSES", "docs", "LICENSE", "release.json")
 REQUIRED_ITEMS = ("OpenRecomp.exe", "openrecomp_boot.py", "python/pythonw.exe", "openrecomp/app.py", "release.json")
-_VERSION = re.compile(r"v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\Z")
+_VERSION = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 _CHANNEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{2,100}\Z")
 _DEVICES = ({"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
             | {f"{p}{n}" for p in ("COM", "LPT") for n in "0123456789¹²³"})
