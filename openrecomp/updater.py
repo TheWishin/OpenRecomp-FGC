@@ -32,7 +32,7 @@ CONFIRM_ENV = "OPENRECOMP_UPDATE_CONFIRM"
 MAX_ZIP = 1024 * 1024 * 1024
 MAX_UNPACKED = 3 * MAX_ZIP
 PROGRAM_ITEMS = ("OpenRecomp.exe", "openrecomp_boot.py", "python", "openrecomp", "games",
-                 "LICENSES", "docs", "LICENSE", "release.json")
+                 "LICENSES", "docs", "LICENSE", "README.md", "release.json")
 REQUIRED_ITEMS = ("OpenRecomp.exe", "openrecomp_boot.py", "python/pythonw.exe", "openrecomp/app.py", "release.json")
 _VERSION = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 _CHANNEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{2,100}\Z")
@@ -594,7 +594,10 @@ def _apply_plan(plan_path, *, wait, alive, processes, restart, move, sleep):
     except Exception as failure:
         (transaction / "result.json").write_text(json.dumps(dict(status="unchanged", version=plan["version"])), encoding="utf-8")
         if not alive(plan["pid"]):
-            restart(root)
+            try:
+                restart(root)
+            except Exception as error:
+                raise UpdateError("The previous launcher is unchanged, but could not be restarted.", safe_to_unlock=True) from error
         raise UpdateError("The update could not start; the previous launcher is unchanged.", safe_to_unlock=True) from failure
     old, new = [], []
     marker = transaction / "confirmed.json"
@@ -642,7 +645,10 @@ def _apply_plan(plan_path, *, wait, alive, processes, restart, move, sleep):
         (transaction / "result.json").write_text(json.dumps(dict(status=status, version=plan["version"])), encoding="utf-8")
         if problems:
             raise UpdateError("The update failed. Recovery copies were kept beside the installation; close programs using it before restoring the backup.") from failure
-        restart(root)
+        try:
+            restart(root)
+        except Exception as error:
+            raise UpdateError("The previous launcher was restored, but could not be restarted.", safe_to_unlock=True) from error
         raise UpdateError("The update failed and the previous launcher was restored.", safe_to_unlock=True) from failure
 
 
