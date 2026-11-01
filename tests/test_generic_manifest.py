@@ -128,6 +128,16 @@ class GenericManifestTests(unittest.TestCase):
             with self.subTest(change=change):
                 self.reject(**change)
 
+    def test_release_asset_names_are_safe_in_download_urls(self):
+        for asset in ("recomp build.zip", "recomp#1.zip", "recomp\u00e9.zip"):
+            with self.subTest(asset=asset):
+                self.reject(releases=dict(channel="stable", asset=asset, verification=dict(method="github-sha256")))
+        for asset in ("recomp.zip", "Recomp_1.2-win64.ZIP", "recomp+1.zip"):
+            with self.subTest(asset=asset):
+                manifest = mf.validate_external(public_manifest(
+                    releases=dict(channel="stable", asset=asset, verification=dict(method="github-sha256"))))
+                self.assertEqual(manifest["releases"]["asset"], asset)
+
     def test_pinned_hash_and_lobby_arrangement_are_data(self):
         m = mf.validate_external(public_manifest(
             releases=dict(channel="prerelease", asset="game.zip", verification=dict(method="sha256", sha256="a" * 64)),

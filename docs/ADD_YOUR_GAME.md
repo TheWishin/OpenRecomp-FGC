@@ -99,6 +99,9 @@ not part of this spec. Local registration reuses the selected folder in place.
 
 ## Releases and trust
 
+`releases.asset` must name an ASCII ZIP file without spaces or `#`; the path restrictions
+above also apply. The `.zip` suffix is case-insensitive.
+
 Versions use `vMAJOR.MINOR.PATCH` release tags; prereleases append `-identifier`.
 `channel: "stable"` selects stable releases;
 `"prerelease"` permits the author's prerelease channel.

@@ -151,7 +151,8 @@ def validate_external(m):
         if releases["channel"] not in ("stable", "prerelease"):
             raise ManifestError("Invalid release channel.")
         safe_relative_path(releases["asset"])
-        if "/" in releases["asset"] or not releases["asset"].lower().endswith(".zip"):
+        if (not releases["asset"].isascii() or any(c in releases["asset"] for c in " /#")
+                or not releases["asset"].lower().endswith(".zip")):
             raise ManifestError("A release asset must name a ZIP file.")
         verification = _object(releases["verification"], ("method", "sha256"), ("method",))
         if verification["method"] == "sha256":
