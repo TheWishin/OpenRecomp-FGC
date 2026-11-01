@@ -58,6 +58,29 @@ def snapshot(path):
     return path.read_bytes()
 
 
+def clean_patch_header(data):
+    """Clean only the mail preamble; retain the complete diff byte for byte."""
+    marker = re.search(br"(?m)^diff --git(?:[ \t]|\r?$)", data)
+    if marker is None:
+        return data
+    header = []
+    for line in data[:marker.start()].splitlines(keepends=True):
+        content = line.rstrip(b"\r\n")
+        if content.lower().startswith(b"co-authored-by:"):
+            continue
+        if content.lower().startswith(b"from:"):
+            line = b"From: T4 test <noreply@t5dr-online.invalid>" + line[len(content):]
+        header.append(line)
+    return b"".join(header) + data[marker.start():]
+
+
+def clean_t4_entries(entries):
+    """Transform bundle snapshots, never the T4 source files or other inputs."""
+    return [(name, clean_patch_header(data)
+             if len(Path(name).parts) == 2 and Path(name).parts[0] == "patches"
+             and Path(name).suffix == ".patch" else data) for name, data in entries]
+
+
 def load_t4_scanner(root):
     """Read the catalog used by make_test_zip.ps1; never write bytecode there."""
     root = Path(root).absolute()
@@ -128,7 +151,15 @@ def bundle_entries(root, t4_root):
     # Existing independent scanners are authoritative for their own catalogs.
     selected = package.source_files(root)
     scanner = load_t4_scanner(t4_root)
-    t4_entries = scanner.source_entries(t4_root)
+    # source_entries scans internally. Feed that unchanged scan the cleaned
+    # in-memory copy while retaining T4's authoritative catalog and traversal.
+    scan_entries = scanner.scan_entries
+    try:
+        scanner.scan_entries = lambda entries: scan_entries(clean_t4_entries(entries))
+        t4_entries = scanner.source_entries(t4_root)
+    finally:
+        scanner.scan_entries = scan_entries
+    t4_entries = clean_t4_entries(t4_entries)
     entries = [("START_HIER.txt", START_HIER)]
     for name, path in sorted(selected.items()):
         no_links(path)
