@@ -172,6 +172,15 @@ class GenericManifestTests(unittest.TestCase):
                 mf.install(source)
             self.assertFalse((Path(folder) / "games").exists())
 
+    def test_install_reports_directory_creation_failure_without_writing(self):
+        with mock.patch.object(mf, "load_file", return_value=public_manifest()), \
+                mock.patch.object(mf, "user_games_dir", return_value=str(ROOT / "registered-games")), \
+                mock.patch.object(mf.os, "makedirs", side_effect=PermissionError("denied")), \
+                mock.patch.object(mf.tempfile, "NamedTemporaryFile") as temporary:
+            with self.assertRaises(mf.ManifestError):
+                mf.install(ROOT / "manifest.json")
+            temporary.assert_not_called()
+
     def test_restart_rejects_injected_legacy_user_manifest(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as folder, mock.patch.dict(os.environ, OPENRECOMP_HOME=folder):
             games = Path(folder) / "games"

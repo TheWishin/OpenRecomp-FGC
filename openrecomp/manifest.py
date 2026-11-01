@@ -315,13 +315,13 @@ def install(path):
     data = json.dumps(m, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     if len(data) > MAX_MANIFEST_BYTES:
         raise ManifestError("The manifest exceeds the size limit.")
-    os.makedirs(user_games_dir(), exist_ok=True)
     dest = os.path.join(user_games_dir(), m["id"] + ".json")
     if os.path.islink(dest):
         raise ManifestError("A manifest destination cannot be a link.")
     resolve_path(user_games_dir(), m["id"] + ".json")
     tmp = None
     try:
+        os.makedirs(user_games_dir(), exist_ok=True)
         with tempfile.NamedTemporaryFile(mode="wb", dir=user_games_dir(),
                                          prefix=".manifest-", suffix=".tmp", delete=False) as f:
             tmp = f.name
