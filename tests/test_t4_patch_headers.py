@@ -14,7 +14,7 @@ bundle = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(bundle)
 
 ADDRESS = b"synthetic" + b"@" + b"example.invalid"
-REPLACEMENT = b"From: T4 test <" + b"noreply" + b"@" + b"t5dr-online.invalid>"
+REPLACEMENT = b"From: T4 test"
 
 
 class T4PatchHeaderTests(unittest.TestCase):

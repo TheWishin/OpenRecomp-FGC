@@ -5,6 +5,7 @@ anything is written. The bundle contains no portable interpreter or game data.
 """
 import argparse
 from datetime import datetime
+import hashlib
 import importlib.util
 import io
 import json
@@ -69,7 +70,7 @@ def clean_patch_header(data):
         if content.lower().startswith(b"co-authored-by:"):
             continue
         if content.lower().startswith(b"from:"):
-            line = b"From: T4 test <noreply@t5dr-online.invalid>" + line[len(content):]
+            line = b"From: T4 test" + line[len(content):]
         header.append(line)
     return b"".join(header) + data[marker.start():]
 
@@ -79,6 +80,54 @@ def clean_t4_entries(entries):
     return [(name, clean_patch_header(data)
              if len(Path(name).parts) == 2 and Path(name).parts[0] == "patches"
              and Path(name).suffix == ".patch" else data) for name, data in entries]
+
+
+def scan_clean_t4_entries(scanner, scan_entries, originals, cleaned):
+    """Keep original hash provenance for the publisher's guest-path check only."""
+    publisher = getattr(scanner, "publish_source", None)
+    if publisher is None:
+        return scan_entries(cleaned)
+    original_data = dict(originals)
+    allowed = {}
+    for name, data in cleaned:
+        parts = package.safe_name(name).parts
+        if len(parts) != 2 or parts[0] != "patches" or Path(name).suffix != ".patch":
+            continue
+        original = original_data.get(name)
+        if original is None:
+            continue
+        before = re.search(br"(?m)^diff --git(?:[ \t]|\r?$)", original)
+        after = re.search(br"(?m)^diff --git(?:[ \t]|\r?$)", data)
+        if before is None or after is None:
+            continue
+        if original[before.start():] != data[after.start():]:
+            raise ValueError("Patch cleanup changed diff content: " + name)
+        header = data[:after.start()].decode("utf-8-sig")
+        if (hashlib.sha256(original).hexdigest() in publisher.GUEST_PATH_SHA256
+                and not publisher.PERSONAL.search(header)):
+            allowed[name] = data
+    scan_file = publisher.scan_file
+    path_reason = "personal or machine-specific path"
+
+    def scan_copy(name, data):
+        reasons = list(scan_file(name, data))
+        if name in allowed and data == allowed[name]:
+            return [reason for reason in reasons if reason != path_reason]
+        # The publisher may already exempt an unchanged listed hash. A patch
+        # still needs the header/diff checks above, even without header edits.
+        try:
+            personal = publisher.PERSONAL.search(data.decode("utf-8-sig"))
+        except UnicodeDecodeError:
+            personal = False  # The publisher retains its binary refusal.
+        if personal and path_reason not in reasons:
+            reasons.append(path_reason)
+        return reasons
+
+    try:
+        publisher.scan_file = scan_copy
+        return scan_entries(cleaned)
+    finally:
+        publisher.scan_file = scan_file
 
 
 def load_t4_scanner(root):
@@ -151,14 +200,22 @@ def bundle_entries(root, t4_root):
     # Existing independent scanners are authoritative for their own catalogs.
     selected = package.source_files(root)
     scanner = load_t4_scanner(t4_root)
-    # source_entries scans internally. Feed that unchanged scan the cleaned
-    # in-memory copy while retaining T4's authoritative catalog and traversal.
+    # source_entries scans internally. Retain its original snapshots for both
+    # scans, while sending only cleaned copies through the existing checks.
     scan_entries = scanner.scan_entries
+    originals = []
+
+    def scan_copies(entries):
+        originals[:] = list(entries)
+        return scan_clean_t4_entries(scanner, scan_entries, originals, clean_t4_entries(originals))
+
     try:
-        scanner.scan_entries = lambda entries: scan_entries(clean_t4_entries(entries))
+        scanner.scan_entries = scan_copies
         t4_entries = scanner.source_entries(t4_root)
     finally:
         scanner.scan_entries = scan_entries
+    if not originals:
+        originals = list(t4_entries)
     t4_entries = clean_t4_entries(t4_entries)
     entries = [("START_HIER.txt", START_HIER)]
     for name, path in sorted(selected.items()):
@@ -171,7 +228,8 @@ def bundle_entries(root, t4_root):
         package.scan_file(path, name)
         entries.append((LAUNCHER_FOLDER + "/" + name, snapshot(path)))
     # Re-scan T4's snapshots with the same scan used by its source test zip.
-    entries.extend((T4_FOLDER + "/" + name, data) for name, data in scanner.scan_entries(t4_entries))
+    checked_t4 = scan_clean_t4_entries(scanner, scan_entries, originals, t4_entries)
+    entries.extend((T4_FOLDER + "/" + name, data) for name, data in checked_t4)
     return scan_bundle_entries(entries)
 
 

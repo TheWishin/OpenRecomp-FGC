@@ -41,19 +41,18 @@ class T4PatchScanBoundaryTests(unittest.TestCase):
     def entries(self):
         return dict(bundle.bundle_entries(self.root, self.root / "source"))
 
-    def test_required_replacement_address_is_still_refused_by_unchanged_scan(self):
+    def test_cleaned_header_is_address_free_and_passes_unchanged_scan(self):
         original = (b"From: Synthetic <" + self.address + b">\r\n"
                     b"Co-Authored-By: Synthetic <" + self.address + b">\r\n" + self.diff)
         cleaned = bundle.clean_patch_header(original)
-        expected = b"From: T4 test <noreply" + b"@" + b"t5dr-online.invalid>\r\n" + self.diff
+        expected = b"From: T4 test\r\n" + self.diff
         self.assertEqual(cleaned, expected)
         self.assertNotIn(self.address, cleaned)
         base = list(self.entries().items())
-        with self.assertRaisesRegex(ValueError, "email"):
-            bundle.scan_bundle_entries(base + [("T4/patches/sample.patch", cleaned)])
+        self.assertIn(("T4/patches/sample.patch", cleaned),
+                      bundle.scan_bundle_entries(base + [("T4/patches/sample.patch", cleaned)]))
         self.source.append(("patches/sample.patch", original))
-        with self.assertRaisesRegex(ValueError, "email"):
-            bundle.create_bundle(self.root, self.root / "source")
+        self.assertEqual(self.entries()["T4/patches/sample.patch"], expected)
         self.assertFalse((self.root / "dist").exists())
 
     def test_address_in_patch_diff_is_still_refused(self):

@@ -29,7 +29,7 @@ class T4PatchApplyTests(unittest.TestCase):
                  b"Co-Authored-By: Synthetic <" + address + b">\n\n" + diff)
         cleaned = bundle.clean_patch_header(patch)
         self.assertEqual(cleaned[cleaned.index(b"diff --git "):], diff)
-        self.assertIn(b"From: T4 test <noreply@t5dr-online.invalid>", cleaned)
+        self.assertTrue(cleaned.startswith(b"From: T4 test\n"))
         self.assertNotIn(address, cleaned)
         with tempfile.TemporaryDirectory(dir=ROOT) as temporary:
             root = Path(temporary)
