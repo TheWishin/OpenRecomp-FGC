@@ -16,12 +16,15 @@ es ist keine portable Spielerfreigabe. Beide entpacken dasselbe ZIP aus `dist/`
 in einen neuen, beschreibbaren Ordner. `START_HIER.txt` liegt neben
 `OpenRecomp-FGC/` und `T4/`. Diese beiden Ordner zusammenlassen: der Launcher
 findet das benachbarte `T4` automatisch. Das Bundle enthaelt keine ISO, fertige
-EXE, Spieldaten oder Bilder und keine portable Python-Installation.
+Spiel-EXE, Spieldaten oder Spielbilder. Die portable CPython-3.12.10-Laufzeit
+fuer Windows x64 mit PySide6-Essentials 6.8.2.1 und shiboken6 6.8.2.1 samt
+Lizenzen ist enthalten.
 
-1. Python 3.12 muss bereits installiert sein. `OpenRecomp-FGC/run.cmd` im
-   Explorer doppelklicken und dem Bildschirm folgen. Der unveraenderte Starter
-   legt beim ersten Start die virtuelle Umgebung an und installiert PySide6;
-   dazu wird eine Internetverbindung gebraucht.
+1. `OpenRecomp-FGC/run.cmd` im Explorer doppelklicken und dem Bildschirm
+   folgen. Fuer den Launcher ist keine separate Laufzeitinstallation oder
+   Internetverbindung beim ersten Start erforderlich. Die Laufzeit liegt in
+   `OpenRecomp-FGC/portable/`. Die folgenden Build-Werkzeuge fuer T4 werden
+   weiterhin separat geprueft und vom Spieler installiert.
 2. T4 waehlen, dann **Build**. Die Werkzeugpruefung zeigt Python, Git,
    CMake, Ninja, VS 2022 Build Tools und die MSVC-Version. Bei einem fehlenden
    Werkzeug den angezeigten genauen **winget**-Befehl mit **Kopieren** uebernehmen.
@@ -51,9 +54,13 @@ sowie per Maus funktionieren. Werkzeuginstallation und Router-/VPN-Einrichtung
 sind Vorbereitung im jeweiligen Windows- oder Router-Dialog. Niemand muss fuer
 Build oder Host/Join PowerShell-Befehle abtippen.
 
-Der Maintainer erstellt das Bundle mit `tools\make_t4_test_bundle.ps1`.
-Beide Quelltext-Scans muessen vor dem Schreiben bestehen; ein Fund verweigert
-das ZIP. Der Befehl meldet den datierten Dateinamen in `dist/` und die Groesse.
+Der Maintainer erstellt das Bundle mit `tools\make_t4_test_bundle.ps1` in
+Windows PowerShell. Beim ersten Mal laedt das Skript die festgelegten Laufzeit-
+Archive und prueft ihre SHA-256-Summen; weitere Aufrufe verwenden den geprueften
+Cache. Beide Quelltext-Scans und der genaue Laufzeitkatalog muessen vor dem
+Schreiben bestehen; ein Fund verweigert das ZIP. Der Befehl meldet den datierten
+Dateinamen in `dist/` sowie die gemessene ZIP- und entpackte Groesse. Einzelheiten
+zu Dateien und Lizenzen stehen in [PACKAGING.md](PACKAGING.md).
 
 ## Portable release player walk
 

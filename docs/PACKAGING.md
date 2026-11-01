@@ -18,6 +18,109 @@ download or installed size yet. `package_release.py` prints `zip_bytes` and
 `unpacked_bytes` only after assembling the actual payload. Publish those measured
 facts, never an estimate based on the development environment.
 
+## T4 test bundle with a portable runtime
+
+The source test bundle uses `run.cmd` rather than the compiled native starter.
+Run this once from the repository in Windows PowerShell:
+
+    powershell -NoProfile -File tools\make_t4_test_bundle.ps1
+
+The wrapper invokes `tools\fetch_portable_runtime.ps1`, which downloads the
+pinned CPython 3.12.10 Windows x64 embeddable distribution, PySide6-Essentials
+6.8.2.1 and shiboken6 6.8.2.1, plus the matching Qt for Python source ZIP for
+licence texts and sources. The official archive URLs, available byte sizes and SHA-256
+sums are recorded in `tools/portable_runtime.lock.json`. Every downloaded or
+cached archive must match its pinned SHA-256 before extraction; no pip or
+system-wide installation is used. The cache is `dist/portable-cache/`, and the
+prepared runtime is `dist/portable-runtime/`. Later runs reuse those inputs only
+after checking them again. Fetching needs internet; opening the extracted
+launcher does not download dependencies.
+
+The output is one dated ZIP in `dist/`, containing `START_HIER.txt`,
+`OpenRecomp-FGC/` and `T4/`. The runtime goes into
+`OpenRecomp-FGC/portable/`. Keep the two top-level folders together and open
+`OpenRecomp-FGC/run.cmd`. When the portable interpreter is present, that command
+uses it; without it the existing development `.venv` setup remains available.
+`START_HIER.txt` contains the extraction and double-click steps, without asking
+the recipient to install a runtime. The wrapper reports the actual ZIP size and
+unpacked size; report those measured values when handing over a test bundle.
+
+Both existing source catalog scans remain mandatory. Runtime bytes have a
+separate exact catalog derived from the verified archives: each permitted
+relative path and its bytes must equal its corresponding archive member;
+additions, removals and changed bytes are refused. The CPython download ZIP and
+wheel archives are not shipped; the explicitly named Qt for Python source ZIP
+below is retained. The catalog is not a blanket exception for
+`portable/`, a file extension or a binary signature. Files elsewhere still pass
+the unchanged source-material restrictions, and the finished ZIP is checked
+again. No game executable, data, image or install is part of this allowance.
+
+The allowance includes these required paths, relative to `OpenRecomp-FGC/`:
+`portable/python.exe`, `portable/pythonw.exe`, `portable/python312.dll`,
+`portable/python312.zip`, `portable/python312._pth`, `portable/LICENSE.txt`,
+`portable/Lib/site-packages/PySide6/__init__.py` and
+`portable/Lib/site-packages/shiboken6/__init__.py`. The `_pth` is the sole
+generated runtime file, with fixed relative entries for the standard library,
+launcher and packages. The remaining CPython files retain their exact archive
+member paths directly under `portable/`; `.dll`/`.pyd` allowances apply only to
+the archive's individual files, such as `portable/python3.dll`,
+`portable/vcruntime140.dll`, `portable/vcruntime140_1.dll`,
+`portable/libcrypto-3.dll`, `portable/libssl-3.dll`, `portable/libffi-8.dll`,
+`portable/sqlite3.dll`, `portable/_ctypes.pyd`, `portable/_socket.pyd`,
+`portable/_ssl.pyd` and `portable/_hashlib.pyd`. Wheel members retain their exact
+archive paths beneath `portable/Lib/site-packages/PySide6/`,
+`portable/Lib/site-packages/PySide6_Essentials-6.8.2.1.dist-info/`,
+`portable/Lib/site-packages/shiboken6/` and
+`portable/Lib/site-packages/shiboken6-6.8.2.1.dist-info/`, including Qt
+plugins/QML resources and dist-info licences. These examples do not replace
+the complete per-file catalog below.
+
+To name **every exact permitted path, file type, size and SHA-256** from the
+verified archives, run after fetching:
+
+    dist\portable-runtime\python.exe -I -B tools\portable_runtime.py --catalog --cache dist\portable-cache
+
+Each printed path is relative to `OpenRecomp-FGC/portable/`; its suffix names
+its file type. Preserve this output with the test bundle review. In particular,
+the scans must accept the listed CPython `.exe`, `.dll`, `.pyd` and `.zip` files,
+the exact `_pth`, and the listed Qt binaries and resources at those exact paths.
+They must not accept those extensions at other paths. This catalog, rather than
+an unverified list copied from another installation, is the full path/type
+allowance. Qt images are permitted only when they are exact members of the
+pinned dependency archive; this permits no game pictures or launcher screenshots.
+The complete archive-member catalog cannot be inspected until the downloads
+have succeeded and passed their pinned hashes.
+
+The Python licence and wheel licences/notices remain alongside their components.
+The fetcher also checks the matching 21,273,890-byte Qt for Python source ZIP
+against SHA-256
+`2592fdb28ca4781f867f537176dc3b62523349b03dc712d8f3806faf7416cb7b`.
+Its only retained archive path is
+`OpenRecomp-FGC/portable/licenses/sources/pyside-setup-everywhere-src-6.8.2.1.zip`.
+This exact source archive is a separate pinned allowance, not permission for
+other ZIP files. Root `LICENSE*`/`COPYING*` files and the `LICENSES/` members of
+that verified archive are copied, with their exact bytes and relative paths,
+under `OpenRecomp-FGC/portable/licenses/PySide6/`. The source's single enclosing
+folder is removed. Preparation refuses missing LGPLv3/GPLv3 text. The catalog
+command above lists each selected licence path and hash alongside the runtime.
+The launcher and T4 licences also travel with the test ZIP.
+
+The complete Qt corresponding source is not bundled in this test ZIP. The
+maintainer's unchanged full-release contract below still requires the exact
+Qt/PySide6/shiboken6 corresponding source and notices before redistribution.
+For Qt 6.8.2 the upstream source is
+[qt-everywhere-src-6.8.2.zip](https://download.qt.io/official_releases/qt/6.8/6.8.2/single/qt-everywhere-src-6.8.2.zip)
+(1,576,259,348 bytes, about 1.58 GB); it is not automatically downloaded here.
+Shipping the source ZIP and licence texts above does not establish that full
+release compliance review. Keep the libraries replaceable; preparation checks
+are packaging gates and do not restrict compatible library replacement at
+launcher startup.
+
+The portable test bundle is separate from the native release workflow below.
+A successful source/catalog test is not a clean-PC startup, physical-controller,
+build or two-PC game result. Do those owner checks with the extracted bundle;
+never infer them from mocks or an unexecuted launch command.
+
 ## Offline preparation by the maintainer
 
 The tool neither downloads dependencies nor invokes a compiler. Before running

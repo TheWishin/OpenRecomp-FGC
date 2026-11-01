@@ -1,8 +1,10 @@
-"""Source bundle regression checks; never run a launcher, build or game."""
+"""Bundle regression checks; never show a launcher or run a build or game."""
 import contextlib
 import importlib.util
 import io
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import types
 import unittest
@@ -53,7 +55,8 @@ class T4TestBundleTests(unittest.TestCase):
             self.assertEqual(result.read("T4/LICENSE"), b"T4 license")
             guide = result.read("START_HIER.txt").decode("utf-8")
             self.assertLessEqual(len(guide.splitlines()), 5)
-            self.assertIn("Python 3.12", guide)
+            self.assertNotIn("Python", guide)
+            self.assertNotIn("Internet", guide)
             self.assertIn("run.cmd", guide)
             self.assertFalse(any(Path(name).suffix.lower() in bundle.IMAGE_SUFFIXES for name in result.namelist()))
             self.assertFalse(any(".venv" in name for name in result.namelist()))
@@ -122,7 +125,7 @@ class T4TestBundleTests(unittest.TestCase):
         self.scanner.source_entries.side_effect = ValueError("synthetic rejection")
         error = io.StringIO()
         with contextlib.redirect_stderr(error):
-            result = bundle.main(["--root", str(self.root), "--t4-source", str(self.root / "source")])
+            result = bundle.main(["--root", str(self.root), "--t4-source", str(self.root / "source"), "--check-only"])
         self.assertEqual(result, 1)
         self.assertIn("Test bundle refused", error.getvalue())
         self.assertFalse((self.root / "dist").exists())
@@ -135,6 +138,82 @@ class T4TestBundleTests(unittest.TestCase):
         self.assertIn("t4_test_bundle.py", text)
         self.assertNotIn("Compress-Archive", text)
 
+
+class T4BundleEntryPointTests(unittest.TestCase):
+    """Invoke the actual script with harmless, repository-local source catalogs."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(dir=ROOT)
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        for name in bundle.package.SOURCE_FILES | {"run.cmd", "requirements.txt"}:
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"{}\n" if path.suffix == ".json" else b"# fixture source\n")
+        self.t4 = self.root / "T4Source"
+        (self.t4 / "tools").mkdir(parents=True)
+        (self.t4 / "LICENSE").write_bytes(b"fixture T4 license\n")
+        (self.t4 / "tools/make_test_zip.ps1").write_bytes(b"# source fixture\n")
+        (self.t4 / "tools/publish_source.py").write_bytes(b"# source fixture\n")
+        (self.t4 / "tools/test_zip.py").write_text(
+            "from pathlib import Path\n"
+            "def scan_entries(entries):\n"
+            "    entries = list(entries)\n"
+            "    if entries != [('LICENSE', b'fixture T4 license\\n')]:\n"
+            "        raise ValueError('fixture T4 scan refused')\n"
+            "    return entries\n"
+            "def source_entries(root):\n"
+            "    return scan_entries([('LICENSE', (Path(root) / 'LICENSE').read_bytes())])\n",
+            encoding="utf-8")
+
+    def invoke(self, *arguments):
+        return subprocess.run(
+            [sys.executable, "-I", "-B", str(ROOT / "tools/t4_test_bundle.py"),
+             "--root", str(self.root), "--t4-source", str(self.t4), *arguments],
+            cwd=ROOT, capture_output=True, text=True, timeout=180)
+
+    def test_cli_checks_both_source_catalogs_without_creating_archive(self):
+        result = self.invoke("--check-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Both source scans passed", result.stdout)
+        self.assertFalse((self.root / "dist").exists())
+
+    def test_cli_refuses_to_create_zip_without_portable_runtime(self):
+        result = self.invoke()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("requires --runtime", result.stderr)
+        self.assertFalse((self.root / "dist").exists())
+
+    def test_cli_includes_pinned_portable_runtime_when_prepared(self):
+        runtime = ROOT / "dist/portable-runtime"
+        if not (runtime / "python.exe").is_file():
+            self.skipTest("Run fetch_portable_runtime.ps1 to prepare the pinned runtime")
+        result = self.invoke("--runtime", str(runtime), "--runtime-cache", str(ROOT / "dist/portable-cache"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        archives = list((self.root / "dist").glob("*.zip"))
+        self.assertEqual(len(archives), 1)
+        with zipfile.ZipFile(archives[0]) as archive:
+            prefix = "OpenRecomp-FGC/portable/"
+            self.assertEqual(archive.read(prefix + "python.exe"), (runtime / "python.exe").read_bytes())
+            self.assertIn(prefix + "Lib/site-packages/PySide6/QtCore.pyd", archive.namelist())
+            self.assertIn(prefix + "LICENSE.txt", archive.namelist())
+            source = "licenses/sources/pyside-setup-everywhere-src-6.8.2.1.zip"
+            self.assertEqual(archive.read(prefix + source), (runtime / source).read_bytes())
+            guide = archive.read("START_HIER.txt").decode("utf-8")
+            self.assertNotIn("Python", guide)
+            self.assertNotIn("Internet", guide)
+            self.assertIn("run.cmd", guide)
+        self.assertIn("bytes ZIP;", result.stdout)
+        self.assertIn("bytes unpacked;", result.stdout)
+
+    def test_cli_runtime_flag_refuses_unknown_binary_before_writing_archive(self):
+        runtime = self.root / "runtime"
+        runtime.mkdir()
+        (runtime / "unexpected.exe").write_bytes(b"MZfixture")
+        result = self.invoke("--runtime", str(runtime))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("Test bundle refused", result.stderr)
+        self.assertFalse((self.root / "dist").exists())
 
 if __name__ == "__main__":
     unittest.main()

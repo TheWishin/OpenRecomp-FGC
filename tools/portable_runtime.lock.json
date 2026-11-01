@@ -1,0 +1,46 @@
+﻿{
+    "schema":  1,
+    "archives":  [
+                     {
+                         "target_prefix":  "",
+                         "filename":  "python-3.12.10-embed-amd64.zip",
+                         "url":  "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip",
+                         "id":  "cpython",
+                         "sha256":  "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
+                     },
+                     {
+                         "id":  "pyside6-essentials",
+                         "target_prefix":  "Lib/site-packages",
+                         "sha256":  "18de224f09108998d194e60f2fb8a1e86367dd525dd8a6192598e80e6ada649e",
+                         "filename":  "PySide6_Essentials-6.8.2.1-cp39-abi3-win_amd64.whl",
+                         "url":  "https://files.pythonhosted.org/packages/5b/54/28a8b03f327e2c1d27d4a1ccf1a44997afc73c00ad07125d889640367194/PySide6_Essentials-6.8.2.1-cp39-abi3-win_amd64.whl",
+                         "size":  72502927
+                     },
+                     {
+                         "id":  "shiboken6",
+                         "target_prefix":  "Lib/site-packages",
+                         "sha256":  "1b751d47b759762b7ca31bad278d52eca4105d3028880d93979261ebbfba810c",
+                         "filename":  "shiboken6-6.8.2.1-cp39-abi3-win_amd64.whl",
+                         "url":  "https://files.pythonhosted.org/packages/ae/88/b56bdb38a11066e4eecd1da6be4205bb406398b733b392b11c5aaf9547f7/shiboken6-6.8.2.1-cp39-abi3-win_amd64.whl",
+                         "size":  1150270
+                     }
+                 ],
+    "files":  {
+                  "python312._pth":  {
+                                         "sha256":  "3d7695aa97c20cd2e6ae15b737488e1fb853711d6f1c1910bf806629864fe8fb",
+                                         "content_utf8":  "python312.zip\n.\nLib/site-packages\n..\n",
+                                         "size":  37
+                                     }
+              },
+    "downloads":  [
+                      {
+                          "id":  "pyside6-source",
+                          "filename":  "pyside-setup-everywhere-src-6.8.2.1.zip",
+                          "url":  "https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.8.2.1-src/pyside-setup-everywhere-src-6.8.2.1.zip",
+                          "sha256":  "2592fdb28ca4781f867f537176dc3b62523349b03dc712d8f3806faf7416cb7b",
+                          "size":  21273890,
+                          "target":  "licenses/sources/pyside-setup-everywhere-src-6.8.2.1.zip",
+                          "licenses_prefix":  "licenses/PySide6"
+                      }
+                  ]
+}

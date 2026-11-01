@@ -6,6 +6,16 @@ whole zip to a writable folder and open `OpenRecomp.exe`. They do not install Py
 runtime must be prepared separately before the offline packaging tool can assemble a release.
 No release binary or zip was built or packaged during this implementation.
 
+For the owner/colleague T4 test bundle, the maintainer instead runs
+`tools\make_t4_test_bundle.ps1` once in Windows PowerShell. It downloads and
+checks the pinned portable runtime before assembling the source test ZIP.
+Extract the entire test ZIP, keep `OpenRecomp-FGC/` beside `T4/`, and double-click
+`OpenRecomp-FGC/run.cmd`. Its `portable/` runtime needs no separate installation
+or first-start dependency download. The source-checkout fallback in `run.cmd`
+still creates `.venv` when no portable runtime is present. This test bundle has
+no native `OpenRecomp.exe`; see [PACKAGING.md](PACKAGING.md) and the German
+[test-bundle walk](T4_FIRST_RUN.md).
+
 This release candidate is a T4 beta: offline play plus online by direct IP or
 VPN, with no lobby and no ranked. Lobby-based T4 online remains hidden until its
 server exists. T5DR's Online section uses its installed lobby client; the

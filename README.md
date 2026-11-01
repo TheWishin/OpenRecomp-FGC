@@ -61,15 +61,22 @@ run.cmd
 
 The first start creates `.venv` and installs PySide6. `run.cmd --windowed` opens a window instead of fullscreen.
 
-For the owner/colleague T4 internet test, `tools\make_t4_test_bundle.ps1`
-creates one dated source ZIP in `dist/` after both source scans pass. It contains
-`START_HIER.txt`, `OpenRecomp-FGC/` and the sibling `T4/` source catalog; no ISO,
-executable, game data, images or portable Python. Keep the two folders together.
-Install Python 3.12, double-click `OpenRecomp-FGC/run.cmd`, then follow the
-German [test-bundle walk](docs/T4_FIRST_RUN.md). The launcher finds `T4/`, checks
-build tools, offers exact winget commands to copy, verifies the player's ISO and
-shows build progress. Compare Build-ID and compiler/MSVC before Host/Join.
-Firewall, UDP 7400, port-forwarding and Tailscale steps are in the
+For the owner/colleague T4 internet test, run `tools\make_t4_test_bundle.ps1`
+once in Windows PowerShell. It fetches the pinned portable CPython 3.12.10 for
+Windows x64, PySide6-Essentials 6.8.2.1 and shiboken6 6.8.2.1, checks SHA-256
+sums, then creates one dated test ZIP in `dist/` after both source scans pass.
+The runtime is reused on later runs. It contains `START_HIER.txt`,
+`OpenRecomp-FGC/` and the sibling `T4/` source catalog. Keep the two folders
+together and double-click `OpenRecomp-FGC/run.cmd`; the bundled launcher runtime
+needs no separate installation or first-start download. Dependency licences stay
+alongside the runtime. No ISO, executable game build, game data or game pictures
+are included. See [packaging details](docs/PACKAGING.md) for the exact runtime
+catalog and scans.
+
+Follow the German [test-bundle walk](docs/T4_FIRST_RUN.md). The launcher finds
+`T4/`, checks build tools, offers exact winget commands to copy, verifies the
+player's ISO and shows build progress. Compare Build-ID and compiler/MSVC before
+Host/Join. Firewall, UDP 7400, port-forwarding and Tailscale steps are in the
 [German network guide](docs/T4_ONLINE.md). After play, Collect logs displays the
 local ZIP path. No typed PowerShell build or netplay commands are required.
 This source test bundle needs a real clean-PC build and two-PC acceptance.

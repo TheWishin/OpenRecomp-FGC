@@ -13,7 +13,7 @@ class T4BundleDocsTests(unittest.TestCase):
     def test_source_bundle_walk_does_not_require_portable_release(self):
         text = self.read("docs/T4_FIRST_RUN.md")
         source = text.split("## Quelltext-Testbundle", 1)[1].split("## Portable release", 1)[0]
-        for phrase in ("Python 3.12", "OpenRecomp-FGC/run.cmd", "START_HIER.txt",
+        for phrase in ("CPython-3.12.10", "OpenRecomp-FGC/run.cmd", "START_HIER.txt",
                        "`T4/`", "automatisch", "winget", "Kopieren", "CMake",
                        "Ninja", "VS 2022", "SLUS-20328 v1.00", "Build-ID",
                        "Compiler/MSVC-Version", "Collect logs", "Dateipfad",
@@ -47,7 +47,7 @@ class T4BundleDocsTests(unittest.TestCase):
         text = self.read("README.md")
         for phrase in ("tools\\make_t4_test_bundle.ps1", "both source scans",
                        "START_HIER.txt", "OpenRecomp-FGC/run.cmd", "sibling `T4/`",
-                       "Python 3.12", "No typed PowerShell build"):
+                       "CPython 3.12.10", "No typed PowerShell build"):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, text)
 

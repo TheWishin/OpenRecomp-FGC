@@ -1,7 +1,7 @@
-"""Assemble a source-only launcher/T4 test bundle, without builds or Git.
+"""Assemble a launcher/T4 test bundle, without builds or Git.
 
 The launcher release scanner and T4's make_test_zip catalog both run before
-anything is written. The bundle contains no portable interpreter or game data.
+anything is written. Only the pinned portable runtime may add binary files.
 """
 import argparse
 from datetime import datetime
@@ -21,8 +21,7 @@ LAUNCHER_FOLDER = "OpenRecomp-FGC"
 T4_FOLDER = "T4"
 START_HIER = (
     "Alles in einen neuen Ordner entpacken.\n"
-    "Python 3.12 ist erforderlich; ein portables Python ist noch nicht enthalten.\n"
-    "OpenRecomp-FGC\\run.cmd doppelklicken (beim ersten Start ist Internet erforderlich).\n"
+    "OpenRecomp-FGC\\run.cmd doppelklicken.\n"
     "Auf dem Bildschirm Tekken 4 wählen und den Schritten folgen.\n"
 ).encode("utf-8")
 # These are the launcher's own branding, deliberately omitted for this
@@ -161,8 +160,14 @@ def load_t4_scanner(root):
             sys.modules["publish_source"] = old_publish
 
 
-def scan_bundle_entries(entries):
-    """Check the exact bytes to be archived, including additional start files."""
+def scan_bundle_entries(entries, runtime_cache=None):
+    """Check source bytes and the exact pinned portable-runtime inventory."""
+    entries = list(entries)
+    runtime_prefix = LAUNCHER_FOLDER + "/portable/"
+    runtime = [(name[len(runtime_prefix):], data) for name, data in entries
+               if name.startswith(runtime_prefix)]
+    if runtime:
+        _module("t4_bundle_portable", ROOT / "tools/portable_runtime.py").validate_entries(runtime, cache_root=runtime_cache)
     checked, seen = [], {}
     for name, data in entries:
         path = package.safe_name(name)
@@ -173,6 +178,11 @@ def scan_bundle_entries(entries):
                 raise ValueError("Case-colliding bundle paths")
         if name in {previous for previous, _ in checked}:
             raise ValueError("Duplicate bundle path")
+        if name.startswith(runtime_prefix):
+            # The complete inventory above binds each path, size and SHA-256 to
+            # the pinned upstream artifacts; no other binary path is exempt.
+            checked.append((name, data))
+            continue
         if len(data) > MAX_FILE_SIZE:
             raise ValueError("Oversized bundle input: " + name)
         if (path.suffix.lower() in IMAGE_SUFFIXES | package.FORBIDDEN_SUFFIXES
@@ -198,7 +208,8 @@ def scan_bundle_entries(entries):
     return checked
 
 
-def bundle_entries(root, t4_root):
+def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None):
+    runtime_cache = ROOT / "dist/portable-cache" if runtime_cache is None else Path(runtime_cache)
     root, t4_root = Path(root).absolute(), Path(t4_root).absolute()
     no_links(root)
     no_links(t4_root)
@@ -235,10 +246,14 @@ def bundle_entries(root, t4_root):
     # Re-scan T4's snapshots with the same scan used by its source test zip.
     checked_t4 = scan_clean_t4_entries(scanner, scan_entries, originals, t4_entries)
     entries.extend((T4_FOLDER + "/" + name, data) for name, data in checked_t4)
-    return scan_bundle_entries(entries)
+    if runtime_root is not None:
+        runtime = _module("t4_bundle_portable", ROOT / "tools/portable_runtime.py")
+        entries.extend((LAUNCHER_FOLDER + "/portable/" + name, data)
+                       for name, data in runtime.runtime_entries(runtime_root, cache_root=runtime_cache))
+    return scan_bundle_entries(entries, runtime_cache)
 
 
-def create_bundle(root, t4_root, archive=None):
+def create_bundle(root, t4_root, archive=None, runtime_root=None, runtime_cache=None):
     root = Path(root).absolute()
     no_links(root)
     archive = Path(archive) if archive is not None else root / "dist" / (
@@ -250,7 +265,7 @@ def create_bundle(root, t4_root, archive=None):
         raise ValueError("Bundle output must be a zip directly in dist")
     if archive.exists():
         raise ValueError("Bundle already exists; nothing was overwritten")
-    entries = bundle_entries(root, t4_root)
+    entries = bundle_entries(root, t4_root, runtime_root, runtime_cache)
     archive.parent.mkdir(parents=True, exist_ok=True)
     no_links(archive.parent)
     with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as output:
@@ -259,7 +274,7 @@ def create_bundle(root, t4_root, archive=None):
     with zipfile.ZipFile(archive) as output:
         if output.testzip() is not None:
             raise ValueError("Bundle CRC check failed")
-        scan_bundle_entries((name, output.read(name)) for name in output.namelist())
+        scan_bundle_entries(((name, output.read(name)) for name in output.namelist()), runtime_cache)
     return archive, len(entries)
 
 
@@ -273,16 +288,23 @@ def main(argv=None):
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--t4-source", type=Path)
     parser.add_argument("--check-only", action="store_true")
+    parser.add_argument("--runtime", type=Path, help="Verified portable runtime prepared by fetch_portable_runtime.ps1")
+    parser.add_argument("--runtime-cache", type=Path, help="Pinned dependency archive cache (default: dist/portable-cache)")
     args = parser.parse_args(argv)
     try:
+        if not args.check_only and args.runtime is None:
+            raise ValueError("Creating a test ZIP requires --runtime; use make_t4_test_bundle.ps1 to fetch it first")
         source = args.t4_source or default_t4_source(args.root)
         if args.check_only:
-            entries = bundle_entries(args.root, source)
+            entries = bundle_entries(args.root, source, args.runtime, args.runtime_cache)
             print("Both source scans passed: {} files. Nothing written.".format(len(entries)))
         else:
-            archive, count = create_bundle(args.root, source)
+            archive, count = create_bundle(args.root, source, runtime_root=args.runtime, runtime_cache=args.runtime_cache)
             print("Test bundle: {}".format(archive))
-            print("Size: {:,} bytes; {} source files.".format(archive.stat().st_size, count))
+            with zipfile.ZipFile(archive) as output:
+                unpacked = sum(entry.file_size for entry in output.infolist())
+            print("Size: {:,} bytes ZIP; {:,} bytes unpacked; {} files.".format(
+                archive.stat().st_size, unpacked, count))
     except (OSError, UnicodeError, ValueError, zipfile.BadZipFile) as error:
         print("Test bundle refused: " + str(error), file=sys.stderr)
         return 1
