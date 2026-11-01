@@ -128,6 +128,12 @@ class GenericManifestTests(unittest.TestCase):
             with self.subTest(change=change):
                 self.reject(**change)
 
+    def test_version_core_uses_ascii_digits(self):
+        for version in ("v1\u0662.0.0", "v1.1\u0662.0", "v1.0.1\u0662"):
+            with self.subTest(version=version):
+                self.reject(version=version)
+        self.assertEqual(mf.validate_external(public_manifest(version="v12.34.56"))["version"], "v12.34.56")
+
     def test_release_asset_names_are_safe_in_download_urls(self):
         for asset in ("recomp build.zip", "recomp#1.zip", "recomp\u00e9.zip"):
             with self.subTest(asset=asset):

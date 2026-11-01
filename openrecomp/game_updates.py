@@ -20,7 +20,7 @@ MAX_METADATA = 1024 * 1024
 MAX_ARCHIVE = 512 * 1024 * 1024
 MAX_UNPACKED = 2 * MAX_ARCHIVE
 MAX_FILES = 10000
-_VERSION = re.compile(r"v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*))?\Z")
+_VERSION = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*))?\Z")
 
 
 class GameUpdateError(Exception):

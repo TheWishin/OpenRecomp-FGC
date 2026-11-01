@@ -191,6 +191,22 @@ class AuthorGameUpdates(unittest.TestCase):
         with mock.patch.object(gu, "MAX_UNPACKED", 1), self.assertRaises(gu.GameUpdateError):
             gu.GameUpdates._extract(self.raw, self.home)
 
+    def test_release_versions_require_ascii_core_digits(self):
+        for version in ("v1\u0662.0.0", "v1.2\u0662.0", "v1.2.3\u0662"):
+            with self.subTest(version=version):
+                with self.assertRaises(gu.GameUpdateError):
+                    gu.version_key(version)
+                self.release["tag_name"] = version
+                self.release["assets"][0]["browser_download_url"] = (
+                    f"https://github.com/example/recomp/releases/download/{version}/recomp.zip")
+                with self.assertRaises(gu.GameUpdateError):
+                    self.service.check(self.m)
+                self.assertNotIn("sample", self.service.offers)
+        for version, expected in (("v0.0.0", ((0, 0, 0), "")), ("v12.22.32", ((12, 22, 32), "")),
+                                  ("v1.2.3-rc.10", ((1, 2, 3), "rc.10"))):
+            with self.subTest(version=version):
+                self.assertEqual(gu.version_key(version), expected)
+
     def test_versions_and_channel_do_not_downgrade(self):
         self.m["version"] = "v3.0.0"
         old = self.home / "old"

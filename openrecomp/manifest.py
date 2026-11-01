@@ -124,7 +124,7 @@ def validate_external(m):
     if not m["exe"].lower().endswith(".exe"):
         raise ManifestError("The game must name its own executable.")
     if "version" in m:
-        match = re.fullmatch(r"v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*))?", m["version"])
+        match = re.fullmatch(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*))?", m["version"])
         if (not match or len(m["version"]) > 100
                 or any(part.isdigit() and len(part) > 1 and part.startswith("0") for part in (match.group(4) or "").split("."))):
             raise ManifestError("Versions must use a semantic release tag.")
