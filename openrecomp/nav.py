@@ -147,7 +147,8 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
 
     def _handle(self, a):
         if self.library_busy:
-            if a == "back" and self.overlay == "dialog" and self.confirm_kind.startswith("library_"):
+            if (self.overlay == "dialog" and self.confirm_kind.startswith("library_")
+                    and (a == "back" or a == "confirm" and self.confirm_kind == "library_loading")):
                 self._cancel_library()
             else:
                 self.say("@library.busy")

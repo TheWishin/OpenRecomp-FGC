@@ -254,7 +254,10 @@ class Library:
             raise
         finally:
             if temporary is not None and os.path.exists(temporary):
-                os.unlink(temporary)
+                try:
+                    os.unlink(temporary)
+                except OSError:
+                    pass
         del self._previews[token]
         return manifest
 

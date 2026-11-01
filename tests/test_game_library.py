@@ -260,6 +260,42 @@ class GameLibrary(unittest.TestCase):
         self.assertEqual(self.config, {})
         self.assertFalse((self.home / "games" / "sample.json").exists())
 
+    def test_review_cleanup_failure_does_not_hide_success_or_reuse_preview(self):
+        service = library.Library(self.config)
+        preview = service.preview(str(self.local()))
+        unlink = os.unlink
+
+        def deny_review_cleanup(path, *args, **kwargs):
+            if Path(path).name.startswith(".game-review-"):
+                raise PermissionError("cleanup denied")
+            return unlink(path, *args, **kwargs)
+
+        with mock.patch.object(library.os, "unlink", side_effect=deny_review_cleanup):
+            installed = service.accept(preview)
+        self.assertEqual(mf.load_file(self.home / "games" / "sample.json"), installed)
+        self.assertEqual(mf.load_config(), self.config)
+        with self.assertRaisesRegex(library.LibraryError, "preview_expired"):
+            service.accept(preview)
+
+    def test_review_cleanup_failure_preserves_save_error_and_rollback(self):
+        service = library.Library(self.config)
+        preview = service.preview(str(self.local()))
+        save_error = OSError("save unavailable")
+        unlink = os.unlink
+
+        def deny_review_cleanup(path, *args, **kwargs):
+            if Path(path).name.startswith(".game-review-"):
+                raise PermissionError("cleanup denied")
+            return unlink(path, *args, **kwargs)
+
+        with mock.patch.object(mf, "save_config", side_effect=save_error), \
+                mock.patch.object(library.os, "unlink", side_effect=deny_review_cleanup):
+            with self.assertRaises(OSError) as raised:
+                service.accept(preview)
+        self.assertIs(raised.exception, save_error)
+        self.assertEqual(self.config, {})
+        self.assertFalse((self.home / "games" / "sample.json").exists())
+
     def test_transport_blocks_redirects_and_enforces_content_length(self):
         self.assertIsNone(library._NoRedirect().redirect_request(None, None, 302, "", {}, "https://evil.invalid"))
         response = io.BytesIO(b"{}")

@@ -171,6 +171,38 @@ class GenericNavigation(unittest.TestCase):
         self.assertIsNone(nav.overlay)
         self.assertTrue(nav.library_busy)
 
+    def test_busy_library_loading_cancel_buttons_invalidate_late_preview(self):
+        for entry in (None, 0, 1):
+            with self.subTest(entry=entry):
+                nav = Nav([], on_game_preview=lambda source: "@library.loading", language="en")
+                nav._preview_game("author/project")
+                nav.library_busy = True
+                request = nav.library_request
+                if entry is None:
+                    nav.act("confirm", device="xbox")
+                else:
+                    nav.click_entry(entry)
+                self.assertEqual(nav.library_request, request + 1)
+                self.assertEqual(nav.library_pending, "")
+                self.assertIsNone(nav.overlay)
+                self.assertTrue(nav.library_busy)
+                self.assertFalse(nav.complete_game_preview(self.preview(), request))
+                self.assertIsNone(nav.library_preview)
+                self.assertIsNone(nav.overlay)
+
+    def test_busy_library_confirm_cannot_install_from_another_dialog(self):
+        install = mock.Mock()
+        nav = Nav([], on_game_update_install=install, language="en")
+        nav.library_busy = True
+        nav._ask("library_update")
+        nav.exit_focus = 1
+        request = nav.library_request
+        nav.act("confirm", device="xbox")
+        install.assert_not_called()
+        self.assertEqual(nav.library_request, request)
+        self.assertEqual(nav.overlay, "dialog")
+        self.assertTrue(nav.library_busy)
+
     def test_empty_extensions_allow_requirement_files_without_known_extension(self):
         nav = Nav([])
         nav.picker = dict(target="source:disc", title="", kind="file", dir="folder", exts=[], focus=0)
