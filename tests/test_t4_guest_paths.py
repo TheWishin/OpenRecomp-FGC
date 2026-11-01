@@ -99,6 +99,30 @@ class T4GuestPathTests(unittest.TestCase):
         self.assertFalse((self.root / "dist").exists())
         self.assert_restored()
 
+    def test_removed_only_header_preserves_lf_crlf_and_mixed_diff_bytes(self):
+        headers = (b"Co-Authored-By: Synthetic contributor\n\n",
+                   b"Co-Authored-By: Synthetic contributor\r\n\r\n",
+                   b"Co-Authored-By: Synthetic contributor\r\n"
+                   b"co-authored-by: Another contributor\n\r\n")
+        diffs = (self.diff, self.diff.replace(b"\n", b"\r\n"),
+                 self.diff.replace(b"\n", b"\r\n", 2))
+        for header in headers:
+            for diff in diffs:
+                with self.subTest(header=header, diff=diff[:32]):
+                    original = header + diff
+                    self.pin(original)
+                    pins = self.publisher.GUEST_PATH_SHA256.copy()
+                    self.assertEqual(self.entries()["T4/" + self.name], diff)
+                    self.assertEqual(self.source[-1], (self.name, original))
+                    self.assertEqual(self.publisher.GUEST_PATH_SHA256, pins)
+                    self.assert_restored()
+
+    def test_cleanup_preserves_blank_preamble_without_removed_metadata(self):
+        for header in (b"\n", b"\r\n\r\n"):
+            with self.subTest(header=header):
+                original = header + self.diff
+                self.assertEqual(bundle.clean_patch_header(original), original)
+
     def test_listed_original_cannot_authorize_changed_diff(self):
         clean = bundle.clean_patch_header(self.original)
         with mock.patch.object(bundle, "clean_patch_header", return_value=clean + b"+changed diff\n"):
