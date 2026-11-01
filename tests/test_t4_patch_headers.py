@@ -86,7 +86,7 @@ class T4PatchHeaderTests(unittest.TestCase):
                 [("LICENSE", b"T4 license"), ("patches/example.patch", patch.read_bytes())])
             with (mock.patch.object(bundle.package, "source_files", return_value={"LICENSE": launcher / "LICENSE"}),
                   mock.patch.object(bundle, "load_t4_scanner", return_value=scanner),
-                  mock.patch.object(bundle, "scan_bundle_entries", side_effect=lambda entries: entries)):
+                  mock.patch.object(bundle, "scan_bundle_entries", side_effect=lambda entries, runtime_cache=None: entries)):
                 entries = dict(bundle.bundle_entries(launcher, source))
             expected = bundle.clean_patch_header(original)
             self.assertEqual(len(scanned), 2)
