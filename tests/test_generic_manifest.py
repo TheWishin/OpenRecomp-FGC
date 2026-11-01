@@ -181,6 +181,22 @@ class GenericManifestTests(unittest.TestCase):
                 mf.install(ROOT / "manifest.json")
             temporary.assert_not_called()
 
+    def test_install_cleanup_failure_preserves_save_error(self):
+        save_error = PermissionError("replace denied")
+        temporary_path = str(ROOT / "manifest-temporary.tmp")
+        with mock.patch.object(mf, "load_file", return_value=public_manifest()), \
+                mock.patch.object(mf, "user_games_dir", return_value=str(ROOT / "registered-games")), \
+                mock.patch.object(mf.os, "makedirs"), \
+                mock.patch.object(mf.tempfile, "NamedTemporaryFile") as temporary, \
+                mock.patch.object(mf.os, "replace", side_effect=save_error), \
+                mock.patch.object(mf.os.path, "exists", return_value=True), \
+                mock.patch.object(mf.os, "unlink", side_effect=PermissionError("cleanup denied")) as unlink:
+            temporary.return_value.__enter__.return_value.name = temporary_path
+            with self.assertRaises(mf.ManifestError) as raised:
+                mf.install(ROOT / "manifest.json")
+            self.assertIs(raised.exception.__cause__, save_error)
+            unlink.assert_called_once_with(temporary_path)
+
     def test_restart_rejects_injected_legacy_user_manifest(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as folder, mock.patch.dict(os.environ, OPENRECOMP_HOME=folder):
             games = Path(folder) / "games"

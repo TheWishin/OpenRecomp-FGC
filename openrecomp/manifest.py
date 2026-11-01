@@ -331,7 +331,10 @@ def install(path):
         raise ManifestError("Cannot save the manifest.") from e
     finally:
         if tmp is not None and os.path.exists(tmp):
-            os.unlink(tmp)
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
     return m
 
 
