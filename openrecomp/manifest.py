@@ -32,7 +32,7 @@ def _object(value, allowed, required=()):
 
 def _text(value, limit=512, empty=False):
     if (not isinstance(value, str) or len(value) > limit or (not empty and not value.strip())
-            or any(ord(c) < 32 or ord(c) == 127 or 0x202A <= ord(c) <= 0x202E
+            or any(ord(c) < 32 or ord(c) == 127 or 0xD800 <= ord(c) <= 0xDFFF or 0x202A <= ord(c) <= 0x202E
                    or 0x2066 <= ord(c) <= 0x2069 for c in value)):
         raise ManifestError("Invalid manifest text.")
     return value

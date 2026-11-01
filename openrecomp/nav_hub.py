@@ -78,7 +78,8 @@ class Hub:
             return
         options = it["options"]
         values = [o[0] for o in options]
-        pos = values.index(it["current"]) if it["current"] in values else 0
+        pos = next((i for i, value in enumerate(values)
+                    if type(value) is type(it["current"]) and value == it["current"]), 0)
         it["set"](values[(pos + step) % len(values)])
 
     def _activate(self, it):

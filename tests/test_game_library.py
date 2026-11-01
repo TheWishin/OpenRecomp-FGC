@@ -133,6 +133,17 @@ class GameLibrary(unittest.TestCase):
         service.accept(service.preview("example/sample"))
         self.assertNotIn("game_versions", self.config)
 
+    def test_accept_preserves_compact_manifest_within_size_limit(self):
+        manifest = mf.validate_external(public_manifest())
+        raw = json.dumps(manifest, separators=(",", ":")).encode()
+        self.assertGreater(len(json.dumps(manifest).encode()), len(raw))
+        service = library.Library(self.config, fetch=lambda *_: raw)
+        with mock.patch.object(mf, "MAX_MANIFEST_BYTES", len(raw)):
+            installed = service.accept(service.preview("example/sample"))
+            destination = self.home / "games" / "sample.json"
+            self.assertLessEqual(destination.stat().st_size, len(raw))
+            self.assertEqual(installed, mf.load_file(destination))
+
     def test_local_version_seed_requires_existing_exe_and_valid_release_version(self):
         folder = self.local(public_manifest(version="v3.0.0"))
         service = library.Library(self.config)

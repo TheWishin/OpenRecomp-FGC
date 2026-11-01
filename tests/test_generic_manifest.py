@@ -88,6 +88,30 @@ class GenericManifestTests(unittest.TestCase):
                 mf.load_file("manifest.json")
             opened().read.assert_called_once_with(mf.MAX_MANIFEST_BYTES + 1)
 
+    def test_lone_surrogates_are_rejected_before_install(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder, mock.patch.dict(os.environ, OPENRECOMP_HOME=folder):
+            source = Path(folder) / "manifest.json"
+            for title in ("\ud800", "\udfff"):
+                raw = json.dumps(public_manifest(title=title)).encode("utf-8")
+                with self.subTest(title=repr(title)):
+                    with self.assertRaises(mf.ManifestError):
+                        mf.parse_bytes(raw)
+                    source.write_bytes(raw)
+                    with self.assertRaises(mf.ManifestError):
+                        mf.install(source)
+                    self.assertFalse((Path(folder) / "games").exists())
+
+    def test_valid_surrogate_pair_round_trips_as_unicode(self):
+        title = "Example \U0001f600"
+        raw = json.dumps(public_manifest(title=title)).encode("utf-8")
+        self.assertIn(b"\\ud83d\\ude00", raw)
+        self.assertEqual(mf.parse_bytes(raw)["title"], title)
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder, mock.patch.dict(os.environ, OPENRECOMP_HOME=folder):
+            source = Path(folder) / "manifest.json"
+            source.write_bytes(raw)
+            mf.install(source)
+            self.assertEqual(mf.load_file(Path(folder) / "games" / "example.json")["title"], title)
+
     def test_settings_requirements_and_releases_are_strict(self):
         for change in (dict(requirements=[{}]), dict(requirements="disc"), dict(credits="author"),
                        dict(requirements=[dict(id="folder", label="Disc", kind="iso", version="1", sha256="a" * 64)]),

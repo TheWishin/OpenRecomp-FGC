@@ -227,7 +227,7 @@ class Library:
             with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=mf.user_dir(),
                                              prefix=".game-review-", suffix=".json", delete=False) as stream:
                 temporary = stream.name
-                json.dump(manifest, stream, ensure_ascii=False)
+                json.dump(manifest, stream, ensure_ascii=False, separators=(",", ":"))
             mf.install(temporary)
             installed = True
             self.config.setdefault("roots", {}).setdefault(game_id, reviewed["root"] or os.path.join(

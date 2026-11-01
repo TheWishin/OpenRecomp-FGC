@@ -57,7 +57,8 @@ class Sections:
 
     @staticmethod
     def _option_label(s):
-        return next((label for value, label in s["options"] if value == s["value"]), str(s["value"]))
+        return next((label for value, label in s["options"]
+                     if type(value) is type(s["value"]) and value == s["value"]), str(s["value"]))
 
     def _cycler_item(self, g, s):
         def setter(value):

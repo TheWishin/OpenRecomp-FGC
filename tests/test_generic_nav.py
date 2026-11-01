@@ -62,6 +62,26 @@ class GenericNavigation(unittest.TestCase):
         preview.assert_called_once_with("chosen-folder")
         install.assert_not_called()
 
+    def test_controller_cycles_distinct_scalar_options_with_their_own_labels(self):
+        m = manifest("example", sections=("settings",))
+        adapter = Fake(m)
+        adapter.values["mode"] = False
+        options = [(False, "Boolean"), (0, "Integer"), (0.0, "Float"), ("next", "Next")]
+        nav = Nav([Game(m, adapter)], language="en")
+        with mock.patch.object(adapter, "settings", side_effect=lambda: [dict(
+                id="mode", label="Mode", options=options, value=adapter.values["mode"])]):
+            nav.act("confirm", device="xbox")
+            for value, label in options + options[:1]:
+                with self.subTest(value=value, value_type=type(value).__name__):
+                    self.assertIs(type(adapter.values["mode"]), type(value))
+                    self.assertEqual(adapter.values["mode"], value)
+                    self.assertEqual(nav.view()["detail"]["rows"][0]["v"], label)
+                    nav.act("right", device="xbox")
+            nav.act("left", device="xbox")
+            self.assertIs(adapter.values["mode"], False)
+            nav.act("left", device="xbox")
+            self.assertEqual(adapter.values["mode"], "next")
+
     def test_author_warning_and_every_requirement_are_reviewed_before_accept(self):
         accept = mock.Mock(return_value="@library.added")
         nav = Nav([], on_game_preview=lambda source: self.preview(), on_game_accept=accept, language="en")
