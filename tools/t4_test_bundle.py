@@ -65,14 +65,19 @@ def clean_patch_header(data):
     if marker is None:
         return data
     header = []
+    removed_coauthor = False
     for line in data[:marker.start()].splitlines(keepends=True):
         content = line.rstrip(b"\r\n")
         if content.lower().startswith(b"co-authored-by:"):
+            removed_coauthor = True
             continue
         if content.lower().startswith(b"from:"):
             line = b"From: T4 test" + line[len(content):]
         header.append(line)
-    return b"".join(header) + data[marker.start():]
+    cleaned_header = b"".join(header)
+    if removed_coauthor and not cleaned_header.strip(b"\r\n"):
+        cleaned_header = b""
+    return cleaned_header + data[marker.start():]
 
 
 def clean_t4_entries(entries):
