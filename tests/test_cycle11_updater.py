@@ -77,6 +77,74 @@ class RestartFailureTests(unittest.TestCase):
         self.assertEqual(restart.call_args_list[1], mock.call(self.root))
         self.assert_recovery("rolled_back")
 
+    def deny_result_writes(self):
+        original = Path.write_text
+        def write(path, *args, **kwargs):
+            if path.name == "result.json":
+                raise OSError("inert result write denial")
+            return original(path, *args, **kwargs)
+        self.enterContext(mock.patch.object(Path, "write_text", autospec=True, side_effect=write))
+
+    def test_result_write_failure_still_restarts_unchanged_installation(self):
+        self.deny_result_writes()
+        restart, move = mock.Mock(), mock.Mock()
+        with self.assertRaises(u.UpdateError) as error:
+            u.apply_plan(self.plan, wait=0, alive=lambda _pid: False,
+                         processes=mock.Mock(side_effect=OSError("inert inspection failure")),
+                         restart=restart, move=move)
+        self.assertTrue(error.exception.safe_to_unlock)
+        restart.assert_called_once_with(self.root)
+        move.assert_not_called()
+        self.assertEqual(u.local_version(self.root), "v1.0.0")
+        self.assertFalse((u._work_root(self.root) / "apply.lock").exists())
+        self.assertIsNone(u.update_result(self.root))
+
+    def test_result_write_failure_still_restarts_completed_rollback(self):
+        self.deny_result_writes()
+        restart = mock.Mock(side_effect=OSError("inert restart denial"))
+        with self.assertRaises(u.UpdateError) as error:
+            u.apply_plan(self.plan, wait=0, alive=lambda _pid: False,
+                         processes=lambda _root: [], restart=restart)
+        self.assertTrue(error.exception.safe_to_unlock)
+        self.assertEqual(restart.call_count, 2)
+        self.assertEqual(restart.call_args_list[1], mock.call(self.root))
+        self.assertEqual(u.local_version(self.root), "v1.0.0")
+        for item in u.REQUIRED_ITEMS:
+            self.assertTrue((self.root / item).is_file())
+        self.assertFalse((u._work_root(self.root) / "apply.lock").exists())
+        self.assertIsNone(u.update_result(self.root))
+
+    def test_result_write_failure_keeps_healthy_confirmed_update(self):
+        self.deny_result_writes()
+        proc = mock.Mock()
+        def restart(root, marker=None):
+            Path(marker["path"]).write_text(json.dumps(dict(token=marker["token"])), encoding="utf-8")
+            return proc
+        restart_call = mock.Mock(side_effect=restart)
+        self.assertTrue(u.apply_plan(self.plan, wait=1, alive=lambda _pid: False,
+                                     processes=lambda _root: [], restart=restart_call))
+        restart_call.assert_called_once()
+        proc.terminate.assert_not_called()
+        self.assertEqual(u.local_version(self.root), "v1.2.3")
+        self.assertFalse((u._work_root(self.root) / "apply.lock").exists())
+        self.assertIsNone(u.update_result(self.root))
+
+    def test_result_write_failure_keeps_lock_for_incomplete_recovery(self):
+        self.deny_result_writes()
+        def move(source, target):
+            if source.parent.name == "backup":
+                raise OSError("inert restoration denial")
+            os.replace(source, target)
+        restart = mock.Mock(side_effect=OSError("inert restart denial"))
+        with self.assertRaises(u.UpdateError) as error:
+            u.apply_plan(self.plan, wait=0, alive=lambda _pid: False,
+                         processes=lambda _root: [], restart=restart, move=move)
+        self.assertFalse(error.exception.safe_to_unlock)
+        self.assertTrue((u._work_root(self.root) / "apply.lock").is_dir())
+        self.assertEqual(u.local_version(self.staged.parent / "backup"), "v1.0.0")
+        restart.assert_called_once()
+        self.assertIsNone(u.update_result(self.root))
+
 
 if __name__ == "__main__":
     unittest.main()

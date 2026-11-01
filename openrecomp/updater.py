@@ -574,6 +574,13 @@ def apply_plan(plan_path, *, wait=CONFIRM_WAIT, alive=_pid_alive, processes=_ins
             lock.rmdir()
 
 
+def _write_result(transaction, status, version):
+    try:
+        (transaction / "result.json").write_text(json.dumps(dict(status=status, version=version)), encoding="utf-8")
+    except OSError:
+        pass  # Reporting must not interrupt a completed update or recovery.
+
+
 def _apply_plan(plan_path, *, wait, alive, processes, restart, move, sleep):
     """Run only in the copied helper. Every failed move/start/confirmation restores the old files."""
     plan_path, plan, root, staged, transaction = _validated_plan(plan_path)
@@ -592,7 +599,7 @@ def _apply_plan(plan_path, *, wait, alive, processes, restart, move, sleep):
             raise UpdateError("The launcher installation became busy during update verification.")
         backup.mkdir()
     except Exception as failure:
-        (transaction / "result.json").write_text(json.dumps(dict(status="unchanged", version=plan["version"])), encoding="utf-8")
+        _write_result(transaction, "unchanged", plan["version"])
         if not alive(plan["pid"]):
             try:
                 restart(root)
@@ -615,8 +622,12 @@ def _apply_plan(plan_path, *, wait, alive, processes, restart, move, sleep):
         proc = restart(root, dict(path=str(marker), token=plan["token"]))
         end = time.monotonic() + wait
         while time.monotonic() < end:
-            if marker.exists() and _json(marker).get("token") == plan["token"]:
-                (transaction / "result.json").write_text(json.dumps(dict(status="updated", version=plan["version"])), encoding="utf-8")
+            try:
+                confirmed = marker.exists() and _json(marker).get("token") == plan["token"]
+            except (OSError, ValueError, AttributeError):
+                confirmed = False  # The launcher may still be writing the marker.
+            if confirmed:
+                _write_result(transaction, "updated", plan["version"])
                 return True
             if proc.poll() is not None:
                 break
@@ -642,7 +653,7 @@ def _apply_plan(plan_path, *, wait, alive, processes, restart, move, sleep):
             except OSError as error:
                 problems.append(error)
         status = "recovery_required" if problems else "rolled_back"
-        (transaction / "result.json").write_text(json.dumps(dict(status=status, version=plan["version"])), encoding="utf-8")
+        _write_result(transaction, status, plan["version"])
         if problems:
             raise UpdateError("The update failed. Recovery copies were kept beside the installation; close programs using it before restoring the backup.") from failure
         try:
