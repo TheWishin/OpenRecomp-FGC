@@ -13,7 +13,7 @@ from .base import Adapter, ProcessBuild, add_path, expand_locations, onoff
 from .launch_guard import LaunchGuard
 from .t4_online import T4Online
 from .t5_online import game_process_running
-from .t4_install import install_root, install_source
+from .t4_install import install_root, install_source, source_root
 from ..manifest import art_dir, save_config
 
 STEP_RE = re.compile(r"^\[(\d+)/(\d+)\]\s+(\w+)\s+-\s+(.*)$")
@@ -34,11 +34,12 @@ BETA_DISABLED_SWITCHES = (
 BETA_HARNESS_SWITCHES = (
     "TEKKEN4_NET_END", "TEKKEN4_NET_SHOTS", "TEKKEN4_NET_DESYNC_DUMP", "TEKKEN4_NET_SIM",
 )
+DEFAULT_SOURCE_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "T4")
 
 
 def find_root(manifest, config):
     chosen = (config.get("roots") or {}).get(manifest["id"]) or os.environ.get("OPENRECOMP_T4_ROOT")
-    for path in ([chosen] if chosen else []) + expand_locations(manifest.get("locations", [])):
+    for path in ([chosen] if chosen else []) + expand_locations(manifest.get("locations", [])) + [DEFAULT_SOURCE_ROOT]:
         root = install_root(path)
         if root:
             return root
@@ -49,6 +50,9 @@ def load_core(root):
     """A newly selected install must not reuse the previous install's cached t4core."""
     launcher = os.path.join(os.path.realpath(root), "launcher")
     path = os.path.join(launcher, "t4core.py")
+    if not os.path.isfile(path) and source_root(root):
+        from .t4_source import create_core
+        return create_core(root)
     name = "_openrecomp_t4core_" + hashlib.sha256(os.path.normcase(path).encode("utf-8")).hexdigest()
     if launcher in sys.path:
         sys.path.remove(launcher)
@@ -90,6 +94,7 @@ class T4(T4Online, Adapter):
         self.run = None
         self.build = None
         self.build_lines = []
+        self.build_error = ""
         self.build_step = ""
         self.build_step_no = (0, 0)
         self.build_done = {}
@@ -97,6 +102,14 @@ class T4(T4Online, Adapter):
         self._source_state = dict(running=False, result="", id="iso", ok=False)
         self._verified_iso = None
         self.last_result = ""
+        self._prerequisite_rows = []
+        self._prerequisite_worker = None
+        if getattr(core, "source_only", False):
+            self.native_label = ""
+            self._prerequisite_rows = [dict(id=key, label="@t4.tools." + key, value="@t4.tools.checking",
+                                            ok=False, command="", busy=True)
+                                       for key in ("python", "git", "cmake", "ninja", "vs2022", "msvc")]
+            self.refresh_prerequisites()
 
     def found(self):
         return True
@@ -199,6 +212,12 @@ class T4(T4Online, Adapter):
             env["TEKKEN4_ANISO"] = graphics["anisotropic"]
             env.update(extra_env or {})
             env.update(self._beta_env())
+            if getattr(self.core, "source_only", False) and (extra_env or {}).get("TEKKEN4_NET"):
+                for name in list(env):
+                    if name == "TEKKEN4_RAND_SEED" or (name.startswith("TEKKEN4_RB_")
+                                                       and name != "TEKKEN4_RB_AUDIO_TIMELINE"):
+                        env.pop(name, None)
+                env.update(extra_env)
             for name in BETA_HARNESS_SWITCHES:
                 env.pop(name, None)
             return env
@@ -265,6 +284,8 @@ class T4(T4Online, Adapter):
                 self._launch_active(self.run)
 
     def open_native(self):
+        if getattr(self.core, "source_only", False):
+            raise RuntimeError("@no_native")
         script = os.path.join(self.root, "launcher", "t4_launcher.pyw")
         python = self.core.find_python()
         self.core.subprocess.Popen([python, script], cwd=self.root, creationflags=self.core.NO_WINDOW)
@@ -364,8 +385,40 @@ class T4(T4Online, Adapter):
         return out
 
     def _needs_toolchain(self):
+        if getattr(self.core, "source_only", False):
+            return False
         bundled = getattr(self.core, "bundled_toolchain", None)
         return callable(bundled) and not bundled()
+
+    def prerequisites(self):
+        return [dict(row) for row in self._prerequisite_rows]
+
+    def refresh_prerequisites(self):
+        if not getattr(self.core, "source_only", False):
+            return False
+        if (self._prerequisite_worker and self._prerequisite_worker.is_alive()
+                or self._source_state["running"] or self.running() or self._online_work_active()
+                or self.build and self.build.running()):
+            return False
+        self._prerequisite_rows = [dict(row, value="@t4.tools.checking", ok=False, busy=True)
+                                   for row in self._prerequisite_rows]
+
+        def check():
+            try:
+                from .t4_prerequisites import check_prerequisites
+                rows = check_prerequisites()
+            except Exception:  # noqa: BLE001 -- a failed tool probe must leave a retry path
+                rows = [dict(row, value="@t4.tools.unknown", ok=False) for row in self._prerequisite_rows]
+            self._prerequisite_rows = [dict(row, busy=False) for row in rows]
+        try:
+            self._prerequisite_worker = threading.Thread(target=check, daemon=True)
+            self._prerequisite_worker.start()
+        except Exception:  # noqa: BLE001 -- retry stays available when a worker cannot start
+            self._prerequisite_worker = None
+            self._prerequisite_rows = [dict(row, value="@t4.tools.unknown", ok=False, busy=False)
+                                       for row in self._prerequisite_rows]
+            return False
+        return True
 
     def set_source(self, sid, path):
         if self._source_state["running"]:
@@ -439,6 +492,9 @@ class T4(T4Online, Adapter):
             return "@t4.installing" if self._source_state["id"] == "folder" else "@iso.checking"
         if self._needs_toolchain():
             return "@t4.portable_required"
+        if (getattr(self.core, "source_only", False)
+                and (not self._prerequisite_rows or not all(row.get("ok") is True for row in self._prerequisite_rows))):
+            return "@t4.tools.required"
         iso = self.core.effective_iso(self.s)
         return "" if iso and self._verified_iso == self._iso_stamp(iso) and self._verified_iso else "@iso.choose_first"
 
@@ -453,12 +509,16 @@ class T4(T4Online, Adapter):
         if force:
             cmd.append("-Force")
         self.build_lines = []
+        self.build_error = ""
         self.build_done = {}
         self.build_step = ""
         self.build_step_no = (0, 0)
         self.last_result = ""
         try:
-            self.build = ProcessBuild(cmd, cwd=self.root, on_line=self._on_line)
+            kwargs = dict(cwd=self.root, on_line=self._on_line)
+            if getattr(self.core, "source_only", False):
+                kwargs["env"] = self.core.build_env()
+            self.build = ProcessBuild(cmd, **kwargs)
         except Exception as error:
             self.build = None
             self.last_result = self.message("t4.build_start_failed", error=str(error) or error.__class__.__name__)
@@ -467,6 +527,9 @@ class T4(T4Online, Adapter):
 
     def _on_line(self, line):
         self.build_lines = (self.build_lines + [line])[-40:]
+        if line.lstrip().startswith("FAILED at step "):
+            # The script repeats its output tail after this diagnostic.
+            self.build_error = line.strip()
         m = STEP_RE.match(line)
         if m:
             n, total, name = int(m.group(1)), int(m.group(2)), m.group(3)
@@ -486,7 +549,9 @@ class T4(T4Online, Adapter):
             self.build_done[self.build_step] = True
             self.last_result = "@t4.build_finished" if self.ready() else "@t4.build_incomplete"
         else:
-            error = next((line for line in reversed(self.build_lines) if line.strip()), "@t4.no_build_output")
+            error = self.build_error or next((line for line in reversed(self.build_lines)
+                                               if line.strip() and not line.lstrip().startswith(("Full log:", "---"))),
+                                              "@t4.no_build_output")
             self.last_result = self.message("t4.build_failed", name=self.build_step or "?", error=error)
 
     def build_state(self):

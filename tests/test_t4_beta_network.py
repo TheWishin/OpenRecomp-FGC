@@ -5,6 +5,7 @@ import tempfile
 import threading
 import time
 import unittest
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -241,14 +242,22 @@ class DirectBetaTests(unittest.TestCase):
 
     def test_log_collector_receives_only_the_owned_folder(self):
         self.check()
+
+        def collect(command, cancel):
+            target = Path(command[command.index("-OutputDirectory") + 1], "T4-test-logs-fixture.zip")
+            with zipfile.ZipFile(target, "x"):
+                pass
+            return 0
+
         with mock.patch.object(self.a, "_direct_user_folder", return_value=self.temp.name), \
-                mock.patch.object(self.a, "_direct_process", return_value=0) as tool:
+                mock.patch.object(self.a, "_direct_process", side_effect=collect) as tool:
             self.a.online_action("collect_logs")
             self.a.online_poll()
         command = tool.call_args.args[0]
         self.assertTrue(command[command.index("-File") + 1].endswith("collect_test_logs.ps1"))
         self.assertEqual(command[command.index("-RunDir") + 1], self.temp.name)
         self.assertEqual(self.a.online_state()["message"], "@t4.direct_logs_saved")
+        self.assertTrue(Path(self.a.online_state()["log_path"]).is_file())
 
     def test_player_report_destination_inside_checkout_is_refused(self):
         with mock.patch("openrecomp.adapters.t4_online.user_dir", return_value=self.temp.name):

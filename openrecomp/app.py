@@ -80,6 +80,7 @@ class Backend(QObject):
         self._last_hero = {}
         self._last_status = {}
         self._last_build = {}
+        self._last_prerequisites = {}
         self._slow = 0.0
         self.refresh()
         self.timer = QTimer(self)
@@ -307,8 +308,21 @@ class Backend(QObject):
         return self._view
 
     def refresh(self):
+        self._copy_pending()
         self._view = self.nav.view()
+        wordmark = os.path.join(UI_DIR, "assets", "logo-wordmark.svg")
+        self._view["wordmark"] = QUrl.fromLocalFile(wordmark).toString() if os.path.isfile(wordmark) else ""
         self.viewChanged.emit()
+
+    def _copy_pending(self):
+        text = getattr(self.nav, "pending_clipboard", None)
+        if text is None:
+            return
+        self.nav.pending_clipboard = None
+        try:
+            QGuiApplication.clipboard().setText(text)
+        except (AttributeError, RuntimeError):
+            self.nav.say("@t4.tools.copy_failed")
 
     def _in_front(self):
         return self.window is None or self.window.isActive() or os.environ.get("OPENRECOMP_PAD_ALWAYS") == "1"
@@ -374,8 +388,9 @@ class Backend(QObject):
             self._was_sourcing = sourcing
             changed = True
         for g in self.nav.games:
-            # A short failed run or a final build result can arrive between running polls.
-            for method, cache_name in (("status", "_last_status"), ("build_state", "_last_build")):
+            # A short run, final build result or tool check can finish between polls.
+            for method, cache_name in (("status", "_last_status"), ("build_state", "_last_build"),
+                                       ("prerequisites", "_last_prerequisites")):
                 cache = getattr(self, cache_name, None)
                 if cache is None:
                     cache = {}
@@ -502,7 +517,9 @@ def main(argv=None):
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
     app = QGuiApplication(sys.argv[:1])
     app.setApplicationName("OpenRecomp-FGC")
-    app.setWindowIcon(QIcon(os.path.join(UI_DIR, "assets", "icon.ico")))
+    icon = os.path.join(UI_DIR, "assets", "icon.ico")
+    if os.path.isfile(icon):
+        app.setWindowIcon(QIcon(icon))
     if os.name == "nt":      # the taskbar shows this program's icon, not python's
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("TheWishin.OpenRecompFGC")
     backend = Backend(windowed=args.windowed)

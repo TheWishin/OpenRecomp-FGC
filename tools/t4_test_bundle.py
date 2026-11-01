@@ -1,0 +1,199 @@
+"""Assemble a source-only launcher/T4 test bundle, without builds or Git.
+
+The launcher release scanner and T4's make_test_zip catalog both run before
+anything is written. The bundle contains no portable interpreter or game data.
+"""
+import argparse
+from datetime import datetime
+import importlib.util
+import io
+import json
+from pathlib import Path
+import re
+import sys
+import zipfile
+
+
+ROOT = Path(__file__).resolve().parents[1]
+MAX_FILE_SIZE = 32 * 1024 * 1024
+LAUNCHER_FOLDER = "OpenRecomp-FGC"
+T4_FOLDER = "T4"
+START_HIER = (
+    "Alles in einen neuen Ordner entpacken.\n"
+    "Python 3.12 ist erforderlich; ein portables Python ist noch nicht enthalten.\n"
+    "OpenRecomp-FGC\\run.cmd doppelklicken (beim ersten Start ist Internet erforderlich).\n"
+    "Auf dem Bildschirm Tekken 4 wählen und den Schritten folgen.\n"
+).encode("utf-8")
+# These are the launcher's own branding, deliberately omitted for this
+# image-free source bundle. Unexpected files still fail the launcher scan.
+OMITTED_BRANDING = {
+    "openrecomp/ui/assets/icon.ico", "openrecomp/ui/assets/icon.svg",
+    "openrecomp/ui/assets/logo-mark-light.svg", "openrecomp/ui/assets/logo-mark.svg",
+    "openrecomp/ui/assets/logo-wordmark-light.svg", "openrecomp/ui/assets/logo-wordmark.svg",
+}
+IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".svg",
+                  ".svgz", ".tif", ".tiff", ".avif", ".dds", ".tga", ".icns", ".cur"}
+
+
+def _module(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+package = _module("t4_bundle_launcher_scan", ROOT / "tools" / "package_release.py")
+
+
+def no_links(path):
+    for candidate in (Path(path), *Path(path).parents):
+        if candidate.is_symlink() or candidate.is_junction():
+            raise ValueError("Links and junctions cannot be bundled")
+
+
+def snapshot(path):
+    no_links(path)
+    if not path.is_file() or path.stat().st_size > MAX_FILE_SIZE:
+        raise ValueError("Missing or oversized source input")
+    return path.read_bytes()
+
+
+def load_t4_scanner(root):
+    """Read the catalog used by make_test_zip.ps1; never write bytecode there."""
+    root = Path(root).absolute()
+    no_links(root)
+    for name in ("make_test_zip.ps1", "test_zip.py", "publish_source.py"):
+        path = root / "tools" / name
+        no_links(path)
+        if not path.is_file():
+            raise ValueError("T4 test source is incomplete: tools/" + name)
+    old_bytecode = sys.dont_write_bytecode
+    old_path = sys.path[:]
+    old_publish = sys.modules.get("publish_source")
+    try:
+        sys.dont_write_bytecode = True
+        publisher = _module("t4_bundle_publish_source", root / "tools/publish_source.py")
+        sys.modules["publish_source"] = publisher
+        return _module("t4_bundle_test_zip", root / "tools/test_zip.py")
+    finally:
+        sys.dont_write_bytecode = old_bytecode
+        sys.path[:] = old_path
+        if old_publish is None:
+            sys.modules.pop("publish_source", None)
+        else:
+            sys.modules["publish_source"] = old_publish
+
+
+def scan_bundle_entries(entries):
+    """Check the exact bytes to be archived, including additional start files."""
+    checked, seen = [], {}
+    for name, data in entries:
+        path = package.safe_name(name)
+        for count in range(1, len(path.parts) + 1):
+            prefix = "/".join(path.parts[:count])
+            previous = seen.setdefault(prefix.casefold(), prefix)
+            if previous != prefix:
+                raise ValueError("Case-colliding bundle paths")
+        if name in {previous for previous, _ in checked}:
+            raise ValueError("Duplicate bundle path")
+        if len(data) > MAX_FILE_SIZE:
+            raise ValueError("Oversized bundle input: " + name)
+        if (path.suffix.lower() in IMAGE_SUFFIXES | package.FORBIDDEN_SUFFIXES
+                | {".exe", ".dll", ".pyd", ".zip", ".7z", ".rar", ".gz", ".tar"}
+                or any(part.lower() in package.FORBIDDEN_PARTS for part in path.parts)):
+            raise ValueError("Forbidden bundle material: " + name)
+        if (data.startswith((b"MZ", b"PK\x03\x04", b"7z\xbc\xaf\x27\x1c", b"Rar!", b"\x1f\x8b",
+                             b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF87a", b"GIF89a",
+                             b"BM", b"II*\x00", b"MM\x00*", b"\x00\x00\x01\x00", b"DDS "))
+                or (data[:4] == b"RIFF" and data[8:12] == b"WEBP")
+                or re.search(br"<svg(?:\s|>)", data[:4096], re.I)):
+            raise ValueError("Binary, archive or image content: " + name)
+        package.scan_stream(io.BytesIO(data), name)
+        if path.suffix.lower() == ".json" and path.parts[:2] == (LAUNCHER_FOLDER, "games"):
+            manifest = json.loads(data)
+            if not isinstance(manifest, dict) or manifest.get("locations"):
+                raise ValueError("Shipped game manifests must have no fixed install locations")
+        checked.append((name, data))
+    required = {"START_HIER.txt", LAUNCHER_FOLDER + "/run.cmd", LAUNCHER_FOLDER + "/requirements.txt",
+                LAUNCHER_FOLDER + "/LICENSE", T4_FOLDER + "/LICENSE"}
+    if not required <= {name for name, _ in checked}:
+        raise ValueError("Bundle must retain start files and both licenses")
+    return checked
+
+
+def bundle_entries(root, t4_root):
+    root, t4_root = Path(root).absolute(), Path(t4_root).absolute()
+    no_links(root)
+    no_links(t4_root)
+    # Existing independent scanners are authoritative for their own catalogs.
+    selected = package.source_files(root)
+    scanner = load_t4_scanner(t4_root)
+    t4_entries = scanner.source_entries(t4_root)
+    entries = [("START_HIER.txt", START_HIER)]
+    for name, path in sorted(selected.items()):
+        no_links(path)
+        if name not in OMITTED_BRANDING:
+            entries.append((LAUNCHER_FOLDER + "/" + name, snapshot(path)))
+    for name in ("run.cmd", "requirements.txt"):
+        path = root / name
+        no_links(path)
+        package.scan_file(path, name)
+        entries.append((LAUNCHER_FOLDER + "/" + name, snapshot(path)))
+    # Re-scan T4's snapshots with the same scan used by its source test zip.
+    entries.extend((T4_FOLDER + "/" + name, data) for name, data in scanner.scan_entries(t4_entries))
+    return scan_bundle_entries(entries)
+
+
+def create_bundle(root, t4_root, archive=None):
+    root = Path(root).absolute()
+    no_links(root)
+    archive = Path(archive) if archive is not None else root / "dist" / (
+        "openrecomp-t4-test-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".zip")
+    archive = archive.absolute()
+    no_links(archive)
+    relative = archive.relative_to(root)
+    if len(relative.parts) != 2 or relative.parts[0] != "dist" or archive.suffix.lower() != ".zip":
+        raise ValueError("Bundle output must be a zip directly in dist")
+    if archive.exists():
+        raise ValueError("Bundle already exists; nothing was overwritten")
+    entries = bundle_entries(root, t4_root)
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    no_links(archive.parent)
+    with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as output:
+        for name, data in entries:
+            output.writestr(name, data)
+    with zipfile.ZipFile(archive) as output:
+        if output.testzip() is not None:
+            raise ValueError("Bundle CRC check failed")
+        scan_bundle_entries((name, output.read(name)) for name in output.namelist())
+    return archive, len(entries)
+
+
+def default_t4_source(root):
+    # Maintainer source fallback; the distributed launcher discovers sibling T4.
+    return Path(root).parent / "OpenRecomp-work" / "T4-codex-sunday"
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument("--t4-source", type=Path)
+    parser.add_argument("--check-only", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        source = args.t4_source or default_t4_source(args.root)
+        if args.check_only:
+            entries = bundle_entries(args.root, source)
+            print("Both source scans passed: {} files. Nothing written.".format(len(entries)))
+        else:
+            archive, count = create_bundle(args.root, source)
+            print("Test bundle: {}".format(archive))
+            print("Size: {:,} bytes; {} source files.".format(archive.stat().st_size, count))
+    except (OSError, UnicodeError, ValueError, zipfile.BadZipFile) as error:
+        print("Test bundle refused: " + str(error), file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

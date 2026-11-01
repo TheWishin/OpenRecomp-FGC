@@ -58,6 +58,10 @@ def untranslated_literals(source):
             label = node.elts[1]
             if isinstance(label, ast.Constant) and isinstance(label.value, str) and label.value.startswith("@"):
                 ignore(node.elts[0])
+        elif (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)
+              and isinstance(node.left, ast.Constant)
+              and node.left.value in ("@t4.tools.", "@t4.network.")):
+            ignore(node.left)  # fixed catalog families; complete keys remain checked below
         elif isinstance(node, ast.Compare):
             for child in (node.left, *node.comparators):
                 if isinstance(child, (ast.Constant, ast.Tuple, ast.List)):
@@ -312,6 +316,31 @@ def untranslated_literals(source):
         ".exe", ".png", ".jpg", ".jpeg", ".webp", "preview", "library_repository", "library_folder", "library_source", "library_manage",
         "library_loading", "library_preview", "library_remove", "library_update",
     })
+    technical.update({
+        "T4", "tools/build_game.ps1", "tools/iso_extract.py", "tools/net_preflight.ps1", "config", "patches",
+        "t4-source", "-I", "-B", "--check", "OK", "build_game.ps1", "iso_extract.py", "deps", "ps2recomp", "out",
+        "ps2xRuntime", "ps2EntryRunner.exe", "TEKKEN 4", "gl", "locks", "OpenRecomp", "4k", "fxaa",
+        "sound", "unlock_all", "progressive", "debug_panel", "TEKKEN4_SOUND", "TEKKEN4_UNLOCK_ALL",
+        "TEKKEN4_PROGRESSIVE", "PS2X_DEBUG_PANEL", "exclusive",
+        "git", "cmake", "ninja", "vs2022", "msvc", "utf-8-sig", "report-", "T4-test-logs-",
+        "CXX_ID=", "CXX_VERSION=", "toolchain", "direct:", "network:", "firewall", "forward", "tailscale",
+        "FAILED at step ", "Full log:",
+        "_title", "tools:recheck", "tool:", "tool_copy:",
+        "winget install --id Python.Python.3.12 --exact",
+        "winget install --id Git.Git --exact",
+        "winget install --id Kitware.CMake --exact",
+        "winget install --id Ninja-build.Ninja --exact",
+        ('winget install --id Microsoft.VisualStudio.2022.BuildTools --exact '
+         '--override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"'),
+        r"(?<![\d.])(\d+\.\d+(?:\.\d+)*)(?!\d)", r"14\.\d+\.\d+",
+        "C:/Program Files (x86)", "C:/Program Files", "Microsoft Visual Studio", "Installer", "vswhere.exe",
+        "-latest", "-products", "-version", "[17.0,18.0)", "-requires",
+        "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath", "installationVersion",
+        "VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt", "VC/Tools/MSVC", "bin/Hostx64/x64/cl.exe",
+        "Windows Kits/10", "Include", "um/Windows.h", "Lib", "um/x64/kernel32.lib", "--version",
+        "CMake/bin", "Microsoft/WinGet/Links", "Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin",
+        "Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja", "VC/Auxiliary/Build/vcvars64.bat",
+    })
     formats = {
         'f"{platform} RECOMP"', 'f"slot{i}"', 'f"{self.game.id}:{self.section()}"', 'f"{letter}:\\\\"',
         'f"v{version}"', 'f"face_{gid:02d}.png"', 'f"hero_{gid:02d}.png"',
@@ -541,6 +570,18 @@ class Catalogs(unittest.TestCase):
         self.assertTrue(untranslated_literals('def quick_settings(self):\n'
                                              '    self.say("Choose a setting")\n'
                                              '    return ["resolution"]\n'))
+
+    def test_python_scan_accepts_fixed_bundle_protocols_without_exempting_labels(self):
+        for value in ("ps2EntryRunner.exe", "CXX_VERSION=", "tools:recheck", "winget install --id Git.Git --exact"):
+            with self.subTest(value=value):
+                self.assertEqual(untranslated_literals(f'token = {value!r}'), [])
+                self.assertTrue(untranslated_literals(f'dict(label={value!r})'))
+                self.assertTrue(untranslated_literals(f'self.say({value!r})'))
+        for prefix in ("@t4.tools.", "@t4.network."):
+            self.assertEqual(untranslated_literals(f'label = {prefix!r} + key'), [])
+            self.assertTrue(untranslated_literals(f'token = {prefix!r}'))
+        self.assertTrue(untranslated_literals('label = "@t4.unreviewed." + key'))
+        self.assertTrue(untranslated_literals('label = "@t4.tools.new_player_message"'))
 
     def test_python_scan_accepts_library_protocol_but_checks_visible_text(self):
         for value in (".exe", ".png", ".jpg", ".jpeg", ".webp", "preview", "library_repository", "library_source", "library_manage",

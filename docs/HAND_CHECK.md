@@ -72,3 +72,35 @@ alle sieben Sprachen sowie USB/Bluetooth-Pads. Der Kurztest ersetzt das nicht.
 Details: [T4](T4_ONLINE.md), [T5DR](T5DR_ONLINE.md),
 [Wechsel vom alten Launcher](T5DR_COEXISTENCE.md), [Updates](UPDATES.md),
 [Paketprüfung](PACKAGING.md).
+
+## Zusatz: T4-Testbundle mit zwei echten PCs
+
+Dieser zusaetzliche Durchlauf gehoert nicht zum passiven 20-Minuten-Check oben.
+Der Besitzer fuehrt ihn mit dem Kollegen ueber Internet aus; die Quelltexttests
+belegen diese Punkte nicht. Ergebnisse privat notieren, keine Spielerlogs oder
+Screenshots ins Repository legen.
+
+- Dasselbe Test-ZIP in neue Ordner entpacken. Python 3.12 voraussetzen,
+  `OpenRecomp-FGC/run.cmd` doppelklicken. `T4/` wird als Nachbarordner erkannt?
+  Ohne Bilder im Paket bleiben Titel, Schaltflaechen und sichtbarer Fokus lesbar?
+- Mit Pad allein, danach Maus: Werkzeugpruefung und genaue winget-Befehle lesen,
+  Kopieren pruefen, fehlende Werkzeuge und genaue MSVC-Version nachvollziehen.
+  Installation und erneute Pruefung auf einem sauberen Windows-PC nachholen.
+- Falsche ISO ablehnen, eigene USA SLUS-20328 v1.00 akzeptieren. Fortschritt,
+  Fehler, Abbruch und Wiederholung beim echten Build pruefen. Stimmen die
+  sichtbare Build-ID und Compiler/MSVC-Version auf beiden PCs ueberein?
+- Deutsche Hinweise fuer Firewall, UDP 7400, Portfreigabe und Tailscale lesen:
+  vollstaendig, scrollbar, ohne abgeschnittene Zeilen bei 1080p/150 Prozent?
+- Host/Join und IP-Eingabe per Bildschirmtastatur bedienen. Fehlerfaelle wie
+  falscher Build, andere ISO, ungueltige IP, blockiertes UDP und Abbruch muessen
+  vor Spielstart erklaert werden. Keine Lobby und kein Ranked fuer T4 sichtbar?
+- Beide Rollen ueber die beabsichtigte Internetroute testen; mindestens 15 Minuten
+  Figurenwahl, mehrere Runden, Ton, Eingabe, Ergebnis und erneuten Kampf
+  vergleichen. Gleichzeitige unterschiedliche Szenen oder Sieger melden.
+- Normales Spielende, Absturz und Rueckkehr mit View + Menu / Share + Options
+  testen. Danach **Collect logs** per Pad ausloesen: angezeigter Dateipfad ist
+  vollstaendig, lesbar und fuehrt zum vorhandenen ZIP? ZIP privat auf Inhalt
+  und Redaktion pruefen, dann einen zweiten Durchlauf beginnen.
+
+Die Launcher-Oberflaeche, echte Werkzeuginstallation, Build, Router/VPN, zwei
+physische Pads und Internet-Spiel muessen von Menschen geprueft werden.

@@ -21,7 +21,7 @@ clean-PC checks below; a Sunday release is a target, not a completed acceptance 
 | Game | How it connects | Sections |
 |---|---|---|
 | Tekken 5: Dark Resurrection | an installed [T5DR Online](https://github.com/TheWishin/T5DROnline) | Play, Online, Build, Replays, Settings |
-| Tekken 4 (USA, SLUS-20328) | a portable release of the Tekken 4 recomp with its bundled build tools | Play, Online (direct IP/VPN), Build, Settings |
+| Tekken 4 (USA, SLUS-20328) | a portable T4 release, or the sibling T4 source in the test bundle | Play, Online (direct IP/VPN), Build, Settings |
 | Free slots | a manifest (below) | what the manifest says |
 
 T4 Online offers Host or Join, an on-screen keyboard for the host's IP address,
@@ -60,6 +60,19 @@ run.cmd
 ```
 
 The first start creates `.venv` and installs PySide6. `run.cmd --windowed` opens a window instead of fullscreen.
+
+For the owner/colleague T4 internet test, `tools\make_t4_test_bundle.ps1`
+creates one dated source ZIP in `dist/` after both source scans pass. It contains
+`START_HIER.txt`, `OpenRecomp-FGC/` and the sibling `T4/` source catalog; no ISO,
+executable, game data, images or portable Python. Keep the two folders together.
+Install Python 3.12, double-click `OpenRecomp-FGC/run.cmd`, then follow the
+German [test-bundle walk](docs/T4_FIRST_RUN.md). The launcher finds `T4/`, checks
+build tools, offers exact winget commands to copy, verifies the player's ISO and
+shows build progress. Compare Build-ID and compiler/MSVC before Host/Join.
+Firewall, UDP 7400, port-forwarding and Tailscale steps are in the
+[German network guide](docs/T4_ONLINE.md). After play, Collect logs displays the
+local ZIP path. No typed PowerShell build or netplay commands are required.
+This source test bundle needs a real clean-PC build and two-PC acceptance.
 
 ## Controls
 

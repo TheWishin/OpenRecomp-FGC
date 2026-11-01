@@ -9,7 +9,53 @@ Sunday is a possible release date only after the owner's two-PC test passes.
 This document describes the implemented launcher flow and required acceptance;
 it is not a clean-PC, hardware or gameplay test result.
 
-## Player walk
+## Quelltext-Testbundle: Start ohne eingegebene Befehle
+
+Dieses Testbundle ist der Quelltext-Weg fuer den Besitzer und seinen Kollegen;
+es ist keine portable Spielerfreigabe. Beide entpacken dasselbe ZIP aus `dist/`
+in einen neuen, beschreibbaren Ordner. `START_HIER.txt` liegt neben
+`OpenRecomp-FGC/` und `T4/`. Diese beiden Ordner zusammenlassen: der Launcher
+findet das benachbarte `T4` automatisch. Das Bundle enthaelt keine ISO, fertige
+EXE, Spieldaten oder Bilder und keine portable Python-Installation.
+
+1. Python 3.12 muss bereits installiert sein. `OpenRecomp-FGC/run.cmd` im
+   Explorer doppelklicken und dem Bildschirm folgen. Der unveraenderte Starter
+   legt beim ersten Start die virtuelle Umgebung an und installiert PySide6;
+   dazu wird eine Internetverbindung gebraucht.
+2. T4 waehlen, dann **Build**. Die Werkzeugpruefung zeigt Python, Git,
+   CMake, Ninja, VS 2022 Build Tools und die MSVC-Version. Bei einem fehlenden
+   Werkzeug den angezeigten genauen **winget**-Befehl mit **Kopieren** uebernehmen.
+   Die Installation erfolgt durch den Spieler; der Launcher installiert nichts
+   selbst. Bei VS 2022 muessen C++-Buildwerkzeuge und Windows SDK vorhanden sein.
+   Nach einer Installation den Launcher vollstaendig schliessen und neu starten,
+   damit er den neuen PATH erbt; danach die Werkzeuge erneut pruefen.
+3. **Game ISO** waehlen und die eigene USA **SLUS-20328 v1.00** auswaehlen.
+   Die Pruefung laeuft im Hintergrund; eine falsche oder veraenderte ISO muss
+   verstaendlich abgelehnt werden. Keine ISO vom anderen Spieler anfordern.
+4. **Build game** waehlen. Fortschritt, Fehler und Abbruch bleiben im Launcher.
+   Der erste Build laedt seine Quelltext-Abhaengigkeiten und kann lange dauern.
+   Erst nach erfolgreichem Build fortfahren. Beide vergleichen vor dem Spiel
+   die sichtbare **Build-ID** und die genaue **Compiler/MSVC-Version**;
+   derselbe Name "VS 2022" reicht nicht.
+5. Mit Pad oder Maus **Online**, dann **Host** beziehungsweise **Join** waehlen.
+   IP mit der Bildschirmtastatur eingeben, beide **Check connection** und erst
+   nach allen erfolgreichen Pruefungen **Start game** waehlen. Netzwerkaufbau,
+   Firewall und Tailscale sind in [T4_ONLINE.md](T4_ONLINE.md) erklaert.
+6. Nach Spielende zum Launcher zurueckkehren und **Collect logs** waehlen.
+   Der angezeigte Dateipfad nennt das lokale Diagnose-ZIP. Inhalt privat pruefen,
+   bevor er an den Maintainer weitergegeben wird. Logs bleiben ausserhalb des
+   oeffentlichen Repositorys.
+
+Alle Launcher-Schritte muessen mit Richtungen, Confirm und Back auf einem Pad
+sowie per Maus funktionieren. Werkzeuginstallation und Router-/VPN-Einrichtung
+sind Vorbereitung im jeweiligen Windows- oder Router-Dialog. Niemand muss fuer
+Build oder Host/Join PowerShell-Befehle abtippen.
+
+Der Maintainer erstellt das Bundle mit `tools\make_t4_test_bundle.ps1`.
+Beide Quelltext-Scans muessen vor dem Schreiben bestehen; ein Fund verweigert
+das ZIP. Der Befehl meldet den datierten Dateinamen in `dist/` und die Groesse.
+
+## Portable release player walk
 
 1. Extract the complete launcher release to a writable folder and open
    `OpenRecomp.exe`. The release must include its private runtime; a player

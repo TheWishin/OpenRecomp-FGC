@@ -48,6 +48,7 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         self.reduced_motion = bool(reduced_motion)
         self.on_preferences = on_preferences or (lambda _fullscreen, _reduced_motion: None)
         self.dry = False                    # test runs: nothing starts, nothing is written, only a message
+        self.pending_clipboard = None
         self.screen = "start"
         self.game = next((g for g in games if g.id == last_game), games[0] if games else None)
         self.start_focus = games.index(self.game) if self.game else 0
@@ -144,6 +145,11 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
     def say(self, message, seconds=4.5):
         self.toast = message
         self.toast_left = seconds
+
+    def copy_text(self, text):
+        if self._dry("@t4.tools.copy"):
+            return
+        self.pending_clipboard = str(text)
 
     def _handle(self, a):
         if self.library_busy:

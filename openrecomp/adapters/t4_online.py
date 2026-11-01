@@ -9,6 +9,7 @@ import subprocess
 import threading
 import time
 import uuid
+import zipfile
 
 from .base import NO_WINDOW
 from .t5_online import Online, SearchRefused, game_process_running
@@ -61,6 +62,7 @@ class T4Direct:
         self._direct_phase, self._direct_message = "offline", "@t4.direct_hint"
         self._direct_checks, self._direct_verified = {}, None
         self._direct_last_run = None
+        self._direct_log_path = ""
         self._direct_log_baseline = {}
         self._direct_busy = False
         self._direct_stopping = False
@@ -74,6 +76,7 @@ class T4Direct:
 
     def _direct_state(self):
         self._direct_init()
+        identity = self._direct_local_identity()
         checks = [dict(id=key, label=DIRECT_LABELS[key], ok=self._direct_checks.get(key),
                        value=("@t4.direct_match" if key != "udp" else "@t4.direct_passed")
                        if self._direct_checks.get(key) is True else
@@ -81,8 +84,40 @@ class T4Direct:
                   for key in DIRECT_CHECKS]
         return dict(phase=self._direct_phase, message=self._direct_message, checks=checks,
                     role=self._direct_role, busy=self._direct_busy,
+                    build_id=identity.get("build_id", ""), compiler=identity.get("compiler", ""),
+                    log_path=self._direct_log_path,
                     name="", account=False, queue="", match={}, saved_available=False,
                     capabilities=dict(direct_ip=True, ranked=False, lobby=False, match_flow=False))
+
+    def _direct_local_identity(self):
+        """Display the local stamp only; the peer preflight still verifies every input."""
+        try:
+            exe, _why = self.core.find_runtime(self.s)
+            if not exe:
+                return {}
+            path = os.path.join(os.path.dirname(exe), "t4net_build.json")
+            with open(path, "rb") as stream:
+                data = stream.read(32769)
+            if len(data) > 32768:
+                return {}
+            stamp = json.loads(data.decode("utf-8-sig"))
+            if not isinstance(stamp, dict):
+                return {}
+            build = stamp.get("id")
+            toolchain = stamp.get("toolchain")
+            if not isinstance(toolchain, list) or not all(isinstance(line, str) for line in toolchain):
+                return {}
+            ids = [line[7:] for line in toolchain if line.startswith("CXX_ID=")]
+            versions = [line[12:] for line in toolchain if line.startswith("CXX_VERSION=")]
+            if len(ids) != 1 or len(versions) != 1:
+                return {}
+            compiler = ids[0] + " " + versions[0]
+            if (not isinstance(build, str) or not re.fullmatch(IDENTITY_RULES["build_id"], build)
+                    or not re.fullmatch(IDENTITY_RULES["compiler"], compiler)):
+                return {}
+            return dict(build_id=build, compiler=compiler)
+        except (OSError, TypeError, ValueError):
+            return {}
 
     @staticmethod
     def _direct_stamp(path):
@@ -252,6 +287,15 @@ class T4Direct:
                            TEKKEN4_NET_STRICT_HELLO="0", TEKKEN4_NET_DELAY_MATCH="0", TEKKEN4_NET_PORT="0",
                            TEKKEN4_NET_BIND="", TEKKEN4_NET_PEER="", TEKKEN4_NET_KEY="", TEKKEN4_NET_SEED="",
                            TEKKEN4_NET_TIMEOUT="90")
+                if getattr(self.core, "source_only", False):
+                    env.update(TEKKEN4_NET_COALESCE="1", TEKKEN4_NET_DIAG="1",
+                               TEKKEN4_RB_AUDIO_TIMELINE="0", TEKKEN4_NET_REFRESH_RC="0",
+                               TEKKEN4_NET_AUTO_VS="0", TEKKEN4_NET_TIMESYNC="1",
+                               TEKKEN4_NET_MAXPRED="8", TEKKEN4_NET_EARLY="1",
+                               TEKKEN4_NET_LAZY="1", TEKKEN4_NET_LOCALPAD="1")
+                    diagnostics = self.config.get("t4_diagnostics")
+                    if isinstance(diagnostics, dict) and diagnostics.get("net_diagnostics") is False:
+                        env["TEKKEN4_NET_DIAG"] = "0"
                 with self._online_lock:
                     if generation != self._direct_generation:
                         raise RuntimeError("@online.cancelled")
@@ -265,20 +309,32 @@ class T4Direct:
                             self._online_owned_run = self.run
             self._direct_submit(action, start)
         elif action == "collect_logs":
+            self._direct_log_path = ""
             cancel = self._direct_cancel = threading.Event()
             self._direct_submit(action, lambda: self._direct_collect_logs(cancel))
 
     def _direct_collect_logs(self, cancel):
         tool = os.path.join(self.root, "tools", "collect_test_logs.ps1")
-        dest = self._direct_user_folder()
+        dest = os.path.join(self._direct_user_folder(), "report-" + uuid.uuid4().hex)
         owned = self._direct_last_run
         if not owned:
             raise DirectCheckError("@t4.direct_logs_failed")
+        os.mkdir(dest)
         source = owned["run_dir"]
         command = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                    "-File", tool, "-RunDir", source, "-OutputDirectory", dest]
         if self._direct_process(command, cancel):
             raise DirectCheckError("@t4.direct_logs_failed")
+        outputs = os.listdir(dest)
+        if len(outputs) != 1:
+            raise DirectCheckError("@t4.direct_logs_failed")
+        archive = os.path.join(dest, outputs[0])
+        info = os.lstat(archive)
+        if (not outputs[0].startswith("T4-test-logs-") or not outputs[0].endswith(".zip")
+                or os.path.islink(archive) or getattr(info, "st_file_attributes", 0) & 0x400
+                or not os.path.isfile(archive) or not zipfile.is_zipfile(archive)):
+            raise DirectCheckError("@t4.direct_logs_failed")
+        return archive
 
     def _direct_log_stamps(self):
         out = {}
@@ -360,6 +416,7 @@ class T4Direct:
             elif action == "start_match":
                 self._direct_status("playing", "@online.playing")
             elif action == "collect_logs":
+                self._direct_log_path = value or ""
                 self._direct_message = "@t4.direct_logs_saved"
         if self._direct_phase == "playing":
             run = getattr(self, "_online_owned_run", None)

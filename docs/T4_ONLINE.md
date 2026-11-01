@@ -11,6 +11,57 @@ USA SLUS-20328 ISO. The launcher reads the installed T4 build identity and uses
 the same build/compiler/ISO and UDP checks as T4's `tools\net_play.ps1`.
 It does not build a game or repair an incompatible installation during a check.
 
+## Internet vorbereiten: auf beiden PCs
+
+Fuer das Quelltext-Testbundle zuerst den [Startweg](T4_FIRST_RUN.md) abschliessen:
+Python 3.12, Werkzeugpruefung, eigene USA SLUS-20328 v1.00, erfolgreicher Build.
+Vor **Check connection** die angezeigte Build-ID und genaue Compiler/MSVC-Version
+mit dem Kollegen vergleichen. Bei Abweichung stoppen, dasselbe Testbundle und
+dieselbe MSVC-Version verwenden und neu bauen. Die Pruefung vergleicht zusaetzlich
+die ISO-Hashes; Build-ID und Compiler allein sind keine Freigabe.
+
+Ein Spieler ist Host (P1), der andere Join (P2). Beide richten einen der folgenden
+Wege ein. Der Launcher zeigt diese Hinweise, aendert aber weder Firewall noch
+Router oder VPN. Fuer Build, Checks, Spielstart und Logs braucht ihr keine
+PowerShell-Befehle einzugeben.
+
+- **Portfreigabe:** Beim Host im Router UDP extern **7400** auf die feste
+  Heimnetz-IPv4 des Host-PCs, intern **7400**, weiterleiten. Nicht TCP waehlen.
+  Der Host teilt seine oeffentliche IPv4 privat mit dem Kollegen; der Join-Spieler
+  traegt diese IP im Launcher ein. Eine Heimnetz-IP funktioniert ueber das
+  Internet nicht. Bei DS-Lite/CGNAT, fehlender oeffentlicher IPv4, zweitem Router
+  oder fehlendem Routerzugang den Tailscale-Weg verwenden. Beim Join-Spieler ist
+  keine Router-Portfreigabe erforderlich.
+- **Tailscale:** Beide Windows-Clients installieren. Der Host laedt den Kollegen
+  mit dessen eigenem Konto in dasselbe private Tailnet ein und genehmigt dessen
+  PC bei Bedarf. Beide PCs muessen dort verbunden sichtbar sein; die
+  Zugriffsregeln muessen UDP 7400 zum Host erlauben. Der Host teilt seine
+  Tailscale-IPv4 (`100.x.y.z`) privat mit; Join verwendet diese Adresse. Hier
+  ist keine Router-Portfreigabe noetig. Eine Relay-Verbindung kann mehr
+  verzoegern und ersetzt den UDP-Test nicht.
+- **Firewall:** Beim Host Windows-Sicherheit > Firewall & Netzwerkschutz >
+  Erweiterte Einstellungen > Eingehende Regeln > Neue Regel > Port > UDP >
+  lokale Ports **7400** > Verbindung zulassen > das aktive Profil waehlen
+  (bei VPN gegebenenfalls Oeffentlich). Die UDP-Portregel auf das benoetigte
+  Netzwerk beziehungsweise den Kollegen begrenzen. Sie muss sowohl die
+  PowerShell-Vorpruefung als auch das Spiel zulassen: Die Vorpruefung oeffnet
+  ihren UDP-Socket vor dem Spielstart in PowerShell. Nur `ps2EntryRunner.exe`
+  freizugeben reicht deshalb nicht. Alternativ beide Anwendungen im benutzten
+  Profil und fuer diesen UDP-Port zulassen. Falls Windows fuer
+  `ps2EntryRunner.exe` nachfragt, das benutzte Profil zulassen.
+  Beim Join-Spieler muessen ausgehendes UDP zum
+  Host auf 7400 und Antworten erlaubt sein. Weitere Sicherheitssoftware
+  entsprechend einrichten. Die Firewall nicht abschalten. Nach dem Test die
+  Testregel deaktivieren und die temporaere Router-Portfreigabe schliessen.
+
+Danach im Launcher Host/Join waehlen, beim Join die richtige Host-IP mit der
+Bildschirmtastatur eingeben und beide **Check connection** ausloesen. Erst wenn
+Build, Compiler, ISO und UDP bestanden haben, wird **Start game** angeboten.
+Ein Timeout bedeutet zuerst IP, Firewall und Route pruefen; ein TCP-Test
+beweist keine UDP-Erreichbarkeit. Nach Spielende **Collect logs** waehlen und
+das ZIP am angezeigten Dateipfad im Explorer suchen. Die Sammlung erfolgt lokal;
+vor privater Weitergabe den Inhalt pruefen.
+
 ## Controller walk
 
 1. Select T4, then Online with LB/RB. One player chooses **Host** (P1); the

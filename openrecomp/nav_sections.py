@@ -145,6 +145,7 @@ class Sections:
                             run=None if blocked else lambda src=src: self._open_picker("source:" + src["id"], i18n.message("choose_named", name=src["label"]), src["exts"], src["dirs"], src.get("kind", "file"))))
         for o in g.a.build_options():
             out.append(self._cycler_item(g, o))
+        out.extend(self._prerequisite_items(g, state["running"] or source_state.get("running", False)))
         problem = g.a.build_ready()
         if not g.a.found():
             return out or [dict(kind="action", id="none", label="@not_found", hint="@build_unavailable_hint",
@@ -174,12 +175,52 @@ class Sections:
             lead = "@t4.build_next"
         out.append(dict(kind="action", id="build", label="@start_game" if first_play else "@build_game", verb="@play" if first_play else ("@files_missing" if problem else "@build"), run=(lambda: self.start_game(g)) if first_play else build,
                         hint=lead, detail=dict(kicker=st["status"], title="@start_game" if first_play else "@build_game", lead=lead, rows=state["steps"], primary="@play" if first_play else ("" if problem else "@build"))))
+        if g.m.get("adapter") == "t4" and g.a.ready():
+            out.append(dict(kind="action", id="online_setup", label="@t4.direct_title", verb="@confirm",
+                            hint="@t4.network.check", run=lambda: self._go(g, "online"),
+                            detail=dict(kicker="@section.online", title="@t4.direct_title",
+                                        lead="@t4.network.check", leadLines=6, rows=[])))
         if not problem:
             def rebuild():
                 self._ask("rebuild")
             out.append(dict(kind="heading", label="@from_scratch", mt=16))
             out.append(dict(kind="hold", id="rebuild", label="@rebuild_all", verb="@hold", run=rebuild, hint="@rebuild_hint",
                             detail=dict(kicker="@takes_longer", title="@rebuild_all", lead="@rebuild_lead", rows=[])))
+        return out
+
+    def _prerequisite_items(self, g, blocked=False):
+        checks = g.a.prerequisites()
+        if not checks:
+            return []
+        busy = blocked or any(check.get("busy") for check in checks)
+
+        def refresh():
+            if not self._dry("@t4.tools.recheck"):
+                if self._offline_action(g.a.refresh_prerequisites):
+                    self.say("@t4.tools.hint")
+
+        out = [dict(kind="action", id="tools:recheck", label="@t4.tools.recheck", disabled=busy,
+                    verb="" if busy else "@confirm", hint="@t4.tools.hint", run=None if busy else refresh,
+                    detail=dict(kicker="@section.build", title="@t4.tools.title", lead="@t4.tools.hint",
+                                leadLines=6, rows=[dict(k=check["label"], v=check["value"],
+                                                       accent=check.get("ok") is False) for check in checks]))]
+        for check in checks:
+            command = check.get("command") or ""
+            detail_rows = [dict(k="@current", v=check["value"], accent=check.get("ok") is False)]
+            if command:
+                detail_rows.append(dict(k="@t4.tools.command", v=i18n.literal(command)))
+            out.append(dict(kind="action", id="tool:" + check["id"], label=check["label"],
+                            value=check["value"], missing=check.get("ok") is False,
+                            hint="@t4.tools.hint",
+                            detail=dict(kicker="@t4.tools.title", title=check["label"], lead="@t4.tools.hint",
+                                        leadLines=6, rows=detail_rows)))
+            if command:
+                out.append(dict(kind="action", id="tool_copy:" + check["id"], label="@t4.tools.copy",
+                                verb="@confirm", hint="@t4.tools.hint",
+                                run=lambda command=command: self.copy_text(command),
+                                detail=dict(kicker=check["label"], title="@t4.tools.copy",
+                                            lead=i18n.literal(command), leadLines=10,
+                                            rows=[], primary="@t4.tools.copy")))
         return out
 
     # ---- settings

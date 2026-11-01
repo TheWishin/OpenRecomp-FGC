@@ -18,6 +18,8 @@ class Online:
         checks = state.get("checks") or []
         role = state.get("role", "host")
         rows = [dict(k="@t4.direct_role", v="@t4.direct_role_host" if role == "host" else "@t4.direct_role_join")]
+        identity = [("build_id", "@t4.direct_build_id"), ("compiler", "@t4.direct_compiler")]
+        rows += [dict(k=label, v=i18n.literal(state[key])) for key, label in identity if state.get(key)]
         rows += [dict(k=check["label"], v=check["value"], accent=check.get("ok") is False) for check in checks]
         out = [dict(kind="action", id="online_status", label="@t4.direct_title", hint=message,
                     detail=dict(kicker="@section.online", title="@t4.direct_title", lead=message,
@@ -49,6 +51,18 @@ class Online:
         elif phase == "playing":
             out.append(action("stop_match", "@online.stop_match"))
         out.append(action("collect_logs", "@t4.direct_logs", disabled=busy))
+        for key, label in identity + [("log_path", "@t4.direct_log_path")]:
+            if state.get(key):
+                value = i18n.literal(state[key])
+                out.append(dict(kind="action", id="direct:" + key, label=label, value=value, hint=value,
+                                detail=dict(kicker="@t4.direct_title", title=label, lead=value,
+                                            leadLines=10, rows=[])))
+        for step in ("firewall", "forward", "tailscale", "check"):
+            label = "@t4.network." + step + "_title"
+            hint = "@t4.network." + step
+            out.append(dict(kind="action", id="network:" + step, label=label, hint=hint,
+                            detail=dict(kicker="@t4.network.title", title=label, lead=hint,
+                                        leadLines=10, rows=[])))
         back = action("direct_back", "@t4.direct_back", "@t4.direct_hint")
         back["run"] = lambda: self._direct_online_back(g)
         out.append(back)

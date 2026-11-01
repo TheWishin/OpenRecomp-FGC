@@ -192,6 +192,14 @@ class Adapter:
         raise RuntimeError("@no_replays_error")
 
     # ---------------------------------------------------------------- build
+    def prerequisites(self):
+        """Cached PC checks: [dict(id, label, value, ok, command, busy=False)]."""
+        return []
+
+    def refresh_prerequisites(self):
+        """Explicitly recheck tools; never install them or run a build."""
+        pass
+
     def sources(self):
         """[dict(id, label, value, ok, hint, exts, dirs)]: the player's files the build needs."""
         return []

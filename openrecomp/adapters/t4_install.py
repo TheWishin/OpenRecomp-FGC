@@ -17,16 +17,29 @@ _DEVICES = {"con", "prn", "aux", "nul", "conin$", "conout$"}
 _DEVICES.update(f"{prefix}{n}" for prefix in ("com", "lpt") for n in range(10))
 _DEVICES.update(prefix + n for prefix in ("com", "lpt") for n in ("¹", "²", "³"))
 
+SOURCE_TOOLS = ("tools/build_game.ps1", "tools/iso_extract.py", "tools/net_preflight.ps1")
+SOURCE_DIRS = ("config", "runtime", "patches")
+
+
+def source_root(path):
+    """Recognize the source-only test catalog, which has no native launcher."""
+    root = Path(path)
+    return (all((root / name).is_file() for name in SOURCE_TOOLS)
+            and all((root / name).is_dir() for name in SOURCE_DIRS))
+
+
+def _is_install(root):
+    return (root / "launcher" / "t4core.py").is_file() or source_root(root)
+
 
 def install_root(path):
     """An install itself, or the sole T4 install directly inside an enclosing folder."""
     root = Path(path)
-    if (root / "launcher" / "t4core.py").is_file():
+    if _is_install(root):
         return str(root.resolve())
     if not root.is_dir():
         return None
-    roots = [child for child in root.iterdir() if child.is_dir()
-             and (child / "launcher" / "t4core.py").is_file()]
+    roots = [child for child in root.iterdir() if child.is_dir() and _is_install(child)]
     return str(roots[0].resolve()) if len(roots) == 1 else None
 
 
@@ -57,6 +70,15 @@ def _members(archive):
         checked.append((entry, parts))
     roots = {parts[:-2] for entry, parts in checked
              if not entry.is_dir() and len(parts) in (2, 3) and parts[-2:] == ("launcher", "t4core.py")}
+    names = {parts for entry, parts in checked if not entry.is_dir()}
+    for parts in names:
+        if len(parts) not in (2, 3) or parts[-2:] != ("tools", "build_game.ps1"):
+            continue
+        prefix = parts[:-2]
+        if (all(prefix + tuple(name.split("/")) in names for name in SOURCE_TOOLS)
+                and all(any(name[:len(prefix) + 1] == prefix + (folder,) for name in names)
+                        for folder in SOURCE_DIRS)):
+            roots.add(prefix)
     if len(roots) != 1:
         raise ValueError("@t4.install_invalid")
     prefix = next(iter(roots))
@@ -80,7 +102,7 @@ def unpack_install(path):
             dest = parent / digest
             if dest.exists() or dest.is_symlink():
                 root = dest.joinpath(*prefix)
-                if dest.is_symlink() or not (root / "launcher" / "t4core.py").is_file():
+                if dest.is_symlink() or not _is_install(root):
                     raise ValueError("@t4.install_invalid")
                 return str(root)
             stage = Path(tempfile.mkdtemp(prefix="pending-", dir=parent))
