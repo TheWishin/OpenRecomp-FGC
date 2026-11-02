@@ -1073,5 +1073,6 @@
     "t4.source.ended": "Beendet",
     "t4.source.game_failed": "Spiel mit Fehler beendet: {code}",
     "t4.source.resolution_native": "Nativ (640x448)",
-    "t4.tools.copy_failed": "Der Befehl konnte nicht kopiert werden. Erneut versuchen."
+    "t4.tools.copy_failed": "Der Befehl konnte nicht kopiert werden. Erneut versuchen.",
+    "preferences.save_failed": "Die Änderungen gelten für diese Sitzung, konnten aber nicht gespeichert werden. Vor dem Neustart die Einstellungsdatei des Launchers prüfen."
 }

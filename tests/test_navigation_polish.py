@@ -126,6 +126,7 @@ class NavigationPolish(unittest.TestCase):
 
     def test_backend_saves_preference_and_applies_window_mode(self):
         backend = SimpleNamespace(config={}, window=mock.Mock())
+        backend._save_config = lambda: Backend._save_config(backend)
         backend.window.windowState.return_value = Qt.WindowNoState
         with mock.patch("openrecomp.app.mf.save_config") as save:
             Backend._save_game(backend, "b")

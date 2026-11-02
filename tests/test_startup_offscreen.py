@@ -1,4 +1,4 @@
-"""Real main/Qt/QML startup and T4 controller walk, isolated from player installs.
+"""Real module/Qt/QML startup and T4 controller walk, isolated from player installs.
 
 The child has a hard timeout. Only the adapter and physical input boundaries
 are synthetic: no disc is read, build/game started, connection or log made.
@@ -39,12 +39,13 @@ class StartupOffscreen(unittest.TestCase):
 def run_child():
     # Import Qt only in the child, after the parent has selected offscreen.
     from contextlib import ExitStack
+    import runpy
     import traceback
     from unittest import mock
 
     sys.path.insert(0, str(ROOT))
     from PySide6.QtCore import QEventLoop, QTimer, QtMsgType, qInstallMessageHandler
-    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtGui import QGuiApplication, QWindow
     from openrecomp import app, i18n
     from openrecomp.adapters.base import Adapter
     from openrecomp.pad import SOURCES
@@ -296,6 +297,9 @@ def run_child():
     def start_scene(backend, full):
         engine = real_make_engine(backend, full)
         check(engine.rootObjects(), "make_engine did not load the real QML")
+        check(isinstance(backend.window, QWindow), "The scene root is not a window")
+        check(backend.window.isVisible(), "The launcher window was never shown")
+        check(not backend.window.property("wantFull"), "--windowed was not applied")
 
         def walk():
             try:
@@ -324,7 +328,13 @@ def run_child():
             patches.enter_context(mock.patch.object(app.updater, "update_result", return_value=None))
             patches.enter_context(mock.patch("socket.socket", side_effect=prohibited))
             patches.enter_context(mock.patch("subprocess.Popen", side_effect=prohibited))
-            code = app.main(["--windowed"])
+            with mock.patch.object(sys, "argv", ["openrecomp", "--windowed"]):
+                try:
+                    runpy.run_module("openrecomp", run_name="__main__")
+                except SystemExit as exit_result:
+                    code = exit_result.code
+                else:
+                    raise AssertionError("The module entry did not return an exit status")
         check(code == 0, "main failed: " + "\n".join(failures))
         check(not failures, "\n".join(failures))
         check(not qml_warnings, "QML warnings: " + "\n".join(qml_warnings))

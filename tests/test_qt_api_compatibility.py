@@ -54,6 +54,7 @@ class QtApiCompatibility(unittest.TestCase):
     def test_display_preferences_use_qwindow_state_and_preserve_minimization(self):
         window = QuietWindow()
         backend = SimpleNamespace(window=window, config={})
+        backend._save_config = lambda: app.Backend._save_config(backend)
         with mock.patch.object(app.mf, "save_config") as save:
             window.setProperty("wantFull", False)
             app.Backend._save_preferences(backend, True, False)

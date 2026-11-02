@@ -251,17 +251,23 @@ class Backend(QObject):
                 self.nav.say("@library.failed")
         return True
 
+    def _save_config(self):
+        try:
+            mf.save_config(self.config)
+        except (OSError, ValueError):
+            self.nav.say("@preferences.save_failed", 8)
+
     def _save_language(self, language):
         self.config["language"] = language
-        mf.save_config(self.config)
+        self._save_config()
 
     def _save_game(self, game_id):
         self.config["last_game"] = game_id
-        mf.save_config(self.config)
+        self._save_config()
 
     def _save_preferences(self, fullscreen, reduced_motion):
         self.config.update(fullscreen=fullscreen, reduced_motion=reduced_motion)
-        mf.save_config(self.config)
+        self._save_config()
         if self.window is not None:
             changed = self.window.property("wantFull") != fullscreen
             self.window.setProperty("wantFull", fullscreen)

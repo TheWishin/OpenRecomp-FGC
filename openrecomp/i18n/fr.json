@@ -1073,5 +1073,6 @@
     "t4.source.ended": "Ended",
     "t4.source.game_failed": "Game ended with an error: {code}",
     "t4.source.resolution_native": "Native (640x448)",
-    "t4.tools.copy_failed": "The command could not be copied. Try again."
+    "t4.tools.copy_failed": "The command could not be copied. Try again.",
+    "preferences.save_failed": "Les modifications s’appliquent à cette session, mais n’ont pas pu être enregistrées. Vérifiez le fichier de paramètres du lanceur avant de le redémarrer."
 }
