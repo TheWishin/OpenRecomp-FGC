@@ -13,16 +13,29 @@ COMPLETE = "MODULE_ENTRY_COMPLETE "
 
 
 class ModuleEntrypoint(unittest.TestCase):
-    def run_profile(self, contents=None, *, directory=False):
+    def run_profile(self, contents=None, *, directory=False, saved=False, generic=False,
+                    last_run=None, t4=False, expected_last="@never"):
         with tempfile.TemporaryDirectory(prefix=".module-test-", dir=ROOT) as home:
             config = Path(home, "config.json")
             if directory:
                 config.mkdir()
             elif contents is not None:
                 config.write_bytes(contents)
+            if generic:
+                games = Path(home, "games")
+                games.mkdir()
+                games.joinpath("example.json").write_text(json.dumps(dict(
+                    schema_version=1, id="example", title="Example", numeral="E", accent="#123ABC",
+                    adapter="generic", platform="PC", author="Example author", repository="example/recomp",
+                    exe="bin/example.exe", license="MIT", credits=["Example author"],
+                    requirements=[dict(id="input", label="Input", kind="file", version="1", sha256="0" * 64)])),
+                    encoding="utf-8")
+            refused = directory or (contents is not None and not saved)
             env = dict(os.environ, QT_QPA_PLATFORM="offscreen", QT_QUICK_BACKEND="software",
                        QT_QUICK_CONTROLS_STYLE="Basic", QML_DISABLE_DISK_CACHE="1",
-                       OPENRECOMP_HOME=home, OPENRECOMP_PAD_ALWAYS="1")
+                       OPENRECOMP_HOME=home, OPENRECOMP_PAD_ALWAYS="1",
+                       OPENRECOMP_TEST_SCENARIO=json.dumps(dict(refused=refused, generic=generic,
+                           t4=t4, last_run=last_run, expected_last=expected_last)))
             result = subprocess.run(
                 [sys.executable, "-B", str(Path(__file__).resolve()), "--module-child"],
                 cwd=ROOT, env=env, capture_output=True, text=True, timeout=35)
@@ -30,18 +43,26 @@ class ModuleEntrypoint(unittest.TestCase):
             self.assertIn(COMPLETE, result.stdout, result.stdout + result.stderr)
             report = json.loads(result.stdout.split(COMPLETE, 1)[1].splitlines()[0])
             self.assertEqual(report["entry"], "openrecomp.__main__")
-            self.assertEqual(report["adapters"], ["Missing", "Missing"])
+            self.assertEqual(report["adapters"], ["T4" if t4 else "Missing", "Missing"] +
+                             (["Generic"] if generic else []))
             self.assertTrue(report["quit"])
+            self.assertEqual(list(Path(home).glob(".config-*.tmp")), [])
+            if generic:
+                self.assertTrue(report["generic_onboarding"])
             if directory:
                 self.assertTrue(config.is_dir())
                 self.assertEqual(list(config.iterdir()), [])
-            elif contents is not None:
+            elif refused:
                 self.assertEqual(config.read_bytes(), contents)
             else:
-                saved = json.loads(config.read_text(encoding="utf-8"))
-                self.assertEqual(saved["last_game"], "t5dr")
-                self.assertFalse(saved["fullscreen"])
-                self.assertTrue(saved["reduced_motion"])
+                actual = json.loads(config.read_text(encoding="utf-8"))
+                self.assertEqual(actual["last_game"], "t5dr")
+                self.assertFalse(actual["fullscreen"])
+                self.assertTrue(actual["reduced_motion"])
+                if contents is not None:
+                    original = json.loads(contents)
+                    for key in set(original) - {"last_game", "language", "fullscreen", "reduced_motion"}:
+                        self.assertEqual(actual[key], original[key], key)
 
     def test_clean_profile_starts_and_saves_controller_preferences(self):
         self.run_profile(None)
@@ -55,23 +76,54 @@ class ModuleEntrypoint(unittest.TestCase):
     def test_unwritable_profile_keeps_selection_preferences_and_quit_usable(self):
         self.run_profile(directory=True)
 
+    def test_deep_profile_keeps_selection_preferences_and_quit_usable(self):
+        self.run_profile(b'{"unknown":' + b'[' * 10000 + b'0' + b']' * 10000 + b'}')
+
+    def test_deep_profile_preserves_bytes_when_preferences_cannot_serialize(self):
+        self.run_profile(b'{"unknown":' + b'[' * 2000 + b'0' + b']' * 2000 + b'}')
+
+    def test_malformed_generic_roots_keep_onboarding_and_quit_usable(self):
+        for roots in ("invalid", ["invalid"], {"example": ["invalid"]}, {"example": {"bad": "path"}},
+                      {"example": True}, {"example": 7}, {"example": "bad\x00path"}):
+            with self.subTest(roots=roots):
+                self.run_profile(json.dumps(dict(roots=roots, unknown={"keep": "unchanged"})).encode(),
+                                 saved=True, generic=True)
+
+    def test_malformed_generic_sources_keep_onboarding_and_quit_usable(self):
+        for sources in ("invalid", ["invalid"], {"example": "invalid"}, {"example": ["invalid"]},
+                        {"example": {"input": True}}, {"example": {"input": ["invalid"]}},
+                        {"example": {"input": {"path": ["invalid"], "sha256": "0" * 64}}}):
+            with self.subTest(sources=sources):
+                self.run_profile(json.dumps(dict(generic_sources=sources, unknown={"keep": "unchanged"})).encode(),
+                                 saved=True, generic=True)
+
+    def test_malformed_t4_last_run_keeps_shelf_preferences_and_quit_usable(self):
+        for last in ("invalid", ["invalid"], True, 7, {"time": True}, {"time": ["invalid"]},
+                     {"time": {"bad": "time"}}):
+            with self.subTest(last_run=last):
+                self.run_profile(t4=True, last_run=last)
+
+    def test_valid_t4_last_run_remains_visible_through_module_startup(self):
+        self.run_profile(t4=True, last_run={"time": "2026-10-30 02:06:42", "ok": True},
+                         expected_last="30.10., 02:06")
+
 
 def run_child():
     from contextlib import ExitStack
     import runpy
     import traceback
     from unittest import mock
+    from types import SimpleNamespace
 
     sys.path.insert(0, str(ROOT))
     from PySide6.QtCore import QEventLoop, QTimer, QtMsgType, qInstallMessageHandler
     from PySide6.QtGui import QGuiApplication, QWindow
     from openrecomp import app, i18n
     from openrecomp.adapters import t4, t5dr
-    from openrecomp.adapters.base import Missing
 
     failures, warnings, forbidden, report = [], [], [], {}
     config = Path(os.environ["OPENRECOMP_HOME"], "config.json")
-    malformed = config.exists()
+    scenario = json.loads(os.environ["OPENRECOMP_TEST_SCENARIO"])
 
     def check(condition, message):
         if not condition:
@@ -97,7 +149,7 @@ def run_child():
 
     def drive(backend):
         nav, window = backend.nav, backend.window
-        buttons = dict(confirm="A", back="B", social="Y", right="DRIGHT", down="DDOWN")
+        buttons = dict(confirm="A", back="B", social="Y", right="DRIGHT", left="DLEFT", down="DDOWN")
 
         def press(action):
             reader.held = {buttons[action]}
@@ -110,7 +162,7 @@ def run_child():
             check(not forbidden, "External operation requested")
 
         def save_feedback():
-            if malformed:
+            if scenario["refused"]:
                 check(backend.view["toast"] == i18n.text(nav.language, "preferences.save_failed"),
                       "An unsaved preference needs localized feedback")
 
@@ -118,11 +170,30 @@ def run_child():
         check(isinstance(window, QWindow) and window.isVisible(), "Real window did not start")
         check(window.property("wantFull") is False, "--windowed was not honored")
         check(nav.screen == "start" and not nav.overlay, "First-run shelf did not load")
-        check([g.id for g in nav.games] == ["t4", "t5dr"], "Built-in discovery did not run")
-        check(all(isinstance(g.a, Missing) for g in nav.games), "Real Missing adapters were not used")
+        check([g.id for g in nav.games] == ["t4", "t5dr"] +
+              (["example"] if scenario["generic"] else []), "Real manifest discovery did not run")
+        check([type(g.a).__name__ for g in nav.games] ==
+              (["T4" if scenario["t4"] else "Missing", "Missing"] +
+               (["Generic"] if scenario["generic"] else [])), "Real adapters were not used")
         check(all(not tile["hero"] for tile in backend.view["shelf"]["tiles"]), "Unexpected artwork")
         report.update(entry="openrecomp.__main__", adapters=[type(g.a).__name__ for g in nav.games])
+        if scenario["t4"]:
+            check(nav.games[0].a.status()["last"] == scenario["expected_last"],
+                  "Last-run shelf time did not match the expected value")
+            check(backend.view["shelf"]["tiles"][0]["rows"][-1]["v"] ==
+                  i18n.localize(scenario["expected_last"], nav.language),
+                  "Last-run time did not reach the real shelf view")
         backend._tick()  # Release the initial pad suppression.
+        if scenario["generic"]:
+            press("right")
+            press("right")
+            press("confirm")
+            check(nav.game.id == "example" and nav.overlay == "picker", "Generic onboarding did not open")
+            check(nav.picker is not None, "Generic recovery picker is missing")
+            report["generic_onboarding"] = True
+            press("back")
+            press("left")
+            press("left")
         press("right")
         press("confirm")
         check(nav.game.id == "t5dr" and nav.overlay == "picker", "Game selection did not open onboarding")
@@ -190,7 +261,11 @@ def run_child():
     try:
         with ExitStack() as patches:
             # Keep manifest loading, adapter construction, Backend and QML real.
-            patches.enter_context(mock.patch.object(t4, "find_root", return_value=None))
+            patches.enter_context(mock.patch.object(t4, "find_root", return_value=
+                str(config.parent) if scenario["t4"] else None))
+            patches.enter_context(mock.patch.object(t4, "load_core", return_value=SimpleNamespace(
+                load_settings=lambda: {"last_run": scenario["last_run"]}, play_problems=lambda _: [],
+                STEPS=(), find_runtime=lambda _: (None, ""))))
             patches.enter_context(mock.patch.object(t5dr, "find_root", return_value=None))
             patches.enter_context(mock.patch.object(app, "XInputReader", return_value=reader))
             patches.enter_context(mock.patch.object(app, "WinMMPlayStationReader", return_value=Reader()))

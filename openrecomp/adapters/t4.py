@@ -122,7 +122,9 @@ class T4(T4Online, Adapter):
 
     def status(self):
         problems = self.problems()
-        last = self.s.get("last_run") or {}
+        last = self.s.get("last_run")
+        if not isinstance(last, dict):
+            last = {}
         detail = problems[0] if problems else "@t4.ready_detail"
         if not problems and last.get("ok") is False:
             detail = self.message("t4.play_failed", error=last.get("note") or str(last.get("exit", "?")))
@@ -579,6 +581,8 @@ class T4(T4Online, Adapter):
 
 def friendly_time(stamp):
     """2026-10-30 02:06:42 -> 30.10., 02:06"""
+    if not isinstance(stamp, str):
+        return "@never"
     m = re.match(r"\d{4}-(\d\d)-(\d\d) (\d\d:\d\d)", stamp or "")
     return f"{m.group(2)}.{m.group(1)}., {m.group(3)}" if m else "@never"
 

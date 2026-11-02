@@ -344,7 +344,7 @@ def load_config():
         with open(os.path.join(user_dir(), "config.json"), encoding="utf-8") as f:
             cfg = json.load(f)
         return cfg if isinstance(cfg, dict) else {}
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return {}
 
 
@@ -358,6 +358,8 @@ def save_config(cfg):
             existing = json.load(f)
     except FileNotFoundError:
         pass
+    except RecursionError as e:
+        raise ValueError("The existing configuration is too deeply nested.") from e
     else:
         if not isinstance(existing, dict):
             raise ValueError("The existing configuration is not a JSON object.")
@@ -367,7 +369,10 @@ def save_config(cfg):
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=folder,
                                          prefix=".config-", suffix=".tmp", delete=False) as f:
             tmp = f.name
-            json.dump(cfg, f, indent=1)
+            try:
+                json.dump(cfg, f, indent=1)
+            except RecursionError as e:
+                raise ValueError("The configuration is too deeply nested.") from e
         os.replace(tmp, path)
     finally:
         if tmp is not None and os.path.exists(tmp):

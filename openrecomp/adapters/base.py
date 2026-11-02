@@ -295,7 +295,9 @@ class Generic(Adapter):
 
     @property
     def root(self):
-        return (self.config.get("roots") or {}).get(self.m["id"], "")
+        roots = self.config.get("roots")
+        root = roots.get(self.m["id"], "") if isinstance(roots, dict) else ""
+        return root if isinstance(root, str) else ""
 
     def _path(self, relative):
         from ..manifest import ManifestError, resolve_path
@@ -426,9 +428,14 @@ class Generic(Adapter):
         from .. import i18n
         out = [dict(id="folder", label="@game_folder", value=i18n.literal(self.root) if self.root else "@missing",
                     ok=self.found(), kind="folder", exts=[], dirs=[self.root] if self.root else [], hint="@folder_hint")]
-        supplied = (self.config.get("generic_sources") or {}).get(self.m["id"], {})
+        sources = self.config.get("generic_sources")
+        supplied = sources.get(self.m["id"], {}) if isinstance(sources, dict) else {}
+        if not isinstance(supplied, dict):
+            supplied = {}
         for requirement in self.m.get("requirements") or []:
             checked = supplied.get(requirement["id"], {})
+            if not isinstance(checked, dict):
+                checked = {}
             out.append(dict(id=requirement["id"], label=i18n.literal(requirement["label"]),
                             value=i18n.literal(checked["path"]) if checked.get("path") else "@missing",
                             ok=checked.get("sha256") == requirement["sha256"].lower(), exts=[".iso"] if requirement["kind"] == "iso" else [],
