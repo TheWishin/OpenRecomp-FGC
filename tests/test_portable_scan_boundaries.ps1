@@ -53,7 +53,7 @@ function Save-Lock($Fixture) {
     $Fixture.lock | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $Fixture.lock_path -Encoding UTF8
 }
 
-function Invoke-Fixture($Fixture, [bool]$Success) {
+function Invoke-Fixture($Fixture, [bool]$Success, [string]$Reason = '') {
     # Native PowerShell errors are captured as output; the child exit code is
     # the assertion. This does not alter execution policy or security settings.
     $Previous = $ErrorActionPreference
@@ -63,6 +63,9 @@ function Invoke-Fixture($Fixture, [bool]$Success) {
         $Code = $LASTEXITCODE
     } finally { $ErrorActionPreference = $Previous }
     if (($Code -eq 0) -ne $Success) { throw ('Unexpected fetch exit code {0}: {1}' -f $Code, ($Output -join "`n")) }
+    if ($Reason -and ($Output -join "`n") -notmatch [regex]::Escape($Reason)) {
+        throw ('Fetcher failed for the wrong reason; expected {0}: {1}' -f $Reason, ($Output -join "`n"))
+    }
 }
 
 try {
@@ -107,15 +110,27 @@ try {
     if (Test-Path -LiteralPath $Member.runtime) { throw 'Bad member produced a runtime.' }
     Write-Output 'PASS: extracted member SHA-256 failure produces no runtime.'
 
-    foreach ($Unsafe in @('../escape.txt', 'directory/../../escape.txt', 'directory\alias.txt', 'NUL.txt', 'trailing.')) {
+    foreach ($Unsafe in @('../escape.txt', 'directory/../../escape.txt', 'directory\alias.txt',
+                          'NUL.txt', 'COM0.txt', 'LPT0.txt', 'CONIN$.txt', 'CONOUT$.txt',
+                          ('COM' + [char]0x00b9 + '.txt'), ('LPT' + [char]0x00b2 + '.txt'),
+                          'trailing.', 'trailing ')) {
         $Fixture = New-Fixture ('unsafe-' + [Guid]::NewGuid().ToString('N'))
         $Fixture.lock.files[$Unsafe] = [ordered]@{ content_utf8='fixture'; size=7; sha256=(Hash-Bytes ([Text.Encoding]::UTF8.GetBytes('fixture'))) }
         Save-Lock $Fixture
-        Invoke-Fixture $Fixture $false
+        Invoke-Fixture $Fixture $false 'Unsafe portable runtime catalog path.'
         if (Test-Path -LiteralPath $Fixture.runtime) { throw 'Unsafe path produced a runtime.' }
     }
     Write-Output 'PASS: traversal, separator aliases, reserved devices and trailing dots are refused.'
-    Write-Output 'Portable scan entry-point checks passed (11 fixture scenarios).'
+
+    $Alias = New-Fixture 'directory-case-alias'
+    foreach ($Name in @('Directory/one.txt', 'directory/two.txt')) {
+        $Alias.lock.files[$Name] = [ordered]@{ content_utf8='fixture'; size=7; sha256=(Hash-Bytes ([Text.Encoding]::UTF8.GetBytes('fixture'))) }
+    }
+    Save-Lock $Alias
+    Invoke-Fixture $Alias $false 'Case-colliding'
+    if (Test-Path -LiteralPath $Alias.runtime) { throw 'Case-aliased directories produced a runtime.' }
+    Write-Output 'PASS: differently cased directory prefixes are refused before extraction.'
+    Write-Output 'Portable scan entry-point checks passed (19 fixture scenarios).'
 } finally {
     $Resolved = [IO.Path]::GetFullPath($Temporary)
     if (-not $Resolved.StartsWith($Root + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {

@@ -25,6 +25,9 @@ Run this once from the repository in Windows PowerShell:
 
     powershell -NoProfile -File tools\make_t4_test_bundle.ps1
 
+Preparing this ZIP requires Windows PowerShell and internet access. No existing
+Python installation or pip is required.
+
 The wrapper invokes `tools\fetch_portable_runtime.ps1`, which downloads the
 pinned CPython 3.12.10 Windows x64 embeddable distribution, PySide6-Essentials
 6.8.2.1 and shiboken6 6.8.2.1, plus the matching Qt for Python source ZIP for
@@ -90,6 +93,23 @@ allowance. Qt images are permitted only when they are exact members of the
 pinned dependency archive; this permits no game pictures or launcher screenshots.
 The complete archive-member catalog cannot be inspected until the downloads
 have succeeded and passed their pinned hashes.
+
+For this lock, the complete suffix set is `._pth`, `.cat`, `.cpp`, `.dat`,
+`.dll`, `.exe`, `.h`, `.icns`, `.ico`, `.jpg`, `.js`, `.json`, `.lib`,
+`.metainfo`, `.png`, `.py`, `.pyc`, `.pyd`, `.pyi`, `.qm`, `.qml`,
+`.qmltypes`, `.rst`, `.spec`, `.txt`, `.typed`, `.xml` and `.zip`, plus
+extensionless files. This describes the exact catalog, not an extension allowlist.
+For example, the verified wheel includes
+`portable/Lib/site-packages/PySide6/resources/icudtl.dat`,
+`portable/Lib/site-packages/PySide6/scripts/deploy_lib/pyside_icon.icns`,
+`portable/Lib/site-packages/PySide6/scripts/deploy_lib/pyside_icon.ico`,
+`portable/Lib/site-packages/PySide6/scripts/deploy_lib/pyside_icon.jpg`,
+`portable/Lib/site-packages/PySide6/qml/QtQuick/Controls/FluentWinUI3/dark/images/checkbox-indicator-checked.png`,
+`portable/Lib/site-packages/PySide6/support/__pycache__/__init__.cpython-310.pyc`
+and the extensionless `portable/Lib/site-packages/PySide6/qml/QtQuick/qmldir`.
+Only those catalog paths with their pinned bytes are permitted, including these
+upstream image and bytecode files. An additional image or `__pycache__` file is
+refused even beside one of them.
 
 The Python licence and wheel licences/notices remain alongside their components.
 The fetcher also checks the matching 21,273,890-byte Qt for Python source ZIP

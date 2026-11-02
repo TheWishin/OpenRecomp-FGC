@@ -46,7 +46,7 @@ class PortableRunTests(unittest.TestCase):
                         and source.suffix.lower() in {".exe", ".dll", ".pyd", ".zip"}):
                     shutil.copyfile(source, folder / source.name)
             package_path = os.path.relpath(EMBEDDED / "Lib/site-packages", folder)
-            app_path = "../.." if folder.name == "Scripts" else ".."
+            app_path = os.path.relpath(self.root, folder)
             (folder / "python312._pth").write_text(
                 "python312.zip\n.\n" + app_path + "\n" + package_path + "\n", encoding="ascii")
             return
@@ -103,6 +103,11 @@ class PortableRunTests(unittest.TestCase):
 
     def test_incomplete_portable_runtime_keeps_existing_venv_path(self):
         self.interpreter("portable", console=False)
+        self.interpreter(".venv/Scripts")
+        self.assertEqual(Path(self.start()["executable"]), self.root / ".venv/Scripts/pythonw.exe")
+
+    def test_portable_without_windowed_interpreter_keeps_existing_venv_path(self):
+        self.interpreter("portable", windowed=False)
         self.interpreter(".venv/Scripts")
         self.assertEqual(Path(self.start()["executable"]), self.root / ".venv/Scripts/pythonw.exe")
 

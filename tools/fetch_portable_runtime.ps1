@@ -43,9 +43,21 @@ function Assert-RelativeName([string]$Name) {
     if (-not $Name -or $Name -match '[\\:<>"|?*\x00-\x1f]' -or $Name.StartsWith('/') -or
         @($Name.Split('/') | Where-Object {
             -not $_ -or $_ -eq '.' -or $_ -eq '..' -or $_ -match '[. ]$' -or
-            $_ -match '^(?i:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)'
+            $_ -match '^(?i:con|prn|aux|nul|conin\$|conout\$|com[0-9\u00b9\u00b2\u00b3]|lpt[0-9\u00b9\u00b2\u00b3])(?:\.|$)'
         }).Count) {
         throw 'Unsafe portable runtime catalog path.'
+    }
+}
+
+function Remember-PathSpelling([string]$Name, [hashtable]$Spellings) {
+    Assert-RelativeName $Name
+    $Prefix = ''
+    foreach ($Part in $Name.Split('/')) {
+        $Prefix = if ($Prefix) { $Prefix + '/' + $Part } else { $Part }
+        if ($Spellings.ContainsKey($Prefix) -and $Spellings[$Prefix] -cne $Prefix) {
+            throw 'Case-colliding portable runtime path.'
+        }
+        $Spellings[$Prefix] = $Prefix
     }
 }
 
@@ -197,6 +209,7 @@ foreach ($Download in $Downloads) {
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 Add-Type -AssemblyName System.IO.Compression
 $Expected = @{}
+$Spellings = @{}
 $RuntimeSize = [long]0
 foreach ($Archive in $Lock.archives) {
     Assert-ZipFlags $ArchivePaths[$Archive.id]
@@ -216,6 +229,7 @@ foreach ($Archive in $Lock.archives) {
             $Name = $Prefix + $Member.FullName
             Assert-RelativeName $Name
             if ($Expected.ContainsKey($Name)) { throw 'Duplicate or case-colliding archive member.' }
+            Remember-PathSpelling $Name $Spellings
             $Stream = $Member.Open()
             $Hasher = [Security.Cryptography.SHA256]::Create()
             try { $Hash = ([BitConverter]::ToString($Hasher.ComputeHash($Stream))).Replace('-', '').ToLowerInvariant() }
@@ -225,6 +239,7 @@ foreach ($Archive in $Lock.archives) {
     } finally { $Zip.Dispose() }
 }
 foreach ($Property in $Lock.files.PSObject.Properties) {
+    Remember-PathSpelling $Property.Name $Spellings
     if ($Expected.ContainsKey($Property.Name) -and -not @($Expected.Keys | Where-Object { $_ -ceq $Property.Name }).Count) {
         throw 'Case-colliding generated runtime file.'
     }
@@ -232,6 +247,7 @@ foreach ($Property in $Lock.files.PSObject.Properties) {
 }
 foreach ($Download in $Downloads) {
     if ($Expected.ContainsKey($Download.target)) { throw 'Duplicate pinned runtime resource target.' }
+    Remember-PathSpelling $Download.target $Spellings
     $Length = (Get-Item -LiteralPath $DownloadPaths[$Download.filename]).Length
     $RuntimeSize += $Length
     if ($RuntimeSize -gt $MaxRuntimeSize) { throw 'Oversized pinned runtime.' }
@@ -259,6 +275,7 @@ foreach ($Download in $Downloads) {
                 $Name = $Download.licenses_prefix.TrimEnd('/') + '/' + $Relative
                 Assert-RelativeName $Name
                 if ($Expected.ContainsKey($Name)) { throw 'Duplicate licensing source member target.' }
+                Remember-PathSpelling $Name $Spellings
                 $InputStream = $Member.Open()
                 $Memory = New-Object IO.MemoryStream
                 try { $InputStream.CopyTo($Memory); $Bytes = $Memory.ToArray() }

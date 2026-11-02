@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -89,6 +90,79 @@ class PortableBundleEntrypointTests(unittest.TestCase):
         result = self.run_wrapper()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Test-Bundle verweigert", result.stderr)
+
+
+@unittest.skipUnless(os.name == "nt" and POWERSHELL, "Windows PowerShell entry point")
+class PortableBundlePipelineTests(unittest.TestCase):
+    def test_real_cached_powershell_pipeline_without_system_python(self):
+        runtime = ROOT / "dist/portable-runtime"
+        cache = ROOT / "dist/portable-cache"
+        if not (runtime / "python.exe").is_file() or not cache.is_dir():
+            self.skipTest("Prepare the pinned portable runtime/cache before the full pipeline smoke test")
+        with tempfile.TemporaryDirectory(prefix=".bundle-pipeline-", dir=ROOT) as temporary:
+            source = Path(temporary) / "T4Source"
+            tools = source / "tools"
+            tools.mkdir(parents=True)
+            (source / "LICENSE").write_bytes(b"fixture T4 license\n")
+            (tools / "make_test_zip.ps1").write_text("# fixture catalog\n", encoding="utf-8")
+            (tools / "publish_source.py").write_text("# fixture scanner\n", encoding="utf-8")
+            (tools / "test_zip.py").write_text(
+                "from pathlib import Path\n"
+                "def scan_entries(entries):\n"
+                "    entries = list(entries)\n"
+                "    if entries != [('LICENSE', b'fixture T4 license\\n')]:\n"
+                "        raise ValueError('fixture T4 scan refused')\n"
+                "    return entries\n"
+                "def source_entries(root):\n"
+                "    return scan_entries([('LICENSE', (Path(root) / 'LICENSE').read_bytes())])\n",
+                encoding="utf-8")
+            environment = dict(os.environ)
+            environment["PATH"] = str(Path(POWERSHELL).parent)
+            result = subprocess.run(
+                [POWERSHELL, "-NoProfile", "-NonInteractive", "-File",
+                 str(ROOT / "tools/make_t4_test_bundle.ps1"), "-T4Source", str(source),
+                 "-RuntimeRoot", str(runtime), "-CacheDirectory", str(cache)],
+                cwd=ROOT, env=environment, capture_output=True, text=True, timeout=240)
+            archive_lines = [line.removeprefix("Test bundle: ") for line in result.stdout.splitlines()
+                             if line.startswith("Test bundle: ")]
+            for name in archive_lines:
+                archive = Path(name)
+                self.assertEqual(archive.parent, ROOT / "dist")
+                self.assertTrue(archive.name.startswith("openrecomp-t4-test-"))
+                self.addCleanup(archive.unlink, missing_ok=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(len(archive_lines), 1, result.stdout)
+            self.assertIn("Portable runtime verified:", result.stdout)
+            self.assertIn("Portable runtime: Python 3.12, Qt 6.8.2", result.stdout)
+            archive = Path(archive_lines[0])
+            with zipfile.ZipFile(archive) as output:
+                prefix = "OpenRecomp-FGC/portable/"
+                self.assertEqual(output.read(prefix + "python.exe"), (runtime / "python.exe").read_bytes())
+                self.assertIn(prefix + "Lib/site-packages/PySide6/QtQuick.pyd", output.namelist())
+                self.assertIn(prefix + "LICENSE.txt", output.namelist())
+                self.assertIn(prefix + "licenses/PySide6/LICENSES/LGPL-3.0-only.txt", output.namelist())
+                self.assertEqual(output.read("T4/LICENSE"), b"fixture T4 license\n")
+                guide = output.read("START_HIER.txt").decode("utf-8")
+                self.assertIn("run.cmd", guide)
+                self.assertNotIn("Python", guide)
+                size = "Size: {:,} bytes ZIP; {:,} bytes unpacked; {} files.".format(
+                    archive.stat().st_size, sum(info.file_size for info in output.infolist()),
+                    len(output.infolist()))
+                self.assertIn(size, result.stdout)
+                print("Portable bundle smoke (synthetic T4): " + size)
+                unpacked = Path(temporary) / "unpacked"
+                output.extractall(unpacked)
+            launcher = unpacked / "OpenRecomp-FGC"
+            smoke = launcher / "tests/test_startup_offscreen.py"
+            smoke.parent.mkdir()
+            shutil.copyfile(ROOT / "tests/test_startup_offscreen.py", smoke)
+            started = subprocess.run(
+                [str(launcher / "portable/python.exe"), "-I", "-B", str(smoke), "-v"],
+                cwd=launcher, env=environment, capture_output=True, text=True, timeout=90)
+            self.assertEqual(started.returncode, 0, started.stdout + started.stderr)
+            self.assertIn("Ran 1 test", started.stderr)
+            self.assertIn("OK", started.stderr)
+            print("Extracted portable bundle: real app.main and Qt/QML controller smoke passed offscreen.")
 
 
 if __name__ == "__main__":
