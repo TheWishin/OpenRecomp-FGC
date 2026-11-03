@@ -468,6 +468,7 @@
     "online.logged_in": "Du bist in der Lobby.",
     "online.searching_casual": "Ungewerteter Gegner wird gesucht…",
     "online.searching_ranked": "Ranglistengegner wird gesucht…",
+    "online.searching_other_build": "Suche läuft… {count} andere(r) Spieler sucht mit einem anderen Build. Für ein Match brauchen beide PCs denselben Launcher und denselben Spiel-Build.",
     "online.cancelling": "Suche wird beendet…",
     "online.cancelled": "Suche beendet.",
     "online.kicked": "Abgemeldet: Dieses Konto wurde an anderer Stelle angemeldet. Melde dich erst wieder an, wenn du diesen Launcher verwenden möchtest.",

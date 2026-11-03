@@ -468,6 +468,7 @@
     "online.logged_in": "Estás en la sala.",
     "online.searching_casual": "Buscando rival para una partida casual…",
     "online.searching_ranked": "Buscando rival para una partida clasificatoria…",
+    "online.searching_other_build": "Buscando… {count} jugador(es) más buscan con otra versión (build). Para una partida, los dos PC necesitan el mismo launcher y la misma build del juego.",
     "online.cancelling": "Deteniendo la búsqueda…",
     "online.cancelled": "Búsqueda detenida.",
     "online.kicked": "Sesión cerrada: se ha iniciado sesión con esta cuenta desde otro lugar. Vuelve a entrar solo cuando quieras usar este lanzador.",

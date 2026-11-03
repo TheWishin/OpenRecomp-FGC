@@ -468,6 +468,7 @@
     "online.logged_in": "ロビーにログインしています。",
     "online.searching_casual": "カジュアル対戦の相手を検索しています…",
     "online.searching_ranked": "ランク対戦の相手を検索しています…",
+    "online.searching_other_build": "検索中… 別のビルドで検索中のプレイヤーが {count} 人います。対戦には両方の PC で同じランチャーと同じゲームビルドが必要です。",
     "online.cancelling": "検索を停止しています…",
     "online.cancelled": "検索を停止しました。",
     "online.kicked": "別の場所でこのアカウントにログインしたため、ログアウトしました。このランチャーを使いたいときにだけ、再度ログインしてください。",

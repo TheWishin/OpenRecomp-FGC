@@ -468,6 +468,7 @@
     "online.logged_in": "Tu es dans le salon.",
     "online.searching_casual": "Recherche d'un adversaire pour un match amical…",
     "online.searching_ranked": "Recherche d'un adversaire pour un match classé…",
+    "online.searching_other_build": "Recherche… {count} autre(s) joueur(s) cherche(nt) avec un autre build. Un match demande le même launcher et le même build du jeu sur les deux PC.",
     "online.cancelling": "Arrêt de la recherche…",
     "online.cancelled": "Recherche arrêtée.",
     "online.kicked": "Déconnexion : ce compte s'est connecté ailleurs. Reconnecte-toi seulement quand tu souhaites utiliser ce lanceur.",

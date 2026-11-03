@@ -468,6 +468,7 @@
     "online.logged_in": "Você está no saguão.",
     "online.searching_casual": "Buscando adversário para uma partida casual…",
     "online.searching_ranked": "Buscando adversário para uma partida ranqueada…",
+    "online.searching_other_build": "Procurando… {count} outro(s) jogador(es) procuram com outra build. Uma partida precisa do mesmo launcher e da mesma build do jogo nos dois PCs.",
     "online.cancelling": "Parando a busca…",
     "online.cancelled": "Busca encerrada.",
     "online.kicked": "Sessão encerrada: esta conta entrou em outro lugar. Entre novamente só quando quiser usar este inicializador.",

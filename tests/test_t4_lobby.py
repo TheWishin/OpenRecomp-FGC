@@ -367,6 +367,38 @@ class SharedLogin(unittest.TestCase):
         self.assertEqual(state["chat"][-1].get("badge"), "dev")
 
 
+    def test_searching_says_when_the_only_other_searchers_have_another_build(self):
+        from openrecomp import i18n
+        from types import SimpleNamespace
+        subject = self.subject()
+        subject.online_action("login_saved")
+        subject.online_poll()
+        client = subject.clients[-1]
+        client.build = SimpleNamespace(build_id="mine")
+        if hasattr(client, "compatible"):
+            del client.compatible
+        client.events.put(dict(t="lobby_state", players=[dict(id="p1", name="A", status="queue", build="other"),
+                                                          dict(id="p2", name="B", status="idle", build="other"),
+                                                          dict(id="p3", name="C", status="queue", build="mine")]))
+        subject.online_poll()
+        subject._online_phase, subject._online_message = "searching", "@online.searching_casual"
+        state = subject.online_state()
+        self.assertEqual(state["other_builds"], 1)
+        text = i18n.localize(state["message"], "en")
+        self.assertIn("1 other player", text)
+        self.assertIn("same launcher and game build", text)
+        client.compatible = lambda entry: True              # the client's own rule (a compatibility group) wins
+        client.events.put(dict(t="lobby_state", players=[dict(id="p1", name="A", status="queue", build="other")]))
+        subject.online_poll()
+        self.assertEqual(subject.online_state()["message"], "@online.searching_casual")
+        subject._online_phase = "logged_in"
+        client.compatible = lambda entry: False
+        client.events.put(dict(t="lobby_state", players=[dict(id="p1", name="A", status="queue", build="other")]))
+        subject.online_poll()
+        self.assertNotEqual(subject.online_state()["phase"], "searching")
+        self.assertFalse(isinstance(subject.online_state()["message"], dict))   # only while searching
+
+
 class T5drSessionsForT4(unittest.TestCase):
     def test_t5dr_offers_its_secured_remembered_logins_with_their_hosts(self):
         from test_online_adapter import Subject as T5Subject

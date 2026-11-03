@@ -16,6 +16,7 @@ import uuid
 from .base import NO_WINDOW, add_path
 from .t5_coexist import readonly_imports
 from . import t5_features
+from .. import i18n
 
 
 class SearchRefused(RuntimeError):
@@ -82,6 +83,7 @@ class Online:
         self._online_queue = ""
         self._online_match = {}
         self._online_players = []
+        self._online_other_builds = 0
         self._online_rooms = []
         self._online_chat = []
         self._online_challenge = {}
@@ -276,7 +278,12 @@ class Online:
         if self.online_lobby and self.online_game != "t4":
             capabilities.update(private_rooms=self._online_social_cap("private_rooms"),
                                 friends=self._online_social_cap("friends"))
-        snapshot = dict(phase=self._online_phase, message=self._online_message,
+        message = self._online_message
+        others = getattr(self, "_online_other_builds", 0)
+        if self._online_phase == "searching" and others:
+            # Somebody is searching too, but the server pairs only the same build: say it instead of searching silently.
+            message = i18n.message("online.searching_other_build", count=others)
+        snapshot = dict(phase=self._online_phase, message=message, other_builds=others,
                     name=self._online_name, account=self._online_account,
                     recovery_codes=list(self._online_recovery_codes),
                     queue=self._online_queue, match=dict(self._online_match),
@@ -732,10 +739,26 @@ class Online:
         rooms = rooms if isinstance(rooms, (list, tuple)) else []
         self._online_players = [self._online_player(p) for p in players
                                 if isinstance(p, dict) and p.get("id") != me.get("id")][:200]
+        self._online_other_builds = sum(1 for p in players if isinstance(p, dict) and p.get("id") != me.get("id")
+                                        and p.get("status") == "queue" and not self._online_same_build(p))
         self._online_rooms = [self._online_room_view(r) for r in rooms
                               if isinstance(r, dict) and not (r.get("hidden") or r.get("ranked") or r.get("training"))
                               and (self._online_social_cap("private_rooms") or not (
                                   r.get("private") or r.get("lock") not in (None, "", "none", False)))][:200]
+
+    def _online_same_build(self, player):
+        """Could the server pair this lobby entry with us? The client's own rule (exact build or an accepted
+        compatibility group) when it has one, else the exact build id."""
+        client = self._online_client
+        check = getattr(client, "compatible", None)
+        if callable(check):
+            try:
+                return bool(check(player))
+            except Exception:  # noqa: BLE001 -- an older or odd client: fall back to the build id
+                pass
+        mine = getattr(getattr(client, "build", None), "build_id", None)
+        theirs = player.get("build")
+        return not (mine and theirs) or theirs == mine
 
     def _online_lobby_action(self, action, client):
         generation = self._online_generation
@@ -1204,6 +1227,7 @@ class Online:
         self._online_name = ""
         self._online_match = {}
         self._online_players = []
+        self._online_other_builds = 0
         self._online_rooms = []
         self._online_chat = []
         self._online_challenge = {}

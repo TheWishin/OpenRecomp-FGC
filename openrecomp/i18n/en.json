@@ -468,6 +468,7 @@
     "online.logged_in": "You are in the lobby.",
     "online.searching_casual": "Searching for a casual opponent…",
     "online.searching_ranked": "Searching for a ranked opponent…",
+    "online.searching_other_build": "Searching… {count} other player(s) are searching with a different build. A match needs the same launcher and game build on both PCs.",
     "online.cancelling": "Stopping the search…",
     "online.cancelled": "Search stopped.",
     "online.kicked": "Logged out: this account was logged in from another place. Log in again only when you want to use this launcher.",
