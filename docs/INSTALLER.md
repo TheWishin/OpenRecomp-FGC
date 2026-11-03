@@ -55,3 +55,9 @@ Uninstall `/S /removesettings /keepsettings /lang=.. /log=<file>`. Exit codes: 0
 manifest; `OPENRECOMP_SETUP_BUILD_TEST=1` also compiles). The full install / shortcut start / update / uninstall
 walk was run on a second drive with a scratch `OPENRECOMP_HOME` (see the agent notes). Not checked: a clean
 Windows PC, SmartScreen and antivirus on other PCs, a path with non-ASCII characters by hand, 150 % scaling.
+
+## Games from the launcher
+
+Setup installs the launcher (and, from a bundle that carries it, the T4 source). Installing and updating T5DR
+Online and T4 themselves happens in the launcher: see [GAME_SETUP.md](GAME_SETUP.md). Both put the games beside
+`OpenRecomp-FGC` by default, so Setup's update and uninstall never touch them.

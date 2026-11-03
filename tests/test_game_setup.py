@@ -56,6 +56,10 @@ class Releases(Env):
             gr.parse_release(gr.SOURCES["t5dr"], dict(release, prerelease=True), "stable")
         self.assertEqual(gr.parse_release(gr.SOURCES["t5dr"], dict(release, prerelease=True), "prerelease")["version"], "1.2.0")
 
+    def test_notes_leave_out_tables_and_markup(self):
+        body = "## What's new\n\n- Faster loading\n\n| Code ID | `0123456789abcdef` |\n|---|---|\n\n---\nChecksums"
+        self.assertEqual(gr.release_notes(body), "What's new Faster loading")
+
     def test_no_release_yet_is_none(self):
         self.assertIsNone(self.offer("t4"))
         self.assertIsNone(self.offer("t4", "prerelease"))

@@ -236,12 +236,22 @@ def parse_release(src, data, channel="stable"):
     body = str(data.get("body") or "")
     code = re.search(r"Code ID\s*\|\s*`?([0-9a-f]{16})`?", body)
     return dict(game=src.id, tag=tag, version=version, prerelease=prerelease, name=str(data.get("name") or tag)[:200],
-                published=str(data.get("published_at") or "")[:10], notes=" ".join(body.split("\n---")[0].split())[:600],
+                published=str(data.get("published_at") or "")[:10], notes=release_notes(body),
                 code_id=code.group(1) if code else None,
                 zip=dict(name=asset, url=z["browser_download_url"], size=size,
                          sha256=digest.group(1).lower() if digest else None),
                 sums=dict(name=sums["name"], url=sums["browser_download_url"]),
                 sig=dict(url=sig["browser_download_url"]) if sig else None)
+
+
+def release_notes(body):
+    """The release text's first part as plain sentences: no tables (T5DR's Code ID / file rows), no markup."""
+    lines = []
+    for line in str(body or "").split("\n---")[0].splitlines():
+        line = line.strip().lstrip("#>*- ").strip()
+        if line and not line.startswith("|") and not line.startswith("```"):
+            lines.append(line)
+    return " ".join(" ".join(lines).split())[:600]
 
 
 def latest(src, channel="stable", opener=None):
