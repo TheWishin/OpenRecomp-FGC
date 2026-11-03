@@ -2,6 +2,7 @@ r"""T4 lobby end to end on this PC: a local T4 lobby server and two real launche
 
     python tools\t4_lobby_e2e.py --lobby <T4 lobby folder> --t4-root <built T4 install> --iso <your ISO>
                                  --out <scratch folder> [--stub <t4_stub_game.py>] [--real]
+                                 [--accounts --t5dr-lobby <T5DR lobby folder>]
 
 The server is the T4 port's own lobby (`<lobby>\run.py server`, 127.0.0.1 only, an in-memory database, free
 ports). Each player is a separate process running the launcher's real `python -m openrecomp` offscreen: its own
@@ -14,6 +15,16 @@ launcher's one-T4-per-PC reservation lives there), the "another T4 is already ru
 "no" (the other player's game is a ps2EntryRunner.exe too), and the lobby client binds 127.0.0.1
 (T5_NET_BIND). With --stub the game process is the T4 lobby's stand-in game instead of ps2EntryRunner.exe;
 without it (--real) both players start the real T4 build: a heavy run, take the PC's heavy-run lock first.
+
+With --accounts the players log in with T5DR Online accounts (one account for both games): T5DR's own lobby
+server (`python -m t5lobby.server` from --t5dr-lobby, a database file in --out) runs beside the T4 lobby, the T4
+lobby reads T5DR's accounts (T5L_SHARED_ACCOUNTS_DB, so --lobby must be a T4 lobby with shared accounts) and talks
+TLS with a fresh self-signed certificate. Alice and Bob are registered with T5DR's own launcher client before the
+launchers start. Alice types her T5DR name and password (address "127.0.0.1:port#fingerprint"); Bob presses "Use
+your T5DR login": his T4 server comes from a servers.json entry marked shared_login with the pinned fingerprint,
+and the T5DR remembered login is T5DR's real token for his account. That token reaches Bob's launcher through a
+stand-in sister game (a fourth test-only allowance: this offscreen launcher shows only T4, and a real T5DR install
+would drop a plain-TCP 127.0.0.1 login); how the launcher reads a T5DR install's saved logins is unit-tested.
 
 Nothing leaves 127.0.0.1. Prints one JSON line per player and exits 0 when every step passed.
 """
@@ -64,21 +75,42 @@ def parent(args):
     if args.relay:
         server_env["T5L_FORCE_RELAY"] = "1"
     flags = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
-    server_log = open(out / "server.log", "wb")
-    # -B: the lobby folder is read only for this test.
-    server = subprocess.Popen([sys.executable, "-I", "-B", str(lobby / "run.py"), "server", "--host", "127.0.0.1",
-                               "--port", str(port), "--udp-port", str(port), "--udp-port2", str(port + 1),
-                               "--db", ":memory:"], env=server_env, stdout=server_log, stderr=subprocess.STDOUT,
-                              creationflags=flags)
-    deadline = time.monotonic() + 15
-    while True:
-        try:
-            socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
-            break
-        except OSError:
-            if server.poll() is not None or time.monotonic() > deadline:
-                raise SystemExit("the lobby server did not start; see " + str(out / "server.log"))
-            time.sleep(0.2)
+    servers, logs = [], []
+    accounts = {}
+    database = ":memory:"
+    try:
+        if args.accounts:
+            t5_port = free_port()
+            t5_db = out / "t5dr-lobby.db"
+            database = str(out / "t4-lobby.db")
+            t5_env = dict(os.environ, T5L_DB=str(t5_db), T5L_HOST="127.0.0.1", T5L_PORT=str(t5_port),
+                          T5L_UDP_PORT=str(free_port()), T5L_UDP_PORT2="0", T5L_STATUS_PORT="0",
+                          T5L_SCRYPT_N=str(1 << 12), T5L_LOG_LEVEL="INFO", PYTHONDONTWRITEBYTECODE="1")
+            logs.append(open(out / "t5dr-server.log", "wb"))
+            servers.append(subprocess.Popen([sys.executable, "-B", "-m", "t5lobby.server"],
+                                            cwd=str(Path(args.t5dr_lobby)), env=t5_env, stdout=logs[-1],
+                                            stderr=subprocess.STDOUT, creationflags=flags))
+            wait_listening(t5_port, servers[-1], out / "t5dr-server.log")
+            accounts = register_t5dr(Path(args.t5dr_lobby), t5_port, out)
+            tls = out / "tls"
+            made = subprocess.run([sys.executable, "-I", "-B", "-c", TLS_PAIR, str(lobby), str(tls)],
+                                  capture_output=True, text=True, check=True)
+            accounts["fingerprint"] = made.stdout.strip().splitlines()[-1]
+            server_env.update(T5L_SHARED_ACCOUNTS_DB=str(t5_db), T5L_TLS_CERT=str(tls / "t4lobby.crt"),
+                              T5L_TLS_KEY=str(tls / "t4lobby.key"))
+        logs.append(open(out / "server.log", "wb"))
+        # -B: the lobby folder is read only for this test.
+        servers.append(subprocess.Popen([sys.executable, "-I", "-B", str(lobby / "run.py"), "server",
+                                         "--host", "127.0.0.1", "--port", str(port), "--udp-port", str(port),
+                                         "--udp-port2", str(port + 1), "--db", database], env=server_env,
+                                        stdout=logs[-1], stderr=subprocess.STDOUT, creationflags=flags))
+        wait_listening(port, servers[-1], out / "server.log")
+    except BaseException:
+        for proc in servers:
+            proc.kill()
+        for log in logs:
+            log.close()
+        raise
     children = []
     try:
         for who in ("Alice", "Bob"):
@@ -91,8 +123,22 @@ def parent(args):
                        OPENRECOMP_T4_SERVER="127.0.0.1:" + str(port),
                        TEMP=str(home / "tmp"), TMP=str(home / "tmp"),
                        T5_NET_BIND="127.0.0.1", T5_PORTMAP="0", PYTHONIOENCODING="utf-8")
+            if args.accounts:
+                fingerprint = accounts["fingerprint"]
+                if who == "Alice":
+                    env["OPENRECOMP_T4_SERVER"] = "127.0.0.1:%d#%s" % (port, fingerprint)
+                else:
+                    # Bob's T4 server is a listed entry the operator marked shared_login (never an env address).
+                    del env["OPENRECOMP_T4_SERVER"]
+                    listed = home / "t4-online"
+                    listed.mkdir(parents=True)
+                    (listed / "servers.json").write_text(json.dumps(dict(format="t5dr-servers/1", servers=[dict(
+                        name="Local T4 lobby", host="127.0.0.1", port=port, tls="pin", fingerprint=fingerprint,
+                        shared_login=True, default=True)])), encoding="utf-8")
             command = [sys.executable, "-B", str(Path(__file__).resolve()), "--child", who, "--out", str(out),
                        "--iso", str(Path(args.iso).resolve())]
+            if args.accounts:
+                command.append("--accounts")
             if args.stub:
                 command += ["--stub", str(Path(args.stub).resolve())]
             if args.real:
@@ -116,17 +162,80 @@ def parent(args):
         for _who, proc, _log in children:
             if proc.poll() is None:
                 proc.kill()
-        server.terminate()
-        try:
-            server.wait(10)
-        except subprocess.TimeoutExpired:
-            server.kill()
-        server_log.close()
+        for server in reversed(servers):
+            server.terminate()
+            try:
+                server.wait(10)
+            except subprocess.TimeoutExpired:
+                server.kill()
+        for log in logs:
+            log.close()
     for who in ("Alice", "Bob"):
         print(who, json.dumps(reports[who], ensure_ascii=False))
     ok = all(report.get("ok") for report in reports.values())
     print("PASS" if ok else "FAIL", "-- logs in", out)
     return 0 if ok else 1
+
+
+def wait_listening(port, proc, log):
+    deadline = time.monotonic() + 30
+    while True:
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
+            return
+        except OSError:
+            if proc.poll() is not None or time.monotonic() > deadline:
+                raise SystemExit("a lobby server did not start; see " + str(log))
+            time.sleep(0.2)
+
+
+# Writes a fresh self-signed pair with the T4 lobby's own generator and prints its fingerprint.
+TLS_PAIR = """
+import os, sys
+sys.path.insert(0, sys.argv[1])
+from t4lobby.server import selfsigned
+cert, key, fp = selfsigned.write_pair(sys.argv[2], "t4lobby")
+os.replace(cert, os.path.join(sys.argv[2], "t4lobby.crt"))
+os.replace(key, os.path.join(sys.argv[2], "t4lobby.key"))
+print(fp)
+"""
+
+# Registers the two players with T5DR's own launcher client (remembered logins, as T5DR's launcher does).
+REGISTER = """
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from t5lobby.client import LobbyClient
+from t5lobby.buildid import BuildInfo
+build = BuildInfo("be80165b84e30b6334baa6d6331b9db4ffd5a6a4", "0123456789abcdef", "e2e")
+out = {}
+for name, password in (("Alice", sys.argv[3]), ("Bob", sys.argv[4])):
+    client = LobbyClient("127.0.0.1:" + sys.argv[2], build, relay_bridge=False)
+    client.connect()
+    client.register(name, password, remember=True)
+    out[name] = dict(id=client.me.get("id"), name=client.me.get("name"), token=client.session)
+    client.close()
+print(json.dumps(out))
+"""
+
+
+def register_t5dr(t5dr_lobby, port, out):
+    import secrets
+    passwords = {who: "e2e-" + secrets.token_hex(6) for who in ("Alice", "Bob")}
+    made = subprocess.run([sys.executable, "-I", "-B", "-c", REGISTER, str(t5dr_lobby.resolve()), str(port),
+                           passwords["Alice"], passwords["Bob"]], capture_output=True, text=True, timeout=120)
+    if made.returncode:
+        raise SystemExit("registering in T5DR failed: " + made.stderr[-2000:])
+    accounts = json.loads(made.stdout.strip().splitlines()[-1])
+    for who in ("Alice", "Bob"):
+        if accounts[who]["name"] != who or not accounts[who]["token"]:
+            raise SystemExit("T5DR did not register " + who)
+    # Test-only secrets of this run, in the run's own folder: Alice types her password, Bob gets the token.
+    (out / "Alice.password").write_text(passwords["Alice"], encoding="utf-8")
+    (out / "Bob.t5dr-session").write_text(json.dumps(dict(name="Bob", token=accounts["Bob"]["token"])),
+                                          encoding="utf-8")
+    print("T5DR accounts registered:", ", ".join("%s id %s" % (who, accounts[who]["id"]) for who in ("Alice", "Bob")),
+          flush=True)
+    return dict(ids={who: accounts[who]["id"] for who in ("Alice", "Bob")})
 
 
 # ---------------------------------------------------------------------------------------------- child
@@ -171,6 +280,14 @@ def child(args):
         game = next(g for g in nav.games if g.id == "t4")
         adapter = game.a
         started = time.monotonic()
+        if args.accounts and who == "Bob":
+            saved = json.loads((out / "Bob.t5dr-session").read_text(encoding="utf-8"))
+
+            class T5drStandIn:
+                """What the T5DR adapter's online_account_sessions() gives for a secured login of this host."""
+                def online_account_sessions(self):
+                    return [dict(host="127.0.0.1", name=saved["name"], token=saved["token"], saved=time.time())]
+            adapter.account_peers = (T5drStandIn(),)
 
         def step(label, **facts):
             steps.append(dict(step=label, t=round(time.monotonic() - started, 1), **facts))
@@ -305,11 +422,28 @@ def child(args):
         rows = ids()
         if "login_guest" not in rows or "host" in rows or "mode_direct" not in rows:
             raise AssertionError("the T4 lobby screen is not shown: " + str(rows))
-        step("lobby_screen", server=adapter.text_value("online_server"), message=state().get("message"))
-        type_into("online_name", who)
-        focus("login_guest", activate=True)
+        step("lobby_screen", server=adapter.text_value("online_server").split("#")[0],
+             message=state().get("message"))
+        if args.accounts and who == "Bob":
+            # One press: the T5DR remembered login, offered for the listed shared-login server.
+            wait(lambda: "login_saved" in ids(), 10, "the saved T5DR login row")
+            row = next(item for item in nav.items() if item.get("id") == "login_saved")
+            if row.get("label") != "@t4.saved_shared":
+                raise AssertionError("the saved login is not named as the T5DR login: " + str(row.get("label")))
+            focus("login_saved", activate=True)
+        elif args.accounts:
+            type_into("online_name", who)
+            type_into("online_password", (out / (who + ".password")).read_text(encoding="utf-8"))
+            focus("login_account", activate=True)
+        else:
+            type_into("online_name", who)
+            focus("login_guest", activate=True)
         wait(phase_is("logged_in"), 30, "the login")
-        step("logged_in", name=state().get("name"))
+        if args.accounts and not state().get("account"):
+            raise AssertionError("logged in, but not with the account")
+        step("logged_in", name=state().get("name"), account=bool(state().get("account")),
+             how="saved T5DR login" if args.accounts and who == "Bob" else
+             "T5DR name + password" if args.accounts else "guest")
         mark("login")
         wait_other("login")
         for _ in range(40):
@@ -458,12 +592,17 @@ def main():
     parser.add_argument("--stub")
     parser.add_argument("--real", action="store_true")
     parser.add_argument("--relay", action="store_true", help="the server relays every match (T5L_FORCE_RELAY)")
+    parser.add_argument("--accounts", action="store_true",
+                        help="log in with T5DR accounts through a T4 lobby that shares T5DR's (needs --t5dr-lobby)")
+    parser.add_argument("--t5dr-lobby", help="T5DR's lobby folder (t5lobby inside), for --accounts")
     parser.add_argument("--child")
     args = parser.parse_args()
     if args.child:
         return child(args)
     if bool(args.stub) == bool(args.real) or not args.lobby or not args.t4_root:
         parser.error("give --lobby, --t4-root and exactly one of --stub / --real")
+    if args.accounts and not args.t5dr_lobby:
+        parser.error("--accounts needs --t5dr-lobby")
     return parent(args)
 
 
