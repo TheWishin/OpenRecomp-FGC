@@ -10,72 +10,86 @@ class Picker:
     """Mouse and keyboard get the Windows Explorer dialog (when the app has one: native_picker); a controller gets
     the launcher's own list. Both end in _picked(), so a path is checked the same way whichever chose it."""
 
-    def _open_picker(self, target, title, exts, dirs, kind):
+    def _open_picker(self, target, title, exts, dirs, kind, filter_name=""):
+        """filter_name: what the files are ("@t4.iso_filter"), the Explorer dialog's first filter."""
         exts = [e.lower() for e in exts]
         if self.device == "kb" and self.native_picker:
-            self._request_native(target, title, exts, kind, self._picker_start(dirs, kind, downloads=True))
+            self._request_native(target, title, exts, kind, self._picker_start(dirs, kind, exts, downloads=True), filter_name)
             return
-        self._open_list_picker(target, title, exts, kind, self._picker_start(dirs, kind))
+        self._open_list_picker(target, title, exts, kind, self._picker_start(dirs, kind, exts))
 
-    def _open_list_picker(self, target, title, exts, kind, start):
-        self.picker = dict(target=target, title=title, exts=exts, kind=kind, dir=start, focus=0)
+    def _open_list_picker(self, target, title, exts, kind, start, filter_name=""):
+        self.picker = dict(target=target, title=title, exts=exts, kind=kind, dir=start, focus=0, filter_name=filter_name)
         self.overlay = "picker"
         self._picker_first_file()
 
-    def _picker_start(self, dirs, kind, downloads=False):
-        """A folder setting opens at its own value; a file opens where the player last chose one."""
+    @staticmethod
+    def _dir_key(kind, exts):
+        """Folders are remembered per type: the last ISO folder is not the last game folder."""
+        return exts[0] if kind == "file" and exts else "folder"
+
+    def _picker_start(self, dirs, kind, exts=(), downloads=False):
+        """A folder setting opens at its own value; a file opens where the player last chose one of its type."""
         dirs = [d for d in dirs if d]
-        order = dirs + [self.picker_dir] if kind == "folder" else [self.picker_dir] + dirs
+        last = self.picker_dirs.get(self._dir_key(kind, list(exts)), "")
+        order = dirs + [last] if kind != "file" else [last] + dirs
         if downloads:
             order.append(os.path.join(os.path.expanduser("~"), "Downloads"))
         return next((d for d in order if d and os.path.isdir(d)), "")
 
-    def _remember_dir(self, path, kind):
-        folder = path if kind == "folder" or (kind == "file_or_folder" and os.path.isdir(path)) else os.path.dirname(path)
-        if folder and folder != self.picker_dir:
-            self.picker_dir = folder
+    def _remember_dir(self, path, exts):
+        if os.path.isdir(path):
+            key, folder = "folder", path
+        else:
+            ext = os.path.splitext(path)[1].lower()
+            key, folder = ext if ext in exts else "folder", os.path.dirname(path)
+        if folder and self.picker_dirs.get(key) != folder:
+            self.picker_dirs[key] = folder
             if not self.dry:
-                self.on_picker_dir(folder)
+                self.on_picker_dir(key, folder)
 
     # ---------------------------------------------------------------- the Windows Explorer dialog
-    def _request_native(self, target, title, exts, kind, start):
+    def _request_native(self, target, title, exts, kind, start, filter_name=""):
         """The app opens the dialog after this action (native_request) and hands back native_result()."""
         self.overlay = None
-        self.pending_native = dict(target=target, title=title, exts=exts, kind=kind, dir=start)
+        self.pending_native = dict(target=target, title=title, exts=exts, kind=kind, dir=start, filter_name=filter_name)
 
     def native_request(self):
-        """-> dict(title, kind, filters, start) for the dialog, localized; None when nothing waits. Taken once."""
+        """-> dict(title, kind, filters, start) for the dialog, localized; None when nothing waits. Taken once.
+
+        A "zip or folder" source (the T4 game) opens the FOLDER dialog: the zip has its own row."""
         r, self.pending_native = self.pending_native, None
         if r is None:
             return None
+        kind = "file" if r["kind"] == "file" else "folder"
         filters = []
-        if r["kind"] != "folder" and r["exts"]:
+        if kind == "file" and r["exts"]:
             patterns = ";".join("*" + e for e in r["exts"])
-            matching = i18n.message("picker.filter_matching", patterns=i18n.literal(patterns.replace(";", "; ")))
-            filters = [(i18n.localize(matching, self.language), patterns),
+            shown = i18n.literal(patterns.replace(";", "; "))
+            name = (i18n.message("picker.filter_named", name=r["filter_name"], patterns=shown) if r.get("filter_name")
+                    else i18n.message("picker.filter_matching", patterns=shown))
+            filters = [(i18n.localize(name, self.language), patterns),
                        (i18n.localize("@picker.filter_all", self.language), "*.*")]
-        return dict(request=r, title=i18n.localize(r["title"], self.language), kind="folder" if r["kind"] == "folder" else "file",
-                    filters=filters, start=r["dir"])
+        return dict(request=r, title=i18n.localize(r["title"], self.language), kind=kind, filters=filters, start=r["dir"])
 
     def native_result(self, request, path):
         """The dialog closed: path = the player's choice, "" = cancelled (nothing happens)."""
         r = request["request"]
         if not path:
             return
-        if r["kind"] == "folder" and not os.path.isdir(path):
+        if request["kind"] == "folder" and not os.path.isdir(path):
             self.say("@picker_not_folder")
             return
-        if (r["kind"] != "folder" and r["exts"] and not os.path.isdir(path)
-                and os.path.splitext(path)[1].lower() not in r["exts"]):
+        if request["kind"] == "file" and r["exts"] and os.path.splitext(path)[1].lower() not in r["exts"]:
             self.say(i18n.message("picker_wrong_type", types=i18n.literal(", ".join(r["exts"]))), 8)
             return
-        self._remember_dir(path, r["kind"])
+        self._remember_dir(path, r["exts"])
         self._picked(r["target"], path)
 
     def native_failed(self, request):
         """No Explorer dialog on this PC (or Windows refused one): the launcher's own list instead."""
         r = request["request"]
-        self._open_list_picker(r["target"], r["title"], r["exts"], r["kind"], r["dir"])
+        self._open_list_picker(r["target"], r["title"], r["exts"], r["kind"], r["dir"], r.get("filter_name", ""))
 
     def _picker_first_file(self):
         """The focus starts on the first file: usually the one the player came for."""
@@ -124,7 +138,7 @@ class Picker:
         elif a == "back":
             self.overlay = None
         elif a == "x" and self.native_picker:
-            self._request_native(p["target"], p["title"], p["exts"], p["kind"], p["dir"])
+            self._request_native(p["target"], p["title"], p["exts"], p["kind"], p["dir"], p.get("filter_name", ""))
         elif a == "confirm" and entries:
             e = entries[p["focus"]]
             if e["kind"] == "dir":
@@ -132,7 +146,7 @@ class Picker:
                 self._picker_first_file()
             else:
                 self.overlay = None
-                self._remember_dir(e["path"], "folder" if e["kind"] == "pick" else "file")
+                self._remember_dir(e["path"], p["exts"])
                 self._picked(p["target"], e["path"])
 
     def _picked(self, target, path):

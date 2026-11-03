@@ -39,17 +39,20 @@ in the player's language), or select its original release `.zip`. The adapter lo
 
 ## Choosing files and folders
 
-Every place that asks for a file or folder (T4 release `.zip`, T4 ISO, T5DR package `.pkg`
+Every place that asks for a file or folder (Tekken 4 game folder, T4 ISO, T5DR package `.pkg`
 and licence `.rap`, a game's own files, game and replay folders, a manifest) opens the
-normal Windows Explorer dialog when it was chosen with the mouse or the keyboard. It shows
-the matching files first (`*.iso`, `*.pkg`, `*.rap`, ...) and **All files** as a second
-filter, and opens in the folder last used for a file (else Downloads); a folder setting
-opens at its current folder. A controller gets the launcher's own list instead; X there opens
+normal Windows Explorer dialog at once when it was clicked or chosen with the keyboard. The
+file dialogs name what they want ("Choose your Tekken 4 USA disc image (ISO)", first filter
+"Tekken 4 disc image (*.iso)", then **All files**; the same for the T5DR package and licence).
+The Tekken 4 game folder opens the Windows folder dialog; a T4 release downloaded as one `.zip`
+has its own Build row, **I have a release zip**. Each kind of file remembers its own last folder
+(the last ISO folder, the last package folder, the last game folder); without one a file dialog
+opens in Downloads and a folder setting at its current folder. A controller gets the
+launcher's own list instead (it shows folders and release zips together); X there opens
 Explorer at the list's folder. Whichever was used, the chosen path is checked the same way: a
-file of another type is refused with a message, exactly as the list never offers it. The T4
-release can be a `.zip` (Explorer) or an unpacked folder (the list's **Use this folder**).
-Where Windows cannot open the dialog the list opens instead; `OPENRECOMP_NATIVE_PICKER=0`
-always uses the list. The last folder is kept as `picker_dir` in the launcher's config.
+file of another type is refused with a message, exactly as the list never offers it. Where
+Windows cannot open the dialog the list opens instead; `OPENRECOMP_NATIVE_PICKER=0` always
+uses the list. The folders are kept as `picker_dirs` in the launcher's config.
 
 ## Typing, copy and paste
 

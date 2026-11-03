@@ -127,6 +127,11 @@ class Sections:
     def _items_build(self, g):
         return self._setup_items(g, "build") + self._items_build_rows(g)
 
+    def _open_source_picker(self, src, title=None):
+        """A Build source row (or the shelf's first step): its own dialog title and file type when it names them."""
+        title = title or src.get("title") or i18n.message("choose_named", name=src["label"])
+        self._open_picker("source:" + src["id"], title, src["exts"], src["dirs"], src.get("kind", "file"), src.get("filter", ""))
+
     def _items_build_rows(self, g):
         if getattr(g.a, "coexistence_state", lambda: dict(active=False))()["active"]:
             return self._coexistence_items(g, choose=True) + [dict(
@@ -148,7 +153,15 @@ class Sections:
             blocked = state["running"] or checking
             out.append(dict(kind="action", id=s["id"], label=s["label"], value=("@t4.installing" if installing else "@iso.checking") if checking else s["value"], missing=not s["ok"], disabled=blocked, verb="" if blocked else ("@choose" if not s["ok"] else "@change"),
                             hint=detail["lead"] if checking else s["hint"], detail=detail,
-                            run=None if blocked else lambda src=src: self._open_picker("source:" + src["id"], i18n.message("choose_named", name=src["label"]), src["exts"], src["dirs"], src.get("kind", "file"))))
+                            run=None if blocked else lambda src=src: self._open_source_picker(src)))
+            if s.get("kind") == "file_or_folder" and s.get("exts"):
+                # The folder is the usual answer (Explorer opens its folder dialog); a downloaded release zip is this row.
+                zip_detail = dict(kicker="@your_files", title="@picker.have_zip", lead="@picker.have_zip_hint", rows=[])
+                out.append(dict(kind="action", id=s["id"] + ":zip", label="@picker.have_zip", value="", disabled=blocked,
+                                verb="" if blocked else "@choose", hint="@picker.have_zip_hint", detail=zip_detail,
+                                run=None if blocked else lambda src=src: self._open_picker(
+                                    "source:" + src["id"], "@picker.choose_zip", src["exts"], src["dirs"], "file",
+                                    "@picker.zip_filter")))
         for o in g.a.build_options():
             out.append(self._cycler_item(g, o))
         out.extend(self._prerequisite_items(g, state["running"] or source_state.get("running", False)))

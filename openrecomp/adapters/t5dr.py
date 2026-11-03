@@ -579,8 +579,10 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         rap_ok = bool(rap) and os.path.isfile(rap)
         return [
             dict(id="pkg", label="@package", value="@found" if pkg_ok else "@missing", ok=pkg_ok, kind="file", exts=[".pkg"], dirs=dirs,
+                 title="@t5.choose_pkg", filter="@t5.pkg_filter",
                  hint="@package.hint", note=pkg_text),
             dict(id="rap", label="@license", value="@found" if rap_ok else "@missing", ok=rap_ok, kind="file", exts=[".rap"], dirs=dirs,
+                 title="@t5.choose_rap", filter="@t5.rap_filter",
                  hint="@license.hint", note=""),
         ]
 

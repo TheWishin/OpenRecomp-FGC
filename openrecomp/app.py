@@ -58,6 +58,14 @@ def native_picker_available():
         return False
 
 
+def picker_dirs(config):
+    """The last folder per kind of file (".iso", ".pkg", ...) and for folders; anything else in the config is dropped."""
+    dirs = config.get("picker_dirs")
+    if not isinstance(dirs, dict):
+        return {}
+    return {k: v for k, v in dirs.items() if isinstance(k, str) and isinstance(v, str) and len(k) <= 16 and v}
+
+
 def load_games(config):
     manifests, problems = mf.load_all()
     games = [Game(m, adapters.make(m, config)) for m in manifests]
@@ -85,7 +93,7 @@ class Backend(QObject, GameSetupBackend):
         self._native_queued = False
         self._native_open = False
         self.nav = Nav(games, on_quit=self._quit, install=self._install, launch_env=launch_env,
-                       native_picker=native_picker_available(), picker_dir=self.config.get("picker_dir", ""),
+                       native_picker=native_picker_available(), picker_dirs=picker_dirs(self.config),
                        on_picker_dir=self._save_picker_dir,
                        language=self.config.get("language"), on_language=self._save_language,
                        last_game=self.config.get("last_game"), on_game=self._save_game,
@@ -317,8 +325,10 @@ class Backend(QObject, GameSetupBackend):
         self.config["last_game"] = game_id
         self._save_config()
 
-    def _save_picker_dir(self, folder):
-        self.config["picker_dir"] = folder
+    def _save_picker_dir(self, key, folder):
+        dirs = picker_dirs(self.config)
+        dirs[key] = folder
+        self.config["picker_dirs"] = dirs
         self._save_config()
 
     def _queue_native(self):

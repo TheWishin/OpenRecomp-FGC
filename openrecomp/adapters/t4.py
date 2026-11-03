@@ -380,12 +380,14 @@ class T4(T4Online, Adapter):
         iso = self.core.effective_iso(self.s) or self.s.get("iso") or ""
         ok = bool(iso) and os.path.isfile(iso)
         home = os.path.expanduser("~")
+        # The ISO's own folder first, then Downloads: the T4 game folder is never where a disc image is kept.
         out = [dict(id="iso", label="@game_iso", value=os.path.basename(iso) if ok else "@missing", ok=ok, kind="file",
-                     exts=[".iso"], dirs=[self.root, os.path.join(home, "Downloads"), os.path.join(home, "Desktop")],
+                     title="@t4.choose_iso", filter="@t4.iso_filter", exts=[".iso"],
+                     dirs=[os.path.dirname(iso) if iso else "", os.path.join(home, "Downloads"), os.path.join(home, "Desktop"), self.root],
                      hint="@iso.hint", note=self.iso_note, busy=self._source_state["running"])]
         if self._needs_toolchain():
             folder_note = self._source_state["result"] if self._source_state["id"] == "folder" else ""
-            out.insert(0, dict(id="folder", label="@t4.complete_release", value="@missing", ok=False,
+            out.insert(0, dict(id="folder", label="@t4.complete_release", title="@t4.choose_game_folder", value="@missing", ok=False,
                                kind="file_or_folder", exts=[".zip"], dirs=[os.path.join(home, "Downloads")],
                                hint="@t4.portable_required", note=folder_note if folder_note != "reload" else "",
                                busy=self._source_state["running"]))
