@@ -687,6 +687,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                     self.last_result = self.message("build_failed", path=self.build.log_path)
                 self.build = None
                 self._state = None
+                return          # the run is gone: reading its queue again raised AttributeError in the window's tick
 
     def build_state(self):
         self._pump_build()

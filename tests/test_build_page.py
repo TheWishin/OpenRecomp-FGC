@@ -550,6 +550,23 @@ class T5Fraction(unittest.TestCase):
         self.assertEqual(state["step_no"], [2, 2])
         self.assertEqual(state["lines"], ["x"])
 
+    def test_the_end_of_a_build_is_read_once_without_touching_the_finished_run(self):
+        # QA run (fresh T5DR install built from the launcher): the "end" event set self.build = None and the loop
+        # read self.build.events again -> AttributeError in the window's tick at the end of every build.
+        import queue
+        from openrecomp.adapters.t5dr import T5DR
+        adapter = T5DR.__new__(T5DR)
+        adapter.core = SimpleNamespace(STEP_TITLES={"a": "A"})
+        events = queue.Queue()
+        events.put(("step", "a"))
+        events.put(("end", 0))
+        adapter.build = SimpleNamespace(events=events, log_path="build.log")
+        adapter.build_steps, adapter.build_step, adapter.build_fraction = {}, "", 0.0
+        adapter.build_line, adapter.build_lines, adapter.last_result = "", [], ""
+        state = adapter.build_state()
+        self.assertFalse(state["running"])
+        self.assertEqual(state["result"], "@build_finished")
+
 
 if __name__ == "__main__":
     unittest.main()
