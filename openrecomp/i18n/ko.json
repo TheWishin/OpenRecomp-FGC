@@ -554,7 +554,7 @@
     "updates.check": "런처 업데이트 확인",
     "updates.hint": "이 런처의 릴리스 채널을 확인합니다. 게임과 설정은 유지됩니다.",
     "updates.confirm.title": "런처를 업데이트할까요?",
-    "updates.confirm.text": "{version}({size}바이트)을 설치하고 다시 시작할까요? 설정은 유지됩니다.\n\n{notes}",
+    "updates.confirm.text": "{version}({size}MB)을 설치하고 다시 시작할까요? 설정은 유지됩니다.\n\n{notes}",
     "updates.install": "설치 후 다시 시작",
     "updates.checking": "업데이트 확인 중…",
     "updates.installing": "업데이트 설치 중…",

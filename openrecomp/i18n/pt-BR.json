@@ -554,7 +554,7 @@
     "updates.check": "Buscar atualizações do inicializador",
     "updates.hint": "Verifique o canal de versões deste inicializador. Os jogos e as configurações são mantidos.",
     "updates.confirm.title": "Atualizar o inicializador?",
-    "updates.confirm.text": "Instalar {version} ({size} bytes) e reiniciar? Suas configurações serão mantidas.\n\n{notes}",
+    "updates.confirm.text": "Instalar {version} ({size} MB) e reiniciar? Suas configurações serão mantidas.\n\n{notes}",
     "updates.install": "Instalar e reiniciar",
     "updates.checking": "Buscando atualizações…",
     "updates.installing": "Instalando atualização…",

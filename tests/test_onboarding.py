@@ -127,6 +127,17 @@ class LauncherUpdates(unittest.TestCase):
         self.press("right", "confirm")
         self.install.assert_not_called()
 
+    def test_update_size_is_said_in_megabytes(self):
+        # The QA run showed "Install v0.1.1 (106157269 bytes)": a player reads megabytes.
+        self.available()
+        self.nav.update_state["size"] = 106_157_269
+        self.nav.offer_update()
+        for language in ("en", "de"):
+            self.nav.language = language
+            body = self.nav.view()["dialog"]["text"]
+            self.assertIn("(106 MB)", body)
+            self.assertNotIn("106157269", body)
+
     def test_release_notes_are_literal_and_bound_to_a_readable_paragraph(self):
         self.available()
         self.nav.update_state["notes"] = "@yes\n" + "line\n" * 300

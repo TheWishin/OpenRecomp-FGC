@@ -554,7 +554,7 @@
     "updates.check": "Check for launcher updates",
     "updates.hint": "Check this launcher’s release channel. Games and settings stay in place.",
     "updates.confirm.title": "Update launcher?",
-    "updates.confirm.text": "Install {version} ({size} bytes) and restart? Your settings are kept.\n\n{notes}",
+    "updates.confirm.text": "Install {version} ({size} MB) and restart? Your settings are kept.\n\n{notes}",
     "updates.install": "Install and restart",
     "updates.checking": "Checking for updates…",
     "updates.installing": "Installing update…",

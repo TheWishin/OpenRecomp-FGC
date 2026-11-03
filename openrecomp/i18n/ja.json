@@ -554,7 +554,7 @@
     "updates.check": "ランチャーの更新を確認",
     "updates.hint": "このランチャーのリリースチャンネルを確認します。ゲームと設定は保持されます。",
     "updates.confirm.title": "ランチャーを更新しますか？",
-    "updates.confirm.text": "{version}（{size} バイト）をインストールして再起動しますか？設定は保持されます。\n\n{notes}",
+    "updates.confirm.text": "{version}（{size} MB）をインストールして再起動しますか？設定は保持されます。\n\n{notes}",
     "updates.install": "インストールして再起動",
     "updates.checking": "更新を確認中…",
     "updates.installing": "更新をインストール中…",

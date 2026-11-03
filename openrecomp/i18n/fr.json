@@ -554,7 +554,7 @@
     "updates.check": "Rechercher les mises à jour du lanceur",
     "updates.hint": "Vérifiez le canal de publication de ce lanceur. Les jeux et réglages sont conservés.",
     "updates.confirm.title": "Mettre à jour le lanceur ?",
-    "updates.confirm.text": "Installer {version} ({size} octets) et redémarrer ? Vos réglages sont conservés.\n\n{notes}",
+    "updates.confirm.text": "Installer {version} ({size} Mo) et redémarrer ? Vos réglages sont conservés.\n\n{notes}",
     "updates.install": "Installer et redémarrer",
     "updates.checking": "Recherche de mises à jour…",
     "updates.installing": "Installation de la mise à jour…",

@@ -63,7 +63,7 @@ class Dialog:
         elif self.confirm_kind == "update":
             title = "@updates.confirm.title"
             text = i18n.message("updates.confirm.text", version=self.update_version,
-                                size=self.update_state.get("size", 0),
+                                size=max(1, round(int(self.update_state.get("size") or 0) / 1_000_000)),
                                 notes=i18n.literal(" ".join(str(self.update_state.get("notes", "")).split())[:300]))
         else:
             title, text = "@dialog.cancel.title", "@dialog.cancel.text"

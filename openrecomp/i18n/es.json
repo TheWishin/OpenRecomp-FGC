@@ -554,7 +554,7 @@
     "updates.check": "Buscar actualizaciones del lanzador",
     "updates.hint": "Consulta el canal de versiones de este lanzador. Se conservan los juegos y los ajustes.",
     "updates.confirm.title": "¿Actualizar el lanzador?",
-    "updates.confirm.text": "¿Instalar {version} ({size} bytes) y reiniciar? Se conservarán tus ajustes.\n\n{notes}",
+    "updates.confirm.text": "¿Instalar {version} ({size} MB) y reiniciar? Se conservarán tus ajustes.\n\n{notes}",
     "updates.install": "Instalar y reiniciar",
     "updates.checking": "Buscando actualizaciones…",
     "updates.installing": "Instalando actualización…",

@@ -554,7 +554,7 @@
     "updates.check": "Nach Launcher-Updates suchen",
     "updates.hint": "Prüfe den Veröffentlichungskanal dieses Launchers. Spiele und Einstellungen bleiben erhalten.",
     "updates.confirm.title": "Launcher aktualisieren?",
-    "updates.confirm.text": "{version} ({size} Bytes) installieren und neu starten? Deine Einstellungen bleiben erhalten.\n\n{notes}",
+    "updates.confirm.text": "{version} ({size} MB) installieren und neu starten? Deine Einstellungen bleiben erhalten.\n\n{notes}",
     "updates.install": "Installieren und neu starten",
     "updates.checking": "Suche nach Updates…",
     "updates.installing": "Update wird installiert…",
