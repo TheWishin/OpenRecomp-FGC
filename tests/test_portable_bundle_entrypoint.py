@@ -44,10 +44,10 @@ class PortableBundleEntrypointTests(unittest.TestCase):
         # No py/python discovery is available to the normal bundle path.
         environment["PATH"] = str(Path(POWERSHELL).parent)
         return subprocess.run(
-            [POWERSHELL, "-NoProfile", "-NonInteractive", "-File",
+            [POWERSHELL, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
              str(self.tools / "make_t4_test_bundle.ps1"), "-RuntimeRoot", str(self.runtime),
              "-T4Source", str(self.root / "T4"), *extra],
-            cwd=self.root, env=environment, capture_output=True, text=True, timeout=90)
+            cwd=self.root, env=environment, capture_output=True, text=True, encoding="oem", errors="replace", timeout=90)
 
     def test_fetches_then_runs_bundle_cli_with_portable_python_without_system_path(self):
         result = self.run_wrapper()
@@ -119,10 +119,10 @@ class PortableBundlePipelineTests(unittest.TestCase):
             environment = dict(os.environ)
             environment["PATH"] = str(Path(POWERSHELL).parent)
             result = subprocess.run(
-                [POWERSHELL, "-NoProfile", "-NonInteractive", "-File",
+                [POWERSHELL, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
                  str(ROOT / "tools/make_t4_test_bundle.ps1"), "-T4Source", str(source),
                  "-RuntimeRoot", str(runtime), "-CacheDirectory", str(cache)],
-                cwd=ROOT, env=environment, capture_output=True, text=True, timeout=240)
+                cwd=ROOT, env=environment, capture_output=True, text=True, encoding="oem", errors="replace", timeout=240)
             archive_lines = [line.removeprefix("Test bundle: ") for line in result.stdout.splitlines()
                              if line.startswith("Test bundle: ")]
             for name in archive_lines:
@@ -158,7 +158,7 @@ class PortableBundlePipelineTests(unittest.TestCase):
             shutil.copyfile(ROOT / "tests/test_startup_offscreen.py", smoke)
             started = subprocess.run(
                 [str(launcher / "portable/python.exe"), "-I", "-B", str(smoke), "-v"],
-                cwd=launcher, env=environment, capture_output=True, text=True, timeout=90)
+                cwd=launcher, env=environment, capture_output=True, text=True, encoding="oem", errors="replace", timeout=90)
             self.assertEqual(started.returncode, 0, started.stdout + started.stderr)
             self.assertIn("Ran 1 test", started.stderr)
             self.assertIn("OK", started.stderr)

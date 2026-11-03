@@ -12,9 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 class PortableScanBoundaryTests(unittest.TestCase):
     def test_runtime_scan_boundaries_through_fetch_entry_point(self):
         result = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-File",
+            ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
              str(ROOT / "tests" / "test_portable_scan_boundaries.ps1")],
-            cwd=ROOT, capture_output=True, text=True, timeout=120)
+            cwd=ROOT, capture_output=True, text=True, encoding="oem", errors="replace", timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Portable scan entry-point checks passed", result.stdout)
 
