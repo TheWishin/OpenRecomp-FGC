@@ -158,6 +158,29 @@ class Integration(unittest.TestCase):
         app.Backend._poll_updates(backend)
         self.assertEqual(said, [("@updates.current", 8)])
 
+    def test_automatic_check_waits_for_the_games_check_started_with_it(self):
+        """The games' check starts at the same moment and counts as busy: the launcher's check runs right after it."""
+        from openrecomp import app
+        updates = SimpleNamespace(state=dict(phase="idle"), quiet=False, poll=lambda: False)
+        updates.check = mock.Mock(side_effect=lambda quiet=False: setattr(updates, "quiet", quiet))
+        busy = [True]
+        said = []
+        backend = SimpleNamespace(updates=updates, _update_busy=lambda: busy[0], _update_phase="idle",
+                                  _offered_update=False,
+                                  nav=SimpleNamespace(update_state={}, say=lambda *a: said.append(a)))
+        backend._auto_check_updates = lambda: app.Backend._auto_check_updates(backend)
+        backend._auto_check_updates()
+        app.Backend._poll_updates(backend)
+        updates.check.assert_not_called()
+        busy[0] = False
+        app.Backend._poll_updates(backend)
+        updates.check.assert_called_once_with(quiet=True)
+        app.Backend._poll_updates(backend)
+        updates.check.assert_called_once_with(quiet=True)       # once, not on every tick
+        updates.state["phase"] = "current"
+        app.Backend._poll_updates(backend)
+        self.assertEqual(said, [])
+
     def test_failed_scene_does_not_arm_confirmation(self):
         from openrecomp import app
         with mock.patch.object(app, "QGuiApplication"), mock.patch.object(app, "Backend"), \

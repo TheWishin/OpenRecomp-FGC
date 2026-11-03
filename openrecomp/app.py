@@ -160,8 +160,15 @@ class Backend(QObject, GameSetupBackend):
         self.updates.check()
 
     def _auto_check_updates(self):
-        """A few seconds after the start (with the games' check): an offer appears, nothing is said otherwise."""
-        if self.updates.state.get("phase") == "idle" and not self._update_busy():
+        """A few seconds after the start (with the games' check): an offer appears, nothing is said otherwise.
+        While something else is busy (the games' own check started at the same moment, a build, an online
+        session) it waits and runs once that is over (_poll_updates)."""
+        if self.updates.state.get("phase") != "idle":
+            self._auto_update_pending = False
+        elif self._update_busy():
+            self._auto_update_pending = True
+        else:
+            self._auto_update_pending = False
             self.updates.check(quiet=True)
 
     def _install_update(self):
@@ -169,6 +176,8 @@ class Backend(QObject, GameSetupBackend):
             self.nav.say("@updates.busy")
 
     def _poll_updates(self):
+        if getattr(self, "_auto_update_pending", False):
+            self._auto_check_updates()
         changed = self.updates.poll()
         self.nav.update_state = dict(self.updates.state)
         phase = self.updates.state["phase"]
