@@ -242,8 +242,7 @@ class FakeGitHubChannel(Temp):
         with self.assertRaises(u.UpdateError):
             u.stage_update(self.root, offer)
         self.assertEqual(u.local_version(self.root), "v0.1.0")
-        work = u._work_root(self.root)
-        self.assertEqual([p for p in work.iterdir()] if work.exists() else [], [])
+        self.assertFalse(u._work_root(self.root).exists())      # nothing left beside the installation
 
     def test_foreign_address_is_refused_in_test_mode_too(self):
         channel = u.configured_channel()

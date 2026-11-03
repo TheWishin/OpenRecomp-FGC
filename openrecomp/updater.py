@@ -537,6 +537,10 @@ def stage_update(root, release, channel=None):
         return staged
     except Exception:
         shutil.rmtree(transaction)
+        try:
+            work.rmdir()             # a refused update leaves no folder beside the installation
+        except OSError:
+            pass
         raise
 
 

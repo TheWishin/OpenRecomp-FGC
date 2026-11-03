@@ -992,6 +992,10 @@ static int uninstall(const std::wstring &folder, int settings_choice /* -1 ask, 
     }
     for (auto &f : files) remove_empty_parents(folder, f);
     RemoveDirectoryW(launcher_dir(folder).c_str());
+    // The launcher's own update workspace beside it (openrecomp/updater.py: backups of older launcher versions).
+    std::wstring updates = launcher_dir(folder) + L".update";
+    DWORD ua = GetFileAttributesW(updates.c_str());
+    if (ua != INVALID_FILE_ATTRIBUTES && (ua & FILE_ATTRIBUTE_DIRECTORY) && !(ua & FILE_ATTRIBUTE_REPARSE_POINT)) remove_tree(updates);
     DeleteFileW(join(folder, MANIFEST).c_str());
     for (auto &dir : {known_folder(FOLDERID_Programs), known_folder(FOLDERID_Desktop)})
         if (!dir.empty()) remove_link_into(join(dir, LINK_NAME), folder);

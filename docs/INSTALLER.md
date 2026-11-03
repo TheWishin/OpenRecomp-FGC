@@ -24,7 +24,8 @@ available as the alternative: unpack it and double-click `OpenRecomp-FGC\run.cmd
 ## Uninstall
 
 Apps & Features -> OpenRecomp-FGC -> Uninstall (or `<folder>\Uninstall OpenRecomp.exe`). It removes the
-launcher files, the shortcuts and the Apps entry. It never removes `T4`, `T5DR-Online-*`, builds or saves.
+launcher files (also those a launcher self-update brought: the update keeps Setup's record current, see
+[UPDATES.md](UPDATES.md)), the launcher's update folder `OpenRecomp-FGC.update`, the shortcuts and the Apps entry. It never removes `T4`, `T5DR-Online-*`, builds or saves.
 It then asks whether to remove OpenRecomp-FGC's own settings (`config.json`, pictures from the player's builds,
 the player's game manifests, private T5DR preferences and saved logins). T4 saves (`t4-source\*\save`) and
 registered game zips (`installs\`) stay either way. The uninstaller copies itself to `%TEMP%` to be able to
