@@ -93,7 +93,7 @@ def untranslated_literals(source):
                 ignore(node.args[1])  # attribute names; a displayed fallback is still checked
             elif name in ("get", "setdefault", "getenv", "pop", "startswith", "import_module", "strftime", "compile", "match", "expanduser") and node.args:
                 ignore(node.args[0])
-            elif name in ("prompt", "glyph", "_ask", "_open_picker", "act") and node.args:
+            elif name in ("prompt", "glyph", "_ask", "_open_picker", "act", "on_setup") and node.args:
                 ignore(node.args[0])
             elif name == "_go" and len(node.args) > 1:
                 ignore(node.args[1])
@@ -127,7 +127,7 @@ def untranslated_literals(source):
         "T5DR Online.exe", "T5DROnline", "online.json", "release.json", "lobby", "t5lobby", "tools", "data",
         "cache", "fighters", "fighters.json", "python", "python.exe", "t4", "t5dr", "hero.png",
         "Downloads", "Desktop", "APPDATA", "OPENRECOMP_T4_ROOT", "OPENRECOMP_T5DR_ROOT", "T5_ONLINE_DIR",
-        "%USERPROFILE%/Downloads/T5DR-Online-*", "%USERPROFILE%/Desktop/T5DR-Online-*",
+        "%USERPROFILE%/Downloads/T5DR-Online-*", "%USERPROFILE%/Desktop/T5DR-Online-*", "T5DR-Online-*",
         ".json", ".iso", "*.iso", ".pkg", ".rap", ".openrecomp.tmp", "logs\\build_game.log",
         "--search", "-Force", "openrecomp", "taskkill", "/T", "/F", "/PID", "W", "L",
         "controls_edit.py", "controls_ui.py", "padmap.py", "padnav.py", "__init__.py", ".py", "replays.py", "launcher.log",

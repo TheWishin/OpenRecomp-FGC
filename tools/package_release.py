@@ -28,7 +28,8 @@ SOURCE_GROUPS = {
                    "nav_private_chat.py", "nav_profiles.py",
                    "nav_rules.py", "nav_spectating.py", "nav_tournaments.py",
                    "pad.py", "ranks.py", "updater.py", "update_service.py",
-                   "game_library.py", "game_updates.py", "nav_library.py"),
+                   "game_library.py", "game_updates.py", "nav_library.py",
+                   "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py"),
     "openrecomp/adapters": ("__init__.py", "base.py", "launch_guard.py", "support.py", "t4.py", "t4_install.py",
                            "t4_online.py", "t4_source.py", "t4_prerequisites.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py",
                            "t5_coexist.py", "t5_compatibility.py", "t4_region.py",
@@ -52,7 +53,7 @@ SOURCE_GROUPS = {
                             "OFL-IBMPlexMono.txt", "OFL-IBMPlexSans.txt"),
     "games": ("t4.json", "t5dr.json"),
     "docs": ("PACKAGING.md", "INSTALLING.md", "UPDATES.md", "T4_FIRST_RUN.md", "T4_ONLINE.md", "T5DR_ONLINE.md",
-             "T5DR_COEXISTENCE.md", "HAND_CHECK.md", "ADD_YOUR_GAME.md"),
+             "T5DR_COEXISTENCE.md", "HAND_CHECK.md", "ADD_YOUR_GAME.md", "GAME_SETUP.md"),
 }
 SOURCE_FILES = {folder + "/" + name for folder, names in SOURCE_GROUPS.items() for name in names}
 SOURCE_FILES.update(("LICENSE", "README.md"))

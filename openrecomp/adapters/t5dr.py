@@ -24,6 +24,7 @@ from .launch_guard import LaunchGuard
 from .t5_coexist import load_settings, readonly_imports
 from .t5_compatibility import build_compatibility
 from ..manifest import art_dir
+from ..game_releases import managed as _managed_install
 
 DISPLAY = [("window", "@display.window"), ("window1080", "@display.1080"), ("window1440", "@display.1440"),
            ("maximized", "@display.max"), ("borderless", "@display.borderless")]
@@ -85,7 +86,10 @@ def find_root(manifest, config):
     found = []
     locations = manifest.get("locations") or ["%USERPROFILE%/Downloads/T5DR-Online-*",
                                                "%USERPROFILE%/Desktop/T5DR-Online-*"]
-    for path in expand_locations(locations):
+    # Beside the launcher's own folder: where Setup and the launcher's Install put T5DR (docs/INSTALLER.md)
+    beside = glob.glob(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))))), "T5DR-Online-*"))
+    for path in expand_locations(locations) + sorted(beside):
         root = install_root(path)
         if root and root not in found:
             found.append(root)
@@ -161,6 +165,8 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         self.core = core
         self.rp = replays_mod
         self.s = load_settings(core, root, settings_source=config.get("t5dr_settings_copy"))
+        # An install this launcher downloaded is its own: building in it changes no other launcher's game.
+        self.managed = _managed_install("t5dr", root)
         self.game = None
         self.build = None
         self.build_steps = {}
@@ -189,8 +195,11 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         return self._state
 
     def coexistence_state(self):
-        return dict(active=bool(getattr(self.s, "coexistence", False)), source=self.root,
+        return dict(active=self._borrowed(), source=self.root,
                     build=build_compatibility(self.release(), self.s.out_dir))
+
+    def _borrowed(self):
+        return bool(getattr(self.s, "coexistence", False)) and not getattr(self, "managed", False)
 
     def ready(self):
         return bool(self.state()["ok"])
@@ -584,7 +593,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                 self.config.pop("t5dr_settings_copy", None)
             self.config.setdefault("roots", {})[self.m["id"]] = root
             return "reload"
-        if getattr(self.s, "coexistence", False) and sid in ("pkg", "rap"):
+        if self._borrowed() and sid in ("pkg", "rap"):
             raise RuntimeError("@t5.coexist.build_blocked")
         self.s[sid] = path
         self.s.save()
@@ -596,14 +605,14 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                      hint="@responsive.hint", lead="@responsive.lead")]
 
     def build_ready(self):
-        if getattr(self.s, "coexistence", False):
+        if self._borrowed():
             return "@t5.coexist.build_blocked"
         if not self.s["pkg"] or not self.s["rap"]:
             return "@choose_package_license"
         return ""
 
     def build_start(self, force=False):
-        if getattr(self.s, "coexistence", False):
+        if self._borrowed():
             raise RuntimeError("@t5.coexist.build_blocked")
         self.build_steps = {}
         self.build_step = ""

@@ -19,6 +19,7 @@ from .update_service import UpdateService
 from . import updater
 from .game_library import Library
 from .game_updates import GameUpdates
+from .app_game_setup import GameSetupBackend
 
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right", Qt.Key_Return: "confirm", Qt.Key_Enter: "confirm",
@@ -36,7 +37,7 @@ def load_games(config):
     return games, problems
 
 
-class Backend(QObject):
+class Backend(QObject, GameSetupBackend):
     viewChanged = Signal()
 
     def __init__(self, launch_env=None, parent=None, windowed=False):
@@ -48,6 +49,7 @@ class Backend(QObject):
         self._game_offers = {}
         self._game_updaters = {}
         games, problems = load_games(self.config)
+        self._setup_init()
         self.nav = Nav(games, on_quit=self._quit, install=self._install, launch_env=launch_env,
                        language=self.config.get("language"), on_language=self._save_language,
                        last_game=self.config.get("last_game"), on_game=self._save_game,
@@ -56,7 +58,7 @@ class Backend(QObject):
                        on_update_check=self._check_updates, on_update_install=self._install_update,
                        on_game_preview=self._preview_game, on_game_accept=self._accept_game,
                        on_game_remove=self._remove_game, on_game_update_check=self._check_game_update,
-                       on_game_update_install=self._install_game_update)
+                       on_game_update_install=self._install_game_update, **self._setup_kwargs())
         self.updates = UpdateService(busy=self._update_busy, quit=self._quit)
         self._offered_update = False
         self._update_phase = "idle"
@@ -93,6 +95,8 @@ class Backend(QObject):
 
     def _update_busy(self):
         if getattr(self, "_library_work", None) is not None:
+            return True
+        if getattr(self, "setup", None) is not None and self._setup_busy():
             return True
         if self.nav.binding_active():
             return True
@@ -349,6 +353,8 @@ class Backend(QObject):
             self.nav.release("confirm")
         changed = self.nav.tick(dt)
         changed = self._poll_updates() or changed
+        if hasattr(self, "setup"):
+            changed = self._poll_setup(dt) or changed
         if hasattr(self, "_poll_library"):
             changed = self._poll_library() or changed
         running = any(g.a.running() for g in self.nav.games)

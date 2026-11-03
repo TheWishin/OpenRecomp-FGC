@@ -11,6 +11,10 @@ class Drawer:
         update_hint = {"checking": "@updates.checking", "installing": "@updates.installing", "current": "@updates.current",
                        "waiting": "@updates.waiting", "unconfigured": "@updates.unconfigured", "error": "@updates.failed"}.get(phase, "@updates.hint")
         out.append(dict(id="updates", label="@updates.check", value=self.update_state.get("version", ""), update=True, hint=update_hint))
+        if getattr(self, "on_setup", None) is not None:
+            out.append(dict(id="game_updates", label="@setup.check", value="", game_check=True, hint="@setup.check_hint"))
+            out.append(dict(id="prereleases", label="@setup.test_versions", value="@on" if self.game_prereleases else "@off",
+                            prereleases=True, hint="@setup.test_versions_hint"))
         for g in self.games:
             if g.a.found() and g.a.native_label:
                 out.append(dict(id="native:" + g.id, label=g.a.native_label, value=g.short, game=g, hint=i18n.message("native_hint", name=g.a.native_label)))
@@ -44,6 +48,11 @@ class Drawer:
                 return
             if items[self.drawer_focus].get("update"):
                 return self._check_update()
+            if items[self.drawer_focus].get("game_check"):
+                if not self._dry("@setup.check"):
+                    self.on_setup("check_all", "", True)
+                    self.say("@setup.checking")
+                return
             g = items[self.drawer_focus].get("game")
             if g and not self._dry(i18n.message("dry_open", name=g.a.native_label)):
                 g.a.open_native()
@@ -53,6 +62,11 @@ class Drawer:
     def _drawer_cycle(self, item, step):
         if item.get("language"):
             self._cycle_language(step)
+        elif item.get("prereleases"):
+            if self._dry(i18n.message("dry_change", name=item["label"])):
+                return True
+            self.game_prereleases = not self.game_prereleases
+            self.on_prereleases(self.game_prereleases)
         elif item.get("fullscreen") or item.get("motion"):
             if self._dry(i18n.message("dry_change", name=item["label"])):
                 return True
@@ -114,7 +128,7 @@ class Drawer:
         items = self._drawer_items()
         v["drawer"] = dict(rows=[dict(index=i, label=it["label"], value=it["value"], focused=i == self.drawer_focus) for i, it in enumerate(items)])
         item = items[self.drawer_focus]
-        cycler = item.get("language") or item.get("fullscreen") or item.get("motion")
+        cycler = item.get("language") or item.get("fullscreen") or item.get("motion") or item.get("prereleases")
         v["hint"] = item["hint"]
         v["prompts"] = [self.prompt("confirm", "@change" if cycler else "@open")]
         if cycler:

@@ -76,6 +76,8 @@ class Picker:
             return
         if target == "library_folder":
             self._preview_game(path)
+        elif target == "setup_folder":
+            self.setup_folder_picked(path)
         elif target == "manifest":
             self.say(self.install(path) if self.install else "")
         elif target.startswith("setting:"):

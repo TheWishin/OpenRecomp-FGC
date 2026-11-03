@@ -12,6 +12,7 @@ from .nav_common import (
 )
 from .nav_dialog import Dialog
 from .nav_drawer import Drawer
+from .nav_game_setup import GameSetupNav
 from .nav_grid import Grid
 from .nav_hub import Hub
 from .nav_keyboard import Keyboard
@@ -32,11 +33,12 @@ class Game:
         self.accent = manifest["accent"]
 
 
-class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online, Library):
+class Nav(GameSetupNav, Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online, Library):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None,
                  on_update_check=None, on_update_install=None, on_game_preview=None, on_game_accept=None,
-                 on_game_remove=None, on_game_update_check=None, on_game_update_install=None):
+                 on_game_remove=None, on_game_update_check=None, on_game_update_install=None, on_setup=None,
+                 game_prereleases=False, on_prereleases=None):
         self.games = games
         self.on_quit = on_quit or (lambda: None)
         self.install = install              # path -> message; a player's manifest (the free slots)
@@ -94,6 +96,14 @@ class Nav(Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, O
         self.library_page = 0
         self.library_game = ""
         self.library_offer = None
+        self.on_setup = on_setup              # game install/update work (app.GameSetup); None = not offered
+        self.on_prereleases = on_prereleases or (lambda _on: None)
+        self.game_prereleases = bool(game_prereleases)
+        self.setup_state = {}
+        self.setup_game = ""
+        self.setup_parent = ""
+        self.setup_space = {}
+        self.setup_waiting = False
 
     def act(self, action, device=None):
         if device:

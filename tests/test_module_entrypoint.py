@@ -196,7 +196,9 @@ def run_child():
             press("left")
         press("right")
         press("confirm")
-        check(nav.game.id == "t5dr" and nav.overlay == "picker", "Game selection did not open onboarding")
+        # T5DR not found: its Build section with Install (download) first and Choose folder after it
+        check(nav.game.id == "t5dr" and nav.screen == "hub" and nav.sec.get("t5dr") == "build"
+              and nav.items()[0]["id"] == "game_setup", "Game selection did not open onboarding")
         save_feedback()
         press("back")
         press("social")
