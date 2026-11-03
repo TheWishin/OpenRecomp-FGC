@@ -440,10 +440,20 @@ class T5Match(Online):
             self._online_rematch = False
             if driver:
                 mid = self._online_match_id
+                set_over = (getattr(self, "_online_set", None) or {}).get("state") == "ended"
+
                 def leave():
                     # A previously sent offer cannot be undone by a second driver.rematch call.
                     # The installed client's explicit leave ends its rematch window as well.
-                    client.leave_set()
+                    # Only a running set can be left: after a decided set (every 1.2.0 casual game is an
+                    # FT1 set) or a match without one the server answers bad_state, which must not
+                    # log this player out of the lobby.
+                    if not set_over:
+                        try:
+                            client.leave_set()
+                        except Exception as exc:  # noqa: BLE001 -- only "not in a set" is expected here
+                            if getattr(exc, "code", None) != "bad_state":
+                                raise
                     driver.rematch(mid, False)
                 self._online_submit("t5_return", lambda: self._online_driver_call(driver, leave))
             else:
@@ -517,6 +527,10 @@ class T5Match(Online):
             elif kind == "game_closed":
                 self._online_message = "@online.game_closed"
             elif kind == "game_state":
+                if self._online_phase in ("result", "result_sent"):
+                    # A persistent game goes back to its select screen right after the fight: the result
+                    # (confirmed, set won/lost, rematch offer) stays the message until the next game starts.
+                    continue
                 state = note.get("state")
                 self._online_message = ("@online.playing" if state == "fight" else "@online.loading"
                                         if state in ("loading", "stage") else "@online.select")

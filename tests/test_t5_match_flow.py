@@ -222,6 +222,61 @@ class T5MatchTests(unittest.TestCase):
         client.leave_set.assert_called_once_with()
         self.assertEqual(self.a.online_state()["phase"], "logged_in")
 
+    def test_return_lobby_after_a_decided_set_stays_logged_in(self):
+        # 1.2.0: every casual game is an FT1 set; once it is decided there is no set to leave
+        # (the real server answers bad_state "you are not in a set"). Seen in a real local-lobby pair.
+        client = self.match()
+        self.start(client)
+        client.events.put(dict(t="match_result", match="one", status="confirmed", rematch_window=20,
+                               set=dict(id="s1", casual=True, first_to=1, state="active")))
+        client.events.put(dict(t="set_end", set="s1", reason="decided", result="win"))
+        self.a.online_poll()
+        self.a.online_poll()
+        self.assertEqual(self.a.online_state()["message"], "@online.set_won")
+        self.a.online_action("return_lobby")
+        self.a.online_poll()
+        client.leave_set.assert_not_called()
+        self.assertEqual(self.a.fake_driver.rematches, [("one", False)])
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+
+    def test_return_lobby_when_the_server_has_no_set_to_leave(self):
+        client = self.match()
+        self.start(client)
+        client.leave_set.side_effect = type("Refused", (Exception,), {"code": "bad_state"})()
+        client.events.put(dict(t="match_result", match="one", status="confirmed", rematch_window=20))
+        self.a.online_poll()
+        self.a.online_poll()
+        self.a.online_action("return_lobby")
+        self.a.online_poll()
+        client.leave_set.assert_called_once_with()
+        self.assertEqual(self.a.fake_driver.rematches, [("one", False)])
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+
+    def test_return_lobby_still_fails_on_other_refusals(self):
+        client = self.match()
+        self.start(client)
+        client.leave_set.side_effect = type("Refused", (Exception,), {"code": "busy"})()
+        client.events.put(dict(t="match_result", match="one", status="confirmed", rematch_window=20))
+        self.a.online_poll()
+        self.a.online_poll()
+        self.a.online_action("return_lobby")
+        self.a.online_poll()
+        self.assertEqual(self.a.fake_driver.rematches, [])
+        self.assertNotEqual(self.a.online_state()["phase"], "logged_in")
+
+    def test_game_back_at_its_select_screen_keeps_the_result_message(self):
+        client = self.match()
+        self.start(client)
+        client.events.put(dict(t="match_result", match="one", status="confirmed", rematch_window=20))
+        self.a.online_poll()
+        self.a.online_poll()
+        self.assertEqual(self.a.online_state()["message"], "@online.result_confirmed")
+        self.a.fake_driver.notes.append(dict(kind="game_state", state="select"))
+        self.a.online_poll()
+        self.a.online_poll()
+        self.assertEqual(self.a.online_state()["message"], "@online.result_confirmed")
+        self.assertTrue(self.a.online_state()["capabilities"]["rematch"])
+
     def test_finished_match_cannot_restart_on_late_relay_ticket(self):
         client = self.match()
         self.start(client)
