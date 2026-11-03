@@ -13,7 +13,7 @@ import uuid
 import zipfile
 
 from .base import NO_WINDOW
-from .t5_online import Online, SearchRefused, game_process_running
+from .t5_online import Online, SearchRefused, entry_tls, game_process_running
 from ..manifest import save_config, user_dir
 from ..ranks import t4_rank_name
 
@@ -656,7 +656,7 @@ class T4Online(T4Direct, Online):
         entry = self._t4_listed_entries().get(self._online_fields["online_server"].strip())
         if not entry or not entry.get("shared_login"):
             return ""
-        tls = entry.get("tls", "ca")
+        tls = entry_tls(entry)                       # what the connection will really use (omitted = off)
         if tls not in ("ca", "pin") or (tls == "pin" and not str(entry.get("fingerprint") or "").strip()):
             return ""
         host = entry["shared_login"] if isinstance(entry["shared_login"], str) else entry.get("host")

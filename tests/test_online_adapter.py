@@ -22,6 +22,7 @@ class LobbyError(Exception):
 class Client:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
+        self.tls = bool(kwargs.get("tls"))
         self.events = queue.Queue()
         self.calls = []
         self.session = "fake-remembered-session"

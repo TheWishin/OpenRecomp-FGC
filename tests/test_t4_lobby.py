@@ -269,7 +269,17 @@ class SharedLogin(unittest.TestCase):
         subject.config.pop("t4_lobby_server")
         self.addCleanup(subject.online_close)
         subject.account_peers = (mock.Mock(online_account_sessions=lambda: [dict(s) for s in self.sessions]),)
+        secure = self.secure
+
+        class Servers(fakes.Servers):
+            @staticmethod
+            def resolve(server, entries):
+                return mock.Mock(tls="pin" if secure else "off",
+                                 client_kwargs=lambda: dict(server=server, tls=secure))
+        subject._online_api["servers"] = Servers
         return subject
+
+    secure = True
 
     def test_a_saved_t5dr_login_logs_into_t4_with_one_press(self):
         subject = self.subject()
@@ -287,7 +297,8 @@ class SharedLogin(unittest.TestCase):
 
     def test_only_an_approved_secured_listed_server_gets_the_t5dr_login(self):
         for entry in (dict(shared_login=False), dict(tls="off"), dict(tls="pin", fingerprint=""),
-                      dict(shared_login="elsewhere.example")):
+                      dict(shared_login="elsewhere.example"),
+                      dict(tls="", fingerprint="")):          # no TLS named: the connection is plain (review F3)
             with self.subTest(entry=entry):
                 subject = self.subject(**entry)
                 self.assertFalse(subject.online_state()["saved_available"])
@@ -301,6 +312,14 @@ class SharedLogin(unittest.TestCase):
         with mock.patch.dict(os.environ, {t4_online.SERVER_ENV: "lobby.example:7791"}):
             typed = self.subject()
             self.assertFalse(typed.online_state()["saved_available"])
+
+    def test_the_shared_login_never_goes_over_a_plain_connection(self):
+        self.secure = False                                 # the resolver says plain TCP after all
+        subject = self.subject()
+        subject.online_action("login_saved")
+        subject.online_poll()
+        self.assertEqual(subject.online_state()["message"], "@online.insecure")
+        self.assertNotIn(("session", "t5-remembered"), subject.clients[-1].calls)
 
     def test_t4s_own_saved_login_comes_first(self):
         subject = self.subject()
@@ -346,10 +365,12 @@ class T5drSessionsForT4(unittest.TestCase):
             subject = T5Subject(directory)
             Path(directory, "lobby").mkdir()
             Path(directory, "lobby", "servers.json").write_text(json.dumps(dict(format="t5dr-servers/1", servers=[
-                dict(name="T5DR Online (EU)", host="Lobby.Example", tls="pin", fingerprint="cd" * 32)])),
+                dict(name="T5DR Online (EU)", host="Lobby.Example", tls="pin", fingerprint="cd" * 32),
+                dict(name="LAN lobby", host="192.168.1.20")])),          # no tls named: plain, never shared
                 encoding="utf-8")
             Path(directory, "online.json").write_text(json.dumps(dict(sessions={
                 "t5dr online (eu)": dict(name="Wishin", token="listed", saved=3),
+                "lan lobby": dict(name="Lan", token="lan-token"),
                 "127.0.0.1:7781": dict(name="Local", token="plain"),
                 "tls://ca.example:7781": dict(name="Ca", token="ca-token"),
                 "pin.example:7781#" + "ef" * 32: dict(name="Pin", token="pin-token"),

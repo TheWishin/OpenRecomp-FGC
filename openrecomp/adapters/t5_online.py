@@ -45,6 +45,13 @@ def game_process_running(image="t5dr.exe"):
         return None
 
 
+
+def entry_tls(entry):
+    """A servers.json entry's TLS mode as the lobby client's resolver reads it (ServerEntry.from_json): "pin" with a
+    fingerprint, else what "tls" says, else "off" -- never "ca" for an entry that names no TLS."""
+    fingerprint = str(entry.get("fingerprint") or "").replace(":", "").replace(" ", "").strip()
+    return str(entry.get("tls") or ("pin" if fingerprint else "off"))
+
 class Online:
     online_package = "t5lobby"
     online_game = ""
@@ -226,7 +233,7 @@ class Online:
             for entry in (doc.get("servers") if isinstance(doc, dict) else None) or []:
                 if isinstance(entry, dict) and entry.get("name") and entry.get("host"):
                     listed[str(entry["name"]).strip().lower()] = (str(entry["host"]).strip().lower(),
-                                                                  str(entry.get("tls") or "ca"))
+                                                                  entry_tls(entry))
         rejected = set(getattr(self, "_online_rejected_sessions", {}).values())
         out = []
         for key, saved in sessions.items():
@@ -355,7 +362,7 @@ class Online:
                     room_locked="@online.room_locked", bad_password="@online.room_locked")
         local = ("@online.client_missing", "@online.build_required", "@online.no_online",
                  "@online.server_invalid", "@online.game_running", "@online.process_unknown", "@online.cancelled",
-                 "@online.watch_unavailable", "@online.rules_unavailable")
+                 "@online.watch_unavailable", "@online.rules_unavailable", "@online.insecure")
         if isinstance(error, RuntimeError) and str(error) in local:
             return str(error)
         if isinstance(error, (ImportError, AttributeError, TypeError)):
@@ -491,6 +498,8 @@ class Online:
                 if action == "login_guest":
                     me = client.login_guest(name)
                 elif action == "login_saved":
+                    if saved.get("shared") and not getattr(client, "tls", False):
+                        raise RuntimeError("@online.insecure")     # another game's login only over TLS
                     me = client.login_session(saved["token"])
                 elif action == "login_register":
                     me = client.register(name, password, remember=True)
