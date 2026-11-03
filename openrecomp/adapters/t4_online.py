@@ -1065,6 +1065,8 @@ class T4Online(T4Direct, Online):
             self._t4_shared_rejected = getattr(self, "_t4_shared_rejected", set()) | {attempt}
             self._t4_shared_attempt = None
             return "@t4.saved_shared_refused"
+        if isinstance(error, RuntimeError) and str(error) in ("@t4.direct_identity_failed", "@iso.choose_first"):
+            return str(error)                         # the lobby identity's own refusals (_t4_identity_build)
         return super()._online_error(error, saved)
 
     def _online_completion(self, action, value, error):

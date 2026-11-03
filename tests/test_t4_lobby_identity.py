@@ -81,6 +81,13 @@ class LobbyIdentity(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "iso.choose_first"):
             holder._t4_identity_build(self.api, info, out)
 
+    def test_the_refusals_reach_the_player_as_their_own_texts(self):
+        from test_t4_online import Subject
+        subject = Subject(str(self.dir))
+        self.addCleanup(subject.online_close)
+        for key in ("@t4.direct_identity_failed", "@iso.choose_first"):
+            self.assertEqual(subject._online_error(RuntimeError(key)), key)
+
     def test_the_iso_is_hashed_once_and_again_when_it_changes(self):
         holder, info, out = self.install("a")
         calls = []
