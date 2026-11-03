@@ -82,7 +82,7 @@ class Shelf:
                     self.say("@t4.installing" if g.a.source_state().get("id") == "folder" else "@iso.checking")
                     return
                 source = self._folder_source(g)
-                if source and self._setup_supported(g):
+                if self._setup_supported(g) and not g.a.found():
                     # Not found: the Build section offers "Install" (download) and "Choose folder" (have it already)
                     self.screen = "hub"
                     self.sec[g.id] = "build"

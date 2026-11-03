@@ -74,6 +74,7 @@ class Source:
     build_bytes: int = 0             # what the build needs later, for the free-space check
     unpack_factor: int = 3
     markers: tuple = field(default=())   # files that must exist in the unpacked game
+    asset_pattern: str = ""          # when the release has no `asset`: the one zip whose name matches this
 
 
 SOURCES = {
@@ -93,7 +94,9 @@ SOURCES = {
         asset="OpenRecomp-Tekken4-{tag}.zip", top="T4", folder="T4",
         sums=("SHA256SUMS", "{asset}.sha256"),
         protected=("deps", "game", "generated", "out", "logs", "build", "settings.json", MARKER),
-        build_bytes=6_000_000_000, markers=("tools/build_game.ps1",)),
+        build_bytes=6_000_000_000, markers=("tools/build_game.ps1",),
+        # T4 has no release yet: its zip name is not fixed. One zip named like the launcher bundle is taken.
+        asset_pattern=r"(?i)(?:openrecomp|tekken4|t4)[-_.a-z0-9]*\.zip"),
 }
 
 
@@ -212,6 +215,10 @@ def parse_release(src, data, channel="stable"):
                 raise ReleaseError("@setup.err_release", f"duplicate asset {a['name']}")
             assets[a["name"]] = a
     z = assets.get(asset)
+    if z is None and src.asset_pattern:
+        found = [n for n in assets if re.fullmatch(src.asset_pattern, n)]
+        if len(found) == 1:
+            asset, z = found[0], assets[found[0]]
     sums = next((assets[n.format(asset=asset)] for n in src.sums if n.format(asset=asset) in assets), None)
     sig = assets.get(src.signature) if src.signature else None
     if not z or not sums:
@@ -336,6 +343,20 @@ def signing_keys(src):
     return tuple(keys)
 
 
+def install_keys(game, root):
+    """An installed T5DR's own release keys (launcher/updater.py RELEASE_PUBLIC_KEYS), read as text: the owner may
+    add a new key there before this launcher knows it."""
+    if game != "t5dr" or not root:
+        return ()
+    try:
+        with open(os.path.join(root, "launcher", "updater.py"), encoding="utf-8") as f:
+            text = f.read(400_000)
+    except OSError:
+        return ()
+    m = re.search(r"^RELEASE_PUBLIC_KEYS\s*=\s*\((.*?)\)", text, re.S | re.M)
+    return tuple(k.lower() for k in re.findall(r"[\"']([0-9a-fA-F]{64})[\"']", m.group(1))) if m else ()
+
+
 def check_signature(src, version, sums_bytes, sig_bytes, keys=None):
     """T5DR's release_sig.check_sig_file: the signature covers SHA256SUMS and the version."""
     keys = signing_keys(src) if keys is None else keys
@@ -456,6 +477,10 @@ def unpack(src, zip_path, dest, offer, progress=None, cancel=None):
     for marker in src.markers:
         if not os.path.isfile(os.path.join(root, *marker.split("/"))):
             raise ReleaseError("@setup.err_zip", f"no {marker}")
+    if src.id == "t4":
+        from .adapters.t4_install import source_root
+        if not source_root(root):
+            raise ReleaseError("@setup.err_zip", "not a T4 source tree")
     if src.id == "t5dr":
         info = _read_json(os.path.join(root, "release.json"))
         if not info or info.get("version") != offer["version"]:
@@ -700,6 +725,8 @@ def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=Non
     current = installed_version(game, root)
     if current and not is_newer(offer["version"], current):
         raise ReleaseError("@setup.err_not_newer")
+    if keys is None:
+        keys = tuple(dict.fromkeys(signing_keys(src) + install_keys(game, root)))
     running = processes_under(root)
     if running:
         raise ReleaseError("@setup.err_running", ", ".join(sorted({os.path.basename(p) for p in running})))

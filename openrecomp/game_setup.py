@@ -23,17 +23,18 @@ def default_parent():
 
 
 class GameSetup:
-    def __init__(self, config, *, worker=None, latest=None, lobby=None, install=None, update=None, now=None):
+    def __init__(self, config, *, worker=None, latest=None, install=None, update=None, now=None):
         self.config = config                         # the launcher's config dict (read only here)
         self.worker = worker or self._thread
         self.latest = latest or gr.latest
-        self.lobby = lobby or lobby_release
         self.install_fn = install or gr.install_fresh
         self.update_fn = update or gr.update_in_place
         self.now = now or time.time
         self.results = queue.Queue()
         self.state = {}
         self.offers = {}
+        self.github = {}                             # gid -> GitHub's newest offer of the channel (or None)
+        self.lobby = {}                              # gid -> the lobby's announced release (offer), when seen
         self.cancels = {}
 
     @staticmethod
@@ -80,8 +81,8 @@ class GameSetup:
         except OSError:
             pass
 
-    def check(self, gid, root=None, *, force=False, online_hint=None):
-        """Look for the newest release (and the lobby's required one). root None = the game is not installed."""
+    def check(self, gid, root=None, *, force=False):
+        """Look for the newest release on GitHub. root None = the game is not installed."""
         if gid not in gr.SOURCES or self.busy(gid):
             return False
         st = self._st(gid)
@@ -91,26 +92,33 @@ class GameSetup:
         cached = self._cache().get(gid)
         if (not force and isinstance(cached, dict) and cached.get("channel") == channel
                 and 0 <= self.now() - cached.get("checked", 0) < CACHE_SECONDS):
-            self._apply(gid, cached.get("offer"), cached.get("lobby"))
+            self.github[gid] = cached.get("offer")
+            self._apply(gid)
             return True
         st["phase"] = "checking"
         src = gr.SOURCES[gid]
-
-        def work():
-            lobby = None
-            if root:
-                try:
-                    lobby = gr.offer_from_lobby(src, (online_hint or self.lobby)(gid, root))
-                except Exception:  # noqa: BLE001 -- the lobby is optional; GitHub answers anyway
-                    lobby = None
-            offer = self.latest(src, channel)
-            return dict(offer=offer, lobby=lobby, channel=channel)
-        self._run(gid, "check", work)
+        self._run(gid, "check", lambda: dict(offer=self.latest(src, channel), channel=channel))
         return True
 
-    def _apply(self, gid, offer, lobby):
+    def note_lobby(self, gid, data, root=None):
+        """The lobby's latest_release as the game's own online client saw it (its welcome, or the refusal of an
+        old build). No connection of our own: the lobby is asked only when the player goes online."""
+        if gid not in gr.SOURCES:
+            return False
+        offer = gr.offer_from_lobby(gr.SOURCES[gid], data)
+        if offer is None or offer == self.lobby.get(gid):
+            return False
+        self.lobby[gid] = offer
+        if root and not self._st(gid).get("installed"):
+            self._st(gid)["installed"] = gr.installed_version(gid, root)
+        if self._st(gid).get("phase") in ("ready", "idle", "error"):
+            self._apply(gid)
+        return True
+
+    def _apply(self, gid):
         st = self._st(gid)
         installed = st.get("installed", "")
+        offer, lobby = self.github.get(gid), self.lobby.get(gid)
         newest = offer
         if lobby and (not newest or gr.is_newer(lobby["version"], newest["version"])):
             newest = lobby
@@ -179,9 +187,9 @@ class GameSetup:
                 key, detail = error
                 st.update(phase="error" if key != "@setup.cancelled" else "ready", error=key, detail=detail)
             elif kind == "check":
-                self._store(gid, dict(checked=self.now(), channel=result["channel"], offer=result["offer"],
-                                      lobby=result["lobby"]))
-                self._apply(gid, result["offer"], result["lobby"])
+                self._store(gid, dict(checked=self.now(), channel=result["channel"], offer=result["offer"]))
+                self.github[gid] = result["offer"]
+                self._apply(gid)
             elif kind == "install":
                 st.update(phase="installed", result=result, installed=self.offers[gid]["version"],
                           required=False, available=False)
@@ -197,13 +205,3 @@ class GameSetup:
                            prerelease=offer["prerelease"], notes=offer["notes"]) if offer else None
         return st
 
-
-def lobby_release(gid, root):
-    """The lobby's latest_release for an installed game, through that install's own updater (T5DR: lobby first,
-    the same server list and certificate checks as online play). None for games without one."""
-    if gid != "t5dr" or os.environ.get(gr.NO_CHECK_ENV) == "1":
-        return None
-    from .adapters.t5dr import load_runtime
-    updater = load_runtime(root, "updater")
-    fetch = getattr(updater, "fetch_lobby_release", None)
-    return fetch(root) if callable(fetch) else None

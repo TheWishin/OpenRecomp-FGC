@@ -111,6 +111,16 @@ class GameSetupBackend:
             if self._setup_clock >= FIRST_CHECK_SECONDS:
                 self._setup_started = True
                 self._setup_check_all()
+        for gid in SETUP_GAMES:
+            game = self.nav.game_by_id(gid)
+            seen = getattr(game.a, "lobby_release", None) if game is not None and game.a.found() else None
+            if callable(seen):
+                try:
+                    data = seen()
+                except Exception:  # noqa: BLE001 -- the online client is the game's own code
+                    data = None
+                if data and self.setup.note_lobby(gid, data, self._setup_root(gid)):
+                    changed = True
         events = self.setup.poll()
         views = {gid: self.setup.view(gid) for gid in SETUP_GAMES}
         if views != self.nav.setup_state:

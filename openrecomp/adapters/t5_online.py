@@ -269,7 +269,18 @@ class Online:
             self._online_results.put((generation, operation, value, error))
         threading.Thread(target=run, name="openrecomp-lobby", daemon=True).start()
 
+    def lobby_release(self):
+        """The lobby's announced release (GitHub's release JSON) from this session's welcome, or from the refusal
+        of an old build; None when the lobby said nothing. The launcher's game setup reads it: no extra connection."""
+        welcome = getattr(self._online_client, "welcome", None)
+        if isinstance(welcome, dict) and isinstance(welcome.get("latest_release"), dict):
+            return welcome["latest_release"]
+        return getattr(self, "_online_release_seen", None)
+
     def _online_error(self, error, saved=False):
+        extra = getattr(error, "extra", None)
+        if isinstance(extra, dict) and isinstance(extra.get("latest_release"), dict):
+            self._online_release_seen = extra["latest_release"]
         if t5_features.enabled(self):
             from . import t5_moderation
             notice = t5_moderation.refusal(self, error)

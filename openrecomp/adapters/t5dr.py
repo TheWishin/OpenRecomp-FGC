@@ -4,6 +4,7 @@ Nothing of it is copied: OpenRecomp-FGC imports it from the player's install. Pi
 (read from the player's own built game by fighter_art.py) and stay on the PC.
 """
 import collections
+import glob
 import importlib.util
 import json
 import os
@@ -85,7 +86,10 @@ def find_root(manifest, config):
     found = []
     locations = manifest.get("locations") or ["%USERPROFILE%/Downloads/T5DR-Online-*",
                                                "%USERPROFILE%/Desktop/T5DR-Online-*"]
-    for path in expand_locations(locations):
+    # Beside the launcher's own folder: where Setup and the launcher's Install put T5DR (docs/INSTALLER.md)
+    beside = glob.glob(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))))), "T5DR-Online-*"))
+    for path in expand_locations(locations) + sorted(beside):
         root = install_root(path)
         if root and root not in found:
             found.append(root)
