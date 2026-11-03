@@ -43,7 +43,7 @@ Window {
         scale: Math.min(win.width / 1920, win.height / 1080)
         focus: true
         clip: true
-        Keys.onPressed: (e) => { win.backend.keyDown(e.key, e.text, e.isAutoRepeat); e.accepted = true }
+        Keys.onPressed: (e) => { win.backend.keyPress(e.key, e.text, e.isAutoRepeat, e.modifiers, e.nativeScanCode); e.accepted = true }
         Keys.onReleased: (e) => { win.backend.keyUp(e.key, e.isAutoRepeat); e.accepted = true }
 
         Rectangle { anchors.fill: parent; color: win.ground }

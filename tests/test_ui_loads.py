@@ -38,6 +38,14 @@ class FakeBackend(QObject):
     def keyDown(self, key, text, repeat):
         pass
 
+    @Slot(int, str, bool, int, int)
+    def keyPress(self, key, text, repeat, modifiers, scan):
+        pass
+
+    @Slot(str)
+    def oskEdit(self, what):
+        pass
+
     @Slot(int, bool)
     def keyUp(self, key, repeat):
         pass

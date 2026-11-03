@@ -136,9 +136,45 @@ Item {
             x: 64; y: 48; width: 1112; spacing: 8
             Text { objectName: "oskTitle"; width: parent.width; height: 84; fontSizeMode: Text.Fit; minimumPixelSize: 32; textFormat: Text.PlainText; text: ov.v.osk.title; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 64 }
             Rectangle {
+                id: oskField
+                objectName: "oskField"
+                z: 2                              // its menu opens over the key rows below
                 width: parent.width; height: 88; color: ov.root.bar
-                Text { x: 28; width: parent.width - 56; elide: Text.ElideLeft; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: ov.v.osk.text; color: ov.root.textC; font.family: ov.root.mono; font.weight: Font.Medium; font.pixelSize: 48 }
+                // Ctrl+A: the whole text is marked; the next letter, paste or Delete replaces it.
+                Rectangle { visible: !!ov.v.osk.selected; x: 20; width: Math.min(oskText.contentWidth, oskText.width) + 16; height: 64; anchors.verticalCenter: parent.verticalCenter; color: ov.v.accent; opacity: 0.45 }
+                Text { id: oskText; x: 28; width: parent.width - 56; elide: Text.ElideLeft; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: ov.v.osk.text; color: ov.root.textC; font.family: ov.root.mono; font.weight: Font.Medium; font.pixelSize: 48 }
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 4; color: ov.v.accent }
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    onTapped: (point) => { oskMenu.x = Math.min(point.position.x, oskField.width - oskMenu.width); oskMenu.visible = true }
+                }
+                TapHandler { acceptedButtons: Qt.LeftButton; onTapped: oskMenu.visible = false }
+                // The right-click menu: Paste, and Copy where the text may leave (never a password).
+                Rectangle {
+                    id: oskMenu
+                    objectName: "oskMenu"
+                    visible: false
+                    y: parent.height - 4; z: 5
+                    width: 280; height: oskMenuColumn.implicitHeight
+                    color: "#24272C"; border.color: ov.root.line; border.width: 2
+                    Connections { target: ov; function onVChanged() { if (ov.v.overlay !== "osk") oskMenu.visible = false } }
+                    Column {
+                        id: oskMenuColumn
+                        width: parent.width
+                        Repeater {
+                            model: ov.v.osk.canCopy ? ["paste", "copy"] : ["paste"]
+                            Rectangle {
+                                required property string modelData
+                                objectName: "oskMenu_" + modelData
+                                width: oskMenuColumn.width; height: 64
+                                color: menuHover.hovered ? ov.root.bone : "transparent"
+                                Text { x: 24; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: parent.modelData === "paste" ? ov.v.osk.paste : ov.v.osk.copy; color: menuHover.hovered ? "#0E0F11" : ov.root.textC; font.family: ov.root.sans; font.weight: Font.DemiBold; font.pixelSize: 30 }
+                                HoverHandler { id: menuHover }
+                                TapHandler { onTapped: { oskMenu.visible = false; ov.root.backend.oskEdit(parent.modelData) } }
+                            }
+                        }
+                    }
+                }
             }
             Item { width: 1; height: 10 }
             Repeater {
