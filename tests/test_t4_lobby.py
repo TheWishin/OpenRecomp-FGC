@@ -146,6 +146,16 @@ class ServerAndMode(unittest.TestCase):
         self.assertEqual(subject._online_servers_dir(), str(listed))
         self.assertEqual(subject.online_state()["message"], "@t4.online_setup_hint")
 
+    def test_an_override_beats_the_address_the_last_login_saved(self):
+        Path(self.temp.name, "online-t4.json").write_text(json.dumps(dict(server="old.example:7791")),
+                                                          encoding="utf-8")
+        self.assertEqual(self.subject().online_text_value("online_server"), "old.example:7791")     # nothing set: kept
+        self.assertEqual(self.subject(dict(t4_lobby_server="cfg.example:7791")).online_text_value("online_server"),
+                         "cfg.example:7791")
+        with mock.patch.dict(os.environ, {t4_online.SERVER_ENV: "env.example:7791"}):
+            self.assertEqual(self.subject(dict(t4_lobby_server="cfg.example:7791")).online_text_value("online_server"),
+                             "env.example:7791")
+
     def test_back_to_direct_and_busy_sessions_keep_their_mode(self):
         subject = self.subject(dict(t4_online_mode="lobby", t4_lobby_server="cfg.example:7791"))
         subject.online_state()

@@ -634,11 +634,16 @@ class T4Online(T4Direct, Online):
                     entries[name] = entry
         return entries
 
+    def _t4_explicit_server(self):
+        """OPENRECOMP_T4_SERVER, else the launcher config's t4_lobby_server, else "" (docs/T4_ONLINE.md 1 and 2)."""
+        configured = os.environ.get(SERVER_ENV, "").strip() or str(self.config.get("t4_lobby_server") or "").strip()
+        return configured[:256]
+
     def _online_default_server(self):
         """OPENRECOMP_T4_SERVER, the launcher config's t4_lobby_server, or a T4 servers.json entry; never built in."""
-        configured = os.environ.get(SERVER_ENV, "").strip() or str(self.config.get("t4_lobby_server") or "").strip()
+        configured = self._t4_explicit_server()
         if configured:
-            return configured[:256]
+            return configured
         if not hasattr(self, "_t4_listed_server"):
             listed = self._t4_listed_entries()
             # A listed name resolves through the same servers.json files when the client connects. The player's
@@ -714,7 +719,11 @@ class T4Online(T4Direct, Online):
             raise
         if lock is not None:
             self._online_lock = lock
-        if not self._online_fields["online_server"].strip():
+        explicit = self._t4_explicit_server()
+        if explicit:
+            # The documented order: an override beats the address saved by the last login (online-t4.json).
+            self._online_fields["online_server"] = explicit
+        elif not self._online_fields["online_server"].strip():
             self._online_fields["online_server"] = self._online_default_server()
 
     def _online_build(self, api):
