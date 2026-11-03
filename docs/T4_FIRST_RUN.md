@@ -20,6 +20,12 @@ Spiel-EXE, Spieldaten oder Spielbilder. Die portable CPython-3.12.10-Laufzeit
 fuer Windows x64 mit PySide6-Essentials 6.8.2.1 und shiboken6 6.8.2.1 samt
 Lizenzen ist enthalten.
 
+Dasselbe ZIP traegt auch Tekken 5 DR, aber ohne T5DR selbst: jeder legt seinen
+eigenen, entpackten Ordner `T5DR-Online-1.2.0` daneben (neben `OpenRecomp-FGC/`
+und `T4/`) und baut ihn einmal in dessen `T5DR Online.exe` mit BUILD GAME und
+der eigenen .pkg und .rap. Der Launcher findet den Nachbarordner selbst. Der
+ganze Zwei-PC-Ablauf mit beiden Spielen steht in [HAND_CHECK.md](HAND_CHECK.md).
+
 1. `OpenRecomp-FGC/run.cmd` im Explorer doppelklicken und dem Bildschirm
    folgen. Fuer den Launcher ist keine separate Laufzeitinstallation oder
    Internetverbindung beim ersten Start erforderlich. Die Laufzeit liegt in

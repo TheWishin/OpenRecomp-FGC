@@ -29,7 +29,7 @@ Ergebnisse privat als „OK / Fehler / nicht geprüft“ notieren.
 
 ## T4: direkte IP · 5–9 Min.
 
-- Online öffnen: **Host / Join**, kein Konto, keine Lobby, kein Ranked.
+- Online öffnen: **Direkte IP / VPN** mit **Host / Join**, ohne Konto; die **T4-Lobby** nur als Angebot, kein Ranked.
 - Join wählen. IP per Bildschirmtastatur bearbeiten, löschen, dann mit B
   abbrechen. Alter Wert erhalten? Danach einen Testwert bestätigen.
 - Zurück zum Regal und erneut öffnen. Kein Check und kein Spiel allein durch
@@ -73,34 +73,91 @@ Details: [T4](T4_ONLINE.md), [T5DR](T5DR_ONLINE.md),
 [Wechsel vom alten Launcher](T5DR_COEXISTENCE.md), [Updates](UPDATES.md),
 [Paketprüfung](PACKAGING.md).
 
-## Zusatz: T4-Testbundle mit zwei echten PCs
+## Zusatz: T4-Testbundle mit beiden Spielen, zwei echte PCs
 
-Dieser zusaetzliche Durchlauf gehoert nicht zum passiven 20-Minuten-Check oben.
-Der Besitzer fuehrt ihn mit dem Kollegen ueber Internet aus; die Quelltexttests
-belegen diese Punkte nicht. Ergebnisse privat notieren, keine Spielerlogs oder
-Screenshots ins Repository legen.
+Dieser Durchlauf gehört nicht zum passiven 20-Minuten-Check oben. Der Besitzer
+führt ihn mit dem Kollegen über Internet aus, beide mit **demselben** Test-ZIP
+(`openrecomp-fgc-test-….zip`, SHA-256 beim Übergeben vergleichen; `BUNDLE.txt`
+im ZIP nennt den Stand). Die Quelltexttests und der Skript-Check belegen diese
+Punkte nicht. Ergebnisse privat als „OK / Fehler / nicht geprüft“ notieren,
+keine Spielerlogs oder Screenshots ins Repository legen.
 
-- Dasselbe Test-ZIP in neue Ordner entpacken. Python 3.12 voraussetzen,
-  `OpenRecomp-FGC/run.cmd` doppelklicken. `T4/` wird als Nachbarordner erkannt?
-  Ohne Bilder im Paket bleiben Titel, Schaltflaechen und sichtbarer Fokus lesbar?
-- Mit Pad allein, danach Maus: Werkzeugpruefung und genaue winget-Befehle lesen,
-  Kopieren pruefen, fehlende Werkzeuge und genaue MSVC-Version nachvollziehen.
-  Installation und erneute Pruefung auf einem sauberen Windows-PC nachholen.
+### Vorbereiten (je PC)
+
+- Für Tekken 4: Visual Studio 2022 Build Tools (Desktopentwicklung mit C++),
+  Git, CMake und Ninja. Eigene Tekken-4-USA-ISO (SLUS-20328 v1.00).
+- Für Tekken 5 DR: einen eigenen, entpackten Ordner `T5DR-Online-1.2.0` und das
+  eigene Paket (.pkg + .rap, US PSN NPUB30009).
+- Test-ZIP in einen neuen, leeren Ordner entpacken (nicht direkt auf C:\ oder
+  D:\). `T5DR-Online-1.2.0` in denselben Ordner legen. Danach liegen dort
+  nebeneinander: `OpenRecomp-FGC`, `T4`, `T5DR-Online-1.2.0`, `START_HIER.txt`,
+  `START_HERE.txt`, `BUNDLE.txt`. `START_HIER.txt` lesen: verständlich?
+
+### Erster Start · beide Spiele im Regal
+
+- `OpenRecomp-FGC/run.cmd` doppelklicken. Öffnet sich das Fenster ohne
+  Installation und ohne Download? Kein Konsolenfenster bleibt hängen?
+- Im Regal stehen **Tekken 4** und **Tekken 5 DR** als eigene Kacheln.
+  `T4/` und `T5DR-Online-1.2.0` werden als Nachbarordner ohne Ordnerwahl
+  erkannt? Ohne Bilder im Paket bleiben Titel, Schaltflächen und sichtbarer
+  Fokus lesbar?
+- Mit Pad allein, danach Maus: Regal, Bereiche (LB/RB), Zurück (B) und
+  Beenden-Abfrage. View wechselt das Spiel.
+
+### Tekken 4 bauen und offline spielen
+
+- Tekken 4 > Build: Werkzeugprüfung und genaue winget-Befehle lesen,
+  Kopieren prüfen, fehlende Werkzeuge und genaue MSVC-Version nachvollziehen.
+  Auf einem sauberen Windows-PC: installieren, dann Werkzeuge erneut prüfen.
 - Falsche ISO ablehnen, eigene USA SLUS-20328 v1.00 akzeptieren. Fortschritt,
-  Fehler, Abbruch und Wiederholung beim echten Build pruefen. Stimmen die
-  sichtbare Build-ID und Compiler/MSVC-Version auf beiden PCs ueberein?
-- Deutsche Hinweise fuer Firewall, UDP 7400, Portfreigabe und Tailscale lesen:
-  vollstaendig, scrollbar, ohne abgeschnittene Zeilen bei 1080p/150 Prozent?
-- Host/Join und IP-Eingabe per Bildschirmtastatur bedienen. Fehlerfaelle wie
-  falscher Build, andere ISO, ungueltige IP, blockiertes UDP und Abbruch muessen
-  vor Spielstart erklaert werden. Keine Lobby und kein Ranked fuer T4 sichtbar?
-- Beide Rollen ueber die beabsichtigte Internetroute testen; mindestens 15 Minuten
-  Figurenwahl, mehrere Runden, Ton, Eingabe, Ergebnis und erneuten Kampf
-  vergleichen. Gleichzeitige unterschiedliche Szenen oder Sieger melden.
-- Normales Spielende, Absturz und Rueckkehr mit View + Menu / Share + Options
-  testen. Danach **Collect logs** per Pad ausloesen: angezeigter Dateipfad ist
-  vollstaendig, lesbar und fuehrt zum vorhandenen ZIP? ZIP privat auf Inhalt
-  und Redaktion pruefen, dann einen zweiten Durchlauf beginnen.
+  Fehler, Abbruch und Wiederholung beim echten Build prüfen (ca. 6 Minuten).
+  Stimmen die sichtbare Build-ID und Compiler/MSVC-Version auf beiden PCs
+  überein?
+- Play: ein Kampf mit Pad und Ton. Rückkehr in den Launcher mit
+  View + Menu / Share + Options (2 Sekunden halten) und durch normales Beenden.
 
-Die Launcher-Oberflaeche, echte Werkzeuginstallation, Build, Router/VPN, zwei
-physische Pads und Internet-Spiel muessen von Menschen geprueft werden.
+### Tekken 4 online
+
+- Deutsche Hinweise für Firewall, UDP 7400, Portfreigabe und Tailscale lesen:
+  vollständig, scrollbar, ohne abgeschnittene Zeilen bei 1080p/150 Prozent?
+- **T4-Lobby** (nur wenn eine T4-Lobby-Adresse vom Server-Betreiber vorliegt):
+  Lobby-Adresse und Spielername per Bildschirmtastatur, Gast-Anmeldung, Chat
+  in beide Richtungen, Spieler herausfordern oder Quick Match, Match startet
+  auf beiden PCs. Ohne Adresse: verständlicher Hinweis statt Fehler?
+- **Direkte IP / VPN**: Host/Join und IP-Eingabe per Bildschirmtastatur
+  bedienen. Fehlerfälle wie falscher Build, andere ISO, ungültige IP,
+  blockiertes UDP und Abbruch müssen vor Spielstart erklärt werden.
+- Beide Rollen über die beabsichtigte Internetroute testen; mindestens
+  15 Minuten Figurenwahl, mehrere Runden, Ton, Eingabe, Ergebnis und erneuten
+  Kampf vergleichen. Gleichzeitige unterschiedliche Szenen oder Sieger melden.
+
+### Tekken 5 DR offline
+
+- Kachel Tekken 5 DR: Status „nicht gebaut“, solange kein Build da ist.
+  Tekken 5 > Build > **T5DR Online launcher** öffnet `T5DR Online.exe`;
+  dort BUILD GAME mit eigener .pkg und .rap. Danach den Launcher-Bereich neu
+  öffnen: Status „bereit“, Version 1.2.0?
+- Play: Spiel startet, Pad funktioniert, Ton an, Spielende führt zurück in den
+  Launcher. Einstellungen (Auflösung, Anzeige, Bildschirmseite) und
+  Replays-Liste per Pad ansehen.
+
+### Tekken 5 DR online
+
+- Online-Bereich: Anmeldung (vorhandene T5DR-Anmeldung als Angebot oder
+  Gast), Lobby sichtbar, Chat. Gegeneinander: Quick Match oder eine
+  Herausforderung, beide Spiele starten direkt im Kampf. Rematch per Pad im
+  Spiel, danach zurück in die Lobby. Ranked nur, wenn beide es wollen.
+- Ein Match vollständig spielen: kein Desync-Hinweis, Ergebnis erscheint auf
+  beiden PCs gleich.
+
+### Nachher
+
+- Tekken 4: **Collect logs** per Pad auslösen: angezeigter Dateipfad ist
+  vollständig, lesbar und führt zum vorhandenen ZIP? Tekken 5: Problembericht
+  („Create local report“) ebenso. ZIPs privat auf Inhalt und Redaktion prüfen
+  und privat schicken.
+- Launcher schließen und erneut öffnen: Sprache, gebaute Spiele und gewählte
+  Einstellungen erhalten?
+
+Die Launcher-Oberfläche, echte Werkzeuginstallation, Builds, Router/VPN, zwei
+physische Pads und das Internet-Spiel muessen von Menschen geprueft werden.

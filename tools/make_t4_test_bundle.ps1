@@ -1,15 +1,23 @@
 <#
 .SYNOPSIS
-  Make one dated launcher/T4 test zip with a verified portable runtime.
+  Make one dated test zip for both games (T4 source + launcher) with a verified portable runtime.
 .DESCRIPTION
   Downloads pinned Windows x64 runtime archives once and verifies SHA-256 sums.
-  Both source catalogs and the exact runtime catalog must pass their scanners.
+  Both source catalogs and the exact runtime catalog must pass their scanners,
+  and no file may hold this PC's user name, profile path, computer name or Git e-mail.
+  Tekken 5 DR is not inside: players put their own T5DR-Online-1.2.0 folder next to it.
 .PARAMETER T4Source
   Read-only T4 source tree. The source catalog is never built or launched.
 .PARAMETER RuntimeRoot
   Verified portable runtime directory; defaults to dist\portable-runtime.
 .PARAMETER CacheDirectory
   Download cache; defaults to dist\portable-cache.
+.PARAMETER OutputDirectory
+  Folder the zip goes to; defaults to dist.
+.PARAMETER Note
+  Lines for BUNDLE.txt, such as the launcher and T4 commits.
+.PARAMETER Forbid
+  More private words that must not be in any file; read now, never stored.
 .PARAMETER CheckOnly
   Run available source/runtime scans without fetching or creating a zip.
 #>
@@ -17,6 +25,9 @@ param(
     [string]$T4Source = '',
     [string]$RuntimeRoot = '',
     [string]$CacheDirectory = '',
+    [string]$OutputDirectory = '',
+    [string[]]$Note = @(),
+    [string[]]$Forbid = @(),
     [switch]$CheckOnly
 )
 
@@ -69,6 +80,9 @@ if (Test-Path -LiteralPath $RuntimePython -PathType Leaf) {
     $Arguments += @('--runtime', $RuntimeRoot, '--runtime-cache', $CacheDirectory)
 }
 if ($T4Source) { $Arguments += @('--t4-source', $T4Source) }
+if ($OutputDirectory) { $Arguments += @('--dist', $OutputDirectory) }
+foreach ($Line in $Note) { if ($Line) { $Arguments += @('--note', $Line) } }
+foreach ($Word in $Forbid) { if ($Word) { $Arguments += @('--forbid', $Word) } }
 if ($CheckOnly) { $Arguments += '--check-only' }
 & $Python @Arguments
 if ($LASTEXITCODE -ne 0) { throw 'Test-Bundle verweigert. Die oben genannten Quelldateien pruefen.' }

@@ -61,17 +61,23 @@ run.cmd
 
 The first start creates `.venv` and installs PySide6. `run.cmd --windowed` opens a window instead of fullscreen.
 
-For the owner/colleague T4 internet test, run `tools\make_t4_test_bundle.ps1`
+For the owner/colleague internet test with both games, run
+`tools\make_t4_test_bundle.ps1` (or its alias `tools\make_test_bundle.ps1`)
 once in Windows PowerShell. It fetches the pinned portable CPython 3.12.10 for
 Windows x64, PySide6-Essentials 6.8.2.1 and shiboken6 6.8.2.1, checks SHA-256
-sums, then creates one dated test ZIP in `dist/` after both source scans pass.
-The runtime is reused on later runs. It contains `START_HIER.txt`,
-`OpenRecomp-FGC/` and the sibling `T4/` source catalog. Keep the two folders
-together and double-click `OpenRecomp-FGC/run.cmd`; the bundled launcher runtime
-needs no separate installation or first-start download. Dependency licences stay
-alongside the runtime. No ISO, executable game build, game data or game pictures
-are included. See [packaging details](docs/PACKAGING.md) for the exact runtime
-catalog and scans.
+sums, then creates one dated test ZIP in `dist/` (or `-OutputDirectory`) after
+both source scans pass and no file holds this PC's user name, profile path,
+computer name or Git e-mail. The runtime is reused on later runs. It contains
+`START_HERE.txt`, `START_HIER.txt`, `BUNDLE.txt`, `OpenRecomp-FGC/` and the
+sibling `T4/` source catalog. Tekken 5 DR is not inside: each player puts their
+own unpacked `T5DR-Online-1.2.0` folder next to the two, where the launcher finds
+it, and builds it once in its own `T5DR Online.exe` with their .pkg and .rap.
+Keep the folders together and double-click `OpenRecomp-FGC/run.cmd`; the bundled
+launcher runtime needs no separate installation or first-start download.
+Dependency licences stay alongside the runtime. No ISO, package, executable game
+build, game data or game pictures are included. See
+[packaging details](docs/PACKAGING.md) for the exact runtime catalog and scans,
+and the [hand check](docs/HAND_CHECK.md) for the two-PC walk through both games.
 
 Follow the German [test-bundle walk](docs/T4_FIRST_RUN.md). The launcher finds
 `T4/`, checks build tools, offers exact winget commands to copy, verifies the

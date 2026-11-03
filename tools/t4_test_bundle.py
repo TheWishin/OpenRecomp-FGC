@@ -1,7 +1,12 @@
-"""Assemble a launcher/T4 test bundle, without builds or Git.
+"""Assemble the launcher test bundle for both games, without builds or Git.
 
-The launcher release scanner and T4's make_test_zip catalog both run before
-anything is written. Only the pinned portable runtime may add binary files.
+One zip: the launcher with its portable runtime, the T4 source catalog (built
+in the launcher) and the start texts. Tekken 5 DR is not inside: the player
+puts their own installed T5DR Online folder next to it. The launcher release
+scanner and T4's make_test_zip catalog both run before anything is written.
+Only the pinned portable runtime may add binary files, and every entry,
+runtime included, is checked against this PC's own user name, profile path,
+computer name and Git e-mail before and after writing.
 """
 import argparse
 from datetime import datetime
@@ -9,8 +14,10 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 import zipfile
 
@@ -19,29 +26,57 @@ ROOT = Path(__file__).resolve().parents[1]
 MAX_FILE_SIZE = 32 * 1024 * 1024
 LAUNCHER_FOLDER = "OpenRecomp-FGC"
 T4_FOLDER = "T4"
+T5DR_FOLDER = "T5DR-Online-1.2.0"
+ARCHIVE_PREFIX = "openrecomp-fgc-test-"
+# Short on purpose: the German guide never asks for a runtime or a download.
 START_HIER = (
-    "Alles in einen neuen Ordner entpacken.\n"
-    "OpenRecomp-FGC\\run.cmd doppelklicken.\n"
-    "Auf dem Bildschirm Tekken 4 wählen und den Schritten folgen.\n"
+    "OpenRecomp-FGC Testpaket: Tekken 4 und Tekken 5 DR. Keine Spieldaten enthalten.\n"
+    "1. Alles in einen neuen, leeren Ordner entpacken (nicht direkt auf C:\\ oder D:\\).\n"
+    "2. OpenRecomp-FGC\\run.cmd doppelklicken. Im Regal ein Spiel wählen und den Schritten folgen.\n"
+    "\n"
+    "Tekken 4: wird im Launcher aus der eigenen USA-ISO (SLUS-20328) gebaut, ca. 6 Minuten.\n"
     "Vorher installieren: Visual Studio 2022 Build Tools (Desktopentwicklung mit C++), Git, CMake, Ninja.\n"
-    "Eigene Tekken-4-USA-ISO (SLUS-20328) nötig. Online: direkte IP oder VPN, UDP-Port 7400 beim Host.\n"
+    "Der Launcher prüft die Werkzeuge und zeigt die winget-Befehle für fehlende.\n"
+    "Online: T4-Lobby, falls angeboten, sonst Host/Join per IP oder VPN (UDP-Port 7400 beim Host).\n"
+    "\n"
+    "Tekken 5 DR: braucht einen eigenen Ordner " + T5DR_FOLDER + " und das eigene Paket (.pkg + .rap).\n"
+    "Den Ordner " + T5DR_FOLDER + " in denselben Ordner legen, neben OpenRecomp-FGC und T4.\n"
+    "Einmal in T5DR Online.exe BUILD GAME mit .pkg und .rap drücken; danach Spielen und Online hier.\n"
+    "\n"
+    "Nach dem Spielen: Logs sammeln (T4) bzw. Problembericht (T5DR) und das Zip privat schicken.\n"
+    "Englisch: START_HERE.txt\n"
 ).encode("utf-8")
 START_HERE = (
-    "Tekken 4 beta for PC (OpenRecomp-FGC launcher)\n"
+    "OpenRecomp-FGC test bundle: Tekken 4 and Tekken 5 Dark Resurrection\n"
     "\n"
-    "You need your own Tekken 4 USA v1.00 ISO (SLUS-20328). No game data is included;\n"
-    "the game is built on your PC from your ISO.\n"
+    "No game data is included. You use your own copies of both games.\n"
+    "Python and Qt for the launcher are included; it needs no installation and downloads nothing on start.\n"
     "\n"
-    "Install first (Windows 10/11 x64): Visual Studio 2022 Build Tools with\n"
-    "\"Desktop development with C++\" (MSVC v143 and a Windows SDK), Git, CMake 3.20+ and Ninja,\n"
-    "with git, cmake and ninja on PATH. Python is included.\n"
-    "\n"
-    "1. Unpack everything into a new, empty folder.\n"
+    "1. Unpack everything into a new, empty folder (not directly on C:\\ or D:\\).\n"
     "2. Double-click OpenRecomp-FGC\\run.cmd.\n"
-    "3. Choose Tekken 4, pick your ISO and follow the steps (the first build takes a few minutes).\n"
+    "3. Pick a game on the shelf and follow the steps on screen.\n"
     "\n"
-    "Online: direct IP or a VPN such as Tailscale. The host needs UDP port 7400 reachable.\n"
-    "There is no lobby or matchmaking in this beta. Both players need the same beta version.\n"
+    "Tekken 4 (USA v1.00, SLUS-20328): built on your PC from your own ISO, in the launcher\n"
+    "(Tekken 4 > Build; the first build takes about 6 minutes).\n"
+    "  Install first (Windows 10/11 x64): Visual Studio 2022 Build Tools with\n"
+    "  \"Desktop development with C++\" (MSVC v143 and a Windows SDK), Git, CMake 3.20+ and Ninja,\n"
+    "  with git, cmake and ninja on PATH. The launcher checks them and shows winget commands for missing ones.\n"
+    "  Online: the T4 lobby if one is offered, or Host / Join by direct IP or a VPN such as Tailscale.\n"
+    "  The host needs UDP port 7400 reachable. Both players need this same bundle.\n"
+    "\n"
+    "Tekken 5 Dark Resurrection: needs your own T5DR Online 1.2.0 folder and your own package\n"
+    "(.pkg + .rap, US PSN NPUB30009). It is not inside this zip.\n"
+    "  Put the unpacked " + T5DR_FOLDER + " folder into this same folder:\n"
+    "      <your folder>\\OpenRecomp-FGC\n"
+    "      <your folder>\\T4\n"
+    "      <your folder>\\" + T5DR_FOLDER + "\n"
+    "  The launcher finds it there (else: Tekken 5 > Build > Choose T5DR install).\n"
+    "  Build the game once in T5DR's own launcher: " + T5DR_FOLDER + "\\T5DR Online.exe, BUILD GAME,\n"
+    "  with your .pkg and .rap (Tekken 5 > Build > T5DR Online launcher opens it). T5DR brings its own compiler.\n"
+    "  Then Play and Online (lobby, Quick Match, Ranked, rooms) work from OpenRecomp-FGC.\n"
+    "\n"
+    "After playing: Collect logs (Tekken 4) or the problem report (Tekken 5) writes a zip on your PC;\n"
+    "send it to us privately.\n"
     "German: START_HIER.txt\n"
 ).encode("utf-8")
 # These are the launcher's own branding, deliberately omitted for this
@@ -228,7 +263,52 @@ def scan_bundle_entries(entries, runtime_cache=None):
     return checked
 
 
-def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None):
+def local_terms(root=None, extra=()):
+    """This PC's own identifiers, read at run time and never stored: none may be in a bundle."""
+    terms = [str(term) for term in extra if term]
+    for name in ("USERNAME", "USERPROFILE", "COMPUTERNAME"):
+        value = os.environ.get(name, "")
+        if value:
+            terms.append(value)
+    profile = os.environ.get("USERPROFILE", "")
+    if profile:
+        terms.append(profile.replace("\\", "/"))
+    try:
+        email = subprocess.run(["git", "config", "user.email"], cwd=str(root or ROOT), capture_output=True,
+                               text=True, timeout=20).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        email = ""
+    if email:
+        terms.append(email)
+    # Very short names would match ordinary words and library bytes.
+    out = []
+    for term in terms:
+        if len(term) >= 4 and term.casefold() not in {t.casefold() for t in out}:
+            out.append(term)
+    return out
+
+
+def scan_private_terms(entries, terms):
+    """Every entry, the pinned runtime included, in UTF-8 and UTF-16 spelling, any case."""
+    needles = [term.casefold().encode(encoding) for term in terms for encoding in ("utf-8", "utf-16-le")]
+    for name, data in entries:
+        haystacks = (name.casefold().encode("utf-8"), data.lower())
+        if any(needle in haystack for needle in needles for haystack in haystacks):
+            raise ValueError("This PC's own user name, profile path, computer name or e-mail is in: " + name)
+    return len(terms)
+
+
+def bundle_note(lines):
+    lines = [str(line).strip() for line in lines if str(line).strip()]
+    if len(lines) > 20 or any(len(line) > 200 for line in lines):
+        raise ValueError("Bundle note lines are too long")
+    head = ["OpenRecomp-FGC test bundle",
+            "Tekken 4: " + T4_FOLDER + " folder (source, built in the launcher)",
+            "Tekken 5 DR: your own " + T5DR_FOLDER + " folder next to it (not included)"]
+    return ("\n".join(head + lines) + "\n").encode("utf-8")
+
+
+def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None, note=(), terms=None):
     runtime_cache = ROOT / "dist/portable-cache" if runtime_cache is None else Path(runtime_cache)
     root, t4_root = Path(root).absolute(), Path(t4_root).absolute()
     no_links(root)
@@ -253,7 +333,7 @@ def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None):
     if not originals:
         originals = list(t4_entries)
     t4_entries = clean_t4_entries(t4_entries)
-    entries = [("START_HERE.txt", START_HERE), ("START_HIER.txt", START_HIER)]
+    entries = [("START_HERE.txt", START_HERE), ("START_HIER.txt", START_HIER), ("BUNDLE.txt", bundle_note(note))]
     for name, path in sorted(selected.items()):
         no_links(path)
         if name not in OMITTED_BRANDING:
@@ -270,31 +350,41 @@ def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None):
         runtime = _module("t4_bundle_portable", ROOT / "tools/portable_runtime.py")
         entries.extend((LAUNCHER_FOLDER + "/portable/" + name, data)
                        for name, data in runtime.runtime_entries(runtime_root, cache_root=runtime_cache))
-    return scan_bundle_entries(entries, runtime_cache)
+    checked = scan_bundle_entries(entries, runtime_cache)
+    scan_private_terms(checked, local_terms(root) if terms is None else terms)
+    return checked
 
 
-def create_bundle(root, t4_root, archive=None, runtime_root=None, runtime_cache=None):
+def create_bundle(root, t4_root, archive=None, runtime_root=None, runtime_cache=None, dist=None, note=(), terms=None):
     root = Path(root).absolute()
     no_links(root)
-    archive = Path(archive) if archive is not None else root / "dist" / (
-        "openrecomp-t4-test-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".zip")
+    dist = (root / "dist" if dist is None else Path(dist)).absolute()
+    archive = Path(archive) if archive is not None else dist / (
+        ARCHIVE_PREFIX + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".zip")
     archive = archive.absolute()
     no_links(archive)
-    relative = archive.relative_to(root)
-    if len(relative.parts) != 2 or relative.parts[0] != "dist" or archive.suffix.lower() != ".zip":
+    if archive.parent != dist or archive.suffix.lower() != ".zip":
         raise ValueError("Bundle output must be a zip directly in dist")
     if archive.exists():
         raise ValueError("Bundle already exists; nothing was overwritten")
-    entries = bundle_entries(root, t4_root, runtime_root, runtime_cache)
+    terms = local_terms(root) if terms is None else list(terms)
+    entries = bundle_entries(root, t4_root, runtime_root, runtime_cache, note=note, terms=terms)
     archive.parent.mkdir(parents=True, exist_ok=True)
     no_links(archive.parent)
-    with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as output:
-        for name, data in entries:
-            output.writestr(name, data)
-    with zipfile.ZipFile(archive) as output:
-        if output.testzip() is not None:
-            raise ValueError("Bundle CRC check failed")
-        scan_bundle_entries(((name, output.read(name)) for name in output.namelist()), runtime_cache)
+    output = zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=9)
+    try:
+        # A refused bundle never stays behind half-checked.
+        with output:
+            for name, data in entries:
+                output.writestr(name, data)
+        with zipfile.ZipFile(archive) as output:
+            if output.testzip() is not None:
+                raise ValueError("Bundle CRC check failed")
+            written = [(name, output.read(name)) for name in output.namelist()]
+        scan_private_terms(scan_bundle_entries(written, runtime_cache), terms)
+    except BaseException:
+        archive.unlink(missing_ok=True)
+        raise
     return archive, len(entries)
 
 
@@ -310,16 +400,24 @@ def main(argv=None):
     parser.add_argument("--check-only", action="store_true")
     parser.add_argument("--runtime", type=Path, help="Verified portable runtime prepared by fetch_portable_runtime.ps1")
     parser.add_argument("--runtime-cache", type=Path, help="Pinned dependency archive cache (default: dist/portable-cache)")
+    parser.add_argument("--dist", type=Path, help="Folder the zip is written to (default: dist in --root)")
+    parser.add_argument("--note", action="append", default=[], help="A line for BUNDLE.txt, e.g. the launcher commit")
+    parser.add_argument("--forbid", action="append", default=[],
+                        help="One more private word that must not be in any file (read at run time, never stored)")
     args = parser.parse_args(argv)
     try:
         if not args.check_only and args.runtime is None:
             raise ValueError("Creating a test ZIP requires --runtime; use make_t4_test_bundle.ps1 to fetch it first")
         source = args.t4_source or default_t4_source(args.root)
+        terms = local_terms(args.root, args.forbid)
         if args.check_only:
-            entries = bundle_entries(args.root, source, args.runtime, args.runtime_cache)
+            entries = bundle_entries(args.root, source, args.runtime, args.runtime_cache, note=args.note, terms=terms)
             print("Both source scans passed: {} files. Nothing written.".format(len(entries)))
+            print("Private-word scan passed: {} words of this PC in none of the files.".format(len(terms)))
         else:
-            archive, count = create_bundle(args.root, source, runtime_root=args.runtime, runtime_cache=args.runtime_cache)
+            archive, count = create_bundle(args.root, source, runtime_root=args.runtime, runtime_cache=args.runtime_cache,
+                                           dist=args.dist, note=args.note, terms=terms)
+            print("Private-word scan passed: {} words of this PC in none of the files.".format(len(terms)))
             print("Test bundle: {}".format(archive))
             with zipfile.ZipFile(archive) as output:
                 unpacked = sum(entry.file_size for entry in output.infolist())

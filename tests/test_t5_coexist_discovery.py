@@ -110,6 +110,26 @@ class Discovery(unittest.TestCase):
                 (root / "release.json").write_text(content, encoding="utf-8")
                 self.assertEqual(t5dr.version_key(root), (0,))
 
+    def test_install_beside_the_launcher_folder_is_found_first(self):
+        # Test bundle layout: <folder>/OpenRecomp-FGC (this launcher), <folder>/T4, <folder>/T5DR-Online-1.2.0.
+        launcher = self.folder / "bundle" / "OpenRecomp-FGC"
+        adapter = launcher / "openrecomp" / "adapters" / "t5dr.py"
+        sibling = self.install("bundle/T5DR-Online-1.2.0", version="1.2.0")
+        downloads = self.install("Downloads/T5DR-Online-1.2.1", version="1.2.1", built=True)
+        with mock.patch.object(t5dr, "__file__", str(adapter)):
+            self.assertEqual(t5dr.sibling_locations(), [str(self.folder / "bundle" / "T5DR-Online-*")])
+            self.assertEqual(self.find(downloads), str(sibling))
+            # A chosen folder still wins; without a sibling the old search is unchanged.
+            self.assertEqual(self.find(downloads, config=dict(roots=dict(t5dr=str(downloads)))), str(downloads))
+        with mock.patch.object(t5dr, "__file__", str(self.folder / "elsewhere" / "openrecomp" / "adapters" / "t5dr.py")):
+            self.assertEqual(self.find(downloads), str(downloads))
+
+    def test_brackets_in_the_bundle_folder_name_are_not_patterns(self):
+        launcher = self.folder / "test [1]" / "OpenRecomp-FGC"
+        sibling = self.install("test [1]/T5DR-Online-1.2.0", version="1.2.0")
+        with mock.patch.object(t5dr, "__file__", str(launcher / "openrecomp" / "adapters" / "t5dr.py")):
+            self.assertEqual(self.find(), str(sibling))
+
 
 class BorrowedInstall(unittest.TestCase):
     def adapter(self, compatibility="same", state=None):

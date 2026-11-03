@@ -45,7 +45,7 @@ class T4TestBundleTests(unittest.TestCase):
     def test_side_by_side_source_bundle_runs_both_scans_and_retains_startup(self):
         archive, count = bundle.create_bundle(self.root, self.root / "source")
         self.assertEqual(archive.parent, self.root / "dist")
-        self.assertRegex(archive.name, r"^openrecomp-t4-test-\d{8}-\d{6}-\d{6}\.zip$")
+        self.assertRegex(archive.name, r"^openrecomp-fgc-test-\d{8}-\d{6}-\d{6}\.zip$")
         self.launcher_scan.assert_called_once_with(self.root)
         self.scanner.source_entries.assert_called_once_with(self.root / "source")
         self.scanner.scan_entries.assert_called_once()
@@ -54,10 +54,17 @@ class T4TestBundleTests(unittest.TestCase):
             self.assertEqual(result.read("OpenRecomp-FGC/run.cmd"), (self.root / "run.cmd").read_bytes())
             self.assertEqual(result.read("T4/LICENSE"), b"T4 license")
             guide = result.read("START_HIER.txt").decode("utf-8")
-            self.assertLessEqual(len(guide.splitlines()), 5)
+            self.assertLessEqual(len(guide.splitlines()), 16)
             self.assertNotIn("Python", guide)
             self.assertNotIn("Internet", guide)
             self.assertIn("run.cmd", guide)
+            for text in (guide, result.read("START_HERE.txt").decode("utf-8")):
+                # Both games: T4's build tools, T5DR's own folder and package.
+                for phrase in ("Visual Studio 2022 Build Tools", "Git", "CMake", "Ninja", "SLUS-20328",
+                               "T5DR-Online-1.2.0", ".pkg", ".rap", "T5DR Online.exe", "BUILD GAME", "7400"):
+                    self.assertIn(phrase, text)
+            self.assertIn("T5DR-Online-1.2.0", result.read("BUNDLE.txt").decode("utf-8"))
+            self.assertFalse(any(name.startswith("T5DR") for name in result.namelist()))
             self.assertFalse(any(Path(name).suffix.lower() in bundle.IMAGE_SUFFIXES for name in result.namelist()))
             self.assertFalse(any(".venv" in name for name in result.namelist()))
 
@@ -105,6 +112,50 @@ class T4TestBundleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "already exists"):
             bundle.create_bundle(self.root, self.root / "source", path)
         self.assertEqual(path.read_bytes(), original)
+
+    def test_zip_can_go_to_a_named_dist_folder_outside_the_checkout(self):
+        with tempfile.TemporaryDirectory() as outside:
+            dist = Path(outside) / "dist"
+            archive, _ = bundle.create_bundle(self.root, self.root / "source", dist=dist, note=["Launcher: abc1234"])
+            self.assertEqual(archive.parent, dist.absolute())
+            self.assertFalse((self.root / "dist").exists())
+            with zipfile.ZipFile(archive) as result:
+                self.assertIn("Launcher: abc1234", result.read("BUNDLE.txt").decode("utf-8"))
+            with self.assertRaisesRegex(ValueError, "directly in dist"):
+                bundle.create_bundle(self.root, self.root / "source", self.root / "dist/x.zip", dist=dist)
+
+    def test_this_pcs_private_words_refuse_the_bundle_in_any_spelling(self):
+        word = "Synthetic-Owner-Word"
+        for data in (word.encode("utf-8"), word.upper().encode("utf-8"), word.lower().encode("utf-16-le")):
+            with self.subTest(data=data):
+                self.scanner.source_entries.return_value = [("LICENSE", b"T4 license"), ("tools/x.ps1", b"# " + data)]
+                with self.assertRaisesRegex(ValueError, "computer name or e-mail"):
+                    bundle.create_bundle(self.root, self.root / "source", terms=[word])
+                self.assertFalse((self.root / "dist").exists())
+        with self.assertRaisesRegex(ValueError, "e-mail is in: OpenRecomp-FGC/portable/x.txt"):
+            bundle.scan_private_terms([("OpenRecomp-FGC/portable/x.txt", b"..." + word.encode() + b"...")], [word])
+        with self.assertRaises(ValueError):
+            bundle.scan_private_terms([("T4/" + word + ".txt", b"")], [word])
+        self.assertEqual(bundle.scan_private_terms([("T4/a.txt", b"nothing here")], [word]), 1)
+
+    def test_a_zip_refused_after_writing_is_removed(self):
+        with mock.patch.object(bundle, "scan_private_terms", side_effect=[0, ValueError("synthetic late refusal")]):
+            with self.assertRaisesRegex(ValueError, "late refusal"):
+                bundle.create_bundle(self.root, self.root / "source", terms=[])
+        self.assertEqual(list((self.root / "dist").glob("*")), [])
+
+    def test_local_words_come_from_this_pc_at_run_time(self):
+        environment = {"USERNAME": "SyntheticUser", "USERPROFILE": "X:\\Profiles\\SyntheticUser", "COMPUTERNAME": "SYNTH-PC"}
+        with mock.patch.dict(bundle.os.environ, environment), \
+                mock.patch.object(bundle.subprocess, "run",
+                                  return_value=types.SimpleNamespace(stdout="someone@example.invalid\n")):
+            terms = bundle.local_terms(self.root, ["extra-word"])
+        for term in ("extra-word", "SyntheticUser", "X:\\Profiles\\SyntheticUser", "X:/Profiles/SyntheticUser",
+                     "SYNTH-PC", "someone@example.invalid"):
+            self.assertIn(term, terms)
+        with mock.patch.dict(bundle.os.environ, {"USERNAME": "abc"}, clear=True), \
+                mock.patch.object(bundle.subprocess, "run", side_effect=OSError):
+            self.assertEqual(bundle.local_terms(self.root), [])
 
     def test_duplicate_case_alias_and_path_traversal_are_rejected(self):
         base = self.entries()

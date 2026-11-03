@@ -39,11 +39,25 @@ prepared runtime is `dist/portable-runtime/`. Later runs reuse those inputs only
 after checking them again. Fetching needs internet; opening the extracted
 launcher does not download dependencies.
 
-The output is one dated ZIP in `dist/`, containing `START_HIER.txt`,
+The output is one dated ZIP `openrecomp-fgc-test-<time>.zip` in `dist/` (or the
+folder given as `-OutputDirectory`), containing `START_HERE.txt` (English),
+`START_HIER.txt` (German), `BUNDLE.txt` (the `-Note` lines, e.g. commits),
 `OpenRecomp-FGC/` and `T4/`. The runtime goes into
 `OpenRecomp-FGC/portable/`. Keep the two top-level folders together and open
 `OpenRecomp-FGC/run.cmd`. When the portable interpreter is present, that command
 uses it; without it the existing development `.venv` setup remains available.
+Tekken 5 DR is not part of the ZIP: the player unpacks their own
+`T5DR-Online-1.2.0` beside `OpenRecomp-FGC/` and `T4/`. The launcher looks for
+`T5DR-Online-*` folders beside its own folder first, then in Downloads and
+Desktop; a folder chosen on screen still wins. T5DR is built once in its own
+`T5DR Online.exe` (BUILD GAME with the player's .pkg and .rap); the launcher
+plays it and runs its online lobby.
+
+Before writing and again on the written ZIP, every entry, the pinned runtime
+included, is searched in UTF-8 and UTF-16, ignoring case, for this PC's user
+name, profile path, computer name and Git e-mail, plus any `-Forbid` words. They
+are read at run time and never stored; a hit refuses the bundle and removes a
+written ZIP.
 `START_HIER.txt` contains the extraction and double-click steps, without asking
 the recipient to install a runtime. The wrapper reports the actual ZIP size and
 unpacked size; report those measured values when handing over a test bundle.

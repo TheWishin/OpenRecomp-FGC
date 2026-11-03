@@ -58,6 +58,28 @@ class PortableBundleEntrypointTests(unittest.TestCase):
                           "--runtime-cache", str(self.root / "dist/portable-cache"),
                           "--t4-source", str(self.root / "T4")])
 
+    def test_output_folder_notes_and_private_words_reach_the_bundle_cli(self):
+        result = self.run_wrapper("-OutputDirectory", str(self.root / "out"), "-Note", "Launcher: abc",
+                                  "-Forbid", "synthetic-word")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        arguments = json.loads(self.arguments.read_text())
+        for flag, value in (("--dist", str(self.root / "out")), ("--note", "Launcher: abc"),
+                            ("--forbid", "synthetic-word")):
+            self.assertEqual(arguments[arguments.index(flag) + 1], value)
+
+    def test_general_name_passes_everything_on(self):
+        shutil.copyfile(ROOT / "tools/make_test_bundle.ps1", self.tools / "make_test_bundle.ps1")
+        environment = dict(os.environ, PATH=str(Path(POWERSHELL).parent))
+        result = subprocess.run(
+            [POWERSHELL, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
+             str(self.tools / "make_test_bundle.ps1"), "-RuntimeRoot", str(self.runtime),
+             "-T4Source", str(self.root / "T4"), "-OutputDirectory", str(self.root / "out")],
+            cwd=self.root, env=environment, capture_output=True, text=True, encoding="oem", errors="replace", timeout=90)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        arguments = json.loads(self.arguments.read_text())
+        self.assertEqual(arguments[arguments.index("--dist") + 1], str(self.root / "out"))
+        self.assertEqual(arguments[arguments.index("--t4-source") + 1], str(self.root / "T4"))
+
     def test_check_only_does_not_fetch_and_passes_runtime_to_scanner(self):
         result = self.run_wrapper("-CheckOnly")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -128,7 +150,7 @@ class PortableBundlePipelineTests(unittest.TestCase):
             for name in archive_lines:
                 archive = Path(name)
                 self.assertEqual(archive.parent, ROOT / "dist")
-                self.assertTrue(archive.name.startswith("openrecomp-t4-test-"))
+                self.assertTrue(archive.name.startswith("openrecomp-fgc-test-"))
                 self.addCleanup(archive.unlink, missing_ok=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(len(archive_lines), 1, result.stdout)

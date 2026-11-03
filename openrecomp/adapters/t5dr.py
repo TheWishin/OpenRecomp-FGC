@@ -4,6 +4,7 @@ Nothing of it is copied: OpenRecomp-FGC imports it from the player's install. Pi
 (read from the player's own built game by fighter_art.py) and stay on the PC.
 """
 import collections
+import glob
 import importlib.util
 import json
 import os
@@ -31,6 +32,7 @@ RES_NAMES = {"lowest": "@resolution.lowest", "lower": "@resolution.lower", "nati
 ON_OFF = [("on", "@on"), ("off", "@off")]
 YES_NO = [(False, "@off"), (True, "@on")]
 RANK_TAG = re.compile(r"\s*\[\d+\]$")
+DEFAULT_LOCATIONS = ["%USERPROFILE%/Downloads/T5DR-Online-*", "%USERPROFILE%/Desktop/T5DR-Online-*"]
 
 
 def version_key(root):
@@ -76,14 +78,14 @@ def _has_build(root):
         return False
 
 
-def find_root(manifest, config):
-    """The newest installed T5DR Online with a built game; else the newest install."""
-    chosen = (config.get("roots") or {}).get(manifest["id"]) or os.environ.get("OPENRECOMP_T5DR_ROOT")
-    if chosen:
-        return install_root(chosen)
+def sibling_locations():
+    """T5DR-Online-* folders beside this launcher's folder, as the test bundle places them."""
+    launcher = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return [os.path.join(glob.escape(os.path.dirname(launcher)), DEFAULT_LOCATIONS[0].rsplit("/", 1)[1])]
+
+
+def _newest(locations):
     found = []
-    locations = manifest.get("locations") or ["%USERPROFILE%/Downloads/T5DR-Online-*",
-                                               "%USERPROFILE%/Desktop/T5DR-Online-*"]
     for path in expand_locations(locations):
         root = install_root(path)
         if root and root not in found:
@@ -92,6 +94,14 @@ def find_root(manifest, config):
         return None
     built = [p for p in found if _has_build(p)]
     return max(built or found, key=version_key)
+
+
+def find_root(manifest, config):
+    """The chosen install; else one beside this launcher; else the newest found, a built one first."""
+    chosen = (config.get("roots") or {}).get(manifest["id"]) or os.environ.get("OPENRECOMP_T5DR_ROOT")
+    if chosen:
+        return install_root(chosen)
+    return _newest(sibling_locations()) or _newest(manifest.get("locations") or DEFAULT_LOCATIONS)
 
 
 def _runtime_path(root, name):
