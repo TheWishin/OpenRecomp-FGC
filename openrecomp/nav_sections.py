@@ -32,7 +32,7 @@ class Sections:
             start = dict(kind="action", id="start", label="@build_first" if can_build else "@not_found", verb="@go_build" if can_build else "",
                          run=(lambda: self._go(g, "build")) if can_build else None,
                          hint=st["detail"], detail=detail)
-        out = [start]
+        out = self._setup_items(g, "play") + [start]
         for sid in g.a.quick_settings():
             if sid in by_id:
                 out.append(self._cycler_item(g, by_id[sid]))
@@ -69,6 +69,9 @@ class Sections:
 
     # ---- online
     def _items_online(self, g):
+        return self._setup_items(g, "online") + self._items_online_rows(g)
+
+    def _items_online_rows(self, g):
         if g.m.get("adapter") == "t4" and not g.a.found():
             return [dict(kind="action", id="folder", label="@onboarding.choose_folder", verb="@go_build",
                          run=lambda: self._go(g, "build"), hint="@t4.onboarding_hint",
@@ -122,6 +125,9 @@ class Sections:
 
     # ---- build
     def _items_build(self, g):
+        return self._setup_items(g, "build") + self._items_build_rows(g)
+
+    def _items_build_rows(self, g):
         if getattr(g.a, "coexistence_state", lambda: dict(active=False))()["active"]:
             return self._coexistence_items(g, choose=True) + [dict(
                 kind="action", id="build", label="@build_game", disabled=True,

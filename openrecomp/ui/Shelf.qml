@@ -72,6 +72,15 @@ Item {
                         border.color: tile.t.accent || "#ECE9E1"
                         Text { textFormat: Text.PlainText; id: badgeText; anchors.centerIn: parent; text: tile.t.badge || ""; color: tile.t.focused ? "#0E0F11" : (tile.t.accent || "#ECE9E1"); font.family: shelf.root.mono; font.weight: Font.DemiBold; font.pixelSize: 18 }
                     }
+                    // a game release the player should install (needed for online, or just newer)
+                    Item { width: 1; height: tile.t.update ? 6 : 0 }
+                    Rectangle {
+                        objectName: "shelfUpdate"
+                        visible: !!tile.t.update
+                        width: Math.min(updateText.implicitWidth + 16, parent.width); height: visible ? 30 : 0
+                        color: "#F5A524"
+                        Text { textFormat: Text.PlainText; id: updateText; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 16); elide: Text.ElideRight; text: tile.t.update || ""; color: "#0E0F11"; font.family: shelf.root.mono; font.weight: Font.DemiBold; font.pixelSize: 18 }
+                    }
                     Item { width: 1; height: 12 }
                     Text { textFormat: Text.PlainText;
                         width: parent.width

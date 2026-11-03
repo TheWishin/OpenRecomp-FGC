@@ -82,10 +82,18 @@ class Shelf:
                     self.say("@t4.installing" if g.a.source_state().get("id") == "folder" else "@iso.checking")
                     return
                 source = self._folder_source(g)
-                if source:
+                if source and self._setup_supported(g):
+                    # Not found: the Build section offers "Install" (download) and "Choose folder" (have it already)
+                    self.screen = "hub"
+                    self.sec[g.id] = "build"
+                    self.focus[g.id + ":build"] = 0
+                elif source:
                     self._open_picker("source:" + source["id"], "@onboarding.choose_folder", source["exts"], source["dirs"], source["kind"])
                 else:
                     self.screen = "hub"
+            elif a == "x" and self.setup_update_needed(g):
+                self._select_game(g)
+                self.setup_offer_update(g)
             elif a == "x" and g.m.get("schema_version") == 1 and g.m.get("adapter") == "generic":
                 self._select_game(g)
                 self.library_game = g.id
@@ -123,6 +131,10 @@ class Shelf:
                     t["empty"] = "@t4.onboarding_source"
                 if missing and g.a.source_state().get("running"):
                     t["bar"] = "@t4.installing"
+                if missing and self._setup_supported(g) and not g.a.source_state().get("running"):
+                    t["bar"] = "@setup.tile_bar"
+                if self.setup_update_needed(g):
+                    t["update"] = "@setup.badge_needed" if self._setup(g.id).get("required") else "@setup.badge_available"
             else:
                 t.update(badge="", num="+", name="@free_slot" if not foc else "@add_recomp", subtitle="@another_game" if foc else "", accent="#ECE9E1", hero="",
                          rows=[dict(k="@name_colour", v="@manifest"), dict(k="@sections", v="@manifest"), dict(k="@build_exe", v="@manifest")],
@@ -141,9 +153,16 @@ class Shelf:
                 v["hint"] = "@t4.installing"
             elif missing and source.get("result") and source["result"] != "reload":
                 v["hint"] = source["result"]
-            v["prompts"] = [self.prompt("confirm", "@onboarding.choose_folder" if self._folder_source(g) else ("@open" if ready else "@go_build")), self.prompt("right", "@choose_game")]
+            setup_missing = missing and self._setup_supported(g)
+            v["prompts"] = [self.prompt("confirm", "@setup.tile_bar" if setup_missing else ("@onboarding.choose_folder" if self._folder_source(g) else ("@open" if ready else "@go_build"))), self.prompt("right", "@choose_game")]
             if ready:
                 v["prompts"].append(self.prompt("play", "@play"))
+            if self.setup_update_needed(g):
+                needed = self._setup(g.id).get("required")
+                v["hint"] = "@setup.update_needed_hint" if needed else "@setup.update_hint"
+                v["prompts"].append(self.prompt("x", "@setup.update"))
+            elif setup_missing and not source.get("running") and not source.get("result"):
+                v["hint"] = "@setup.tile_hint"
             if g.m.get("schema_version") == 1 and g.m.get("adapter") == "generic":
                 v["prompts"].append(self.prompt("x", "@library.manage"))
             v["prompts"] += [self.prompt("switchGame", "@switch_game"), self.prompt("social", "@quick_access"), self.prompt("back", "@quit")]

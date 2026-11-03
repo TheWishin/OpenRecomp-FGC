@@ -15,6 +15,7 @@ from .t4_online import T4Online
 from .t5_online import game_process_running
 from .t4_install import install_root, install_source, source_root
 from ..manifest import art_dir, save_config
+from ..game_releases import clear_rebuild, rebuild_required
 
 STEP_RE = re.compile(r"^\[(\d+)/(\d+)\]\s+(\w+)\s+-\s+(.*)$")
 GRAPHICS_OPTIONS = {
@@ -115,7 +116,10 @@ class T4(T4Online, Adapter):
         return True
 
     def problems(self):
-        return self.core.play_problems(self.s)
+        problems = list(self.core.play_problems(self.s))
+        if rebuild_required("t4", self.root):
+            problems.insert(0, "@setup.build_again")     # updated from its release: the old build is the old code
+        return problems
 
     def ready(self):
         return not self.problems()
@@ -549,6 +553,7 @@ class T4(T4Online, Adapter):
             self.last_result = "@t4.build_cancelled"
         elif build.code == 0:
             self.build_done[self.build_step] = True
+            clear_rebuild("t4", self.root)
             self.last_result = "@t4.build_finished" if self.ready() else "@t4.build_incomplete"
         else:
             error = self.build_error or next((line for line in reversed(self.build_lines)

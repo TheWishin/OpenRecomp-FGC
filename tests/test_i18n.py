@@ -93,7 +93,7 @@ def untranslated_literals(source):
                 ignore(node.args[1])  # attribute names; a displayed fallback is still checked
             elif name in ("get", "setdefault", "getenv", "pop", "startswith", "import_module", "strftime", "compile", "match", "expanduser") and node.args:
                 ignore(node.args[0])
-            elif name in ("prompt", "glyph", "_ask", "_open_picker", "act") and node.args:
+            elif name in ("prompt", "glyph", "_ask", "_open_picker", "act", "on_setup") and node.args:
                 ignore(node.args[0])
             elif name == "_go" and len(node.args) > 1:
                 ignore(node.args[1])
