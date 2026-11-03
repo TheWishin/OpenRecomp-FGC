@@ -1069,6 +1069,7 @@
     "t4.source.iso_start_failed": "Die ISO-Prüfung konnte nicht starten. Python und den T4-Quellordner prüfen.",
     "t4.source.iso_checksum": "Die ELF-Prüfsumme stimmt nicht. Benötigt wird Tekken 4 USA SLUS-20328 v1.00.",
     "t4.source.iso_wrong": "Falsches oder nicht unterstütztes Abbild. Benötigt wird eine ISO von Tekken 4 USA SLUS-20328 v1.00.",
+    "t4.region.not_us": "Dieser Tekken-4-Ordner ist nicht die USA-Version. OpenRecomp spielt nur Tekken 4 USA (SLUS-20328 v1.00): bitte den T4-Ordner der USA-Version wählen.",
     "t4.source.iso_unreadable": "Die ISO ist beschädigt oder nicht lesbar; die Prüfung wurde nicht bestanden.",
     "t4.source.ended": "Beendet",
     "t4.source.game_failed": "Spiel mit Fehler beendet: {code}",

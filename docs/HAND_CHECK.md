@@ -115,6 +115,10 @@ keine Spielerlogs oder Screenshots ins Repository legen.
 - Tekken 4 > Build: Werkzeugprüfung und genaue winget-Befehle lesen,
   Kopieren prüfen, fehlende Werkzeuge und genaue MSVC-Version nachvollziehen.
   Auf einem sauberen Windows-PC: installieren, dann Werkzeuge erneut prüfen.
+- Nur die USA-Version: Der Launcher nimmt nur einen T4-Ordner der USA-Linie
+  (SLUS-20328). Wer einen Ordner eines PAL-Projekts (SCES-50878) wählt, muss
+  „Dieser Tekken-4-Ordner ist nicht die USA-Version …“ sehen; ISO-Prüfung,
+  Build und Play bleiben gesperrt, nichts wird gebaut.
 - Falsche ISO ablehnen, eigene USA SLUS-20328 v1.00 akzeptieren. Fortschritt,
   Fehler, Abbruch und Wiederholung beim echten Build prüfen (ca. 6 Minuten).
   Stimmen die sichtbare Build-ID und Compiler/MSVC-Version auf beiden PCs

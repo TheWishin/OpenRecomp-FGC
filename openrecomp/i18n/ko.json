@@ -1069,6 +1069,7 @@
     "t4.source.iso_start_failed": "The ISO check could not start. Check Python and the T4 source folder.",
     "t4.source.iso_checksum": "The ELF checksum differs. Tekken 4 USA SLUS-20328 v1.00 is required.",
     "t4.source.iso_wrong": "Wrong or unsupported image. An ISO of Tekken 4 USA SLUS-20328 v1.00 is required.",
+    "t4.region.not_us": "이 Tekken 4 폴더는 북미판이 아닙니다. OpenRecomp는 Tekken 4 북미판(SLUS-20328 v1.00)만 실행합니다. 북미판 T4 폴더를 선택하세요.",
     "t4.source.iso_unreadable": "The ISO is damaged or unreadable; it did not pass the check.",
     "t4.source.ended": "Ended",
     "t4.source.game_failed": "Game ended with an error: {code}",

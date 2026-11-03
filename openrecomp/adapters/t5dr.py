@@ -101,7 +101,8 @@ _find_root_anywhere = find_root
 def sibling_locations():
     """T5DR-Online-* folders beside this launcher's folder, as the test bundle (and Setup) place them."""
     launcher = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    return [os.path.join(glob.escape(os.path.dirname(launcher)), "T5DR-Online-*")]
+    pattern = os.path.basename("%USERPROFILE%/Downloads/T5DR-Online-*")     # the same folder name as below
+    return [os.path.join(glob.escape(os.path.dirname(launcher)), pattern)]
 
 
 def find_root(manifest, config):  # noqa: F811 -- the search above, with the folder beside this launcher first

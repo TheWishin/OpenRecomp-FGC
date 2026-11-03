@@ -12,6 +12,7 @@ import sys
 import tempfile
 import time
 
+from . import t4_region
 from .base import NO_WINDOW
 from .launch_guard import LaunchGuard
 from .. import i18n
@@ -74,7 +75,14 @@ class SourceCore:
         path = settings.get("iso")
         return path if isinstance(path, str) and os.path.isfile(path) else ""
 
+    def region_problem(self):
+        """The launcher's T4 is the US release: a tree made for another disc is refused, never built quietly."""
+        return t4_region.tree_problem(self.ROOT)
+
     def verify_iso(self, path):
+        region = self.region_problem()
+        if region:
+            return False, region
         if not isinstance(path, str) or not os.path.isfile(path):
             return False, "@t4.source.iso_missing"
         command = [sys.executable, "-I", "-B", str(Path(self.ROOT) / "tools" / "iso_extract.py"),
@@ -88,7 +96,8 @@ class SourceCore:
         except OSError:
             return False, "@t4.source.iso_start_failed"
         if result.returncode == 0 and "OK" in result.stdout.splitlines():
-            return True, ""
+            elf = t4_region.checked_disc_problem(result.stdout)
+            return (False, elf) if elf else (True, "")
         if result.returncode == 3:
             return False, "@t4.source.iso_checksum"
         if result.returncode == 2:
@@ -100,6 +109,9 @@ class SourceCore:
         return True
 
     def build_command(self, iso):
+        region = self.region_problem()
+        if region:
+            raise RuntimeError(region)
         return ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                 "-File", str(Path(self.ROOT) / "tools" / "build_game.ps1"), "-Iso", iso]
 
@@ -116,6 +128,9 @@ class SourceCore:
         return (str(runtime), "source") if runtime.is_file() else (None, "@online.build_required")
 
     def play_problems(self, settings):
+        region = self.region_problem()
+        if region:
+            return [region]
         out = []
         if not self.find_runtime(settings)[0] or not os.path.isfile(self.GAME_ELF):
             out.append("@online.build_required")

@@ -11,6 +11,7 @@ import time
 
 from .base import Adapter, ProcessBuild, add_path, expand_locations, onoff
 from .launch_guard import LaunchGuard
+from . import t4_region
 from .t4_online import T4Online
 from .t5_online import game_process_running
 from .t4_install import install_root, install_source, source_root
@@ -462,11 +463,17 @@ class T4(T4Online, Adapter):
         except OSError:
             return None
 
+    def region_problem(self):
+        """US release only (t4_region): the source core checks its tree; a portable install is checked here."""
+        check = getattr(self.core, "region_problem", None)
+        return check() if callable(check) else t4_region.tree_problem(self.root)
+
     def _check_iso(self, path):
         accepted = False
         try:
             before = self._iso_stamp(path)
-            ok, reason = self.core.verify_iso(path)
+            region = self.region_problem()
+            ok, reason = (False, region) if region else self.core.verify_iso(path)
             if not ok:
                 result = self.message("iso.refused", error=reason)
             elif before is None or before != self._iso_stamp(path):
@@ -492,6 +499,9 @@ class T4(T4Online, Adapter):
             return "@t4.work_busy"
         if self._source_state["running"]:
             return "@t4.installing" if self._source_state["id"] == "folder" else "@iso.checking"
+        region = self.region_problem()
+        if region:
+            return region
         if self._needs_toolchain():
             return "@t4.portable_required"
         if (getattr(self.core, "source_only", False)
