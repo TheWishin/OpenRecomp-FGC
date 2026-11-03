@@ -32,7 +32,6 @@ RES_NAMES = {"lowest": "@resolution.lowest", "lower": "@resolution.lower", "nati
 ON_OFF = [("on", "@on"), ("off", "@off")]
 YES_NO = [(False, "@off"), (True, "@on")]
 RANK_TAG = re.compile(r"\s*\[\d+\]$")
-DEFAULT_LOCATIONS = ["%USERPROFILE%/Downloads/T5DR-Online-*", "%USERPROFILE%/Desktop/T5DR-Online-*"]
 
 
 def version_key(root):
@@ -78,14 +77,14 @@ def _has_build(root):
         return False
 
 
-def sibling_locations():
-    """T5DR-Online-* folders beside this launcher's folder, as the test bundle places them."""
-    launcher = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    return [os.path.join(glob.escape(os.path.dirname(launcher)), DEFAULT_LOCATIONS[0].rsplit("/", 1)[1])]
-
-
-def _newest(locations):
+def find_root(manifest, config):
+    """The newest installed T5DR Online with a built game; else the newest install."""
+    chosen = (config.get("roots") or {}).get(manifest["id"]) or os.environ.get("OPENRECOMP_T5DR_ROOT")
+    if chosen:
+        return install_root(chosen)
     found = []
+    locations = manifest.get("locations") or ["%USERPROFILE%/Downloads/T5DR-Online-*",
+                                               "%USERPROFILE%/Desktop/T5DR-Online-*"]
     for path in expand_locations(locations):
         root = install_root(path)
         if root and root not in found:
@@ -96,12 +95,21 @@ def _newest(locations):
     return max(built or found, key=version_key)
 
 
-def find_root(manifest, config):
+_find_root_anywhere = find_root
+
+
+def sibling_locations():
+    """T5DR-Online-* folders beside this launcher's folder, as the test bundle (and Setup) place them."""
+    launcher = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return [os.path.join(glob.escape(os.path.dirname(launcher)), "T5DR-Online-*")]
+
+
+def find_root(manifest, config):  # noqa: F811 -- the search above, with the folder beside this launcher first
     """The chosen install; else one beside this launcher; else the newest found, a built one first."""
     chosen = (config.get("roots") or {}).get(manifest["id"]) or os.environ.get("OPENRECOMP_T5DR_ROOT")
     if chosen:
         return install_root(chosen)
-    return _newest(sibling_locations()) or _newest(manifest.get("locations") or DEFAULT_LOCATIONS)
+    return _find_root_anywhere(dict(manifest, locations=sibling_locations()), {}) or _find_root_anywhere(manifest, config)
 
 
 def _runtime_path(root, name):
