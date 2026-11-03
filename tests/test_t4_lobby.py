@@ -168,6 +168,138 @@ class LobbyActions(unittest.TestCase):
             self.assertFalse(self.client.kwargs[key], key)
 
 
+class SharedLogin(unittest.TestCase):
+    """One account for T5DR and T4: a T5DR remembered login is offered only for an approved, secured T4 server."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(dir=os.getcwd())
+        self.addCleanup(self.temp.cleanup)
+        environment = {key: value for key, value in os.environ.items() if key != t4_online.SERVER_ENV}
+        environment.update(OPENRECOMP_HOME=self.temp.name, T5_ONLINE_DIR=os.path.join(self.temp.name, "t5"))
+        self.enterContext(mock.patch.dict(os.environ, environment, clear=True))
+        self.enterContext(mock.patch("openrecomp.adapters.t4_online.game_process_running", return_value=False))
+        self.listed = Path(self.temp.name, "t4-online")
+        self.listed.mkdir()
+        self.sessions = [dict(host="lobby.example", name="Wishin", token="t5-remembered", saved=5),
+                         dict(host="other.example", name="Else", token="other-token", saved=9)]
+
+    def subject(self, **entry):
+        values = dict(name="T4 Online", host="lobby.example", port=7791, tls="pin", fingerprint="ab" * 32,
+                      default=True, shared_login=True)
+        values.update(entry)
+        self.listed.joinpath("servers.json").write_text(json.dumps(dict(format="t5dr-servers/1", servers=[values])),
+                                                        encoding="utf-8")
+        subject = fakes.Subject(self.temp.name)
+        subject.config.pop("t4_lobby_server")
+        self.addCleanup(subject.online_close)
+        subject.account_peers = (mock.Mock(online_account_sessions=lambda: [dict(s) for s in self.sessions]),)
+        return subject
+
+    def test_a_saved_t5dr_login_logs_into_t4_with_one_press(self):
+        subject = self.subject()
+        state = subject.online_state()
+        self.assertTrue(state["saved_available"])
+        self.assertTrue(state["saved_shared"])
+        self.assertNotIn("t5-remembered", json.dumps(state))
+        subject.online_action("login_saved")
+        subject.online_poll()
+        self.assertEqual(subject.online_state()["phase"], "logged_in")
+        self.assertIn(("session", "t5-remembered"), subject.clients[-1].calls)
+        # The T5DR credential is used, never copied into T4's own settings.
+        path = Path(subject.online_cfg_path())
+        self.assertFalse(path.exists() and "t5-remembered" in path.read_text(encoding="utf-8"))
+
+    def test_only_an_approved_secured_listed_server_gets_the_t5dr_login(self):
+        for entry in (dict(shared_login=False), dict(tls="off"), dict(tls="pin", fingerprint=""),
+                      dict(shared_login="elsewhere.example")):
+            with self.subTest(entry=entry):
+                subject = self.subject(**entry)
+                self.assertFalse(subject.online_state()["saved_available"])
+                subject.online_close()
+        subject = self.subject(shared_login="other.example")
+        self.assertEqual(subject._online_saved()["token"], "other-token")
+        subject.online_close()
+        subject = self.subject()
+        subject.set_text_value("online_server", "lobby.example:7791#" + "ab" * 32)   # typed, not listed
+        self.assertFalse(subject.online_state()["saved_available"])
+        with mock.patch.dict(os.environ, {t4_online.SERVER_ENV: "lobby.example:7791"}):
+            typed = self.subject()
+            self.assertFalse(typed.online_state()["saved_available"])
+
+    def test_t4s_own_saved_login_comes_first(self):
+        subject = self.subject()
+        subject._online_init()
+        Path(subject.online_cfg_path()).write_text(json.dumps(dict(sessions={
+            "t4 online": dict(name="Own", token="t4-own")})), encoding="utf-8")
+        self.assertEqual(subject._online_saved()["token"], "t4-own")
+        self.assertFalse(subject.online_state()["saved_shared"])
+
+    def test_a_refused_t5dr_login_is_not_offered_again_and_never_deleted(self):
+        from test_online_adapter import LobbyError
+        subject = self.subject()
+
+        def refuse(client, token):
+            client.calls.append(("session", token))
+            raise LobbyError("auth_failed")
+        with mock.patch.object(fakes.MatchClient, "login_session", refuse):
+            subject.online_action("login_saved")
+            subject.online_poll()
+        self.assertEqual(subject.online_state()["message"], "@t4.saved_shared_refused")
+        self.assertFalse(subject.online_state()["saved_available"])
+        self.assertEqual(self.sessions[0]["token"], "t5-remembered")
+
+    def test_badges_from_the_server_reach_player_rows_and_chat(self):
+        subject = self.subject()
+        subject.online_action("login_saved")
+        subject.online_poll()
+        client = subject.clients[-1]
+        client.events.put(dict(t="lobby_state", players=[dict(id="p1", name="Dev", badge="dev"),
+                                                          dict(id="p2", name="Plain", badge="admin")]))
+        client.events.put({"t": "chat", "from": dict(name="Dev", badge="dev"), "text": "hi"})
+        subject.online_poll()
+        state = subject.online_state()
+        self.assertEqual([p.get("badge", "") for p in state["players"]], ["dev", ""])
+        self.assertEqual(state["chat"][-1].get("badge"), "dev")
+
+
+class T5drSessionsForT4(unittest.TestCase):
+    def test_t5dr_offers_its_secured_remembered_logins_with_their_hosts(self):
+        from test_online_adapter import Subject as T5Subject
+        with tempfile.TemporaryDirectory(dir=os.getcwd()) as directory, mock.patch.dict(
+                os.environ, T5_ONLINE_DIR=directory):
+            subject = T5Subject(directory)
+            Path(directory, "lobby").mkdir()
+            Path(directory, "lobby", "servers.json").write_text(json.dumps(dict(format="t5dr-servers/1", servers=[
+                dict(name="T5DR Online (EU)", host="Lobby.Example", tls="pin", fingerprint="cd" * 32)])),
+                encoding="utf-8")
+            Path(directory, "online.json").write_text(json.dumps(dict(sessions={
+                "t5dr online (eu)": dict(name="Wishin", token="listed", saved=3),
+                "127.0.0.1:7781": dict(name="Local", token="plain"),
+                "tls://ca.example:7781": dict(name="Ca", token="ca-token"),
+                "pin.example:7781#" + "ef" * 32: dict(name="Pin", token="pin-token"),
+                "broken": "not a session"})), encoding="utf-8")
+            sessions = {s["token"]: s["host"] for s in subject.online_account_sessions()}
+            self.assertEqual(sessions, {"listed": "lobby.example", "ca-token": "ca.example",
+                                        "pin-token": "pin.example"})
+
+    def test_other_games_share_nothing(self):
+        from openrecomp.adapters.base import Adapter
+        self.assertEqual(Adapter(dict(id="x", short="X")).online_account_sessions(), [])
+        with tempfile.TemporaryDirectory(dir=os.getcwd()) as directory, mock.patch.dict(
+                os.environ, OPENRECOMP_HOME=directory):
+            self.assertEqual(fakes.Subject(directory).online_account_sessions(), [])
+
+    def test_the_launcher_gives_each_game_the_others(self):
+        from openrecomp import app
+        from test_nav import manifest
+        first, second = mock.Mock(problem=""), mock.Mock(problem="")
+        with mock.patch.object(app.mf, "load_all", return_value=([manifest("a"), manifest("b")], [])), \
+                mock.patch.object(app.adapters, "make", side_effect=[first, second]):
+            games, _problems = app.load_games({})
+        self.assertEqual(games[0].a.account_peers, (second,))
+        self.assertEqual(games[1].a.account_peers, (first,))
+
+
 class T4LobbyRows(unittest.TestCase):
     def setUp(self):
         import test_t4_online_nav as nav_fakes
@@ -222,6 +354,14 @@ class T4LobbyRows(unittest.TestCase):
         self.assertEqual(self.nav.items()[self.nav.focus_index(self.nav.items())]["id"], "start_match")
         self.nav.act("confirm", device="xbox")
         self.assertIn(("online", "start_match"), self.a.calls)
+
+    def test_saved_t5dr_login_has_its_own_label(self):
+        self.a.snapshot.update(saved_available=True, saved_shared=True)
+        item = next(item for item in self.nav.items() if item.get("id") == "login_saved")
+        self.assertEqual((item["label"], item["hint"]), ("@t4.saved_shared", "@t4.saved_shared_hint"))
+        self.a.snapshot["saved_shared"] = False
+        item = next(item for item in self.nav.items() if item.get("id") == "login_saved")
+        self.assertEqual(item["label"], "@online.saved")
 
     def test_direct_screen_offers_the_lobby(self):
         self.a.snapshot.update(phase="offline", role="host", checks=[],

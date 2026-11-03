@@ -1080,5 +1080,8 @@
     "t4.direct_mode": "Direkte IP / VPN",
     "t4.direct_mode_hint": "Zurück zu Host / Join per IP-Adresse oder VPN, ohne Lobby-Server.",
     "t4.lobby_no_server": "Es ist noch kein T4-Lobby-Server eingerichtet. Trage unter Lobby-Adresse die Adresse ein, die du vom Betreiber des Servers bekommen hast, oder nutze Direkte IP / VPN.",
-    "t4.mode_busy": "Beende zuerst die laufende Prüfung, das Match oder die Anmeldung, oder brich sie ab."
+    "t4.mode_busy": "Beende zuerst die laufende Prüfung, das Match oder die Anmeldung, oder brich sie ab.",
+    "t4.saved_shared": "Deine T5DR-Anmeldung verwenden",
+    "t4.saved_shared_hint": "Dein T5DR-Online-Konto ist auf diesem PC gespeichert. T4 nutzt dasselbe Konto: ein Druck meldet dich an, ohne Passwort.",
+    "t4.saved_shared_refused": "Dieser T4-Server hat deine gespeicherte T5DR-Anmeldung nicht angenommen. Gib Kontoname und Passwort ein und wähle dann Mit Konto anmelden."
 }

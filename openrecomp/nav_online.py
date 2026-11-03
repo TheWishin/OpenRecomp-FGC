@@ -159,7 +159,9 @@ class Online:
                 out.append(dict(kind="action", id=tid, label=label, value=i18n.literal(value), verb="@change", hint=message,
                                 detail=dict(kicker="@section.online", title=label, lead=message, leadLines=6, rows=[]),
                                 run=lambda tid=tid: self._open_osk(tid)))
-            if state.get("saved_available"):
+            if state.get("saved_available") and state.get("saved_shared"):
+                out.append(action("login_saved", "@t4.saved_shared", "@t4.saved_shared_hint"))
+            elif state.get("saved_available"):
                 out.append(action("login_saved", "@online.saved"))
             out += [action("login_guest", "@online.guest"), action("login_account", "@online.account")]
             if capabilities.get("registration", False):

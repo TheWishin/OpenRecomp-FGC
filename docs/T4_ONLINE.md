@@ -29,10 +29,20 @@ address under Lobby address. The choice between lobby and direct IP is remembere
 Login, search and chat are always explicit actions; opening the page connects nowhere.
 
 The lobby client ships inside the launcher (client modules of T5DR Online's open-source
-lobby, renamed for Tekken 4; no server code, certificates or server list). Logins and
-saved sessions are stored apart from T5DR's (`online-t4.json`). T4 accounts are
-separate from T5DR accounts. Accounts need a secured server (TLS); guests also work
-over plain TCP.
+lobby, renamed for Tekken 4; no server code, certificates or server list). T4's own
+saved logins are stored apart from T5DR's (`online-t4.json`). Accounts need a secured
+server (TLS); guests also work over plain TCP.
+
+**One account for T5DR and T4.** A T5DR Online account logs into the T4 lobby with the
+same name and password once the T4 server shares T5DR's accounts (ranks stay per game).
+A player whose T5DR login is saved on this PC gets **Use your T5DR login** on the T4
+login screen: one press, no password. The launcher offers a saved T5DR login only to a
+T4 server that the local server list marks with `"shared_login": true` (same host as
+the T5DR server; a string names the T5DR host instead) and that uses TLS (`"tls": "pin"`
+with a fingerprint, or `"ca"`); never to a typed address, `OPENRECOMP_T4_SERVER` or a
+server's own claim, and never a plain-TCP T5DR login. It is read from the T5DR install's
+settings when used, never copied into T4's file. If the T4 server refuses it, the
+launcher says so, keeps it untouched for T5DR, and does not offer it again until restart.
 
 What the client expects from the server: a T4 lobby (welcome `"game": "t4"`, UDP magic
 `T4LB`, relayed game packets `T4NP`), TCP and UDP 7791 plus UDP 7792 for the NAT probe

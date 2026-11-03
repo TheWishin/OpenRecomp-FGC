@@ -1080,5 +1080,8 @@
     "t4.direct_mode": "IP direto / VPN",
     "t4.direct_mode_hint": "Volta para Hospedar / Entrar por endereço IP ou VPN, sem servidor de saguão.",
     "t4.lobby_no_server": "Ainda não há nenhum servidor de saguão de T4. Digite em Endereço do saguão o endereço que você recebeu do organizador do servidor, ou use IP direto / VPN.",
-    "t4.mode_busy": "Primeiro termine ou cancele a verificação, a partida ou o login em andamento."
+    "t4.mode_busy": "Primeiro termine ou cancele a verificação, a partida ou o login em andamento.",
+    "t4.saved_shared": "Usar seu login do T5DR",
+    "t4.saved_shared_hint": "Sua conta do T5DR Online está salva neste PC. O T4 usa a mesma conta: um toque faz o login, sem digitar a senha.",
+    "t4.saved_shared_refused": "Este servidor de T4 não aceitou seu login salvo do T5DR. Digite o nome da conta e a senha e escolha Entrar na conta."
 }

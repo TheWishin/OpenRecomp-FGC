@@ -537,27 +537,86 @@ class T4Online(T4Direct, Online):
         # Never T5DR's servers.json in the launcher's home folder.
         return os.path.join(user_dir(), "t4-online")
 
+    def _t4_listed_entries(self):
+        """Entries of the local T4 server lists (the launcher's vendor folder, then the player's), by name."""
+        entries = {}
+        for path in (os.path.join(VENDOR, "servers.json"), os.path.join(self._online_servers_dir(), "servers.json")):
+            try:
+                with open(path, encoding="utf-8") as stream:
+                    doc = json.load(stream)
+            except (OSError, ValueError):
+                continue
+            servers = doc.get("servers") if isinstance(doc, dict) and doc.get("format") == SERVERS_FORMAT else None
+            for entry in servers if isinstance(servers, list) else []:
+                if isinstance(entry, dict) and str(entry.get("host") or "").strip():
+                    name = str(entry.get("name") or entry.get("host")).strip()[:64]
+                    entries.pop(name, None)
+                    entries[name] = entry
+        return entries
+
     def _online_default_server(self):
         """OPENRECOMP_T4_SERVER, the launcher config's t4_lobby_server, or a T4 servers.json entry; never built in."""
         configured = os.environ.get(SERVER_ENV, "").strip() or str(self.config.get("t4_lobby_server") or "").strip()
         if configured:
             return configured[:256]
         if not hasattr(self, "_t4_listed_server"):
-            self._t4_listed_server = ""
-            for path in (os.path.join(VENDOR, "servers.json"), os.path.join(self._online_servers_dir(), "servers.json")):
-                try:
-                    with open(path, encoding="utf-8") as stream:
-                        doc = json.load(stream)
-                except (OSError, ValueError):
-                    continue
-                servers = doc.get("servers") if isinstance(doc, dict) and doc.get("format") == SERVERS_FORMAT else None
-                listed = [entry for entry in servers if isinstance(entry, dict) and str(entry.get("host") or "").strip()
-                          ] if isinstance(servers, list) else []
-                chosen = next((entry for entry in listed if entry.get("default") is True), listed[0] if listed else None)
-                if chosen:
-                    # A listed name resolves through the same servers.json files when the client connects.
-                    self._t4_listed_server = str(chosen.get("name") or chosen.get("host")).strip()[:64]
+            listed = self._t4_listed_entries()
+            # A listed name resolves through the same servers.json files when the client connects.
+            self._t4_listed_server = next((name for name, entry in listed.items() if entry.get("default") is True),
+                                          next(iter(listed), ""))
         return self._t4_listed_server
+
+    def _t4_shared_host(self):
+        """The host whose T5DR remembered login may log in here, or "".
+
+        Only a locally listed T4 server marked "shared_login" (the operator's approval, never the server's own
+        claim), selected by its name, with TLS (a pinned certificate or a CA): a typed address never qualifies.
+        "shared_login": true shares with T5DR logins of the same host; a string names that host."""
+        entry = self._t4_listed_entries().get(self._online_fields["online_server"].strip())
+        if not entry or not entry.get("shared_login"):
+            return ""
+        tls = entry.get("tls", "ca")
+        if tls not in ("ca", "pin") or (tls == "pin" and not str(entry.get("fingerprint") or "").strip()):
+            return ""
+        host = entry["shared_login"] if isinstance(entry["shared_login"], str) else entry.get("host")
+        return str(host or "").strip().lower()
+
+    def _t4_shared_session(self, fresh=False):
+        """The newest T5DR remembered login for the approved host, from the T5DR install this launcher knows."""
+        key = (self._online_fields["online_server"].strip(), len(getattr(self, "_t4_shared_rejected", ())))
+        cached = getattr(self, "_t4_shared_cache", None)
+        if not fresh and cached and cached[0] == key and time.monotonic() - cached[1] < 2.0:
+            return cached[2]
+        found = self._t4_shared_lookup()
+        self._t4_shared_cache = (key, time.monotonic(), found)
+        return found
+
+    def _t4_shared_lookup(self):
+        host = self._t4_shared_host()
+        if not host:
+            return None
+        rejected = getattr(self, "_t4_shared_rejected", set())
+        found = []
+        for peer in getattr(self, "account_peers", ()) or ():
+            try:
+                sessions = peer.online_account_sessions()
+            except Exception:  # noqa: BLE001 -- another game's unreadable settings never block this login
+                continue
+            for session in sessions if isinstance(sessions, list) else []:
+                if (isinstance(session, dict) and session.get("host") == host and session.get("token")
+                        and session["token"] not in rejected):
+                    found.append(session)
+        if not found:
+            return None
+        best = max(found, key=lambda session: session.get("saved") or 0)
+        return dict(name=str(best.get("name") or "")[:64], token=best["token"], shared=True)
+
+    def _online_saved(self):
+        self._online_init()
+        own = super()._online_saved()
+        if own is not None:
+            return own
+        return self._t4_shared_session()
 
     def _online_init(self):
         if hasattr(self, "_online_fields"):
@@ -584,12 +643,28 @@ class T4Online(T4Direct, Online):
         if not exe:
             raise RuntimeError("@online.build_required")
         try:
-            return api["build"].from_out_dir(os.path.dirname(exe), "dev")
+            return api["build"].from_out_dir(os.path.dirname(exe), self._t4_release())
         except (OSError, ValueError):
             raise RuntimeError("@online.build_required") from None
 
+    def _t4_release(self):
+        """The T4 release's version (release.json), for the server's update notice; "dev" for a source build."""
+        try:
+            with open(os.path.join(self.root, "release.json"), encoding="utf-8") as stream:
+                version = json.load(stream).get("version")
+        except (OSError, ValueError, AttributeError, TypeError):
+            return "dev"
+        return version[:40] if isinstance(version, str) and re.fullmatch(r"[0-9A-Za-z.+-]{1,40}", version) else "dev"
+
     def _online_player_rank(self, rating):
         return t4_rank_name(rating)
+
+    def _online_player(self, player):
+        out = super()._online_player(player)
+        # The server sends the developer badge only for a marked account; a client cannot set it.
+        if out and player.get("badge") == "dev":
+            out["badge"] = "dev"
+        return out
 
     def online_state(self):
         if self.online_direct_ip:
@@ -599,6 +674,9 @@ class T4Online(T4Direct, Online):
         if state["phase"] == "offline" and state["message"] == "@online.offline":
             state["message"] = "@t4.online_setup_hint" if server else "@t4.lobby_no_server"
         state["capabilities"].update(t4_lobby=True, rooms=False, direct_available=True, server_set=server)
+        saved = self._online_saved() if state.get("saved_available") else None
+        # One account for T5DR and T4: a T5DR remembered login offered here is named as such.
+        state["saved_shared"] = bool(saved and saved.get("shared"))
         state["rank"] = t4_rank_name(getattr(self, "_online_rating", None)) if state["name"] else ""
         return state
 
@@ -833,6 +911,9 @@ class T4Online(T4Direct, Online):
         if action == "search_ranked":
             self._online_message = "@online.ranked_unavailable"
             return
+        if action == "login_saved" and self._online_client is None and not self._online_busy:
+            saved = self._online_saved()
+            self._t4_shared_attempt = saved["token"] if saved and saved.get("shared") else None
         client = self._online_client
         phase = self._online_phase
         if action == "start_match" and phase == "matched" and client and not self._online_busy:
@@ -871,6 +952,15 @@ class T4Online(T4Direct, Online):
             self._online_phase, self._online_message = "logged_in", "@online.logged_in"
         else:
             super().online_action(action)
+
+    def _online_error(self, error, saved=False):
+        attempt = getattr(self, "_t4_shared_attempt", None)
+        if saved and attempt and getattr(error, "code", "") == "auth_failed":
+            # Never deleted from T5DR's settings; only not offered again in this session.
+            self._t4_shared_rejected = getattr(self, "_t4_shared_rejected", set()) | {attempt}
+            self._t4_shared_attempt = None
+            return "@t4.saved_shared_refused"
+        return super()._online_error(error, saved)
 
     def _online_completion(self, action, value, error):
         if action.startswith("login_") and not error:

@@ -1080,5 +1080,8 @@
     "t4.direct_mode": "IP directe / VPN",
     "t4.direct_mode_hint": "Retour à Héberger / Rejoindre par adresse IP ou VPN, sans serveur de salon.",
     "t4.lobby_no_server": "Aucun serveur de salon T4 n’est encore configuré. Saisissez dans Adresse du salon l’adresse reçue de l’organisateur du serveur, ou utilisez l’IP directe / VPN.",
-    "t4.mode_busy": "Terminez ou annulez d’abord la vérification, le match ou la connexion en cours."
+    "t4.mode_busy": "Terminez ou annulez d’abord la vérification, le match ou la connexion en cours.",
+    "t4.saved_shared": "Utiliser votre connexion T5DR",
+    "t4.saved_shared_hint": "Votre compte T5DR Online est enregistré sur ce PC. T4 utilise le même compte : une pression vous connecte, sans saisir le mot de passe.",
+    "t4.saved_shared_refused": "Ce serveur T4 n’a pas accepté votre connexion T5DR enregistrée. Saisissez le nom du compte et le mot de passe, puis choisissez Se connecter à un compte."
 }

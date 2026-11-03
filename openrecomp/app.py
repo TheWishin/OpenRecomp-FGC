@@ -29,6 +29,9 @@ TICK_MS = 16
 def load_games(config):
     manifests, problems = mf.load_all()
     games = [Game(m, adapters.make(m, config)) for m in manifests]
+    for game in games:
+        # T4 Online may offer a T5DR remembered login (one account for both); each adapter decides what it reads.
+        game.a.account_peers = tuple(other.a for other in games if other is not game)
     problems += [g.a.problem for g in games if g.a.problem]
     return games, problems
 

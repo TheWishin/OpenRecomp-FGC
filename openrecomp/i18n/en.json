@@ -1080,5 +1080,8 @@
     "t4.direct_mode": "Direct IP / VPN",
     "t4.direct_mode_hint": "Back to Host / Join by IP address or VPN, without a lobby server.",
     "t4.lobby_no_server": "No T4 lobby server is set up yet. Enter the address you got from the server's organizer under Lobby address, or use Direct IP / VPN.",
-    "t4.mode_busy": "Finish or cancel the current check, match or login first."
+    "t4.mode_busy": "Finish or cancel the current check, match or login first.",
+    "t4.saved_shared": "Use your T5DR login",
+    "t4.saved_shared_hint": "Your T5DR Online account is saved on this PC. T4 uses the same account: one press logs you in, with no password to type.",
+    "t4.saved_shared_refused": "This T4 server did not accept your saved T5DR login. Enter your account name and password, then choose Log in to account."
 }
