@@ -104,6 +104,38 @@ class T5Match(Online):
             pass
         return options
 
+    def _online_new_client(self, server, cfg=None):
+        client, target = super()._online_new_client(server, cfg)
+        # As the native Online tab: this PC's speed goes with the login (the lobby warns about a slow PC and keeps
+        # one below its minimum out of ranked); the last online match's, else the newest game log's.
+        if hasattr(client, "perf_fps") and not client.perf_fps:
+            client.perf_fps = self._online_last_fps(self._online_config() if cfg is None else cfg)
+        return client, target
+
+    def _online_last_fps(self, cfg):
+        try:
+            fps = float(cfg.get("last_fps")) if isinstance(cfg, dict) and cfg.get("last_fps") else None
+        except (TypeError, ValueError):
+            fps = None
+        if fps is not None and 0 < fps < 1000:
+            return round(fps, 1)
+        try:
+            module = self._online_driver_module()
+            fps = module.fps_from_logs(os.path.join(self._online_out_dir(), "logs"))
+        except (ImportError, OSError, RuntimeError, AttributeError, ValueError, TypeError):
+            return None
+        return fps if type(fps) in (int, float) and 0 < fps < 1000 else None
+
+    def _online_remember_fps(self, driver):
+        fps = getattr(driver, "last_fps", None)
+        if type(fps) not in (int, float) or not 0 < fps < 1000 or fps == getattr(self, "_online_saved_fps", None):
+            return
+        self._online_saved_fps = fps
+        try:
+            self._online_write_preferences(dict(last_fps=fps))
+        except (OSError, ValueError, TypeError):
+            pass
+
     def _online_make_driver(self, client, generation):
         module = self._online_driver_module()
 
@@ -438,6 +470,7 @@ class T5Match(Online):
             driver, notes = value
             self._online_driver = driver
             self._online_driver_notes(notes)
+            self._online_remember_fps(driver)
             if (self._online_phase == "starting" and getattr(driver, "ticket", None) is not None
                     and getattr(driver.ticket, "match_id", None) == getattr(self, "_online_match_id", None)
                     and driver.game_running()):
