@@ -91,6 +91,23 @@ class Tree(unittest.TestCase):
         with mock.patch.object(t4_source.subprocess, "run", return_value=answer):
             self.assertEqual(core.verify_iso(str(iso)), (True, ""))
 
+    def test_a_built_pal_install_with_its_own_core_never_reaches_play(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from test_t4 import MANIFEST, FakeCore
+        from openrecomp.adapters.t4 import T4
+        self.write("tools/iso_extract.py", us_iso_tool(boot="SCES_508.78", sha1=PAL_SHA1))
+        core = FakeCore()                               # a native core: accepts its own build, knows no region
+        with mock.patch("openrecomp.adapters.t4.save_config"),                 mock.patch("openrecomp.adapters.t4.threading.Thread"),                 mock.patch("openrecomp.adapters.t4.LaunchGuard"),                 mock.patch("openrecomp.adapters.t4.game_process_running", return_value=False):
+            adapter = T4(MANIFEST, {}, str(self.root), core=core)
+            self.assertEqual(adapter.problems()[0], t4_region.NOT_US)
+            self.assertFalse(adapter.ready())
+            with self.assertRaisesRegex(RuntimeError, "t4.region.not_us"):
+                adapter.start()
+            self.assertEqual(core.started, [])          # GameRun never ran
+            self.write("tools/iso_extract.py", us_iso_tool())
+            self.assertEqual(adapter.problems(), [])
+
     def test_the_refusal_names_the_us_release_in_every_language(self):
         import json
         folder = Path(t4_region.__file__).resolve().parents[1] / "i18n"

@@ -118,6 +118,9 @@ class T4(T4Online, Adapter):
 
     def problems(self):
         problems = list(self.core.play_problems(self.s))
+        region = self.region_problem()
+        if region and region not in problems:
+            problems.insert(0, region)               # a native core accepts its own (PAL) build: Play is US only too
         if rebuild_required("t4", self.root):
             problems.insert(0, "@setup.build_again")     # updated from its release: the old build is the old code
         return problems
