@@ -1145,7 +1145,7 @@
     "setup.none_stable": "Aucune version n'est encore publiée. Les testeurs peuvent activer Versions de test dans l'accès rapide.",
     "setup.none_any": "Aucune version trouvée.",
     "setup.not_published": "{name} n'est pas encore publié : il n'y a rien à télécharger. Choisis le dossier du jeu {name} que tu as déjà.",
-    "setup.install_text": "{name} {version} (téléchargement de {mb} Mo) va dans :\n{folder}\nNécessaire avec la compilation : {need} Mo. Libre : {free} Mo.",
+    "setup.install_text": "{name} {version} (téléchargement de {mb} Mo) va dans :\n{folder}\nNécessaire avec la compilation : {need} Go. Libre : {free} Go.",
     "setup.test_version": "{text}\nCeci est une version de test.",
     "setup.problem": "{text}\n{problem}",
     "setup.other_folder": "Autre dossier",

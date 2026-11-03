@@ -1145,7 +1145,7 @@
     "setup.none_stable": "아직 공개된 버전이 없습니다. 테스터는 빠른 메뉴에서 테스트 버전을 켤 수 있습니다.",
     "setup.none_any": "릴리스를 찾지 못했습니다.",
     "setup.not_published": "{name}은(는) 아직 공개되지 않아 내려받을 것이 없습니다. 이미 가지고 있는 {name} 게임 폴더를 선택하세요.",
-    "setup.install_text": "{name} {version}(다운로드 {mb} MB) 설치 위치:\n{folder}\n빌드 포함 필요 용량: {need} MB. 여유 공간: {free} MB.",
+    "setup.install_text": "{name} {version}(다운로드 {mb} MB) 설치 위치:\n{folder}\n빌드 포함 필요 용량: {need} GB. 여유 공간: {free} GB.",
     "setup.test_version": "{text}\n테스트 버전입니다.",
     "setup.problem": "{text}\n{problem}",
     "setup.other_folder": "다른 폴더",

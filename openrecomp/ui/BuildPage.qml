@@ -193,7 +193,7 @@ Item {
                         x: 16; y: 12; width: parent.width - 32
                         Repeater {
                             model: (page.m.logLines || []).length
-                            Text { required property int index; width: logColumn.width; textFormat: Text.PlainText; text: (page.m.logLines || [])[index] || ""; elide: Text.ElideMiddle; color: page.root.muted; font.family: page.root.mono; font.pixelSize: 18 }
+                            Text { required property int index; width: logColumn.width; textFormat: Text.PlainText; text: (page.m.logLines || [])[index] || ""; elide: Text.ElideMiddle; color: page.root.muted; font.family: page.root.mono; font.pixelSize: 21 }
                         }
                     }
                 }

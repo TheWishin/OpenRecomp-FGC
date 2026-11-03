@@ -1145,7 +1145,7 @@
     "setup.none_stable": "Ainda não há versão publicada. Testadores podem ativar Versões de teste no acesso rápido.",
     "setup.none_any": "Nenhuma versão encontrada.",
     "setup.not_published": "{name} ainda não foi publicado, então não há nada para baixar. Escolha a pasta do jogo {name} que você já tem.",
-    "setup.install_text": "{name} {version} (download de {mb} MB) vai para:\n{folder}\nNecessário com a compilação: {need} MB. Livre: {free} MB.",
+    "setup.install_text": "{name} {version} (download de {mb} MB) vai para:\n{folder}\nNecessário com a compilação: {need} GB. Livre: {free} GB.",
     "setup.test_version": "{text}\nEsta é uma versão de teste.",
     "setup.problem": "{text}\n{problem}",
     "setup.other_folder": "Outra pasta",

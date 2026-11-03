@@ -229,7 +229,7 @@ class BuildPage:
                     button=dict(index=index, label=it.get("verb") or it.get("label", ""), focused=index == fi and index >= 0,
                                 disabled=bool(it.get("disabled")) or index < 0, blocked=bool(it.get("blocked")),
                                 g=self.glyph("confirm", index == fi)),
-                    canLog=bool(lines), logOpen=log_open and bool(lines), logLines=lines[-10:] if log_open else [])
+                    canLog=bool(lines), logOpen=log_open and bool(lines), logLines=lines[-8:] if log_open else [])
         if not g.a.found():
             installing = setup.get("phase") == "installing"
             main.update(kicker="@setup.kicker", lead="@setup.install_lead" if it.get("id") == "game_setup" else it.get("hint", ""),

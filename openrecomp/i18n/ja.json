@@ -1145,7 +1145,7 @@
     "setup.none_stable": "公開済みのバージョンはまだありません。テスターはクイックアクセスでテスト版をオンにできます。",
     "setup.none_any": "リリースが見つかりませんでした。",
     "setup.not_published": "{name} はまだ公開されていないため、ダウンロードできるものがありません。お持ちの {name} のゲームフォルダーを選んでください。",
-    "setup.install_text": "{name} {version}（ダウンロード {mb} MB）のインストール先:\n{folder}\nビルドを含めた必要容量: {need} MB。空き: {free} MB。",
+    "setup.install_text": "{name} {version}（ダウンロード {mb} MB）のインストール先:\n{folder}\nビルドを含めた必要容量: {need} GB。空き: {free} GB。",
     "setup.test_version": "{text}\nこれはテスト版です。",
     "setup.problem": "{text}\n{problem}",
     "setup.other_folder": "別のフォルダー",

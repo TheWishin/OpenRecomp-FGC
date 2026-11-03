@@ -217,7 +217,8 @@ class Sections:
                             hint="@t4.network.check", run=lambda: self._go(g, "online"),
                             detail=dict(kicker="@section.online", title="@t4.direct_title",
                                         lead="@t4.network.check", leadLines=6, rows=[])))
-        if not problem:
+        # "Rebuild everything" only once there is something to redo (QA: it showed before the first build).
+        if not problem and (g.a.ready() or state.get("failed") or state.get("result")):
             def rebuild():
                 self._ask("rebuild")
             out.append(dict(kind="heading", label="@from_scratch", mt=16, card="more"))

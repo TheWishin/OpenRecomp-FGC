@@ -1145,7 +1145,7 @@
     "setup.none_stable": "There is no released version yet. Testers can turn on Test versions in Quick access.",
     "setup.none_any": "No release was found.",
     "setup.not_published": "{name} is not published yet, so there is nothing to download. Choose the {name} game folder you already have.",
-    "setup.install_text": "{name} {version} ({mb} MB download) goes to:\n{folder}\nNeeded with the build: {need} MB. Free: {free} MB.",
+    "setup.install_text": "{name} {version} ({mb} MB download) goes to:\n{folder}\nNeeded with the build: {need} GB. Free: {free} GB.",
     "setup.test_version": "{text}\nThis is a test version.",
     "setup.problem": "{text}\n{problem}",
     "setup.other_folder": "Other folder",

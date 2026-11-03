@@ -259,7 +259,7 @@ class Cards(unittest.TestCase):
         nav.act("x", device="xbox")
         v = nav.view()
         self.assertTrue(v["build"]["main"]["logOpen"])
-        self.assertEqual(v["build"]["main"]["logLines"], lines[-10:])
+        self.assertEqual(v["build"]["main"]["logLines"], lines[-8:])
         self.assertIn("Hide log", [p["label"] for p in v["prompts"]])
         nav.act("x", device="xbox")
         self.assertFalse(nav.view()["build"]["main"]["logOpen"])
@@ -320,6 +320,23 @@ class Cards(unittest.TestCase):
                     text = flat(nav.view()["build"])
                     self.assertNotIn('"@', text)
                     self.assertNotIn("{", text.replace('{"', "").replace("{}", ""))
+
+    def test_rebuild_everything_only_once_there_was_a_build(self):
+        nav = page(Page())
+        self.assertNotIn("rebuild", [it.get("id") for it in nav.items()], "nothing to redo before the first build")
+        for adapter in (Page(ready=True), Page(state=dict(failed="build", result="@t4.no_build_output"))):
+            self.assertIn("rebuild", [it.get("id") for it in page(adapter).items()])
+
+    def test_install_dialog_names_space_in_gb(self):
+        nav = page(Page(found=False))
+        nav.setup_game = "t4"
+        nav.setup_space = dict(need=3_400_000_000, free=1_673_464_000_000, target="D:/Games/T4")
+        nav.setup_state = {"t4": dict(phase="ready", latest="v0.1.0", offer=dict(version="0.1.0", size=106_000_000))}
+        nav._ask("setup_install")
+        text = nav.view()["dialog"]["text"]
+        self.assertIn("3.4 GB", text)
+        self.assertIn("1673.5 GB", text)
+        self.assertNotIn("1673464", text)
 
     def test_mouse_reaches_every_card_action(self):
         adapter = Page(adapter="t5dr", checks=[], options=[dict(id="low_priority", label="@responsive",
