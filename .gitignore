@@ -17,3 +17,6 @@ shots/
 __pycache__/
 *.pyc
 dist/
+
+# test runs that forgot their own temp dir
+/tmp*/
