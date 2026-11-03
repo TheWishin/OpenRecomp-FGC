@@ -377,8 +377,8 @@ class Core(FakeCore):
 class Pipeline(unittest.TestCase):
     def setUp(self):
         self.enterContext(mock.patch.object(t4_module.T4, "refresh_prerequisites", return_value=True))
-        self.saved = []
-        self.enterContext(mock.patch.object(t4_module, "save_config", side_effect=lambda cfg: self.saved.append(json.loads(json.dumps(cfg)))))
+        # The adapter never writes config.json itself (the launcher does, on config_dirty).
+        self.enterContext(mock.patch.object(t4_module, "save_config", side_effect=AssertionError("adapter wrote the config")))
         self.config = {}
         self.adapter = T4(MANIFEST, self.config, "fake-root", core=Core())
         self.adapter.s["iso"] = "game.iso"
@@ -432,17 +432,19 @@ class Pipeline(unittest.TestCase):
     def test_restart_needed_is_remembered_and_continues_after_it(self):
         self.start_and_wait()
         self.run_pipeline([0, 0x8A150109], [dict(r, busy=False) for r in rows(("vs2022", "msvc"))])
-        state = self.adapter.build_state()          # saved on the window's thread
+        state = self.adapter.build_state()          # into the config on the window's thread
         self.assertEqual(state["result"], "@t4.tools.reboot")
-        self.assertIn("t4", self.saved[-1]["build_resume"])
-        again = T4(MANIFEST, self.saved[-1], "fake-root", core=Core())
+        self.assertTrue(self.adapter.config_dirty)
+        self.assertIn("t4", self.config["build_resume"])
+        again = T4(MANIFEST, json.loads(json.dumps(self.config)), "fake-root", core=Core())
         again._prerequisite_rows = [dict(r, busy=False) for r in rows()]
         self.assertTrue(again.build_resume_pending())
         again._verified_iso = None
         with mock.patch.object(again, "build_start") as start:
             again.build_resume()
         start.assert_called_once_with()
-        self.assertNotIn("build_resume", self.saved[-1], "the marker is gone once the build continues")
+        self.assertNotIn("build_resume", again.config, "the marker is gone once the build continues")
+        self.assertTrue(again.config_dirty)
 
     def test_an_old_resume_marker_is_ignored(self):
         old = T4(MANIFEST, dict(build_resume=dict(t4=int(time.time()) - 30 * 86400)), "fake-root", core=Core())
@@ -475,19 +477,36 @@ class Pipeline(unittest.TestCase):
 class IsoRemembered(unittest.TestCase):
     def test_a_verified_iso_stays_verified_after_a_restart(self):
         config = {}
-        with mock.patch.object(t4_module, "save_config"):
+        # 2026-11-04: a test's adapter wrote the player's real config.json. The adapter only marks it dirty now.
+        with mock.patch.object(t4_module, "save_config", side_effect=AssertionError("adapter wrote the config")), \
+                mock.patch("openrecomp.manifest.save_config", side_effect=AssertionError("adapter wrote the config")):
             adapter = T4(MANIFEST, config, "fake-root", core=Core())
             adapter.s["iso"] = __file__
             adapter.core.verify_iso = lambda path: (True, "")
             adapter.region_problem = lambda: ""
             adapter._check_iso(__file__)
             adapter.source_state()                   # the window's thread keeps it in the config
+            adapter.build_state()
+        self.assertTrue(adapter.config_dirty, "the launcher saves it")
         self.assertIn(os.path.normcase(os.path.abspath("fake-root")), config["t4_iso_verified"])
         again = T4(MANIFEST, config, "fake-root", core=Core())
         again.s["iso"] = __file__
         again._verified_iso = again._remembered_iso()
         again._prerequisite_rows = [dict(r, busy=False) for r in rows()]
         self.assertEqual(again.build_ready(), "")
+
+    def test_the_launcher_writes_what_an_adapter_marked(self):
+        from openrecomp.app import Backend
+        adapter = Page()
+        adapter.config_dirty = True
+        backend = SimpleNamespace(_was_running=False, window=None, _was_building=False, _was_sourcing=False,
+                                  _last_hero={}, nav=SimpleNamespace(games=[Game(adapter.m, adapter)]),
+                                  _save_config=mock.Mock())
+        Backend._slow_changes(backend, False)
+        backend._save_config.assert_called_once_with()
+        self.assertFalse(adapter.config_dirty)
+        Backend._slow_changes(backend, False)
+        backend._save_config.assert_called_once_with()
 
     def test_a_changed_iso_is_checked_again(self):
         stamp = [os.path.normcase(os.path.abspath(__file__)), 1, 2]

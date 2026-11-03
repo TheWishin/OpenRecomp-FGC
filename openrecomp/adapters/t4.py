@@ -607,7 +607,9 @@ class T4(T4Online, Adapter):
             self._resume_dirty = True
 
     def _save_pending(self):
-        """Config writes from workers are done here, on the window's thread (nav asks build_state there)."""
+        """What workers found goes into the launcher's config here, on the window's thread (nav asks build_state
+        there). The file itself is written by the launcher (config_dirty -> Backend), never by the adapter: an
+        adapter made in a test must not touch the player's real config.json."""
         if getattr(self, "_resume_dirty", False):
             self._resume_dirty = False
             if self._resume_save:
@@ -615,19 +617,13 @@ class T4(T4Online, Adapter):
             else:
                 self.config.pop("build_resume", None)
             self._resume_save = None
-            try:
-                save_config(self.config)
-            except (OSError, ValueError):
-                pass
+            self.config_dirty = True
         if getattr(self, "_iso_save_pending", None):
             key, stamp = self._iso_save_pending
             self._iso_save_pending = None
             saved = self.config.get("t4_iso_verified")
             self.config["t4_iso_verified"] = dict(saved if isinstance(saved, dict) else {}, **{key: stamp})
-            try:
-                save_config(self.config)
-            except (OSError, ValueError):
-                pass
+            self.config_dirty = True
 
     def build_resume_pending(self):
         """Windows was restarted to finish installing the build tools (within two weeks): continue the build."""

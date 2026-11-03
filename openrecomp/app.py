@@ -520,6 +520,9 @@ class Backend(QObject, GameSetupBackend):
             self._was_sourcing = sourcing
             changed = True
         for g in self.nav.games:
+            if getattr(g.a, "config_dirty", False):       # a verified ISO, a build to continue after a restart
+                g.a.config_dirty = False
+                self._save_config()
             # A short run, final build result or tool check can finish between polls.
             for method, cache_name in (("status", "_last_status"), ("build_state", "_last_build"),
                                        ("prerequisites", "_last_prerequisites"),
