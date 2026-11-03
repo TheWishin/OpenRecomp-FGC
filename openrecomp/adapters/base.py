@@ -229,11 +229,23 @@ class Adapter:
     def build_ready(self):
         return "@no_build_here"
 
+    def build_prepares(self):
+        """build_ready() answers that build_start() solves by itself first (T4: missing tools it installs)."""
+        return ()
+
+    def build_resume_pending(self):
+        """A build stopped for a Windows restart and should continue now (the launcher asks once per start)."""
+        return False
+
+    def build_resume(self):
+        pass
+
     def build_start(self, force=False):
         raise RuntimeError("@no_build")
 
     def build_state(self):
-        """dict(running, fraction, title, steps=[dict(k, v)], result, line)."""
+        """dict(running, fraction, title, steps=[dict(k, v)], result, line); optional: lines (the last output lines),
+        step_no ([n, total]), phase ("tools" / "build"), tools (dict(done, total)), failed ("tools" / "build")."""
         return dict(running=False, fraction=0.0, title="", steps=[], result="", line="")
 
     def build_cancel(self):

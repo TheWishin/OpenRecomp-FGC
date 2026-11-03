@@ -46,50 +46,45 @@ class BundleNavigation(unittest.TestCase):
         self.assertEqual(adapter.prerequisites(), [])
         self.assertIsNone(adapter.refresh_prerequisites())
 
-    def test_missing_tools_are_one_row_whose_dialog_copies_the_exact_commands(self):
+    def test_missing_tools_are_no_row_build_installs_them(self):
         adapter = SourceSetup()
         nav = self.nav_for(adapter, "build")
-        nav.copy_text = mock.Mock()
         ids = [row.get("id") for row in nav.items()]
-        self.assertEqual([i for i in ids if str(i).startswith("tool")], ["tools:install"])
-        self.choose(nav, "tools:install")
-        self.assertEqual((nav.overlay, nav.confirm_kind), ("dialog", "tools_install"))
-        nav.act("right", device="xbox")
-        nav.act("confirm", device="xbox")
-        nav.copy_text.assert_called_once_with(adapter.tool_rows[0]["command"])
-        self.assertEqual(adapter.calls, [])
+        self.assertEqual([i for i in ids if str(i).startswith("tool")], [], "the launcher installs them at Build")
+        self.choose(nav, "build")
+        self.assertEqual(adapter.calls, [("build", False)])
 
-    def test_mouse_reaches_the_same_install_row(self):
+    def test_mouse_reaches_help_after_a_failed_install(self):
         adapter = SourceSetup()
-        adapter.tool_rows[0]["command"] = "@on"
+        adapter.build_snapshot.update(failed="tools", result="@t4.tools.install_failed")
         nav = self.nav_for(adapter, "build")
         nav.device = "kb"
-        index = next(i for i, row in enumerate(nav.items()) if row.get("id") == "tools:install")
+        index = next(i for i, row in enumerate(nav.items()) if row.get("id") == "tools:help")
         nav.click_row(index)
-        self.assertEqual(nav.confirm_kind, "tools_install")
+        self.assertEqual(nav.confirm_kind, "tools_help")
         self.assertIn("Git", nav.view()["dialog"]["text"])
+        nav.act("right", device="kb")
+        nav.copy_text = mock.Mock()
+        nav.act("confirm", device="kb")
+        nav.copy_text.assert_called_once_with(adapter.tool_rows[0]["command"])
 
-    def test_install_row_disabled_during_build_and_hidden_while_checking(self):
+    def test_no_tool_rows_during_a_build_or_while_checking(self):
         adapter = SourceSetup()
         nav = self.nav_for(adapter, "build")
-        adapter.build_snapshot["running"] = True
-        row = next(row for row in nav.items() if row.get("id") == "tools:install")
-        self.assertTrue(row["disabled"])
-        self.assertIsNone(row["run"])
-        adapter.build_snapshot["running"] = False
+        adapter.build_snapshot.update(running=True, failed="tools")
+        self.assertFalse([row for row in nav.items() if str(row.get("id", "")).startswith("tools")])
+        adapter.build_snapshot.update(running=False, failed="")
         adapter.tool_rows[0].update(busy=True, command="")
-        rows = [row for row in nav.items() if str(row.get("id", "")).startswith("tools")]
-        self.assertEqual([(row["id"], row["disabled"]) for row in rows], [("tools:checking", True)])
+        self.assertFalse([row for row in nav.items() if str(row.get("id", "")).startswith("tools")])
 
-    def test_dry_install_does_not_touch_the_pc(self):
+    def test_dry_build_does_not_touch_the_pc(self):
         adapter = SourceSetup()
         adapter.install_prerequisites = mock.Mock(return_value=True)
         nav = self.nav_for(adapter, "build")
         nav.dry = True
-        self.choose(nav, "tools:install")
-        nav.exit_focus = 2
-        nav.act("confirm", device="xbox")
+        self.choose(nav, "build")
         adapter.install_prerequisites.assert_not_called()
+        self.assertEqual(adapter.calls, [])
 
     def test_built_source_has_controller_route_to_online(self):
         adapter = SourceSetup()

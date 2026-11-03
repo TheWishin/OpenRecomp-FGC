@@ -170,6 +170,8 @@ class Picker:
                 self._reload_source(game)
             elif message:
                 self.say(message)
+            else:
+                self.focus_next_build_step(game)
             state = game.a.source_state()
             if state.get("id") == target[7:] and (state.get("running") or state.get("result")):
                 self.source_checks[game.id] = game
@@ -192,8 +194,7 @@ class Picker:
             if state.get("result"):
                 self.say(state["result"], 12)
             if state.get("ok") and self.game is game and self.screen == "hub" and self.section() == "build" and not self.overlay:
-                items = self._items_build(game)
-                self.focus[gid + ":build"] = next((i for i, item in enumerate(items) if item.get("id") == "build"), 0)
+                self.focus_next_build_step(game)
         return changed
 
     def _reload_source(self, game):

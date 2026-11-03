@@ -199,11 +199,12 @@ def run_child():
         section("build")
         check(not any(str(row.get("id", "")).startswith(("tool:", "tool_copy:")) for row in nav.items()),
               "Build tools are listed one by one again")
-        focus("tools:install", activate=True)
-        check(nav.overlay == "dialog" and nav.confirm_kind == "tools_install", "Install missing tools did not ask first")
+        check(not any(str(row.get("id", "")).startswith("tools") for row in nav.items()),
+              "Missing build tools are a row again: Build installs them itself")
+        tools_card = next(card for card in backend.view["build"]["cards"] if card["id"] == "tools")
+        check(tools_card["status"] == "wait" and not tools_card["actions"], "The tools card must be one line")
+        check(backend.view["build"]["show"], "The Build page did not show its cards")
         screens.add("tools")
-        press("back")
-        check(nav.overlay is None and "tools" not in game.calls, "Cancelling the tools dialog did something")
         focus("iso")
         screens.add("iso")
         press("confirm")

@@ -111,6 +111,11 @@ class T4(T4Online, Adapter):
         self._art_tried = None
         self.art_note = ""
         self._tool_install = dict(running=False, done=0, total=0, current="", result="")
+        # Build pressed with tools missing: install them, check again, then build (one worker; see build_start).
+        self._pipeline = dict(running=False, cancel=False)
+        self.build_failed = ""                    # "tools" or "build": where the last attempt stopped
+        self._iso_save_pending = None             # (install key, [path, size, time]) to keep in the launcher config
+        self._verified_iso = self._remembered_iso()
         if getattr(core, "source_only", False):
             self.native_label = ""
             self._prerequisite_rows = [dict(id=key, label="@t4.tools." + key, value="@t4.tools.checking",
@@ -188,7 +193,7 @@ class T4(T4Online, Adapter):
 
     def start(self, extra_env=None):
         with self._play_lock:
-            if self._source_state["running"] or (self.build and self.build.running()):
+            if self._source_state["running"] or self._building():
                 raise RuntimeError("@t4.work_busy")
             if self._online_work_active() and not (extra_env or {}).get("TEKKEN4_NET"):
                 raise RuntimeError("@online.game_running")
@@ -451,7 +456,7 @@ class T4(T4Online, Adapter):
         from . import t4_prerequisites as tools
         plan = tools.install_plan(self._prerequisite_rows)
         if (not plan or self._tool_install["running"] or self._prerequisite_worker and self._prerequisite_worker.is_alive()
-                or self.running() or self.build and self.build.running()):
+                or self.running() or self._building()):
             return False
         self._tool_install = dict(running=True, done=0, total=len(plan), current=plan[0][0], result="")
 
@@ -487,7 +492,7 @@ class T4(T4Online, Adapter):
             return False
         if (self._tool_install["running"] or self._prerequisite_worker and self._prerequisite_worker.is_alive()
                 or self._source_state["running"] or self.running() or self._online_work_active()
-                or self.build and self.build.running()):
+                or self._building()):
             return False
         self._prerequisite_rows = [dict(row, value="@t4.tools.checking", ok=False, busy=True)
                                    for row in self._prerequisite_rows]
@@ -509,10 +514,145 @@ class T4(T4Online, Adapter):
             return False
         return True
 
+    # ---------------------------------------------------------------- Build = missing tools first, then the build
+    def _building(self):
+        return bool(self._pipeline["running"] or self.build and self.build.running())
+
+    def _tools_ok(self):
+        return bool(self._prerequisite_rows) and all(row.get("ok") is True for row in self._prerequisite_rows)
+
+    def build_prepares(self):
+        """Problems build_start solves by itself: missing build tools are installed first (winget), then it builds."""
+        return ("@t4.tools.required",) if getattr(self.core, "source_only", False) else ()
+
+    def _tools_then_build(self, force, run=None, check=None, wait=0.2):
+        """The worker behind Build when tools are missing: one installer after the other (the player sees only
+        "Installing build tools (x of y)"), the new PATH, a fresh check, then the build itself. A restart Windows
+        asks for is remembered: the launcher continues after it (build_resume_pending)."""
+        from . import t4_prerequisites as tools
+        check = check or tools.check_prerequisites
+        state = self._tool_install
+        try:
+            worker = self._prerequisite_worker
+            while worker is not None and worker.is_alive() and not self._pipeline["cancel"]:
+                worker.join(wait)                    # the check started with the launcher is still running
+            rows = [dict(row) for row in self._prerequisite_rows]
+            if not all(row.get("ok") is True for row in rows) and not tools.install_plan(rows):
+                rows = check()                       # an earlier check failed: ask again before installing
+            plan = tools.install_plan(rows) if not all(row.get("ok") is True for row in rows) else []
+            reboot = False
+            failed = []
+            for index, (label, command) in enumerate(plan):
+                if self._pipeline["cancel"]:
+                    break
+                state.update(running=True, done=index, total=len(plan), current=label, result="")
+                try:
+                    status = tools.install_status(command, **({"run": run} if run else {}))
+                except FileNotFoundError:
+                    self._tool_install = dict(running=False, done=index, total=len(plan), current="",
+                                              result="@t4.tools.no_winget")
+                    self._build_stopped("tools", "@t4.tools.no_winget")
+                    return
+                except Exception:  # noqa: BLE001 -- one failed installer must not strand Build in Installing
+                    status = "failed"
+                reboot = reboot or status == "reboot"
+                if status == "failed":
+                    failed.append(label)
+            if plan:
+                try:
+                    tools.refresh_path()
+                except Exception:  # noqa: BLE001 -- the re-check still runs with the old PATH
+                    pass
+                rows = check()
+            self._prerequisite_rows = [dict(row, busy=False) for row in rows]
+            self._tool_install = dict(running=False, done=len(plan), total=len(plan), current="",
+                                      result="@t4.tools.install_done" if plan else "")
+            if self._pipeline["cancel"]:
+                self._build_stopped("tools", "@t4.build_cancelled")
+                return
+            missing = [row for row in rows if row.get("ok") is not True]
+            if missing:
+                if reboot:
+                    self._remember_resume()
+                    self._build_stopped("tools", "@t4.tools.reboot")
+                elif not plan:
+                    self._build_stopped("tools", "@t4.tools.check_failed")
+                else:
+                    name = (failed or [missing[0]["label"]])[0]
+                    self._build_stopped("tools", self.message("t4.tools.not_installed", name=name))
+                return
+            self._forget_resume()
+            self._pipeline["running"] = False        # the build process takes over (_building() stays true)
+            self._start_process(force)
+        except Exception as error:  # noqa: BLE001 -- Build must end with a message, never stay "running"
+            self._tool_install = dict(self._tool_install, running=False)
+            self._build_stopped("build" if self.build else "tools",
+                                self.message("t4.build_start_failed", error=str(error) or error.__class__.__name__))
+        finally:
+            self._pipeline["running"] = False
+
+    def _build_stopped(self, phase, result):
+        self.build_failed = phase
+        self.last_result = result
+
+    def _remember_resume(self):
+        self._resume_save = dict(self.config.get("build_resume") or {}, t4=int(time.time()))
+        self._resume_dirty = True
+
+    def _forget_resume(self):
+        if "t4" in (self.config.get("build_resume") or {}) or getattr(self, "_resume_save", None):
+            saved = dict(self.config.get("build_resume") or {})
+            saved.pop("t4", None)
+            self._resume_save = saved
+            self._resume_dirty = True
+
+    def _save_pending(self):
+        """What workers found goes into the launcher's config here, on the window's thread (nav asks build_state
+        there). The file itself is written by the launcher (config_dirty -> Backend), never by the adapter: an
+        adapter made in a test must not touch the player's real config.json."""
+        if getattr(self, "_resume_dirty", False):
+            self._resume_dirty = False
+            if self._resume_save:
+                self.config["build_resume"] = self._resume_save
+            else:
+                self.config.pop("build_resume", None)
+            self._resume_save = None
+            self.config_dirty = True
+        if getattr(self, "_iso_save_pending", None):
+            key, stamp = self._iso_save_pending
+            self._iso_save_pending = None
+            saved = self.config.get("t4_iso_verified")
+            self.config["t4_iso_verified"] = dict(saved if isinstance(saved, dict) else {}, **{key: stamp})
+            self.config_dirty = True
+
+    def build_resume_pending(self):
+        """Windows was restarted to finish installing the build tools (within two weeks): continue the build."""
+        stamp = (self.config.get("build_resume") or {}).get("t4")
+        return (isinstance(stamp, int) and 0 <= time.time() - stamp < 14 * 86400 and not self._building()
+                and not any(row.get("busy") for row in self._prerequisite_rows))
+
+    def build_resume(self):
+        self._forget_resume()
+        self._save_pending()
+        self.build_start()
+
+    def _remembered_iso(self):
+        """An ISO this launcher verified before stays verified while it is the same file (path, size, time): a
+        restart (for example after installing the build tools) must not send the player back to choosing it."""
+        try:
+            iso = self.core.effective_iso(self.s) or ""
+        except Exception:  # noqa: BLE001 -- unknown = check again
+            return None
+        saved = (self.config.get("t4_iso_verified") or {}).get(os.path.normcase(os.path.abspath(self.root)))
+        stamp = self._iso_stamp(iso) if iso else None
+        if stamp is not None and isinstance(saved, list) and [stamp[0], stamp[1], stamp[2]] == saved:
+            return stamp
+        return None
+
     def set_source(self, sid, path):
         if self._source_state["running"]:
             return "@t4.installing" if self._source_state["id"] == "folder" else "@iso.checking"
-        if self._online_work_active() or self.running() or (self.build and self.build.running()):
+        if self._online_work_active() or self.running() or self._building():
             return "@t4.work_busy"
         if sid == "folder":
             self._source_state = dict(running=True, result="", id=sid, ok=False)
@@ -570,6 +710,7 @@ class T4(T4Online, Adapter):
                     self.core.save_settings(settings)
                     self.s["iso"] = path
                 self._verified_iso = before
+                self._iso_save_pending = (os.path.normcase(os.path.abspath(self.root)), list(before))
                 accepted = True
                 result = "@iso.confirmed"
         except Exception as error:  # noqa: BLE001 -- verifier or storage failures remain visible in Build
@@ -578,6 +719,7 @@ class T4(T4Online, Adapter):
         self._source_state = dict(running=False, result=result, id="iso", ok=accepted)
 
     def source_state(self):
+        self._save_pending()
         return dict(self._source_state)
 
     def build_ready(self):
@@ -590,18 +732,37 @@ class T4(T4Online, Adapter):
             return region
         if self._needs_toolchain():
             return "@t4.portable_required"
-        if (getattr(self.core, "source_only", False)
-                and (not self._prerequisite_rows or not all(row.get("ok") is True for row in self._prerequisite_rows))):
-            return "@t4.tools.required"
         iso = self.core.effective_iso(self.s)
-        return "" if iso and self._verified_iso == self._iso_stamp(iso) and self._verified_iso else "@iso.choose_first"
+        if not (iso and self._verified_iso == self._iso_stamp(iso) and self._verified_iso):
+            return "@iso.choose_first"
+        # Last on purpose: when only tools are missing, Build installs them first (build_prepares) and the ISO is
+        # already known to be right -- nobody waits half an hour for Visual Studio and then hears "choose your ISO".
+        if getattr(self.core, "source_only", False) and not self._tools_ok():
+            return "@t4.tools.required"
+        return ""
 
     def build_start(self, force=False):
-        if self._online_work_active() or self.running() or (self.build and self.build.running()):
+        if self._online_work_active() or self.running() or self._building():
             raise RuntimeError("@t4.work_busy")
         problem = self.build_ready()
-        if problem:
+        if problem and problem not in self.build_prepares():
             raise RuntimeError(problem)
+        self.last_result = ""
+        self.build_failed = ""
+        self.build_lines = []
+        if problem:
+            self._pipeline = dict(running=True, cancel=False)
+            self._tool_install = dict(running=True, done=0, total=0, current="", result="")
+            try:
+                threading.Thread(target=self._tools_then_build, args=(force,), daemon=True).start()
+            except Exception:
+                self._pipeline = dict(running=False, cancel=False)
+                self._tool_install = dict(running=False, done=0, total=0, current="", result="")
+                raise
+            return
+        self._start_process(force)
+
+    def _start_process(self, force=False):
         iso = self.core.effective_iso(self.s)
         cmd = self.core.build_command(iso)
         if force:
@@ -619,6 +780,7 @@ class T4(T4Online, Adapter):
             self.build = ProcessBuild(cmd, **kwargs)
         except Exception as error:
             self.build = None
+            self.build_failed = "build"
             self.last_result = self.message("t4.build_start_failed", error=str(error) or error.__class__.__name__)
             raise
         threading.Thread(target=self._build_end, args=(self.build,), daemon=True).start()
@@ -651,10 +813,15 @@ class T4(T4Online, Adapter):
             error = self.build_error or next((line for line in reversed(self.build_lines)
                                                if line.strip() and not line.lstrip().startswith(("Full log:", "---"))),
                                               "@t4.no_build_output")
+            self.build_failed = "build"
             self.last_result = self.message("t4.build_failed", name=self.build_step or "?", error=error)
 
     def build_state(self):
-        running = bool(self.build and self.build.running())
+        """Also: phase ("tools" while missing tools are installed, "build"), tools (done, total), lines (the last
+        output lines for the collapsible log) and failed ("tools"/"build": where the last attempt stopped)."""
+        self._save_pending()
+        tools_phase = self._pipeline["running"]
+        running = bool(tools_phase or self.build and self.build.running())
         steps = []
         for name, label in self.core.STEPS:
             if name in self.build_done:
@@ -668,11 +835,21 @@ class T4(T4Online, Adapter):
             steps.append(dict(k=label, v=value))
         n, total = self.build_step_no
         fraction = 1.0 if self.last_result == "@t4.build_finished" else (max(0, n - 1) / total) if total else 0.0
-        return dict(running=running, fraction=fraction, title=self.build_step,
-                    steps=steps, result=self.last_result, line=self.build_lines[-1] if self.build_lines else "")
+        install = self._tool_install
+        state = dict(running=running, fraction=0.0 if tools_phase else fraction,
+                     title="" if tools_phase else self.build_step,
+                     steps=steps, result=self.last_result, line=self.build_lines[-1] if self.build_lines else "",
+                     lines=list(self.build_lines[-14:]), phase="tools" if tools_phase else ("build" if running else ""),
+                     tools=dict(done=install.get("done", 0), total=install.get("total", 0)),
+                     failed=self.build_failed if not running else "")
+        if total and not tools_phase:
+            state["step_no"] = [n, total]
+        return state
 
     def build_cancel(self):
-        if self.build:
+        if self._pipeline["running"]:
+            self._pipeline["cancel"] = True          # stops after the tool being installed now (never mid-install)
+        elif self.build:
             self.build.cancel()
 
 

@@ -26,7 +26,7 @@ VIEW_FIELDS = {
     "screen", "overlay", "toast", "device", "trail", "social", "prevG", "nextG", "confirmInk",
     "shelf", "tabs", "rows", "detail", "hint", "prompts", "accent", "badge", "gameShort", "numeral",
     "topline", "hold", "more", "grid", "osk", "dialog", "picker", "drawer", "quickAccess", "recentSets",
-    "folder", "file", "pick", "mainLabel", "fighterTitle", "fighterMain", "fullscreen", "reducedMotion",
+    "folder", "file", "pick", "mainLabel", "fighterTitle", "fighterMain", "fullscreen", "reducedMotion", "build",
 }
 
 

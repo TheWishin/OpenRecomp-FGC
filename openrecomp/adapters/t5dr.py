@@ -644,6 +644,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         self.build_steps = {}
         self.build_step = ""
         self.build_fraction = 0.0
+        self.build_lines = []
         self.last_result = ""
         self.build = self.core.BuildRun(self.s["pkg"], self.s["rap"], self.s.out_dir, force=force, low_priority=bool(self.s["low_priority"]))
         own_python = os.path.join(self.root, "python", "python.exe")      # the build's tools run on the install's Python
@@ -665,12 +666,14 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                     self.build_steps[self.build_step] = "@osk.done"
                 self.build_step = value
                 self.build_steps[value] = "@running"
+                self.build_fraction = 0.0
             elif kind == "skip":
                 self.build_steps[value] = "@osk.done"
             elif kind == "sub":
                 self.build_fraction = float(value)
             elif kind == "line":
                 self.build_line = str(value)
+                self.build_lines = (getattr(self, "build_lines", []) + [self.build_line])[-14:]
             elif kind == "error":
                 self.last_result = str(value)
             elif kind == "end":
@@ -690,8 +693,17 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         names = list(self.core.STEP_TITLES)
         steps = [dict(k=self.core.STEP_TITLES[n], v=self.build_steps.get(n, "@pending")) for n in names]
         done = sum(1 for n in names if self.build_steps.get(n) == "@osk.done")
-        return dict(running=self.build is not None, fraction=done / len(names) if names else 0.0,
-                    title=self.core.STEP_TITLES.get(self.build_step, ""), steps=steps, result=self.last_result, line=self.build_line)
+        running = self.build is not None
+        # The step's own progress ("sub", 0..1) moves the bar between steps too: a long lift no longer looks stuck.
+        sub = min(1.0, max(0.0, self.build_fraction)) if running and self.build_steps.get(self.build_step) == "@running" else 0.0
+        state = dict(running=running, fraction=(done + sub) / len(names) if names else 0.0,
+                     title=self.core.STEP_TITLES.get(self.build_step, ""), steps=steps, result=self.last_result,
+                     line=self.build_line, lines=list(getattr(self, "build_lines", [])),
+                     phase="build" if running else "",
+                     failed="build" if not running and self.last_result and self.last_result not in ("@build_finished", "@cancelled") else "")
+        if running and self.build_step in names:
+            state["step_no"] = [names.index(self.build_step) + 1, len(names)]
+        return state
 
     def build_cancel(self):
         if self.build:

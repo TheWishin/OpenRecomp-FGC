@@ -27,6 +27,10 @@ class GameSetupNav:
     def _mb(self, n):
         return max(1, int(n or 0) // 1_000_000)
 
+    def _gb(self, n):
+        """Free space and the build's need read in GB ("1673464 MB" was hard to read): one decimal."""
+        return i18n.literal(str(round(max(0, int(n or 0)) / 1_000_000_000, 1)))
+
     # ------------------------------------------------------------------------------------------ rows
     def _setup_items(self, g, section):
         """Rows at the top of a game's Play / Online / Build section."""
@@ -247,7 +251,7 @@ class GameSetupNav:
             title = "@setup.install_t5dr" if gid == "t5dr" else "@setup.install_t4"
             text = i18n.message("setup.install_text", name=name, version=i18n.literal(offer.get("version", "")),
                                 mb=self._mb(offer.get("size")), folder=i18n.literal(space.get("target", "")),
-                                need=self._mb(space.get("need")), free=self._mb(space.get("free")))
+                                need=self._gb(space.get("need")), free=self._gb(space.get("free")))
             if offer.get("prerelease"):
                 text = i18n.message("setup.test_version", text=text)
             if space.get("problem"):

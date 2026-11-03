@@ -61,7 +61,15 @@ Column {
         }
     }
 
+    BuildPage {
+        objectName: "buildPage"
+        visible: !!(hub.v.build && hub.v.build.show)
+        width: 1920; height: parent.height - 84
+        root: hub.root
+    }
+
     Row {
+        visible: !(hub.v.build && hub.v.build.show)
         width: 1920; height: parent.height - 84
         // ---------------------------------------------------------------- the list
         Item {

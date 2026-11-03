@@ -31,24 +31,27 @@ ganze Zwei-PC-Ablauf mit beiden Spielen steht in [HAND_CHECK.md](HAND_CHECK.md).
    folgen. Fuer den Launcher ist keine separate Laufzeitinstallation oder
    Internetverbindung beim ersten Start erforderlich. Die Laufzeit liegt in
    `OpenRecomp-FGC/portable/`. Die folgenden Build-Werkzeuge fuer T4 werden
-   weiterhin separat geprueft und vom Spieler installiert.
-2. T4 waehlen, dann **Build**. Der Launcher prueft Python, Git, CMake, Ninja,
-   VS 2022 Build Tools und die MSVC-Version selbst im Hintergrund. Sind alle da,
-   steht nach **Build** nur eine Zeile **Build-Werkzeuge bereit** (die Versionen
-   stehen in ihren Details). Fehlt etwas, steht vor **Build** eine Zeile
-   **Fehlende Werkzeuge installieren**: sie zeigt zuerst, was installiert wird,
-   und installiert es nach **Installieren** mit **winget** (Windows fragt eventuell
-   nach Erlaubnis; VS 2022 mit C++-Buildwerkzeugen und Windows SDK dauert eine
-   Weile). Danach prueft der Launcher die Werkzeuge erneut und uebernimmt den
-   neuen PATH ohne Neustart. Wer lieber selbst installiert: im selben Dialog die
-   genauen winget-Befehle mit **Befehle kopieren** uebernehmen (Kopieren statt
-   Installieren) und in einem Terminal ausfuehren. Fehlt danach noch etwas, den
-   Launcher vollstaendig schliessen und neu starten, damit er den neuen PATH erbt;
-   danach die Werkzeuge erneut pruefen (Zeile **Build-Werkzeuge** bestaetigen).
+   vom Launcher selbst geprueft und bei Bedarf installiert (Schritt 2).
+2. T4 waehlen, dann **Build**. Die Seite zeigt Karten: deine Spieldateien, die
+   Build-Werkzeuge und rechts einen grossen Knopf **Bauen**. Der Launcher prueft
+   Python, Git, CMake, Ninja und VS 2022 Build Tools (MSVC) automatisch im
+   Hintergrund; eine Liste wird nicht gezeigt, nur eine Zeile (**Bereit** oder
+   **Automatisch**). Fehlt etwas, installiert **Bauen** es zuerst selbst mit
+   **winget** (eine Zeile **Installiere Build-Werkzeuge (x von y) ...**;
+   Windows fragt eventuell nach Erlaubnis; VS 2022 mit C++-Buildwerkzeugen und
+   Windows SDK dauert eine Weile), uebernimmt den neuen PATH ohne Neustart und baut
+   danach weiter. Verlangt Windows einen Neustart, merkt sich der Launcher das und
+   baut nach dem Neustart von selbst weiter. Klappt eine Installation nicht, zeigt
+   die Karte den Fehler mit **Erneut versuchen** und **Hilfe**; in der Hilfe stehen
+   die genauen winget-Befehle zum Kopieren (**Befehle kopieren**), wer lieber selbst
+   im Terminal installiert. Fehlt danach noch etwas, den Launcher vollstaendig
+   schliessen und neu starten, damit er den neuen PATH erbt; dann die Werkzeuge
+   erneut pruefen lassen (einfach wieder **Bauen**).
 3. **Game ISO** waehlen und die eigene USA **SLUS-20328 v1.00** auswaehlen.
    Die Pruefung laeuft im Hintergrund; eine falsche oder veraenderte ISO muss
    verstaendlich abgelehnt werden. Keine ISO vom anderen Spieler anfordern.
-4. **Build game** waehlen. Fortschritt, Fehler und Abbruch bleiben im Launcher.
+4. **Bauen** waehlen. Fortschritt (Schrittname, bisherige Zeit, etwa verbleibende Zeit),
+   Fehler und Abbruch bleiben im Launcher; **X** zeigt das Build-Log.
    Der erste Build laedt seine Quelltext-Abhaengigkeiten und kann lange dauern.
    Erst nach erfolgreichem Build fortfahren. Beide vergleichen vor dem Spiel
    die sichtbare **Build-ID** und die genaue **Compiler/MSVC-Version**;

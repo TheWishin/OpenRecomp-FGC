@@ -127,9 +127,13 @@ def check_prerequisites():
     return rows
 
 
-# winget would otherwise stop and ask on a console nobody sees; the player agreed in the launcher's dialog first.
-WINGET_FLAGS = ["--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"]
+# winget would otherwise stop and ask on a console nobody sees; the player agreed by pressing Build (the Build card
+# says first that missing tools are installed and their licence terms apply). --silent where the installer has it.
+WINGET_FLAGS = ["--silent", "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"]
 WINGET_ALREADY = (0x8A15002B, 0x8A150061)       # no newer version / package already installed: not a failure
+# Installed, but Windows must restart first (winget's REBOOT_REQUIRED_TO_FINISH / _TO_INSTALL, an installer's 3010
+# or 1641 passed through): the build continues after the restart (T4.build_resume_pending).
+WINGET_REBOOT = (0x8A150109, 0x8A15010A, 3010, 1641)
 
 
 def install_plan(rows):
@@ -154,11 +158,20 @@ def winget_args(command):
     return [winget] + args[1:] + WINGET_FLAGS
 
 
-def run_install(command, run=subprocess.run):
-    """One winget install, hidden, no timeout (Visual Studio takes long). -> True when installed or already there."""
+def install_status(command, run=subprocess.run):
+    """One winget install, hidden, no timeout (Visual Studio takes long). -> "ok" (installed or already there),
+    "reboot" (installed, Windows must restart first) or "failed"."""
     result = run(winget_args(command), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                  stderr=subprocess.DEVNULL, creationflags=NO_WINDOW, check=False)
-    return result.returncode == 0 or (result.returncode & 0xFFFFFFFF) in WINGET_ALREADY
+    code = result.returncode & 0xFFFFFFFF
+    if code == 0 or code in WINGET_ALREADY:
+        return "ok"
+    return "reboot" if code in WINGET_REBOOT else "failed"
+
+
+def run_install(command, run=subprocess.run):
+    """-> True when installed or already there (a restart still pending counts as installed)."""
+    return install_status(command, run) != "failed"
 
 
 def refresh_path(environ=None, read=None):

@@ -67,6 +67,8 @@ class Hub:
         elif a == "x":
             if it.get("replay") is not None:
                 self.show_results = not self.show_results
+            elif self.section() == "build":
+                self.toggle_build_log()
         elif a in ("left", "right") and it.get("kind") == "cycler":
             self._cycle(it, 1 if a == "right" else -1)
         elif a == "confirm":
@@ -145,6 +147,8 @@ class Hub:
             prompts.append(self.prompt("play", "@play"))
         prompts += [self.prompt("social", "@quick_access"), self.prompt("switchGame", "@switch_game")]
         v["prompts"] = prompts
+        if sec == "build":
+            self._view_build_page(v, g, items, fi)
 
     def click_row(self, index):
         if self.overlay:
