@@ -23,6 +23,26 @@ START_HIER = (
     "Alles in einen neuen Ordner entpacken.\n"
     "OpenRecomp-FGC\\run.cmd doppelklicken.\n"
     "Auf dem Bildschirm Tekken 4 wählen und den Schritten folgen.\n"
+    "Vorher installieren: Visual Studio 2022 Build Tools (Desktopentwicklung mit C++), Git, CMake, Ninja.\n"
+    "Eigene Tekken-4-USA-ISO (SLUS-20328) nötig. Online: direkte IP oder VPN, UDP-Port 7400 beim Host.\n"
+).encode("utf-8")
+START_HERE = (
+    "Tekken 4 beta for PC (OpenRecomp-FGC launcher)\n"
+    "\n"
+    "You need your own Tekken 4 USA v1.00 ISO (SLUS-20328). No game data is included;\n"
+    "the game is built on your PC from your ISO.\n"
+    "\n"
+    "Install first (Windows 10/11 x64): Visual Studio 2022 Build Tools with\n"
+    "\"Desktop development with C++\" (MSVC v143 and a Windows SDK), Git, CMake 3.20+ and Ninja,\n"
+    "with git, cmake and ninja on PATH. Python is included.\n"
+    "\n"
+    "1. Unpack everything into a new, empty folder.\n"
+    "2. Double-click OpenRecomp-FGC\\run.cmd.\n"
+    "3. Choose Tekken 4, pick your ISO and follow the steps (the first build takes a few minutes).\n"
+    "\n"
+    "Online: direct IP or a VPN such as Tailscale. The host needs UDP port 7400 reachable.\n"
+    "There is no lobby or matchmaking in this beta. Both players need the same beta version.\n"
+    "German: START_HIER.txt\n"
 ).encode("utf-8")
 # These are the launcher's own branding, deliberately omitted for this
 # image-free source bundle. Unexpected files still fail the launcher scan.
@@ -201,7 +221,7 @@ def scan_bundle_entries(entries, runtime_cache=None):
             if not isinstance(manifest, dict) or manifest.get("locations"):
                 raise ValueError("Shipped game manifests must have no fixed install locations")
         checked.append((name, data))
-    required = {"START_HIER.txt", LAUNCHER_FOLDER + "/run.cmd", LAUNCHER_FOLDER + "/requirements.txt",
+    required = {"START_HERE.txt", "START_HIER.txt", LAUNCHER_FOLDER + "/run.cmd", LAUNCHER_FOLDER + "/requirements.txt",
                 LAUNCHER_FOLDER + "/LICENSE", T4_FOLDER + "/LICENSE"}
     if not required <= {name for name, _ in checked}:
         raise ValueError("Bundle must retain start files and both licenses")
@@ -233,7 +253,7 @@ def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None):
     if not originals:
         originals = list(t4_entries)
     t4_entries = clean_t4_entries(t4_entries)
-    entries = [("START_HIER.txt", START_HIER)]
+    entries = [("START_HERE.txt", START_HERE), ("START_HIER.txt", START_HIER)]
     for name, path in sorted(selected.items()):
         no_links(path)
         if name not in OMITTED_BRANDING:
