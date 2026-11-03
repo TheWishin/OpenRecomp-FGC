@@ -12,6 +12,19 @@ from unittest import mock
 
 from openrecomp.adapters.base import Adapter
 from openrecomp.adapters.t4_online import DIRECT_CHECKS, DirectCheckError, PREFLIGHT_SCRIPT, T4Online
+from openrecomp.adapters import t4_online
+
+_NO_SHIPPED_SERVER = mock.patch.object(t4_online, "SHIPPED_SERVERS", os.path.join(os.devnull, "servers.json"))
+
+
+def setUpModule():
+    # Direct IP is the start screen only while no T4 server is known: never depend on what the
+    # shipped server list (a placeholder until the beta server is filled in) holds.
+    _NO_SHIPPED_SERVER.start()
+
+
+def tearDownModule():
+    _NO_SHIPPED_SERVER.stop()
 
 
 class Subject(T4Online, Adapter):

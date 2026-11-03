@@ -9,7 +9,7 @@ from unittest import mock
 import zipfile
 
 from openrecomp.adapters.t4_online import DirectCheckError
-from test_t4_beta_network import Subject
+from test_t4_beta_network import Subject, setUpModule, tearDownModule  # noqa: F401 -- no shipped server here
 
 
 class BundleOnlineTests(unittest.TestCase):

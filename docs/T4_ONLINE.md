@@ -14,14 +14,24 @@ launcher remains available. Its separate checks are in [T5DR_ONLINE.md](T5DR_ONL
 
 ## T4 lobby
 
-The launcher has **no built-in T4 server**. It uses the first of:
+The launcher ships one server entry, **T4 Online** (`openrecomp\vendor\servers.json`):
+the beta lobby on the central server (TLS, certificate pinned, UDP 7791 + NAT probe 7792,
+casual only, T5DR Online's accounts). As a placeholder (no host, no fingerprint) the
+launcher has no T4 server. The maintainer sets or clears it with the address and the
+certificate fingerprint the server install printed:
+
+    python tools\set_t4_server.py --host <server address> --fingerprint <SHA-256>
+    python tools\set_t4_server.py --clear      (back to the placeholder)
+
+The entry is TLS with the certificate pinned, `"shared_login": true` (the T4 server
+shares T5DR Online's accounts) and the default. The launcher uses the first of:
 
 1. the environment variable `OPENRECOMP_T4_SERVER` (for example `host:7791`,
    `host:7791#<certificate SHA-256>` or `tls://host:7791`);
 2. `t4_lobby_server` in the launcher's `config.json`;
-3. the default entry of a server list: `servers.json` (format `t5dr-servers/1`) in
-   the launcher's `openrecomp\vendor\` folder (a test bundle may add one) or in the
-   player's `%LOCALAPPDATA%\OpenRecomp\t4-online\` folder.
+3. the default entry of the player's own server list `servers.json` (format
+   `t5dr-servers/1`) in `%LOCALAPPDATA%\OpenRecomp\t4-online\`, else the shipped
+   **T4 Online** once it is filled in.
 
 Without any of these, Online opens on Direct IP / VPN; **T4 Online lobby** switches to
 the lobby screen, which says that no server is set up and lets the player type the
@@ -76,7 +86,10 @@ spectating, tournaments, replays, in-game result files and direct entry into a f
 and two launchers offscreen, driven by pad presses: login, player list, chat both ways,
 a declined challenge, a quick match and an accepted challenge with results. `--stub`
 uses the T4 lobby's stand-in game; `--real` starts the real T4 build twice (a heavy run).
-Its docstring names the three one-PC allowances it needs.
+Its docstring names the three one-PC allowances it needs. `--accounts --t5dr-lobby
+<T5DR lobby folder>` adds T5DR's own lobby server and a T4 lobby that shares its
+accounts (TLS, pinned): both players are registered in T5DR first, Alice logs into T4
+with her T5DR name and password, Bob with one press on **Use your T5DR login**.
 
 ## Internet vorbereiten: auf beiden PCs
 

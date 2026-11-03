@@ -24,7 +24,8 @@ START_HIER = (
     "OpenRecomp-FGC\\run.cmd doppelklicken.\n"
     "Auf dem Bildschirm Tekken 4 wählen und den Schritten folgen.\n"
     "Vorher installieren: Visual Studio 2022 Build Tools (Desktopentwicklung mit C++), Git, CMake, Ninja.\n"
-    "Eigene Tekken-4-USA-ISO (SLUS-20328) nötig. Online: T4-Lobby (Adresse vom Server-Betreiber) "
+    "Eigene Tekken-4-USA-ISO (SLUS-20328) nötig. Online: T4-Lobby (schon eingestellt; Gast oder dein "
+    "T5DR-Online-Konto) "
     "oder direkte IP/VPN, UDP-Port 7400 beim Host.\n"
 ).encode("utf-8")
 START_HERE = (
@@ -41,8 +42,8 @@ START_HERE = (
     "2. Double-click OpenRecomp-FGC\\run.cmd.\n"
     "3. Choose Tekken 4, pick your ISO and follow the steps (the first build takes a few minutes).\n"
     "\n"
-    "Online: a T4 lobby server (guest or account, player list, chat, quick match, challenges;\n"
-    "ask its organizer for the address), or direct IP / a VPN such as Tailscale, where the host\n"
+    "Online: the T4 Online lobby, already set up (guest or your T5DR Online account, player list,\n"
+    "chat, quick match, challenges), or direct IP / a VPN such as Tailscale, where the host\n"
     "needs UDP port 7400 reachable. No ranked. Both players need the same beta version.\n"
     "German: START_HIER.txt\n"
 ).encode("utf-8")

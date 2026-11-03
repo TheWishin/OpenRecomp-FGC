@@ -28,9 +28,10 @@ clean-PC checks below; a Sunday release is a target, not a completed acceptance 
 T4 Online offers Host or Join, an on-screen keyboard for the host's IP address,
 checks for matching build, compiler/MSVC, ISO hash and two-way UDP reachability,
 then a separate Start game action. Collect logs saves local diagnostic zip files.
-With a T4 lobby server configured, T4 Online opens on the lobby instead: guest or
-account login, the player list, lobby chat, quick match and challenges, then the same
-explicit Start game and a result report. The launcher has no built-in server address.
+T4 Online opens on the lobby (the launcher ships the **T4 Online** server): guest
+login, or your T5DR Online account (one account for both games, ranks per game), the
+player list, lobby chat, quick match and challenges, then the same explicit Start game
+and a result report. Direct IP / VPN stays one press away.
 See [T4 Online and release checks](docs/T4_ONLINE.md). T4 has no ranked, rooms,
 friends, private chat or spectating in this beta. T5DR's Online section uses its installed
 lobby client, with controller screens described in [T5DR_ONLINE.md](docs/T5DR_ONLINE.md).

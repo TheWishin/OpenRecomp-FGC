@@ -34,10 +34,24 @@ class VendoredClient(unittest.TestCase):
         self.assertFalse(VENDOR.joinpath("server").exists())
         for forbidden in ("cli.py", "store.py", "rating.py", "relayctl.py", "servers.json", "admin.py"):
             self.assertNotIn(forbidden, names)
-        self.assertFalse((ROOT / "openrecomp" / "vendor" / "servers.json").exists(),
-                         "a server list belongs to a bundle, never to the repository")
         shipped = set(load_package_release().SOURCE_GROUPS["openrecomp/vendor/t4lobby"])
         self.assertEqual(names, shipped)
+
+    def test_the_shipped_server_list_is_one_t4_online_entry(self):
+        """Placeholder (no server) until tools/set_t4_server.py fills in the deployed beta server."""
+        path = ROOT / "openrecomp" / "vendor" / "servers.json"
+        self.assertEqual(load_package_release().SOURCE_GROUPS["openrecomp/vendor"], ("servers.json",))
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(doc["format"], "t5dr-servers/1")
+        self.assertEqual(len(doc["servers"]), 1)
+        entry = doc["servers"][0]
+        self.assertEqual({k: entry[k] for k in ("name", "port", "tls", "shared_login", "default")},
+                         dict(name="T4 Online", port=7791, tls="pin", shared_login=True, default=True))
+        self.assertEqual(entry["udp_ports"], [7791, 7792])
+        if entry["host"]:
+            self.assertRegex(entry["fingerprint"], r"^[0-9a-f]{64}$")
+        else:
+            self.assertEqual(entry["fingerprint"], "", "a placeholder has neither host nor fingerprint")
 
     def test_vendored_imports_stay_inside_the_package(self):
         allowed = set(sys.stdlib_module_names)
@@ -86,6 +100,7 @@ class ServerAndMode(unittest.TestCase):
         environment["OPENRECOMP_HOME"] = self.temp.name
         self.enterContext(mock.patch.dict(os.environ, environment, clear=True))
         self.saved = self.enterContext(mock.patch.object(t4_online, "save_config"))
+        self.enterContext(mock.patch.object(t4_online, "SHIPPED_SERVERS", os.path.join(self.temp.name, "none.json")))
 
     def subject(self, config=None):
         subject = DirectSubject(self.temp.name)
@@ -143,6 +158,66 @@ class ServerAndMode(unittest.TestCase):
         self.assertEqual(subject.config["t4_online_mode"], "direct")
 
 
+class ShippedServer(unittest.TestCase):
+    """The launcher's own "T4 Online" entry: a placeholder until set_t4_server.py fills in the deployed server."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(dir=os.getcwd())
+        self.addCleanup(self.temp.cleanup)
+        environment = {key: value for key, value in os.environ.items() if key != t4_online.SERVER_ENV}
+        environment["OPENRECOMP_HOME"] = self.temp.name
+        self.enterContext(mock.patch.dict(os.environ, environment, clear=True))
+        self.enterContext(mock.patch.object(t4_online, "save_config"))
+        self.file = os.path.join(self.temp.name, "servers.json")
+        self.enterContext(mock.patch.object(t4_online, "SHIPPED_SERVERS", self.file))
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("set_t4_server", ROOT / "tools" / "set_t4_server.py")
+        self.tool = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.tool)
+
+    def run_tool(self, *argv):
+        with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
+            return self.tool.main([*argv, "--file", self.file])
+
+    def test_the_placeholder_means_no_server(self):
+        self.run_tool("--clear")
+        subject = DirectSubject(self.temp.name)
+        self.assertEqual(subject._online_default_server(), "")
+        self.assertTrue(subject.online_state()["capabilities"]["direct_ip"])
+
+    def test_the_filled_entry_is_the_default_lobby_with_the_shared_t5dr_login(self):
+        self.run_tool("--host", "46.224.146.6", "--fingerprint", ":".join(["AB"] * 32))
+        entry = json.loads(Path(self.file).read_text(encoding="utf-8"))["servers"][0]
+        self.assertEqual((entry["host"], entry["fingerprint"], entry["shared_login"]), ("46.224.146.6", "ab" * 32, True))
+        subject = DirectSubject(self.temp.name)
+        self.assertEqual(subject._online_default_server(), "T4 Online")
+        state = subject.online_state()
+        self.assertTrue(state["capabilities"]["t4_lobby"])
+        self.assertTrue(state["capabilities"]["server_set"])
+        self.assertEqual(subject._t4_shared_host(), "46.224.146.6")
+        with mock.patch.dict(os.environ, {t4_online.SERVER_ENV: "env.example:7791"}):
+            self.assertEqual(DirectSubject(self.temp.name)._online_default_server(), "env.example:7791")
+        self.assertEqual(DirectSubject(self.temp.name)._online_default_server(), "T4 Online")
+
+    def test_a_players_own_default_wins_over_the_shipped_one(self):
+        self.run_tool("--host", "46.224.146.6", "--fingerprint", "ab" * 32)
+        listed = Path(self.temp.name, "t4-online")
+        listed.mkdir()
+        listed.joinpath("servers.json").write_text(json.dumps(dict(format="t5dr-servers/1", servers=[
+            dict(name="Club", host="club.example", default=True)])), encoding="utf-8")
+        self.assertEqual(DirectSubject(self.temp.name)._online_default_server(), "Club")
+
+    def test_the_tool_refuses_bad_values(self):
+        for argv in (("--host", "46.224.146.6", "--fingerprint", "abc"),
+                     ("--host", "192.168.1.5", "--fingerprint", "ab" * 32),
+                     ("--host", "127.0.0.1", "--fingerprint", "ab" * 32),
+                     ("--host", "bad host", "--fingerprint", "ab" * 32),
+                     ("--host", "46.224.146.6", "--fingerprint", "ab" * 32, "--port", "0")):
+            with self.assertRaises(SystemExit):
+                self.run_tool(*argv)
+        self.assertFalse(os.path.exists(self.file))
+
+
 class LobbyActions(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(dir=os.getcwd())
@@ -178,6 +253,7 @@ class SharedLogin(unittest.TestCase):
         environment.update(OPENRECOMP_HOME=self.temp.name, T5_ONLINE_DIR=os.path.join(self.temp.name, "t5"))
         self.enterContext(mock.patch.dict(os.environ, environment, clear=True))
         self.enterContext(mock.patch("openrecomp.adapters.t4_online.game_process_running", return_value=False))
+        self.enterContext(mock.patch.object(t4_online, "SHIPPED_SERVERS", os.path.join(self.temp.name, "none.json")))
         self.listed = Path(self.temp.name, "t4-online")
         self.listed.mkdir()
         self.sessions = [dict(host="lobby.example", name="Wishin", token="t5-remembered", saved=5),

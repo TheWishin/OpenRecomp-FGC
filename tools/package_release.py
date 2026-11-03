@@ -36,7 +36,10 @@ SOURCE_GROUPS = {
                            "t5_moderation.py", "t5_private_chat.py", "t5_profiles.py", "t5_rules.py",
                            "t5_spectating.py", "t5_tournaments.py"),
     "openrecomp/data": ("t4_ranks.json", "known_games.json"),
-    # The T4 lobby's client side only (MIT, from T5DR Online's open-source lobby); no server code or server list.
+    # The T4 lobby server the launcher ships with: one "T4 Online" entry, a placeholder (no server) until the
+    # beta server is deployed and tools/set_t4_server.py fills in its address and certificate fingerprint.
+    "openrecomp/vendor": ("servers.json",),
+    # The T4 lobby's client side only (MIT, from T5DR Online's open-source lobby); no server code.
     "openrecomp/vendor/t4lobby": ("__init__.py", "LICENSE", "buildid.py", "client.py", "handover.py", "i18n.py",
                                   "i18n_known.py", "nat.py", "portmap.py", "proto.py", "servers.py", "spectate.py",
                                   "t4game.py", "tour_client.py"),

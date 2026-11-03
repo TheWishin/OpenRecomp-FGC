@@ -20,6 +20,8 @@ from ..ranks import t4_rank_name
 # The T4 lobby client ships with the launcher (openrecomp/vendor/t4lobby); T4 installs have none.
 VENDOR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vendor")
 SERVER_ENV = "OPENRECOMP_T4_SERVER"
+# The server the launcher ships with ("T4 Online"; a placeholder until tools/set_t4_server.py fills it in).
+SHIPPED_SERVERS = os.path.join(VENDOR, "servers.json")
 SERVERS_FORMAT = "t5dr-servers/1"
 # Rooms are not part of the T4 beta lobby: players, chat, quick match and challenges only.
 ROOM_ACTIONS = ("refresh_rooms", "create_room", "create_password_room", "create_code_room",
@@ -538,9 +540,9 @@ class T4Online(T4Direct, Online):
         return os.path.join(user_dir(), "t4-online")
 
     def _t4_listed_entries(self):
-        """Entries of the local T4 server lists (the launcher's vendor folder, then the player's), by name."""
+        """Entries of the local T4 server lists (the launcher's shipped one, then the player's), by name."""
         entries = {}
-        for path in (os.path.join(VENDOR, "servers.json"), os.path.join(self._online_servers_dir(), "servers.json")):
+        for path in (SHIPPED_SERVERS, os.path.join(self._online_servers_dir(), "servers.json")):
             try:
                 with open(path, encoding="utf-8") as stream:
                     doc = json.load(stream)
@@ -561,9 +563,10 @@ class T4Online(T4Direct, Online):
             return configured[:256]
         if not hasattr(self, "_t4_listed_server"):
             listed = self._t4_listed_entries()
-            # A listed name resolves through the same servers.json files when the client connects.
-            self._t4_listed_server = next((name for name, entry in listed.items() if entry.get("default") is True),
-                                          next(iter(listed), ""))
+            # A listed name resolves through the same servers.json files when the client connects. The player's
+            # own list comes last, so its default wins over the shipped "T4 Online".
+            self._t4_listed_server = next((name for name, entry in reversed(listed.items())
+                                           if entry.get("default") is True), next(iter(listed), ""))
         return self._t4_listed_server
 
     def _t4_shared_host(self):
