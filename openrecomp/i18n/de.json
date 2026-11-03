@@ -1143,6 +1143,7 @@
     "setup.looking": "Suche das neueste Release ...",
     "setup.none_stable": "Es gibt noch keine veröffentlichte Version. Tester können Testversionen im Schnellzugriff einschalten.",
     "setup.none_any": "Kein Release gefunden.",
+    "setup.not_published": "{name} ist noch nicht veröffentlicht, es gibt also nichts herunterzuladen. Wähle den {name}-Spielordner, den du schon hast.",
     "setup.install_text": "{name} {version} ({mb} MB Download) kommt nach:\n{folder}\nNötig mit dem Erstellen: {need} MB. Frei: {free} MB.",
     "setup.test_version": "{text}\nDas ist eine Testversion.",
     "setup.problem": "{text}\n{problem}",

@@ -161,7 +161,7 @@ class GameSetupNav:
     # ------------------------------------------------------------------------------------------ dialogs
     def _setup_dialog(self, a):
         kind = self.confirm_kind
-        count = 1 if kind in ("setup_loading", "setup_progress", "setup_none") else 2
+        count = 1 if kind in ("setup_loading", "setup_progress") or kind == "setup_none" and not self._setup_none_folder() else 2
         if a in ("left", "right", "up", "down"):
             self.exit_focus = (self.exit_focus + 1) % count
             return
@@ -186,6 +186,9 @@ class GameSetupNav:
         if kind in ("setup_loading", "setup_none"):
             self.setup_waiting = False
             self.overlay = None
+            source = self._setup_none_folder() if kind == "setup_none" and yes else None
+            if source:              # nothing published yet: the folder the player already has
+                self._open_source_picker(source, source.get("title") or "@onboarding.choose_folder")
         elif kind == "setup_install":
             if not yes:
                 self.overlay = None
@@ -213,6 +216,11 @@ class GameSetupNav:
             if yes:
                 self.on_setup("restart", gid, None)
 
+    def _setup_none_folder(self):
+        """No release to install: the game's own "choose your game folder" row, when it has one."""
+        g = self.game_by_id(getattr(self, "setup_game", ""))
+        return self._folder_source(g) if g is not None else None
+
     def setup_folder_picked(self, path):
         self.setup_parent = path
         self._setup_where(self.setup_game)
@@ -227,8 +235,13 @@ class GameSetupNav:
         if kind == "setup_loading":
             text = "@setup.looking"
         elif kind == "setup_none":
-            text = "@setup.none_stable" if not self._prereleases() else "@setup.none_any"
-            labels = ["@close"]
+            source = self._setup_none_folder()
+            if source:
+                text = i18n.message("setup.not_published", name=name)
+                labels = ["@close", source.get("title") or "@onboarding.choose_folder"]
+            else:
+                text = "@setup.none_stable" if not self._prereleases() else "@setup.none_any"
+                labels = ["@close"]
         elif kind == "setup_install":
             space = self.setup_space or {}
             title = "@setup.install_t5dr" if gid == "t5dr" else "@setup.install_t4"

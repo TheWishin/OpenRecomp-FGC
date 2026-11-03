@@ -223,6 +223,34 @@ class SetupNav(unittest.TestCase):
         nav.act("social", device="xbox")
         self.assertNotIn("@setup.check", [r["label"] for r in nav.view()["drawer"]["rows"]])
 
+    def test_nothing_published_offers_the_game_folder_the_player_has(self):
+        """Setup.exe alone, no T4 release yet: say so and open the folder chooser instead of a failing download."""
+        game = Game5("t4", found=False)
+        game.sources = lambda: [dict(id="folder", label="Folder", title="@t4.choose_game_folder", value="@missing",
+                                     ok=False, kind="file_or_folder", exts=[".zip"], dirs=[], hint="h")]
+        nav = self.nav(game)
+        nav.setup_begin(nav.games[0])
+        nav.setup_state = {"t4": dict(phase="ready", installed="", latest="", offer=None)}
+        nav.poll_setup([("t4", "check", dict(offer=None), None)])
+        self.assertEqual(nav.confirm_kind, "setup_none")
+        dialog = text(nav, nav.view()["dialog"])
+        self.assertIn("Tekken 4 is not published yet", dialog["text"])
+        self.assertEqual([o["label"] for o in dialog["options"]], ["Close", "Choose your Tekken 4 game folder"])
+        nav.act("right", device="xbox")
+        nav.act("confirm", device="xbox")
+        self.assertEqual((nav.overlay, nav.picker["target"]), ("picker", "source:folder"))
+        self.assertFalse(any(call[0] == "install" for call in self.setup.calls))
+
+    def test_nothing_published_without_a_folder_row_just_says_so(self):
+        nav = self.nav(Game5(found=False))
+        nav.setup_begin(nav.games[0])
+        nav.setup_state = {"t5dr": dict(phase="ready", installed="", latest="", offer=None)}
+        nav.poll_setup([("t5dr", "check", dict(offer=None), None)])
+        dialog = text(nav, nav.view()["dialog"])
+        self.assertEqual([o["label"] for o in dialog["options"]], ["Close"])
+        nav.act("confirm", device="xbox")
+        self.assertIsNone(nav.overlay)
+
     def test_every_view_text_exists_in_every_language(self):
         nav = self.nav(Game5(found=False))
         self.ready_state(nav)
