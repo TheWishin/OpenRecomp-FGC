@@ -51,6 +51,17 @@ release can be a `.zip` (Explorer) or an unpacked folder (the list's **Use this 
 Where Windows cannot open the dialog the list opens instead; `OPENRECOMP_NATIVE_PICKER=0`
 always uses the list. The last folder is kept as `picker_dir` in the launcher's config.
 
+## Typing, copy and paste
+
+Text fields (names, passwords, server addresses, chat) take a real keyboard as well as the
+on-screen keys. Ctrl+V and Shift+Insert paste, Ctrl+C / Ctrl+Insert copy, Ctrl+X /
+Shift+Delete cut and Ctrl+A marks the whole text (the next letter, paste or Delete replaces
+it); there is no cursor, so copy and cut take the whole text. A right click on the text
+opens **Paste** (and **Copy**). The shortcuts work on any keyboard layout, Cyrillic or Greek
+included (the key's letter, the control character Windows sends or the key's position).
+A password field takes a paste but never gives its text to the clipboard. A paste is one
+line of at most 256 characters; a copied line's end is dropped.
+
 A chosen zip is checked before extraction and extracted under `OPENRECOMP_HOME`, never into
 the launcher. An installed T4 is used in place. The adapter loads that install's own launcher
 core at runtime; OpenRecomp does not supply a game, an ISO, a build, keys or game pictures.

@@ -24,7 +24,28 @@ from .app_game_setup import GameSetupBackend
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right", Qt.Key_Return: "confirm", Qt.Key_Enter: "confirm",
         Qt.Key_Escape: "back", Qt.Key_Space: "play", Qt.Key_X: "x", Qt.Key_F: "social", Qt.Key_G: "switchGame", Qt.Key_Q: "prev", Qt.Key_E: "next"}
+KEYS = {int(k): v for k, v in KEYS.items()}   # by number: an unknown key (any layout's letter) is no ValueError
 TICK_MS = 16
+CTRL, SHIFT, ALT = int(Qt.ControlModifier.value), int(Qt.ShiftModifier.value), int(Qt.AltModifier.value)
+# Ctrl+letter edits by the letter Qt reports, the control character Windows types (Ctrl+V = \x16 on every layout) or,
+# for a non-Latin layout's letter, the key's position (PC scan code): a Russian or Greek layout's Ctrl+V still pastes.
+EDIT_LETTERS = {"paste": (int(Qt.Key_V), "\x16", 0x2F), "copy": (int(Qt.Key_C), "\x03", 0x2E),
+                "cut": (int(Qt.Key_X), "\x18", 0x2D), "select_all": (int(Qt.Key_A), "\x01", 0x1E)}
+EDIT_KEYS = {(int(Qt.Key_Insert), SHIFT): "paste", (int(Qt.Key_Insert), CTRL): "copy", (int(Qt.Key_Delete), SHIFT): "cut"}
+
+
+def edit_shortcut(key, text, modifiers, scan):
+    """-> "paste" / "copy" / "cut" / "select_all" / None for one key press."""
+    modifiers = int(modifiers) & (CTRL | SHIFT | ALT)
+    if (int(key), modifiers) in EDIT_KEYS:
+        return EDIT_KEYS[(int(key), modifiers)]
+    if not modifiers & CTRL or modifiers & ALT:   # Ctrl+Alt = AltGr: a typed character (@, {, ...)
+        return None
+    latin = int(Qt.Key_A) <= int(key) <= int(Qt.Key_Z)
+    for edit, (letter, control, position) in EDIT_LETTERS.items():
+        if int(key) == letter or text == control or (not latin and (int(scan) & 0xFF) == position):
+            return edit
+    return None
 
 
 def native_picker_available():
@@ -491,9 +512,21 @@ class Backend(QObject, GameSetupBackend):
 
     @Slot(int, str, bool)
     def keyDown(self, key, text, repeat):
-        action = KEYS.get(Qt.Key(key))
+        Backend.keyPress(self, key, text, repeat, 0, 0)
+
+    @Slot(int, str, bool, int, int)
+    def keyPress(self, key, text, repeat, modifiers, scan):
+        """A key of a real keyboard. modifiers/scan (the key's position) find Ctrl+V & co. on any layout."""
+        action = KEYS.get(key)
         nav = self.nav
         if nav.overlay == "osk":
+            edit = edit_shortcut(key, text, modifiers, scan)
+            if edit:
+                if not repeat or edit == "paste":
+                    Backend.oskEdit(self, edit)
+                return
+            if modifiers & CTRL and not modifiers & ALT:
+                return                    # Ctrl+F, Ctrl+X ...: never a typed letter or a launcher action here
             if key == Qt.Key_Backspace:
                 nav.act("x", device="kb")
                 self.refresh()
@@ -509,9 +542,28 @@ class Backend(QObject, GameSetupBackend):
         nav.act(action, device="kb")
         self.refresh()
 
+    @Slot(str)
+    def oskEdit(self, what):
+        """paste / copy / cut / select_all in the on-screen keyboard's text (keys or its right-click menu)."""
+        nav = self.nav
+        if nav.overlay != "osk":
+            return
+        nav.device = "kb"
+        if what == "paste":
+            try:
+                text = QGuiApplication.clipboard().text()
+            except (AttributeError, RuntimeError):
+                text = ""
+            nav.paste_text(text)
+        elif what in ("copy", "cut"):
+            nav.osk_copy(cut=what == "cut")
+        elif what == "select_all":
+            nav.osk_select_all()
+        self.refresh()
+
     @Slot(int, bool)
     def keyUp(self, key, repeat):
-        if not repeat and KEYS.get(Qt.Key(key)) == "confirm":
+        if not repeat and KEYS.get(key) == "confirm":
             self.nav.release("confirm")
             self.refresh()
 
