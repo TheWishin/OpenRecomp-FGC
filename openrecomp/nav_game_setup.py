@@ -54,7 +54,7 @@ class GameSetupNav:
                          hint="@setup.restart_hint" if st.get("restart") else ("@setup.rebuild_hint" if st.get("rebuild") else "@setup.updated_hint"),
                          detail=dict(kicker="@setup.kicker", title="@setup.updated", lead="@setup.restart_hint", rows=[]))]
         label = "@setup.update_needed" if st.get("required") else "@setup.update_available"
-        version = i18n.literal(f"{st.get('installed', '?')} → {st.get('latest', '?')}")
+        version = i18n.literal(f"{st.get('installed') or '?'} → {st.get('latest') or '?'}")
         return [dict(kind="action", id="game_update", label=label, verb="@setup.update", value=version,
                      run=lambda: self.setup_offer_update(g),
                      hint="@setup.update_needed_hint" if st.get("required") else "@setup.update_hint",
@@ -247,7 +247,7 @@ class GameSetupNav:
             labels = ["@cancel"]
         elif kind == "setup_update":
             title = "@setup.update"
-            text = i18n.message("setup.update_text", name=name, old=i18n.literal(st.get("installed", "")),
+            text = i18n.message("setup.update_text", name=name, old=i18n.literal(st.get("installed") or "?"),
                                 new=i18n.literal(st.get("latest", "")), mb=self._mb(st.get("size")),
                                 notes=i18n.literal(str(offer.get("notes", ""))[:300]))
             labels = ["@no", "@setup.update"]

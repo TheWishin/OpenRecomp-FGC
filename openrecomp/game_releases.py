@@ -535,6 +535,17 @@ def installed_version(game, root):
     return str(marker.get("version") or "") if marker and marker.get("game") == game else ""
 
 
+def unknown_version_updatable(game, root):
+    """A T4 tree without a version (a bundle's or Setup's T4/, or one the player chose) may still take a release:
+    the exchange keeps every player file (SOURCES protected) and writes the marker, so the version is known after.
+    Never a git checkout (a developer's tree: its own files would be replaced)."""
+    if game != "t4" or not root or installed_version(game, root):
+        return False
+    if os.path.exists(os.path.join(root, ".git")):
+        return False
+    return all(os.path.isfile(os.path.join(root, *m.split("/"))) for m in SOURCES[game].markers)
+
+
 def managed(game, root):
     """True for an install this launcher put there (it may build in it: nobody else's build is shared)."""
     marker = _read_json(os.path.join(root, MARKER)) if root else None

@@ -433,6 +433,30 @@ class Worker(Env):
         self.assertFalse(setup.note_lobby("t5dr", announced, root))          # same data: nothing new
         self.assertFalse(setup.note_lobby("t5dr", dict(announced, draft=True), root))
 
+    def test_a_t4_tree_without_a_version_is_offered_the_newest_release(self):
+        self.gh.add_t4("v0.1.0-beta.1")
+        root = gr.install_fresh("t4", self.offer("t4", "prerelease"), str(self.dir / "games"))
+        os.remove(os.path.join(root, gr.MARKER))          # as Setup or a bundle placed it: no version stamp
+        (Path(root) / "settings.json").write_text("{}", encoding="utf-8")
+        self.gh.add_t4("v0.1.0-beta.2", marker="changed")
+        setup = self.setup_()
+        setup.check("t4", root, force=True)
+        setup.poll()
+        view = setup.view("t4")
+        self.assertEqual((view["installed"], view["latest"], view["available"], view["required"]),
+                         ("", "0.1.0-beta.2", True, False))
+        self.assertTrue(setup.update("t4", root))
+        [(_, kind, result, error)] = setup.poll()
+        self.assertEqual((kind, error, result["version"]), ("update", None, "0.1.0-beta.2"))
+        self.assertEqual(gr.installed_version("t4", root), "0.1.0-beta.2")
+        self.assertTrue((Path(root) / "settings.json").is_file())
+        # A developer's git checkout is never offered a release over its own files.
+        os.remove(os.path.join(root, gr.MARKER))
+        (Path(root) / ".git").mkdir()
+        setup.check("t4", root, force=True)
+        setup.poll()
+        self.assertFalse(setup.view("t4")["available"])
+
     def test_a_failure_is_a_plain_message_and_the_worker_never_dies(self):
         setup = gs.GameSetup({}, worker=lambda fn: fn(), latest=mock.Mock(side_effect=RuntimeError("boom")))
         setup.check("t5dr", None, force=True)

@@ -105,7 +105,8 @@ class GameSetup:
         st = self._st(gid)
         channel = gr.channel(self.config, gid, root)
         installed = gr.installed_version(gid, root) if root else ""
-        st.update(installed=installed, error="", detail="", root=root or "")
+        st.update(installed=installed, error="", detail="", root=root or "",
+                  unknown=bool(root) and gr.unknown_version_updatable(gid, root))
         cached = self._cache().get(gid)
         leftover = bool(root) and gr.interrupted_update(root)      # an update stopped midway: finish its rollback
         if (not leftover and not force and isinstance(cached, dict) and cached.get("channel") == channel
@@ -151,7 +152,9 @@ class GameSetup:
         required_from = lobby or offer
         st.update(phase="ready", latest=newest["version"] if newest else "",
                   required=bool(installed and required_from and gr.is_newer(required_from["version"], installed)),
-                  available=bool(installed and newest and gr.is_newer(newest["version"], installed)),
+                  # A T4 tree of unknown version (no marker yet) is offered the newest release too.
+                  available=bool(newest and (gr.is_newer(newest["version"], installed) if installed
+                                             else st.get("unknown"))),
                   source="lobby" if lobby else "github",
                   size=newest["zip"]["size"] if newest else 0, prerelease=bool(newest and newest.get("prerelease")))
 
@@ -216,12 +219,13 @@ class GameSetup:
                 self.github[gid] = result["offer"]
                 if "installed" in result:
                     st["installed"] = result["installed"]
+                    st["unknown"] = bool(st.get("root")) and gr.unknown_version_updatable(gid, st["root"])
                 self._apply(gid)
             elif kind == "install":
                 st.update(phase="installed", result=result, installed=self.offers[gid]["version"],
                           required=False, available=False)
             elif kind == "update":
-                st.update(phase="updated", installed=result["version"], rebuild=result.get("rebuild"),
+                st.update(phase="updated", installed=result["version"], rebuild=result.get("rebuild"), unknown=False,
                           restart=bool(result.get("restart")), required=False, available=False)
             out.append((gid, kind, result, error))
 
