@@ -92,11 +92,40 @@ Run the complete repository test command before handover:
 .venv\Scripts\python.exe -m unittest discover -s tests
 ```
 
-No launcher window, game, build, published lobby server or matchmaking search was
-started for this implementation. Still required before release: check actual
+### Real games against an installed 1.2.0 (2026-11-03)
+
+Two unzipped T5DR-Online-1.2.0 player installs, each built with BUILD GAME from
+the owner's package, played each other on one PC through OpenRecomp's own Nav
+and T5DR adapter (controller actions, no window), against a lobby started from
+the install's own server code on 127.0.0.1 (never the published server). Each
+install's `launcher.json` stayed byte-identical; OpenRecomp kept its settings in
+its own folder. Results:
+
+- Offline Play: the game starts from the adapter, runs at 60 fps and stops.
+- Login (register), lobby chat in both directions, private chat (sent, unread,
+  opened).
+- Quick match: in-game select, fight, result confirmed on both sides with the
+  same state hash and no desync; Back to lobby keeps the login.
+- Challenge (FT1 casual set) in the same running games: confirmed, set won/lost
+  on the right sides, same hash, no desync. The lobby's lag check: ok.
+- FT2 casual set by challenge: two games in a row in the running games, set
+  confirmed 2-0, same hashes, no desync.
+- Community room in tables mode (size 4, two tables): created, listed, joined;
+  the server put the pair on a table, the match ran and its FT1 set was
+  confirmed with the same hash on both sides.
+- The same local lobby test (`OPENRECOMP_TEST_LOCAL_LOBBY=1`,
+  `OPENRECOMP_TEST_T5DR_SOURCE=<install>`) passes all 14 lobby flows against
+  1.2.0 and the 1.1.9 flows against 1.1.9 (1.2.0-only server features skip).
+
+Two adapter bugs found this way are fixed: Back to lobby after a decided set
+logged the player out (the server answers "you are not in a set"; every 1.2.0
+casual game is an FT1 set), and a persistent game returning to its select
+screen replaced the result message.
+
+Still required before release: check actual
 pad focus and text layout in all seven languages, two-PC interoperability with
-the old launcher on the same lobby/build, real match and ranked-set continuation,
-spectator startup/yield/stop, room-table concurrency, and replay recording and
+the old launcher on the same lobby/build, ranked-set continuation,
+spectator startup/yield/stop, and replay recording and
 playback in the chosen folder. These checks need the maintainer's own installs
 and game data; unit and loopback tests cannot establish them.
 For a short initial review without login, search or game launch, use the German
