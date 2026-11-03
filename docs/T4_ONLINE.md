@@ -56,6 +56,16 @@ server's own claim, and never a plain-TCP T5DR login. It is read from the T5DR i
 settings when used, never copied into T4's file. If the T4 server refuses it, the
 launcher says so, keeps it untouched for T5DR, and does not offer it again until restart.
 
+**Same build = same inputs, as Direct IP checks them.** Before it logs in the launcher checks that the
+extracted `game/disc/SLUS_203.28` is the one the build stamp names, reads the compiler from
+`t4net_build.json` (`CXX_ID` + `CXX_VERSION`) and hashes the chosen ISO (SHA-256, once; remembered in
+`t4-online/hashes.json` until the file changes). Compiler and ISO hash go into the `code` field it sends
+(`lobby_code`: SHA-1 over code id, compiler and ISO hash), so the server's own id (`BuildInfo.wire_id`, from
+elf/code/net, unchanged) pairs only players with the same code, compiler and disc image, and the game compares
+that same id in its HELLO. No server change; a launcher from before this rule gets other ids and is never paired
+with a new one. A server that pins builds (`T5L_BUILDS`) needs these lobby ids (the welcome's `build`).
+A stale ELF or a stamp without a compiler says "rebuild"; a missing ISO says "choose your ISO".
+
 What the client expects from the server: a T4 lobby (welcome `"game": "t4"`, UDP magic
 `T4LB`, relayed game packets `T4NP`), TCP and UDP 7791 plus UDP 7792 for the NAT probe
 unless the address names other ports, guests on, quick match and challenges (unranked), the

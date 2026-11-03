@@ -48,6 +48,10 @@ class Subject(T4):
         self.fail_start = False
         self._online_api = dict(client=self.make_client, build=Build, servers=Servers, game_env=ticket_env)
 
+    def _t4_identity_build(self, api, info, out):
+        # The fake build has no stamp, ELF or ISO; test_t4_lobby_identity checks the real identity.
+        return info
+
     def _online_lobby_dir(self):
         # Fake client packages are planted here; the shipping adapter loads openrecomp/vendor.
         return os.path.join(self.root, "lobby")

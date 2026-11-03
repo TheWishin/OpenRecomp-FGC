@@ -1,4 +1,5 @@
 """T4 online: direct-IP / VPN checks, and the lobby (accounts, players, chat, matches) through the vendored client."""
+import hashlib
 import importlib
 import ipaddress
 import json
@@ -63,6 +64,83 @@ if ((Get-FileHash -LiteralPath $Elf -Algorithm SHA1).Hash.ToLowerInvariant() -cn
 $identity | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path (Split-Path -Parent $Output) 'build_identity.json') -Encoding UTF8
 Invoke-T4NetPreflight -AsHost ([bool]$AsHost) -Peer $Peer -Port $Port -Identity $identity -TimeoutSeconds 90 -OutputPath $Output
 '''
+
+
+LOBBY_CODE_PREFIX = "t4-lobby-code-v1"
+_hash_cache = {}
+
+
+def lobby_code(code_id, compiler, iso_sha):
+    """The code field a lobby launcher sends: SHA-1 over the build's code id, the compiler and the ISO (40 hex digits
+    like a code id). Equal only for the same code, the same compiler and the same disc image."""
+    text = f"{LOBBY_CODE_PREFIX}:{str(code_id).lower()}:{compiler}:{str(iso_sha).lower()}"
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()
+
+
+def stamp_compiler(path):
+    """'<CXX_ID> <CXX_VERSION>' from t4net_build.json's toolchain lines, the same string Direct IP compares.
+    Raises ValueError when the stamp has none (a build from before the toolchain record: rebuild)."""
+    with open(path, "rb") as stream:
+        data = stream.read(32769)
+    if len(data) > 32768:
+        raise ValueError("t4net_build.json too large")
+    stamp = json.loads(data.decode("utf-8-sig"))
+    toolchain = stamp.get("toolchain") if isinstance(stamp, dict) else None
+    if not isinstance(toolchain, list) or not all(isinstance(line, str) for line in toolchain):
+        raise ValueError("no toolchain in t4net_build.json")
+    ids = [line[7:] for line in toolchain if line.startswith("CXX_ID=")]
+    versions = [line[12:] for line in toolchain if line.startswith("CXX_VERSION=")]
+    if len(ids) != 1 or len(versions) != 1:
+        raise ValueError("no compiler in t4net_build.json")
+    compiler = ids[0] + " " + versions[0]
+    if not re.fullmatch(IDENTITY_RULES["compiler"], compiler):
+        raise ValueError("unexpected compiler text")
+    return compiler
+
+
+def _file_hash(path, algorithm):
+    """hashlib digest of a file, remembered for its size and time (an ISO is hashed once per launcher run and
+    once more only when it changes; the cache file keeps it across runs)."""
+    info = os.stat(path)
+    key = f"{algorithm}|{os.path.normcase(os.path.realpath(path))}|{info.st_size}|{info.st_mtime_ns}"
+    if key in _hash_cache:
+        return _hash_cache[key]
+    cache_path = os.path.join(user_dir(), "t4-online", "hashes.json")
+    try:
+        with open(cache_path, encoding="utf-8") as stream:
+            saved = json.load(stream)
+    except (OSError, ValueError):
+        saved = {}
+    if not isinstance(saved, dict):
+        saved = {}
+    digest = saved.get(key)
+    if not (isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{40,64}", digest)):
+        h = hashlib.new(algorithm)
+        with open(path, "rb") as stream:
+            for block in iter(lambda: stream.read(1 << 20), b""):
+                h.update(block)
+        digest = h.hexdigest()
+        same_file = key.rsplit("|", 2)[0] + "|"                   # an older hash of this file is out of date
+        saved = {k: v for k, v in saved.items() if not k.startswith(same_file)}
+        saved[key] = digest
+        try:
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            temporary = cache_path + "." + uuid.uuid4().hex + ".tmp"
+            with open(temporary, "w", encoding="utf-8") as stream:
+                json.dump(dict(list(saved.items())[-16:]), stream)
+            os.replace(temporary, cache_path)
+        except OSError:
+            pass
+    _hash_cache[key] = digest
+    return digest
+
+
+def iso_sha256(path):
+    return _file_hash(path, "sha256")
+
+
+def t4_elf_sha1(path):
+    return _file_hash(path, "sha1")
 
 
 class DirectCheckError(RuntimeError):
@@ -646,9 +724,33 @@ class T4Online(T4Direct, Online):
         if not exe:
             raise RuntimeError("@online.build_required")
         try:
-            return api["build"].from_out_dir(os.path.dirname(exe), self._t4_release())
+            info = api["build"].from_out_dir(os.path.dirname(exe), self._t4_release())
         except (OSError, ValueError):
             raise RuntimeError("@online.build_required") from None
+        return self._t4_identity_build(api, info, os.path.dirname(exe))
+
+    def _t4_identity_build(self, api, info, out):
+        """The lobby identity holds what Direct IP's check compares (net_preflight.ps1 New-T4NetIdentity): the
+        build id's fields (ELF, code, netplay version) AND the compiler and the ISO. The ELF on disk must be the
+        stamp's (a stale extraction is another game). Compiler and ISO go into the code field the server hashes
+        (lobby_code): the server recomputes the id from elf/code/net as before, so it needs no change, and
+        only builds with the same compiler and ISO are paired; the game gets that id as TEKKEN4_NET_BUILD and
+        compares it in its HELLO, the same on both PCs."""
+        elf = os.path.join(self.root, "game", "disc", "SLUS_203.28")
+        try:
+            if t4_elf_sha1(elf) != str(info.elf_sha1).lower():
+                raise RuntimeError("@t4.direct_identity_failed")
+            compiler = stamp_compiler(os.path.join(out, "t4net_build.json"))
+        except (OSError, ValueError):
+            raise RuntimeError("@t4.direct_identity_failed") from None
+        iso = self.core.effective_iso(self.s) if callable(getattr(self.core, "effective_iso", None)) else ""
+        if not iso:
+            raise RuntimeError("@iso.choose_first")
+        try:
+            iso_sha = iso_sha256(iso)
+        except OSError:
+            raise RuntimeError("@iso.choose_first") from None
+        return api["build"](info.elf_sha1, lobby_code(info.code_id, compiler, iso_sha), info.release, info.net)
 
     def _t4_release(self):
         """The T4 release's version (release.json), for the server's update notice; "dev" for a source build."""
