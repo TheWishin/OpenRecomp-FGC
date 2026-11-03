@@ -123,7 +123,9 @@ class Online:
         return "127.0.0.1:" + str(self.online_port)
 
     def _online_client_options(self):
-        return dict(auto_ready=False, reconnect=0, blind_ready=True, port_mapping=False)
+        # reconnect: a dropped connection (Wi-Fi, a router) resumes the same session in the background, as in the
+        # T5DR launcher; with 0 every short drop was a logout. A kick ("logged in from another place") never resumes.
+        return dict(auto_ready=False, reconnect=60, blind_ready=True, port_mapping=False)
 
     def _online_config_paths(self, writable=False):
         path = self.online_cfg_path()
@@ -324,6 +326,7 @@ class Online:
     def _online_submit(self, operation, work):
         generation = self._online_generation
         self._online_busy = True
+        self._online_pending = operation
 
         def run():
             try:
@@ -555,6 +558,12 @@ class Online:
             return
         if action == "acknowledge_recovery":
             self._online_recovery_codes = []
+            return
+        if (action == "cancel" and self._online_phase == "searching" and self._online_client is not None
+                and (not self._online_busy or getattr(self, "_online_pending", "") == "guard")):
+            # The queue said yes: leave it and stay logged in (a closed connection here was a logout after every
+            # cancelled search). The unqueue request's failure still detaches (_online_to_lobby).
+            self._online_to_lobby("@online.cancelled")
             return
         if action == "cancel" and self._online_phase in ("connecting", "searching"):
             # A queue acknowledgement can race a match offer or never arrive. Detach now;
@@ -939,6 +948,10 @@ class Online:
             return True, True
         changed = retained
         for event in events:
+            if event.get("t") in ("reconnecting", "reconnected"):
+                # The connection broke and the client resumes the same session by itself: still logged in.
+                self._online_message = "@online.reconnecting" if event["t"] == "reconnecting" else "@online.reconnected"
+                changed = True
             if t5_features.event(self, event):
                 changed = True
             elif self.online_match_flow and event.get("t") == "match_found":
@@ -1045,7 +1058,7 @@ class Online:
                         message = self._online_message
                         self.online_close()
                         self._online_message = message
-                elif action in ("cancel", "guard"):
+                elif action in ("cancel", "guard", "unqueue"):
                     message = self._online_message
                     self.online_close()
                     self._online_message = message
@@ -1148,6 +1161,35 @@ class Online:
             self._online_submit("guard", self._online_game_check)
         changed = t5_features.poll(self) or changed
         return self._online_invite_waits() or changed
+
+    def _online_match_reset(self):
+        """A match that ends before it started: forget it, keep the lobby connection (the adapters add theirs)."""
+
+    def _online_to_lobby(self, message, decline=None):
+        """Back to the lobby, still logged in: after a cancelled search, a cancelled match or a declined ready check.
+        The server is asked to take this player out of the queue (it re-queues the innocent side of a cancelled
+        queue match), and a ready check this player declines is answered with no. Only if those requests fail is
+        the connection closed, as it always was."""
+        client = self._online_client
+        if client is None:
+            return
+        with self._online_lock:
+            self._online_generation += 1          # results of the match's own requests are no longer wanted
+            self._online_match_reset()
+        self._online_busy = False
+        self._online_phase, self._online_queue = "logged_in", ""
+        self._online_match = {}
+        self._online_message = message
+
+        def leave():
+            if decline is not None:
+                try:
+                    client.ready(False, match_id=decline)
+                except Exception:  # noqa: BLE001 -- the match may already be gone; leaving the queue is what counts
+                    pass
+            client.cancel_queue()
+            return message
+        self._online_submit("unqueue", leave)
 
     def online_close(self):
         self._online_init()

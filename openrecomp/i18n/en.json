@@ -1204,5 +1204,7 @@
     "setup.err_busy": "A file is in use. Close the game and try again. Nothing was changed.",
     "setup.err_restore": "Some files could not be put back because another program is using them. Close the game and other programs, then check for updates again: the launcher restores the old files first.",
     "setup.quit_busy": "A game is being installed or updated. Wait until it has finished, or cancel it, then quit.",
-    "setup.err_unknown": "Something went wrong. Nothing was changed."
+    "setup.err_unknown": "Something went wrong. Nothing was changed.",
+    "online.reconnecting": "Connection lost: reconnecting to the lobby…",
+    "online.reconnected": "Back in the lobby: the connection is restored."
 }

@@ -1204,5 +1204,7 @@
     "setup.err_busy": "Um arquivo está em uso. Feche o jogo e tente de novo. Nada foi alterado.",
     "setup.err_restore": "Alguns arquivos não puderam ser restaurados porque outro programa está usando-os. Feche o jogo e outros programas e procure atualizações de novo: o launcher restaura primeiro os arquivos antigos.",
     "setup.quit_busy": "Um jogo está sendo instalado ou atualizado. Espere terminar ou cancele, depois saia.",
-    "setup.err_unknown": "Algo deu errado. Nada foi alterado."
+    "setup.err_unknown": "Algo deu errado. Nada foi alterado.",
+    "online.reconnecting": "Conexão perdida: reconectando ao lobby…",
+    "online.reconnected": "De volta ao lobby: a conexão foi restabelecida."
 }

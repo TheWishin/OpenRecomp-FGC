@@ -36,7 +36,8 @@ class SessionSafetyTests(unittest.TestCase):
         self.assertEqual(client.calls.count("connect"), 1)
         self.assertEqual(self.a.online_state()["phase"], "kicked")
         self.assertEqual(self.a.online_state()["message"], "@online.kicked")
-        self.assertEqual(client.kwargs["reconnect"], 0)
+        # The client resumes a dropped session by itself (reconnect), but never after a kick: no relog either way.
+        self.assertEqual(client.kwargs["reconnect"], 60)
 
     def test_repeated_login_while_connected_does_not_create_second_session(self):
         self.action("login_guest")

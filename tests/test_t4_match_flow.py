@@ -1,5 +1,6 @@
 """T4 ready, connection messages and installed-client delegation, with fakes only."""
 import json
+import threading
 import os
 import tempfile
 import unittest
@@ -75,7 +76,7 @@ class T4MatchFlowTests(unittest.TestCase):
         self.a.online_poll()
         self.assertIsNone(self.a._online_early_start)
         self.assertEqual(self.a.starts, [])
-        self.assertEqual(self.a.online_state()["phase"], "offline")
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")     # declined: back in the lobby
 
     def test_accepted_challenge_wrong_match_ticket_is_never_buffered(self):
         self.already_ready(ticket(match_id="wrong-match"))
@@ -133,8 +134,15 @@ class T4MatchFlowTests(unittest.TestCase):
         self.found()
         self.event(t="match_cancel", match="fake-match", reason="peer_quit")
         self.assertEqual(self.a.online_state()["message"], "@online.peer_quit")
-        self.assertEqual(self.a.online_state()["phase"], "offline")
-        self.assertTrue(self.client.closed.wait(1))
+        # Still logged in; the queue the server may have put this player back into is left.
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+        for _ in range(200):
+            self.a.online_poll()
+            if "cancel" in self.client.calls and not self.a._online_busy:
+                break
+            threading.Event().wait(0.01)
+        self.assertIn("cancel", self.client.calls)
+        self.assertFalse(self.client.closed.is_set())
 
     def test_nat_failure_notice_closes_without_leaking_technical_details(self):
         self.found()

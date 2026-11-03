@@ -308,13 +308,14 @@ class T5Match(Online):
             self._online_match.update(self._online_match_view(event))
             return True
         if kind == "match_cancel":
-            self.online_close()
-            self._online_message = {
+            # Back to the lobby, still logged in (closing here logged the player out after every declined or
+            # timed-out ready check).
+            self._online_to_lobby({
                 "ready_timeout": "@online.ready_expired", "relay_full": "@online.relay_full",
                 "declined": "@online.peer_declined", "opponent_left": "@online.peer_quit",
                 "peer_quit": "@online.peer_quit", "timeout": "@online.peer_timeout",
                 "udp_unreachable": "@online.connection_failed", "no_connection": "@online.connection_failed",
-            }.get(event.get("reason"), "@online.cancelled")
+            }.get(event.get("reason"), "@online.cancelled"))
             return True
         if kind == "match_start":
             ticket = event.get("ticket")
@@ -413,6 +414,9 @@ class T5Match(Online):
             if early is not None:
                 self._online_early_start = None
                 self._online_event(early)
+        elif action == "cancel_match" and phase == "matched" and self._online_client is not None:
+            # Declined at the ready check: say no and stay in the lobby.
+            self._online_to_lobby("@online.cancelled", decline=getattr(self, "_online_match_id", None) or "")
         elif action == "cancel_match" and phase in ("matched", "starting"):
             self.online_close()
             self._online_message = "@online.cancelled"
@@ -602,6 +606,21 @@ class T5Match(Online):
                 value, error = None, exc
             self._online_driver_results.put((generation, value, error))
         threading.Thread(target=run, name="openrecomp-t5-match", daemon=True).start()
+
+    def _online_match_reset(self):
+        self._online_authorized = False
+        self._online_next_authorized = False
+        self._online_early_start = None
+        self._online_match_id = None
+        self._online_driver_events = []
+        driver = getattr(self, "_online_driver", None)
+        self._online_driver = None
+        self._online_driver_busy = False
+        if driver is not None:
+            def close():
+                with self._online_driver_lock:
+                    driver.close()
+            threading.Thread(target=close, name="openrecomp-t5-match-close", daemon=False).start()
 
     def online_close(self):
         self._online_init()

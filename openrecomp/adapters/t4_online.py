@@ -977,15 +977,14 @@ class T4Online(T4Direct, Online):
             self._online_submit("start_game", launch)
             return True
         if kind == "match_cancel":
-            # A quick-match cancellation may requeue automatically; disconnect to stop it.
+            # A quick-match cancellation may requeue automatically: leave the queue, stay logged in.
             reason = event.get("reason")
-            self.online_close()
-            self._online_message = {
+            self._online_to_lobby({
                 "peer_quit": "@online.peer_quit", "opponent_left": "@online.peer_quit",
                 "peer_timeout": "@online.peer_timeout", "ready_timeout": "@online.ready_expired",
                 "declined": "@online.peer_declined", "relay_full": "@online.relay_full",
                 "nat_failed": "@online.connection_failed", "udp_unreachable": "@online.connection_failed",
-                "no_connection": "@online.connection_failed"}.get(reason, "@online.cancelled")
+                "no_connection": "@online.connection_failed"}.get(reason, "@online.cancelled"))
             return True
         if kind == "match_result":
             if self._online_phase == "starting":
@@ -1044,6 +1043,9 @@ class T4Online(T4Direct, Online):
                 self._online_check_request(generation, client)
                 return client.ready(True) if ready_check else None
             self._online_submit(action, ready)
+        elif action == "cancel_match" and phase == "matched" and client and getattr(self, "_online_owned_run", None) is None:
+            # Declined at the ready check: say no and stay in the lobby.
+            self._online_to_lobby("@online.cancelled", decline=getattr(self, "_online_match_id", None) or "")
         elif action == "cancel_match" and phase in ("matched", "starting") and client:
             self._online_authorized = False
             self._online_stop_owned()
@@ -1258,6 +1260,14 @@ class T4Online(T4Direct, Online):
             self._online_submit("nat_fallback", lambda: client.nat_fallback(ticket.match_id))
             return True
         return changed
+
+    def _online_match_reset(self):
+        self._online_authorized = False
+        self._online_early_start = None
+        self._online_pending_start = None
+        self._online_ticket = None
+        self._online_match_id = None
+        self._online_stop_owned()
 
     def online_close(self):
         if self.online_direct_ip:

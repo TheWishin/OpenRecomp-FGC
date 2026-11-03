@@ -462,7 +462,7 @@ class LocalLobbyTests(unittest.TestCase):
         self.assertIsInstance(client, self.client_module.LobbyClient)
         self.assertEqual(client.host, LOOPBACK)
         self.assertEqual(client.port, self.server.port)
-        self.assertEqual(client.reconnect_window, 0)
+        self.assertEqual(client.reconnect_window, 60)
         self.assertEqual(client._writer.get_extra_info("peername")[0], LOOPBACK)
         self.assertEqual(self.state(index)["account"], action != "login_guest")
         if action == "login_register":
@@ -480,10 +480,13 @@ class LocalLobbyTests(unittest.TestCase):
         self.wait(lambda: self.state(0)["phase"] == "searching", "quick search did not start")
         first = self.adapters[0]._online_client
         self.choose(0, "cancel")
-        self.wait(lambda: self.state(0)["phase"] == "offline" and not first.connected,
-                  "cancel did not disconnect")
-        self.assertIsNone(self.adapters[0]._online_client)
-        self.assertFalse(first.connected)
+        # Cancelling leaves the server's queue and stays logged in (it used to close the connection: a logout).
+        self.wait(lambda: self.state(0)["phase"] == "logged_in" and not self.adapters[0]._online_busy
+                  and not any(self.server.queues.values()), "cancel did not leave the queue")
+        self.assertIs(self.adapters[0]._online_client, first)
+        self.assertTrue(first.connected)
+        self.assertEqual(self.state(0)["message"], "@online.cancelled")
+        self.choose(0, "logout")
         self.login(0, "AccountLocal", "login_register")
         self.choose(0, "logout")
         self.login(0, "AccountLocal", "login_account")
@@ -498,6 +501,27 @@ class LocalLobbyTests(unittest.TestCase):
         self.assertEqual(self.state(0)["phase"], "kicked")
         self.assertFalse(displaced.connected)
         self.assertEqual(self.state(1)["phase"], "logged_in")
+
+    def test_declined_ready_check_keeps_both_players_logged_in(self):
+        # Owner report "logged out all the time": a cancelled or declined match closed the lobby connection.
+        self.login(0, "DeclineOne")
+        self.login(1, "DeclineTwo")
+        first, second = (a._online_client for a in self.adapters)
+        self.choose(0, "search_casual")
+        self.wait(lambda: self.state(0)["phase"] == "searching", "first client did not queue")
+        self.choose(1, "search_casual")
+        self.wait(lambda: self.both("matched"), "real quick match not found")
+        self.choose(1, "cancel_match")
+        self.wait(lambda: self.state(0)["phase"] == "logged_in" and self.state(1)["phase"] == "logged_in"
+                  and not any(a._online_busy for a in self.adapters), "declined match did not return to the lobby")
+        # The server re-queued the player who did not decline; the launcher took them out again (no surprise match).
+        self.wait(lambda: not any(self.server.queues.values()), "a player stayed queued")
+        self.assertIs(self.adapters[0]._online_client, first)
+        self.assertIs(self.adapters[1]._online_client, second)
+        self.assertTrue(first.connected and second.connected)
+        # 1.2.0 casual games are sets of one: the set's end follows the cancel.
+        self.assertIn(self.state(0)["message"], ("@online.peer_declined", "@online.set_ended"))
+        self.assertIn(self.state(1)["message"], ("@online.cancelled", "@online.set_ended"))
 
     def test_quick_match_ready_result_and_rematch(self):
         self.login(0, "QuickOne")
@@ -566,9 +590,13 @@ class LocalLobbyTests(unittest.TestCase):
         self.choose(1, "join_room:" + rid)
         self.wait(lambda: self.both("matched"), "password join did not create a match")
         self.assertTrue(all(not a.starts for a in self.adapters))
-        # Cancel closes both sessions without accepting a ready check.
+        # Cancel ends the match without accepting a ready check; both stay logged in.
         self.choose(0, "cancel_match")
-        self.wait(lambda: self.state(1)["phase"] == "offline", "peer did not observe cancelled room match")
+        self.wait(lambda: self.both("logged_in") and not any(a._online_busy for a in self.adapters),
+                  "peer did not observe cancelled room match")
+        self.assertTrue(all(a._online_client.connected for a in self.adapters))
+        self.choose(0, "logout")
+        self.choose(1, "logout")
         self.login(0, "RoomOne")
         self.login(1, "RoomTwo")
         self.choose(0, "create_code_room")
@@ -928,9 +956,11 @@ class LocalLobbyTests(unittest.TestCase):
             self.assertTrue(snapshot["character_locked"])
         self.assertTrue(all(not adapter.starts for adapter in self.adapters))
         self.choose(0, "cancel_match")
-        self.wait(lambda: self.state(0)["phase"] == "offline", "ranked ready check did not cancel")
+        # Back in the lobby, still logged in; the set is over (its end is shown) and the character free again.
+        self.wait(lambda: self.state(0)["phase"] == "logged_in" and self.state(0)["message"] == "@online.set_ended",
+                  "ranked ready check did not cancel")
+        self.assertTrue(self.adapters[0]._online_client.connected)
         self.assertFalse(self.state(0)["character_locked"])
-        self.assertFalse(self.state(0)["set"])
         self.assertTrue(all(not adapter.starts for adapter in self.adapters))
 
 

@@ -218,7 +218,7 @@ class OnlineAdapterTests(unittest.TestCase):
     def test_guest_casual_cancel_and_secure_runtime_options(self):
         client = self.login()
         self.assertFalse(client.kwargs["auto_ready"])
-        self.assertEqual(client.kwargs["reconnect"], 0)
+        self.assertEqual(client.kwargs["reconnect"], 60)       # a short drop resumes the session (no logout)
         self.assertTrue(client.kwargs["blind_ready"])
         self.assertFalse(client.kwargs["port_mapping"])
         self.assertNotIn("plain_passwords", client.kwargs)
@@ -227,10 +227,29 @@ class OnlineAdapterTests(unittest.TestCase):
         self.a.online_poll()
         self.assertIn(("quick", "random"), client.calls)
         self.a.online_action("cancel")
-        self.a.online_poll()
-        self.assertTrue(client.closed.wait(1))
-        self.assertEqual(self.a.online_state()["phase"], "offline")
+        # Cancelling a search leaves the queue and stays logged in (it used to close the connection: a logout).
+        for _ in range(200):
+            self.a.online_poll()
+            if "cancel" in client.calls and not self.a._online_busy:
+                break
+            threading.Event().wait(0.01)
+        self.assertIn("cancel", client.calls)
+        self.assertFalse(client.closed.is_set())
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
         self.assertEqual(self.a.online_state()["message"], "@online.cancelled")
+        self.assertEqual(client.calls.count("connect"), 1)
+
+    def test_dropped_connection_resumes_without_logout(self):
+        client = self.login()
+        client.events.put(dict(t="reconnecting", reason="the connection to the lobby server was cut"))
+        self.a.online_poll()
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+        self.assertEqual(self.a.online_state()["message"], "@online.reconnecting")
+        client.events.put(dict(t="reconnected"))
+        self.a.online_poll()
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+        self.assertEqual(self.a.online_state()["message"], "@online.reconnected")
+        self.assertFalse(client.closed.is_set())
 
     def test_guest_cannot_search_ranked_and_search_requires_login(self):
         self.a.online_action("search_ranked")
