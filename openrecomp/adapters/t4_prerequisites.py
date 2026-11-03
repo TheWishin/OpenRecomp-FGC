@@ -1,7 +1,8 @@
-"""Read-only checks for the source test bundle; installation remains explicit."""
+"""Checks for the source test bundle's build tools, and the winget installs the player confirms in the launcher."""
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -124,3 +125,77 @@ def check_prerequisites():
                      "@t4.tools.vs_incomplete" if install is not None and not complete else None))
     rows.append(_row("msvc", msvc, compiler_ok))
     return rows
+
+
+# winget would otherwise stop and ask on a console nobody sees; the player agreed in the launcher's dialog first.
+WINGET_FLAGS = ["--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"]
+WINGET_ALREADY = (0x8A15002B, 0x8A150061)       # no newer version / package already installed: not a failure
+
+
+def install_plan(rows):
+    """The missing rows -> [(label, command)], one per installer (VS and MSVC share one)."""
+    plan, seen = [], set()
+    for row in rows:
+        command = row.get("command") or COMMANDS.get(row.get("id"), "")
+        if row.get("ok") is False and not row.get("busy") and command and command not in seen:
+            seen.add(command)
+            plan.append((row["label"], command))
+    return plan
+
+
+def winget_args(command):
+    """A command of COMMANDS -> argv for subprocess (no shell); only winget installs are ever run."""
+    args = shlex.split(command, posix=True)
+    if len(args) < 3 or args[:2] != ["winget", "install"]:
+        raise ValueError("not a winget install")
+    winget = shutil.which("winget")
+    if not winget:
+        raise FileNotFoundError("winget")
+    return [winget] + args[1:] + WINGET_FLAGS
+
+
+def run_install(command, run=subprocess.run):
+    """One winget install, hidden, no timeout (Visual Studio takes long). -> True when installed or already there."""
+    result = run(winget_args(command), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                 stderr=subprocess.DEVNULL, creationflags=NO_WINDOW, check=False)
+    return result.returncode == 0 or (result.returncode & 0xFFFFFFFF) in WINGET_ALREADY
+
+
+def refresh_path(environ=None, read=None):
+    """Installers change the user's and the machine's PATH; this process still has the old one. Add the new parts
+    (the build started from this launcher inherits them) so the re-check finds the new tools without a restart."""
+    environ = os.environ if environ is None else environ
+    if read is None:
+        read = _registry_paths
+    current = environ.get("PATH", "")
+    known = {_path_key(part) for part in current.split(os.pathsep) if part}
+    added = []
+    for value in read():
+        for part in os.path.expandvars(value).split(os.pathsep):
+            key = _path_key(part)
+            if part and key not in known:
+                known.add(key)
+                added.append(part)
+    if added:
+        environ["PATH"] = os.pathsep.join([current] + added if current else added)
+    return added
+
+
+def _path_key(part):
+    return os.path.normcase(part.rstrip("/" + os.sep))
+
+
+def _registry_paths():
+    try:
+        import winreg
+    except ImportError:
+        return []
+    out = []
+    for hive, key in ((winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+                      (winreg.HKEY_CURRENT_USER, "Environment")):
+        try:
+            with winreg.OpenKey(hive, key) as handle:
+                out.append(str(winreg.QueryValueEx(handle, "Path")[0]))
+        except OSError:
+            pass
+    return out

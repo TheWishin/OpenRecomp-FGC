@@ -88,7 +88,7 @@ class Shelf:
                     self.sec[g.id] = "build"
                     self.focus[g.id + ":build"] = 0
                 elif source:
-                    self._open_picker("source:" + source["id"], "@onboarding.choose_folder", source["exts"], source["dirs"], source["kind"])
+                    self._open_source_picker(source, source.get("title") or "@onboarding.choose_folder")
                 else:
                     self.screen = "hub"
             elif a == "x" and self.setup_update_needed(g):

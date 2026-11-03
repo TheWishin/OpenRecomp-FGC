@@ -204,6 +204,14 @@ class Adapter:
         """Explicitly recheck tools; never install them or run a build."""
         pass
 
+    def prerequisite_install_state(self):
+        """dict(running, done, total, current, result) of install_prerequisites()."""
+        return dict(running=False, done=0, total=0, current="", result="")
+
+    def install_prerequisites(self):
+        """Install the missing tools after the player confirmed the list; False = nothing started."""
+        return False
+
     def sources(self):
         """[dict(id, label, value, ok, hint, exts, dirs)]: the player's files the build needs."""
         return []
@@ -248,9 +256,12 @@ class Missing(Adapter):
 
     def sources(self):
         t4 = self.m.get("adapter") == "t4"
-        return [dict(id="folder", label="@game_folder", value="@missing", ok=False,
-                     kind="file_or_folder" if t4 else "folder", exts=[".zip"] if t4 else [], dirs=[],
-                     hint="@folder_hint", note=self._source_state["result"] if t4 and self._source_state["result"] != "reload" else "")]
+        if t4:
+            return [dict(id="folder", label="@t4.game_folder", title="@t4.choose_game_folder", value="@missing", ok=False,
+                         kind="file_or_folder", exts=[".zip"], dirs=[], hint="@folder_hint",
+                         note=self._source_state["result"] if self._source_state["result"] != "reload" else "")]
+        return [dict(id="folder", label="@game_folder", value="@missing", ok=False, kind="folder", exts=[], dirs=[],
+                     hint="@folder_hint", note="")]
 
     def set_source(self, sid, path):
         if self.m.get("adapter") == "t4":

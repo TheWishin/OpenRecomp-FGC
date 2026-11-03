@@ -328,6 +328,8 @@ def untranslated_literals(source):
         "CXX_ID=", "CXX_VERSION=", "toolchain", "direct:", "network:", "firewall", "forward", "tailscale",
         "FAILED at step ", "Full log:",
         "_title", "tools:recheck", "tool:", "tool_copy:",
+        "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity", "winget",
+        "not a winget install", r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment", "Environment", "Path",
         "winget install --id Python.Python.3.12 --exact",
         "winget install --id Git.Git --exact",
         "winget install --id Kitware.CMake --exact",

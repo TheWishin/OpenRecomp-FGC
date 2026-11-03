@@ -29,7 +29,7 @@ class Folder(unittest.TestCase):
         open(os.path.join(self.dir, "notes.txt"), "w").close()
         self.saved = []
         self.a = Fake(manifest())
-        self.nav = Nav([Game(self.a.m, self.a)], language="en", native_picker=True, on_picker_dir=self.saved.append)
+        self.nav = Nav([Game(self.a.m, self.a)], language="en", native_picker=True, on_picker_dir=lambda key, folder: self.saved.append((key, folder)))
 
     def open_iso_row(self, device):
         """Build -> the ISO row, the way a player gets there."""
@@ -76,7 +76,7 @@ class NavTests(Folder):
         self.nav.native_result(self.nav.native_request(), self.iso)
         self.assertEqual(self.a.calls, [("source", "iso", self.iso)])
         self.assertEqual(self.nav.toast, "gut")
-        self.assertEqual((self.nav.picker_dir, self.saved), (self.dir, [self.dir]))
+        self.assertEqual((self.nav.picker_dirs, self.saved), ({".iso": self.dir}, [(".iso", self.dir)]))
 
     def test_cancel_changes_nothing(self):
         self.open_iso_row("kb")
@@ -107,15 +107,27 @@ class NavTests(Folder):
         self.nav.native_result(request, self.dir)
         self.assertEqual(self.a.calls, [("set", "replays", self.dir)])
 
-    def test_zip_or_folder_opens_the_file_dialog_for_the_zip(self):
+    def test_zip_or_folder_opens_the_folder_dialog_first(self):
         self.nav.device = "kb"
-        self.nav._open_picker("source:folder", "@folder", [".zip"], [], "file_or_folder")
+        self.nav._open_picker("source:folder", "@t4.choose_game_folder", [".zip"], [], "file_or_folder")
         request = self.nav.native_request()
-        self.assertEqual(request["kind"], "file")
-        self.assertEqual(request["filters"][0][1], "*.zip")
+        self.assertEqual((request["kind"], request["filters"]), ("folder", []))
+        self.assertEqual(request["title"], i18n.text("en", "t4.choose_game_folder"))
+        self.nav.native_result(request, self.iso)
+        self.assertEqual(self.nav.view()["toast"], i18n.text("en", "picker_not_folder"))
+        self.nav.native_result(request, self.dir)
+        self.assertEqual(self.a.calls, [("source", "folder", self.dir)])
+        self.assertEqual(self.saved, [("folder", self.dir)])
+
+    def test_named_file_type_is_the_first_filter(self):
+        self.nav.device = "kb"
+        self.nav._open_picker("source:iso", "@t4.choose_iso", [".iso"], [], "file", "@t4.iso_filter")
+        request = self.nav.native_request()
+        self.assertEqual(request["title"], "Choose your Tekken 4 USA disc image (ISO)")
+        self.assertEqual(request["filters"], [("Tekken 4 disc image (*.iso)", "*.iso"), ("All files (*.*)", "*.*")])
 
     def test_start_folder_is_the_last_one_used(self):
-        self.nav.picker_dir = self.dir
+        self.nav.picker_dirs = {".iso": self.dir}
         self.nav.device = "kb"
         self.nav._open_picker("source:iso", "@game_iso", [".iso"], [ROOT], "file")
         self.assertEqual(self.nav.native_request()["start"], self.dir)
@@ -125,7 +137,7 @@ class NavTests(Folder):
 
     def test_folder_setting_starts_at_its_own_value_not_the_last_file(self):
         with tempfile.TemporaryDirectory() as other:
-            self.nav.picker_dir = other
+            self.nav.picker_dirs = {"folder": other}
             self.nav.device = "kb"
             self.nav._open_picker("setting:replays", "@folder", [], [self.dir], "folder")
             self.assertEqual(self.nav.native_request()["start"], self.dir)
@@ -136,7 +148,7 @@ class NavTests(Folder):
         self.nav.picker["focus"] = 1                      # "..", game.iso
         self.nav.act("confirm", device="xbox")
         self.assertEqual(self.a.calls, [("source", "iso", self.iso)])
-        self.assertEqual(self.saved, [self.dir])
+        self.assertEqual(self.saved, [(".iso", self.dir)])
 
     def test_x_in_the_list_opens_explorer_at_the_list_folder(self):
         self.open_iso_row("xbox")
@@ -148,7 +160,7 @@ class NavTests(Folder):
         self.assertEqual(self.nav.native_request()["start"], self.dir)
 
     def test_no_dialog_falls_back_to_the_list_at_the_same_folder(self):
-        self.nav.picker_dir = self.dir
+        self.nav.picker_dirs = {".iso": self.dir}
         self.open_iso_row("kb")
         self.nav.native_failed(self.nav.native_request())
         self.assertEqual(self.nav.overlay, "picker")
@@ -216,9 +228,12 @@ class BackendTests(Folder):
 
     def test_last_folder_is_saved_in_the_config(self):
         backend = SimpleNamespace(config={}, _save_config=mock.Mock())
-        app.Backend._save_picker_dir(backend, self.dir)
-        self.assertEqual(backend.config, {"picker_dir": self.dir})
-        backend._save_config.assert_called_once()
+        app.Backend._save_picker_dir(backend, ".iso", self.dir)
+        app.Backend._save_picker_dir(backend, "folder", ROOT)
+        self.assertEqual(backend.config, {"picker_dirs": {".iso": self.dir, "folder": ROOT}})
+        self.assertEqual(app.picker_dirs({"picker_dirs": ["bad"]}), {})
+        self.assertEqual(app.picker_dirs({"picker_dirs": {".iso": 3, ".pkg": "D:/games"}}), {".pkg": "D:/games"})
+        self.assertEqual(backend._save_config.call_count, 2)
 
     def test_no_explorer_dialog_offscreen_or_when_switched_off(self):
         with mock.patch.object(app.QGuiApplication, "platformName", return_value="offscreen"):

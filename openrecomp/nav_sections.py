@@ -1,4 +1,6 @@
 """The game sections and their adapter actions."""
+import os
+
 from . import i18n
 
 
@@ -127,6 +129,11 @@ class Sections:
     def _items_build(self, g):
         return self._setup_items(g, "build") + self._items_build_rows(g)
 
+    def _open_source_picker(self, src, title=None):
+        """A Build source row (or the shelf's first step): its own dialog title and file type when it names them."""
+        title = title or src.get("title") or i18n.message("choose_named", name=src["label"])
+        self._open_picker("source:" + src["id"], title, src["exts"], src["dirs"], src.get("kind", "file"), src.get("filter", ""))
+
     def _items_build_rows(self, g):
         if getattr(g.a, "coexistence_state", lambda: dict(active=False))()["active"]:
             return self._coexistence_items(g, choose=True) + [dict(
@@ -148,10 +155,22 @@ class Sections:
             blocked = state["running"] or checking
             out.append(dict(kind="action", id=s["id"], label=s["label"], value=("@t4.installing" if installing else "@iso.checking") if checking else s["value"], missing=not s["ok"], disabled=blocked, verb="" if blocked else ("@choose" if not s["ok"] else "@change"),
                             hint=detail["lead"] if checking else s["hint"], detail=detail,
-                            run=None if blocked else lambda src=src: self._open_picker("source:" + src["id"], i18n.message("choose_named", name=src["label"]), src["exts"], src["dirs"], src.get("kind", "file"))))
+                            run=None if blocked else lambda src=src: self._open_source_picker(src)))
+            if s.get("kind") == "file_or_folder" and s.get("exts"):
+                # The folder is the usual answer (Explorer opens its folder dialog); a downloaded release zip is this row.
+                zip_detail = dict(kicker="@your_files", title="@picker.have_zip", lead="@picker.have_zip_hint", rows=[])
+                out.append(dict(kind="action", id=s["id"] + ":zip", label="@picker.have_zip", value="", disabled=blocked,
+                                verb="" if blocked else "@choose", hint="@picker.have_zip_hint", detail=zip_detail,
+                                run=None if blocked else lambda src=src: self._open_picker(
+                                    "source:" + src["id"], "@picker.choose_zip", src["exts"], src["dirs"], "file",
+                                    "@picker.zip_filter")))
         for o in g.a.build_options():
             out.append(self._cycler_item(g, o))
-        out.extend(self._prerequisite_items(g, state["running"] or source_state.get("running", False)))
+        # Build tools: one row at most. Missing ones come before Build (they block it); "ready" goes after it.
+        tools = self._prerequisite_items(g, state["running"] or source_state.get("running", False))
+        tools_first = any(t["id"] in ("tools:install", "tools:installing") for t in tools)
+        if tools_first:
+            out.extend(tools)
         problem = g.a.build_ready()
         if not g.a.found():
             return out or [dict(kind="action", id="none", label="@not_found", hint="@build_unavailable_hint",
@@ -181,6 +200,8 @@ class Sections:
             lead = "@t4.build_next"
         out.append(dict(kind="action", id="build", label="@start_game" if first_play else "@build_game", verb="@play" if first_play else ("@files_missing" if problem else "@build"), run=(lambda: self.start_game(g)) if first_play else build,
                         hint=lead, detail=dict(kicker=st["status"], title="@start_game" if first_play else "@build_game", lead=lead, rows=state["steps"], primary="@play" if first_play else ("" if problem else "@build"))))
+        if not tools_first:
+            out.extend(tools)
         if g.m.get("adapter") == "t4" and g.a.ready():
             out.append(dict(kind="action", id="online_setup", label="@t4.direct_title", verb="@confirm",
                             hint="@t4.network.check", run=lambda: self._go(g, "online"),
@@ -195,39 +216,98 @@ class Sections:
         return out
 
     def _prerequisite_items(self, g, blocked=False):
+        """The PC's build tools as ONE row: checked by themselves in the background, versions only in its details.
+
+        Checking -> "Build tools: Checking...", all there -> "Build tools ready" (confirm checks again), some missing
+        -> "Install missing tools" (a dialog lists them; winget installs them), installing -> its progress."""
         checks = g.a.prerequisites()
         if not checks:
             return []
-        busy = blocked or any(check.get("busy") for check in checks)
+        install = g.a.prerequisite_install_state()
+        checking = any(check.get("busy") for check in checks)
+        missing = [check for check in checks if check.get("ok") is False and not check.get("busy")]
+        details = dict(kicker="@section.build", title="@t4.tools.title", lead="@t4.tools.details_hint", leadLines=6,
+                       rows=[dict(k=check["label"], v=check["value"], accent=check.get("ok") is False) for check in checks])
+        if install.get("running"):
+            progress = i18n.message("t4.tools.install_progress", done=install.get("done", 0) + 1,
+                                    total=install.get("total", 0), name=install.get("current", ""))
+            return [dict(kind="action", id="tools:installing", label="@t4.tools.installing", value=progress, disabled=True,
+                         verb="", hint="@t4.tools.installing_hint", run=None,
+                         detail=dict(details, lead="@t4.tools.installing_hint"))]
+        if checking:
+            return [dict(kind="action", id="tools:checking", label="@t4.tools.title", value="@t4.tools.checking",
+                         disabled=True, verb="", hint="@t4.tools.details_hint", run=None, detail=details)]
+        if missing:
+            def ask():
+                self.tools_game = g
+                self._ask("tools_install")
+            return [dict(kind="action", id="tools:install", label="@t4.tools.install_missing",
+                         value=i18n.message("t4.tools.missing_count", count=len(missing)), missing=True,
+                         disabled=blocked, verb="" if blocked else "@t4.tools.install", hint="@t4.tools.install_hint",
+                         run=None if blocked else ask, detail=dict(details, lead="@t4.tools.install_hint"))]
 
         def refresh():
             if not self._dry("@t4.tools.recheck"):
-                if self._offline_action(g.a.refresh_prerequisites):
-                    self.say("@t4.tools.hint")
+                self._offline_action(g.a.refresh_prerequisites)
+        return [dict(kind="action", id="tools:ready", label="@t4.tools.ready", value="", disabled=blocked,
+                     verb="" if blocked else "@t4.tools.recheck_short", hint="@t4.tools.details_hint",
+                     run=None if blocked else refresh, detail=details)]
 
-        out = [dict(kind="action", id="tools:recheck", label="@t4.tools.recheck", disabled=busy,
-                    verb="" if busy else "@confirm", hint="@t4.tools.hint", run=None if busy else refresh,
-                    detail=dict(kicker="@section.build", title="@t4.tools.title", lead="@t4.tools.hint",
-                                leadLines=6, rows=[dict(k=check["label"], v=check["value"],
-                                                       accent=check.get("ok") is False) for check in checks]))]
-        for check in checks:
+    def _tools_plan(self, g):
+        """[(label, command)] of the missing tools, one per installer (as the adapter will run them)."""
+        plan, seen = [], set()
+        for check in g.a.prerequisites():
             command = check.get("command") or ""
-            detail_rows = [dict(k="@current", v=check["value"], accent=check.get("ok") is False)]
-            if command:
-                detail_rows.append(dict(k="@t4.tools.command", v=i18n.literal(command)))
-            out.append(dict(kind="action", id="tool:" + check["id"], label=check["label"],
-                            value=check["value"], missing=check.get("ok") is False,
-                            hint="@t4.tools.hint",
-                            detail=dict(kicker="@t4.tools.title", title=check["label"], lead="@t4.tools.hint",
-                                        leadLines=6, rows=detail_rows)))
-            if command:
-                out.append(dict(kind="action", id="tool_copy:" + check["id"], label="@t4.tools.copy",
-                                verb="@confirm", hint="@t4.tools.hint",
-                                run=lambda command=command: self.copy_text(command),
-                                detail=dict(kicker=check["label"], title="@t4.tools.copy",
-                                            lead=i18n.literal(command), leadLines=10,
-                                            rows=[], primary="@t4.tools.copy")))
-        return out
+            if check.get("ok") is False and not check.get("busy") and command and command not in seen:
+                seen.add(command)
+                plan.append((check["label"], command))
+        return plan
+
+    def _tools_dialog(self, a):
+        """Install missing build tools: Cancel / Copy commands / Install (3 options)."""
+        g = getattr(self, "tools_game", None) or self.game
+        if a in ("left", "up"):
+            self.exit_focus = (self.exit_focus - 1) % 3
+        elif a in ("right", "down"):
+            self.exit_focus = (self.exit_focus + 1) % 3
+        elif a == "back":
+            self.overlay = None
+        elif a == "confirm":
+            self.overlay = None
+            plan = self._tools_plan(g)
+            if self.exit_focus == 1 and plan:
+                self.copy_text(os.linesep.join(command for _label, command in plan))
+                if not self.dry:
+                    self.say("@t4.tools.copied_all", 8)
+            elif self.exit_focus == 2 and plan and not self._dry("@t4.tools.install"):
+                if g.a.install_prerequisites():
+                    self.tools_installing = g
+                    self.say("@t4.tools.installing_hint", 10)
+                else:
+                    self.say("@t4.tools.work_busy", 8)
+
+    def _view_tools_dialog(self, v):
+        g = getattr(self, "tools_game", None) or self.game
+        names = ", ".join(i18n.localize(label, self.language) for label, _command in self._tools_plan(g))
+        v["dialog"] = dict(title="@t4.tools.install_title",
+                           text=i18n.message("t4.tools.install_text", names=i18n.literal(names)),
+                           options=[dict(label=label, index=i, focused=self.exit_focus == i) for i, label in
+                                    enumerate(("@cancel", "@t4.tools.copy_commands", "@t4.tools.install"))])
+        v["hint"] = "@dialog_hint"
+        v["prompts"] = [self.prompt("confirm", "@confirm"), self.prompt("right", "@switch"), self.prompt("back", "@cancel")]
+
+    def poll_tools_install(self):
+        """The installs ended: say how, once. -> True when the screen must be redrawn."""
+        g = getattr(self, "tools_installing", None)
+        if g is None:
+            return False
+        state = g.a.prerequisite_install_state()
+        if state.get("running"):
+            return False
+        self.tools_installing = None
+        if state.get("result"):
+            self.say(state["result"], 12)
+        return True
 
     # ---- settings
     def _items_settings(self, g):

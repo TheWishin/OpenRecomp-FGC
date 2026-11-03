@@ -84,7 +84,7 @@ build, game data or game pictures are included. See
 and the [hand check](docs/HAND_CHECK.md) for the two-PC walk through both games.
 
 Follow the German [test-bundle walk](docs/T4_FIRST_RUN.md). The launcher finds
-`T4/`, checks build tools, offers exact winget commands to copy, verifies the
+`T4/`, checks build tools by itself and installs missing ones with winget after one confirmation, verifies the
 player's ISO and shows build progress. Compare Build-ID and compiler/MSVC before
 Host/Join. Firewall, UDP 7400, port-forwarding and Tailscale steps are in the
 [German network guide](docs/T4_ONLINE.md). After play, Collect logs displays the
