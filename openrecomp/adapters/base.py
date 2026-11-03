@@ -199,6 +199,10 @@ class Adapter:
         """A fighter's name from the lobby's fighter key; the key itself when unknown."""
         return next((f["name"] for f in self.fighters() if f.get("key") == key), key or "")
 
+    def rank_progress(self, rating):
+        """(start of this rank, start of the next, next rank's name) for the ranked card's bar; None = no bar."""
+        return None
+
     def rank_plate(self, tier):
         """The game's own rank plate picture for a lobby rank tier (from the player's build); "" = text only."""
         return ""

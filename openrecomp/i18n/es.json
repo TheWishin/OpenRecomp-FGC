@@ -1325,5 +1325,7 @@
     "settings_ui.note.updates": "Nuevas versiones del lanzador y de los juegos.",
     "settings_ui.note.advanced": "Para problemas y configuraciones especiales. Normalmente no hay nada que cambiar.",
     "settings_ui.pad_bindings": "Asignación de botones",
-    "settings_ui.pad_bindings_hint": "Abre la página de botones: la asignación de cada mando conectado."
+    "settings_ui.pad_bindings_hint": "Abre la página de botones: la asignación de cada mando conectado.",
+    "online_ui.to_next": "{points} para {rank}",
+    "online_ui.placement_left": "quedan {left} partidas de clasificación"
 }

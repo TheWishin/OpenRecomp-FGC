@@ -1325,5 +1325,7 @@
     "settings_ui.note.updates": "런처와 게임의 새 버전.",
     "settings_ui.note.advanced": "문제 해결과 특수한 환경용. 보통은 바꿀 것이 없습니다.",
     "settings_ui.pad_bindings": "버튼 설정",
-    "settings_ui.pad_bindings_hint": "버튼 설정 페이지를 엽니다. 연결된 패드마다 버튼을 정합니다."
+    "settings_ui.pad_bindings_hint": "버튼 설정 페이지를 엽니다. 연결된 패드마다 버튼을 정합니다.",
+    "online_ui.to_next": "{rank}까지 {points}",
+    "online_ui.placement_left": "배치 경기 {left}판 남음"
 }

@@ -1325,5 +1325,7 @@
     "settings_ui.note.updates": "ランチャーとゲームの新しいバージョン。",
     "settings_ui.note.advanced": "トラブルや特殊な環境向け。通常は変更不要です。",
     "settings_ui.pad_bindings": "ボタン設定",
-    "settings_ui.pad_bindings_hint": "ボタン設定ページを開きます。接続中の各パッドのボタン配置です。"
+    "settings_ui.pad_bindings_hint": "ボタン設定ページを開きます。接続中の各パッドのボタン配置です。",
+    "online_ui.to_next": "{rank}まで {points}",
+    "online_ui.placement_left": "残り昇格戦 {left}"
 }

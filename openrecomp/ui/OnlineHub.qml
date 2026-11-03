@@ -10,7 +10,8 @@ Item {
     readonly property var fnd: o.find || ({})
     readonly property var acc: root.v.accent
     readonly property bool chatOpen: !!o.chatOpen
-    readonly property int gap: 20
+    readonly property int gap: 16
+    readonly property int topH: 226
     readonly property int chatW: chatOpen ? 520 : 76
     readonly property color card: "#16181C"
     readonly property color raised: "#202328"
@@ -55,44 +56,69 @@ Item {
         TapHandler { onTapped: page.click(chip.b.index) }
     }
 
-    // ================================================================ profile card
+    // ================================================================ profile card: who you are, your ranked standing
     Rectangle {
         id: profile
         objectName: "onlineProfile"
-        x: 24; y: 16; width: 520; height: 236
+        x: 24; y: 14; width: 640; height: page.topH
         color: page.card; border.width: 1; border.color: page.prof.focused ? page.acc : page.root.line
         Rectangle {
             id: face
-            x: 20; y: 20; width: 124; height: 156; color: "#24272C"; clip: true
+            x: 16; y: 16; width: 112; height: 144; color: "#24272C"; clip: true
             Image { anchors.fill: parent; source: page.prof.face || ""; asynchronous: true; mipmap: true; fillMode: Image.PreserveAspectCrop; visible: !!page.prof.face }
             Text {
                 visible: !page.prof.face
                 anchors.centerIn: parent; textFormat: Text.PlainText
                 text: (page.prof.name || "?").substring(0, 1).toUpperCase()
-                color: page.root.muted; font.family: page.root.display; font.weight: Font.Black; font.pixelSize: 84
+                color: page.root.muted; font.family: page.root.display; font.weight: Font.Black; font.pixelSize: 72
             }
             Rectangle {
                 visible: !!page.prof.main
-                anchors.bottom: parent.bottom; width: parent.width; height: 28; color: "#CC0E0F11"
-                Text { anchors.centerIn: parent; width: parent.width - 8; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.prof.main || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: 20 }
+                anchors.bottom: parent.bottom; width: parent.width; height: 24; color: "#CC0E0F11"
+                Text { anchors.centerIn: parent; width: parent.width - 8; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.prof.main || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: 17 }
             }
         }
         Column {
-            x: 164; y: 16; width: parent.width - 180; spacing: 4
-            Text { objectName: "profileName"; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.prof.name || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.Black; font.pixelSize: 44 }
+            x: 144; y: 10; width: parent.width - 160; spacing: 3
+            Text { objectName: "profileName"; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.prof.name || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.Black; font.pixelSize: 36 }
             Row {
-                spacing: 10; height: 30
-                Image { visible: !!page.prof.plate; source: page.prof.plate || ""; height: 28; width: 56; fillMode: Image.PreserveAspectFit; asynchronous: true; anchors.verticalCenter: parent.verticalCenter }
-                Text { textFormat: Text.PlainText; text: page.prof.rank || ""; color: page.acc; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
+                spacing: 10; height: 28
+                Image { visible: !!page.prof.plate; source: page.prof.plate || ""; height: 26; width: 52; fillMode: Image.PreserveAspectFit; asynchronous: true; anchors.verticalCenter: parent.verticalCenter }
+                Text { textFormat: Text.PlainText; text: page.prof.rank || ""; color: page.acc; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: 21; anchors.verticalCenter: parent.verticalCenter }
+                Text { textFormat: Text.PlainText; text: page.list(page.prof.rows).join("  ·  "); color: page.root.textC; font.family: page.root.mono; font.pixelSize: 19; anchors.verticalCenter: parent.verticalCenter }
             }
-            Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.list(page.prof.rows).join("  ·  "); color: page.root.textC; font.family: page.root.mono; font.pixelSize: 22 }
-            Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.list(page.prof.conn).join("  ·  "); color: page.root.muted; font.family: page.root.sans; font.pixelSize: 20 }
+            // progress to the next rank (or through the placement matches)
+            Item {
+                visible: (page.prof.progress === undefined ? -1 : page.prof.progress) >= 0
+                width: parent.width; height: 26
+                Rectangle {
+                    y: 9; width: parent.width * 0.55; height: 8; radius: 4; color: "#2A2D32"
+                    Rectangle { height: parent.height; radius: 4; width: parent.width * Math.max(0, page.prof.progress || 0); color: page.acc }
+                }
+                Text { x: parent.width * 0.55 + 12; anchors.verticalCenter: parent.verticalCenter; width: parent.width * 0.45 - 12; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.prof.progressText || ""; color: page.root.muted; font.family: page.root.sans; font.pixelSize: 17 }
+            }
+            Row {
+                visible: page.list(page.prof.recent).length > 0
+                spacing: 4; height: 26
+                Text { textFormat: Text.PlainText; text: page.prof.recentLabel || ""; color: page.root.muted; font.family: page.root.sans; font.pixelSize: 16; anchors.verticalCenter: parent.verticalCenter; rightPadding: 6 }
+                Repeater {
+                    model: page.list(page.prof.recent).length
+                    Rectangle {
+                        id: result
+                        required property int index
+                        readonly property var c: page.root.ok(page.prof.recent, index)
+                        width: 24; height: 24; color: c.win ? page.acc : "transparent"; border.width: 1; border.color: c.win ? page.acc : "#6B6E75"
+                        Text { anchors.centerIn: parent; textFormat: Text.PlainText; text: result.c.text || ""; color: result.c.win ? page.ink : page.root.textC; font.family: page.root.mono; font.pixelSize: 13 }
+                    }
+                }
+            }
+            Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.list(page.prof.conn).join("  ·  "); color: page.root.muted; font.family: page.root.sans; font.pixelSize: 17 }
         }
         Row {
-            x: 164; y: parent.height - 64; spacing: 10
+            anchors.right: parent.right; anchors.rightMargin: 14; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; spacing: 8
             Repeater {
                 model: page.list(page.prof.buttons).length
-                Chip { required property int index; b: page.root.ok(page.prof.buttons, index); maxW: 170; fontSize: 20 }
+                Chip { required property int index; b: page.root.ok(page.prof.buttons, index); maxW: 170; fontSize: 17; height: 34 }
             }
         }
         TapHandler { onTapped: page.click(page.prof.index) }
@@ -102,63 +128,64 @@ Item {
     Rectangle {
         id: find
         objectName: "onlineFind"
-        x: profile.x + profile.width + page.gap; y: 16; width: 1920 - 24 - x; height: 236
+        x: profile.x + profile.width + 16; y: 14; width: 1920 - 24 - x; height: page.topH
         color: page.card; border.width: 1; border.color: page.root.line
-        Text { x: 24; y: 14; textFormat: Text.PlainText; text: page.o.findTitle || ""; color: page.root.muted; font.family: page.root.mono; font.weight: Font.Medium; font.pixelSize: 20; font.capitalization: Font.AllUppercase }
+        Text { x: 20; y: 10; textFormat: Text.PlainText; text: page.o.findTitle || ""; color: page.root.muted; font.family: page.root.mono; font.weight: Font.Medium; font.pixelSize: 17; font.capitalization: Font.AllUppercase }
         Row {
-            x: 24; y: 46; spacing: 16
+            x: 20; y: 36; spacing: 12
             Repeater {
                 model: [page.fnd.ranked || ({}), page.fnd.quick || ({})]
                 Item {
+                    id: big
                     required property var modelData
                     required property int index
                     readonly property var b: modelData || ({})
-                    width: (find.width - 48 - 16) / 2; height: 96
+                    width: (find.width - 40 - 12) / 2; height: 74
                     visible: !!b.present
                     Rectangle {
-                        width: parent.width; height: 64
-                        color: parent.b.focused ? page.root.bone : (parent.index === 0 ? page.acc : page.raised)
-                        border.width: parent.index === 0 || parent.b.focused ? 0 : 1; border.color: page.root.line
-                        opacity: parent.b.disabled ? 0.45 : 1
+                        width: parent.width; height: 50
+                        color: big.b.focused ? page.root.bone : (big.index === 0 ? page.acc : page.raised)
+                        border.width: big.index === 0 || big.b.focused ? 0 : 1; border.color: page.root.line
+                        opacity: big.b.disabled ? 0.45 : 1
                         Text {
-                            anchors.centerIn: parent; width: parent.width - 32; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
-                            textFormat: Text.PlainText; text: parent.parent.b.label || ""
-                            color: parent.parent.b.focused || parent.parent.index === 0 ? page.ink : page.root.textC
-                            font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 40
+                            anchors.centerIn: parent; width: parent.width - 24; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
+                            textFormat: Text.PlainText; text: big.b.label || ""
+                            color: big.b.focused || big.index === 0 ? page.ink : page.root.textC
+                            font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 32
                         }
-                        TapHandler { onTapped: page.click(parent.parent.b.index) }
+                        TapHandler { onTapped: page.click(big.b.index) }
                     }
                     Text {
-                        y: 70; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText
-                        text: parent.index === 0 ? (page.fnd.rankedNote || "") : (page.fnd.quickNote || "")
-                        color: page.root.muted; font.family: page.root.sans; font.pixelSize: 19
+                        y: 54; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText
+                        text: big.index === 0 ? (page.fnd.rankedNote || "") : (page.fnd.quickNote || "")
+                        color: page.root.muted; font.family: page.root.sans; font.pixelSize: 16
                     }
                 }
             }
         }
         // the options: character, health, strict, side, delay, first to, stage ...
         Flow {
-            x: 24; y: 146; width: find.width - 48; height: 80; spacing: 8; clip: true
+            x: 20; y: 110; width: find.width - 40; height: page.topH - 110 - 6; spacing: 5; clip: true
             Repeater {
                 model: page.list(page.fnd.options).length
-                Chip { required property int index; b: page.root.ok(page.fnd.options, index); maxW: 400; fontSize: 19; height: 36 }
+                Chip { required property int index; b: page.root.ok(page.fnd.options, index); maxW: 380; fontSize: 16; height: 31 }
             }
             Repeater {
                 model: page.list(page.fnd.extra).length
-                Chip { required property int index; b: page.root.ok(page.fnd.extra, index); maxW: 360; fontSize: 19; height: 36 }
+                Chip { required property int index; b: page.root.ok(page.fnd.extra, index); maxW: 340; fontSize: 16; height: 31 }
             }
         }
         // an incoming challenge sits over the options until it is answered
         Rectangle {
             visible: !!page.fnd.incoming
-            x: 24; y: 142; width: find.width - 48; height: 84; color: page.acc
-            Text { x: 20; anchors.verticalCenter: parent.verticalCenter; width: parent.width - incomingRow.width - 60; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.fnd.incoming ? page.fnd.incoming.text : ""; color: page.ink; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 34 }
+            x: 20; y: 110; width: find.width - 40; height: page.topH - 110 - 10; color: page.acc
+            Text { x: 18; anchors.verticalCenter: parent.verticalCenter; width: parent.width - incomingRow.width - 50; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.fnd.incoming ? page.fnd.incoming.text : ""; color: page.ink; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 30 }
             Row {
                 id: incomingRow
-                anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter; spacing: 10
+                anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; spacing: 8
                 Repeater {
                     model: page.fnd.incoming ? page.list(page.fnd.incoming.buttons).length : 0
-                    Chip { required property int index; b: page.root.ok(page.fnd.incoming.buttons, index); strong: true; maxW: 240 }
+                    Chip { required property int index; b: page.root.ok(page.fnd.incoming.buttons, index); strong: true; maxW: 240; height: 36; fontSize: 18 }
                 }
             }
         }
@@ -168,10 +195,10 @@ Item {
     Item {
         id: chapters
         objectName: "onlineChapters"
-        x: 24; y: 16 + 236 + 16; width: 1920 - 48 - page.chatW - page.gap; height: 52
+        x: 24; y: 14 + page.topH + 10; width: 1920 - 48 - page.chatW - page.gap; height: 46
         Row {
             anchors.verticalCenter: parent.verticalCenter; spacing: 4
-            Glyph { g: page.o.prevG || ({}); size: 34; anchors.verticalCenter: parent.verticalCenter }
+            Glyph { g: page.o.prevG || ({}); size: 30; anchors.verticalCenter: parent.verticalCenter }
             Item { width: 8; height: 1 }
             Repeater {
                 model: page.list(page.o.chapters).length
@@ -179,12 +206,12 @@ Item {
                     id: tab
                     required property int index
                     readonly property var c: page.root.ok(page.o.chapters, index)
-                    width: tabRow.implicitWidth + 32; height: 52
+                    width: tabRow.implicitWidth + 28; height: 46
                     color: "transparent"
                     Row {
                         id: tabRow
                         anchors.centerIn: parent; spacing: 10
-                        Text { textFormat: Text.PlainText; text: tab.c.label || ""; color: tab.c.active ? page.root.textC : page.root.muted; font.family: page.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: 30; anchors.verticalCenter: parent.verticalCenter }
+                        Text { textFormat: Text.PlainText; text: tab.c.label || ""; color: tab.c.active ? page.root.textC : page.root.muted; font.family: page.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
                         Rectangle {
                             visible: !!tab.c.badge
                             width: Math.max(28, badgeText.implicitWidth + 12); height: 26; radius: 13; color: tab.c.active ? page.acc : "#2A2D32"
@@ -197,7 +224,7 @@ Item {
                 }
             }
             Item { width: 8; height: 1 }
-            Glyph { g: page.o.nextG || ({}); size: 34; anchors.verticalCenter: parent.verticalCenter }
+            Glyph { g: page.o.nextG || ({}); size: 30; anchors.verticalCenter: parent.verticalCenter }
         }
         Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: page.root.line }
     }
@@ -222,7 +249,7 @@ Item {
                     required property int index
                     readonly property var l: page.root.ok(body.b.lines, index)
                     width: body.tableW
-                    height: l.kind === "heading" ? 40 : (l.kind === "thead" ? 34 : (l.kind === "note" ? 34 : 42))
+                    height: l.kind === "heading" ? 34 : (l.kind === "thead" ? 30 : (l.kind === "note" ? 30 : 38))
                     // a sub-heading of the chapter
                     Text {
                         visible: line.l.kind === "heading" || line.l.kind === "note"
@@ -259,7 +286,7 @@ Item {
                                     readonly property var c: page.root.ok(line.l.cells, index)
                                     readonly property real w: line.l.kind === "trow" ? page.colW(body.b.lines, line.index, index) : 0
                                     readonly property int nb: c.bars || 0
-                                    width: body.tableW * w; height: 40
+                                    width: body.tableW * w; height: 36
                                     Row {
                                         x: 10; anchors.verticalCenter: parent.verticalCenter; spacing: 8
                                         Row {          // signal bars
@@ -281,7 +308,7 @@ Item {
                                             visible: width > 0 && text !== ""
                                             elide: Text.ElideRight; textFormat: Text.PlainText; text: cell.c.text || ""
                                             color: page.root.textC; font.family: page.root.sans
-                                            font.weight: cell.c.bold ? Font.DemiBold : Font.Normal; font.pixelSize: 21
+                                            font.weight: cell.c.bold ? Font.DemiBold : Font.Normal; font.pixelSize: 19
                                         }
                                     }
                                 }
@@ -312,7 +339,7 @@ Item {
                         anchors.fill: parent; anchors.topMargin: 1; anchors.bottomMargin: 1
                         color: line.l.focused ? page.root.bone : "transparent"
                         opacity: line.l.disabled ? 0.5 : 1
-                        Text { x: 14; anchors.verticalCenter: parent.verticalCenter; width: parent.width * 0.55; elide: Text.ElideRight; textFormat: Text.PlainText; text: line.l.label || ""; color: line.l.focused ? page.ink : page.root.textC; font.family: page.root.sans; font.weight: Font.Medium; font.pixelSize: 22 }
+                        Text { x: 14; anchors.verticalCenter: parent.verticalCenter; width: parent.width * 0.55; elide: Text.ElideRight; textFormat: Text.PlainText; text: line.l.label || ""; color: line.l.focused ? page.ink : page.root.textC; font.family: page.root.sans; font.weight: Font.Medium; font.pixelSize: 20 }
                         Row {
                             anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; spacing: 12
                             Text { visible: !!line.l.value; width: Math.min(implicitWidth, body.tableW * 0.38); elide: Text.ElideMiddle; textFormat: Text.PlainText; text: line.l.cycler ? "‹ " + (line.l.value || "") + " ›" : (line.l.value || ""); color: line.l.focused ? page.ink : page.root.muted; font.family: page.root.mono; font.pixelSize: 20; anchors.verticalCenter: parent.verticalCenter }

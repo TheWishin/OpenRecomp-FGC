@@ -1325,5 +1325,7 @@
     "settings_ui.note.updates": "New versions of the launcher and of the games.",
     "settings_ui.note.advanced": "For problems and special setups. Usually nothing to change here.",
     "settings_ui.pad_bindings": "Pad bindings",
-    "settings_ui.pad_bindings_hint": "Opens the pad bindings page: buttons for every connected pad."
+    "settings_ui.pad_bindings_hint": "Opens the pad bindings page: buttons for every connected pad.",
+    "online_ui.to_next": "{points} to {rank}",
+    "online_ui.placement_left": "{left} placement matches left"
 }

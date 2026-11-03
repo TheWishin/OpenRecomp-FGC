@@ -62,7 +62,9 @@ AFTER = {"profile_self": "profile", "profile_load": "profile", "profile_player:"
          "leaderboard_refresh": "leaderboard", "stats_refresh": "stats"}
 LOADERS = {"profile": "profile_self", "leaderboard": "leaderboard_refresh", "stats": "stats_refresh"}
 CHAT_LINES = 13
-BODY_LINES = 11
+LOBBY_HEADINGS = ("@online.players", "@online.open_challenges")
+CARD_LINES = 13
+BODY_LINES = 12
 SIGNAL = ((60, 4), (100, 3), (160, 2))
 
 
@@ -145,6 +147,9 @@ class OnlineLayout:
             if region == "chat" and selected and (item.get("id") or "").startswith(("chat:", "no_chat", "online_chat", "send_chat")):
                 continue                          # a private conversation is open in the panel
             for heading in pending:
+                # a heading names its own rows: one whose rows live elsewhere (spectating, private chat) is dropped
+                if region == "lobby" and heading.get("label") not in LOBBY_HEADINGS:
+                    continue
                 if region != "chat" or selected:
                     by_region[region].append(heading)
             pending = []
@@ -289,6 +294,7 @@ class OnlineLayout:
         present = [c for c in CHAPTERS if any(it.get("region") == c for it in items)]
         if not present:
             return
+        self._remember_chapter_focus(items, i)
         chapter = self._chapter_of_focus(items, i)
         pos = present.index(chapter) if chapter in present else 0
         self._go_chapter(items, present[(pos + step) % len(present)])
@@ -375,6 +381,43 @@ class OnlineLayout:
         return dict(index=n, label=it.get("label", ""), value=value, focused=n == fi, disabled=bool(it.get("disabled")),
                     cycler=it.get("kind") == "cycler", verb=it.get("verb", "") if n == fi else "")
 
+    def _view_online_card(self, v, g, items, fi):
+        """Login, search, match and result: one card (title, the status message, the rows) + the focused row's details."""
+        lines, focus_line = [], 0
+        for n, it in enumerate(items):
+            if it.get("kind") == "heading":
+                lines.append(dict(kind="heading", label=it.get("label", "")))
+                continue
+            if it.get("id") == "online_status":
+                continue                          # the status is the card's title and message
+            if n == fi:
+                focus_line = len(lines)
+            row = self._btn(items, n, fi)
+            iid = it.get("id") or ""
+            row["kind"] = "field" if iid.startswith("online_") and it.get("verb") == "@change" else "row"
+            row["verb"] = it.get("verb", "") if n == fi else ""
+            lines.append(row)
+        start = 0
+        if len(lines) > CARD_LINES:
+            start = max(0, min(len(lines) - CARD_LINES, focus_line - CARD_LINES // 2))
+        si = next((n for n, it in enumerate(items) if it.get("id") == "online_status"), -1)
+        status = items[si] if si >= 0 else {}
+        sd = status.get("detail") or {}
+        it = items[fi] if items else {}
+        d = it.get("detail") or {}
+        rows = [dict(k=r["k"], v=r["v"], accent=bool(r.get("accent"))) for r in (sd.get("rows") or []) + (
+            (d.get("rows") or []) if it is not status else [])][:12]
+        try:
+            phase = g.a.online_state().get("phase", "")
+        except Exception:  # noqa: BLE001 -- the card without its error colour
+            phase = ""
+        v["online"] = dict(layout="card", title=sd.get("title") or status.get("label", ""), message=sd.get("lead", ""),
+                           error=phase in ("error", "kicked"),
+                           statusFocused=fi == si and si >= 0, statusIndex=si,
+                           lines=lines[start:start + CARD_LINES], up=start > 0, down=start + CARD_LINES < len(lines),
+                           detail=dict(title=d.get("title") or it.get("label", ""), lead=d.get("lead") or it.get("hint", ""),
+                                       rows=rows))
+
     def _view_online_page(self, v, g, state, items, fi):
         chapter = self._chapter_of_focus(items, fi)
         self._remember_chapter_focus(items, fi)
@@ -405,9 +448,27 @@ class OnlineLayout:
         conn = [i18n.message("online_ui.server_ping", ping=ping) if ping is not None else "@online_ui.server_ping_unknown",
                 "@online_ui.secure" if state.get("secure") else "@online_ui.not_secure"]
         n = by_id.get("online_status", 0)
+        progress, progress_text = -1, ""
+        rating = me.get("rating")
+        if state.get("account") and not me.get("guest") and not me.get("placement"):
+            bar = g.a.rank_progress(rating)
+            if bar:
+                low, high, following = bar
+                progress = max(0.0, min(1.0, (rating - low) / max(1.0, high - low)))
+                progress_text = i18n.message("online_ui.to_next", points=int(round(max(0, high - rating))),
+                                             rank=i18n.literal(following))
+        elif me.get("placement"):
+            done, total = me["placement"]
+            progress = max(0.0, min(1.0, done / max(1, total)))
+            progress_text = i18n.message("online_ui.placement_left", left=max(0, total - done))
+        try:
+            recent = self._cells(g.a.recent_results() or [])[:8]
+        except Exception:  # noqa: BLE001 -- the card shows no results then
+            recent = []
         return dict(name=i18n.literal(state.get("name") or ""), rank=rank, plate=uri(g.a.rank_plate(me.get("tier"))) if me else "",
                     face=face, main=i18n.literal(g.a.fighter_label(main)) if main else "", rows=rows, conn=conn,
                     index=n, focused=n == fi, guest=not state.get("account"),
+                    progress=progress, progressText=progress_text, recent=recent, recentLabel="@recent_sets",
                     buttons=[self._btn(items, by_id[i], fi) for i in ("profile_self", "logout") if i in by_id])
 
     def _view_find(self, g, state, items, fi, by_id):

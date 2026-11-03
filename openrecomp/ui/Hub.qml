@@ -68,6 +68,13 @@ Column {
         root: hub.root
     }
 
+    OnlineCard {
+        objectName: "onlineCardPage"
+        visible: hub.v.online.layout === "card"
+        width: 1920; height: parent.height - 84
+        root: hub.root
+    }
+
     SettingsHub {
         objectName: "settingsHub"
         visible: hub.v.settingsPage.layout === "groups"
@@ -83,7 +90,7 @@ Column {
     }
 
     Row {
-        visible: !(hub.v.build && hub.v.build.show) && hub.v.online.layout !== "lobby" && hub.v.settingsPage.layout !== "groups"
+        visible: !(hub.v.build && hub.v.build.show) && hub.v.online.layout !== "lobby" && hub.v.online.layout !== "card" && hub.v.settingsPage.layout !== "groups"
         width: 1920; height: parent.height - 84
         // ---------------------------------------------------------------- the list
         Item {

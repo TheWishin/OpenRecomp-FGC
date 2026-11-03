@@ -667,6 +667,34 @@ class Online:
     def _online_player_rank(self, rating):
         return ""
 
+    def rank_progress(self, rating):
+        """The ranked card's bar: (start of this rank, start of the next, the next rank's name) from the installed
+        client's own rank table, or None (no table, a guest, the top rank)."""
+        if (self.online_package != "t5lobby" or "_online_api" not in self.__dict__
+                or isinstance(rating, bool) or not isinstance(rating, (int, float))):
+            return None
+        ranks = self.__dict__.get("_online_ranks")
+        if ranks is None:
+            try:
+                with readonly_imports():
+                    ranks = importlib.import_module(self.online_package + ".ranks")
+                if not all(callable(getattr(ranks, name, None)) for name in ("tier_for", "threshold", "name")):
+                    ranks = False
+            except Exception:  # noqa: BLE001 -- an older client: no bar
+                ranks = False
+            self._online_ranks = ranks
+        if not ranks:
+            return None
+        try:
+            tier = ranks.tier_for(rating)
+            low, high = ranks.threshold(tier), ranks.threshold(tier + 1)
+            if not (math.isfinite(high)):
+                return None
+            low = low if math.isfinite(low) else high - 50
+            return float(low), float(high), str(ranks.name(tier + 1))
+        except Exception:  # noqa: BLE001 -- the top rank (no next one) or an unexpected table
+            return None
+
     def _online_player(self, player):
         if not isinstance(player, dict):
             return {}

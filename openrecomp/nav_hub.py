@@ -147,6 +147,8 @@ class Hub:
         page = sec == "online" and it.get("region") is not None
         if sec == "settings" and items:
             self._view_settings_page(v, items, fi)
+        if sec == "online" and not page and any(item.get("id") == "online_status" for item in items):
+            self._view_online_card(v, g, items, fi)
         if page:
             state = g.a.online_state()
             self._view_online_page(v, g, state, items, fi)

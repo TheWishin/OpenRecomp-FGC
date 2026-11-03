@@ -1325,5 +1325,7 @@
     "settings_ui.note.updates": "Nouvelles versions du lanceur et des jeux.",
     "settings_ui.note.advanced": "Pour les problèmes et cas particuliers. En général, rien à changer ici.",
     "settings_ui.pad_bindings": "Configuration des touches",
-    "settings_ui.pad_bindings_hint": "Ouvre la page des touches : les boutons de chaque manette branchée."
+    "settings_ui.pad_bindings_hint": "Ouvre la page des touches : les boutons de chaque manette branchée.",
+    "online_ui.to_next": "{points} avant {rank}",
+    "online_ui.placement_left": "encore {left} matchs de placement"
 }

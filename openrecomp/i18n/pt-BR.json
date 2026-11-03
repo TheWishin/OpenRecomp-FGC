@@ -1325,5 +1325,7 @@
     "settings_ui.note.updates": "Novas versões do lançador e dos jogos.",
     "settings_ui.note.advanced": "Para problemas e configurações especiais. Normalmente não há nada a mudar.",
     "settings_ui.pad_bindings": "Mapeamento de botões",
-    "settings_ui.pad_bindings_hint": "Abre a página de botões: o mapeamento de cada controle conectado."
+    "settings_ui.pad_bindings_hint": "Abre a página de botões: o mapeamento de cada controle conectado.",
+    "online_ui.to_next": "{points} para {rank}",
+    "online_ui.placement_left": "faltam {left} partidas classificatórias"
 }

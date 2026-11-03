@@ -1325,5 +1325,7 @@
     "settings_ui.note.updates": "Neue Versionen des Launchers und der Spiele.",
     "settings_ui.note.advanced": "Für Probleme und besondere Einrichtungen. Meist gibt es hier nichts zu ändern.",
     "settings_ui.pad_bindings": "Tastenbelegung",
-    "settings_ui.pad_bindings_hint": "Öffnet die Seite Tastenbelegung: die Tasten jedes angeschlossenen Pads."
+    "settings_ui.pad_bindings_hint": "Öffnet die Seite Tastenbelegung: die Tasten jedes angeschlossenen Pads.",
+    "online_ui.to_next": "{points} bis {rank}",
+    "online_ui.placement_left": "noch {left} Platzierungsmatches"
 }

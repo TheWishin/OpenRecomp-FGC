@@ -178,7 +178,7 @@ def untranslated_literals(source):
         # the settings page's group ids and its own rows (nav_settings_page)
         "display", "controls", "online", "audio", "offline", "replays", "updates", "advanced", "pad_bindings",
         "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",
-        "check_all", "settingsGroup", "groups",
+        "check_all", "settingsGroup", "groups", "tier_for", "threshold", "field",
         "reconnected",
         "[a-z0-9_-]+", "invalid game id", "OpenRecomp-FGC-launches", ".lock", "a+b",
         "openrecomp-game-reservation",
