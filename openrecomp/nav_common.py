@@ -3,11 +3,15 @@ import pathlib
 
 SECTION_TITLES = {"play": "section.play", "online": "section.online", "build": "section.build", "replays": "section.replays", "settings": "section.settings", "controls": "section.controls", "support": "section.support"}
 GLYPHS = {
-    "xbox": dict(confirm="A", back="B", x="X", social="Y", prev="LB", next="RB", play="Start", switchGame="View", right="‹ ›"),
-    "ps": dict(confirm="✕", back="○", x="□", social="△", prev="L1", next="R1", play="Options", switchGame="Share", right="‹ ›"),
-    "kb": dict(confirm="Enter", back="Esc", x="X", social="F", prev="Q", next="E", play="Space", switchGame="G", right="← →"),
+    "xbox": dict(confirm="A", back="B", x="X", social="Y", prev="LB", next="RB", play="Start", switchGame="View", right="‹ ›",
+                 chapterPrev="LT", chapterNext="RT", chapters="LT RT"),
+    "ps": dict(confirm="✕", back="○", x="□", social="△", prev="L1", next="R1", play="Options", switchGame="Share", right="‹ ›",
+               chapterPrev="L2", chapterNext="R2", chapters="L2 R2"),
+    "kb": dict(confirm="Enter", back="Esc", x="X", social="F", prev="Q", next="E", play="Space", switchGame="G", right="← →",
+               chapterPrev="PgUp", chapterNext="PgDn", chapters="PgUp PgDn"),
 }
-TRAIL = dict(up="↑", down="↓", left="←", right="→", confirm="A", back="B", x="X", social="Y", prev="LB", next="RB", play="St", switchGame="Vw")
+TRAIL = dict(up="↑", down="↓", left="←", right="→", confirm="A", back="B", x="X", social="Y", prev="LB", next="RB", play="St", switchGame="Vw",
+             chapterPrev="LT", chapterNext="RT")
 DEVICE_LABEL = dict(xbox="device.xbox", ps="device.ps", kb="device.kb")
 OSK = ("1234567890", "QWERTYUIOP", "ASDFGHJKL-", "ZXCVBNM_.,")
 OSK_ACTIONS = (("space", "osk.space"), ("del", "osk.delete"), ("done", "osk.done"))

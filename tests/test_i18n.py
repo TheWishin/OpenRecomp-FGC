@@ -169,7 +169,16 @@ def untranslated_literals(source):
         "no_friends", "private_rooms", "friends", "incoming", "outgoing", "_online_friend_",
         "password", "code", "online", "in_match", "rematch", "logs", ".match_driver", ".t4game",
         "continue", "won", "lost", "draw", "t5_ready", "t5_answer", "t5_rematch", "t5_return", "t5_driver",
-        "openrecomp-t5-match", "openrecomp-t5-match-close", "openrecomp-t5-state", "unqueue", "reconnecting",
+        "openrecomp-t5-match", "openrecomp-t5-match-close", "openrecomp-t5-state", "unqueue", "reconnecting", "chapterNext", "chapterPrev",
+        # the lobby page's region and line ids (nav_online_layout) and the rank plate file name
+        "card", "chat_lobby", "chat_toggle", "compose", "f:", "find", "friend_bar", "game_setup", "game_update", "h:",
+        "hist_page", "i:", "lb_page", "lb_sort", "mention", "online_profile", "online_room_", "online_tour_", "p:",
+        "pcompose", "preport", "private_open", "profile_player", "ranked_strict", "room_bar", "search", "spec_",
+        "spec_watch_tour", "stats_mode", "stats_sort", "tabs", "rank_%02d.png", "ranks", "ping_measured",
+        # the settings page's group ids and its own rows (nav_settings_page)
+        "display", "controls", "online", "audio", "offline", "replays", "updates", "advanced", "pad_bindings",
+        "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",
+        "check_all", "settingsGroup", "groups",
         "reconnected",
         "[a-z0-9_-]+", "invalid game id", "OpenRecomp-FGC-launches", ".lock", "a+b",
         "openrecomp-game-reservation",

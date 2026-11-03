@@ -256,8 +256,12 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
 
     # ---------------------------------------------------------------- pictures
     def face(self, gid):
+        faces = self.__dict__.setdefault("_faces", {})      # asked for every lobby row on every redraw
+        if faces.get(gid):
+            return faces[gid]
         path = os.path.join(self.s.out_dir, "cache", "fighters", f"face_{gid:02d}.png")
-        return path if os.path.isfile(path) else ""
+        faces[gid] = path if os.path.isfile(path) else ""
+        return faces[gid]
 
     def hero(self):
         """The full-figure render of the player's main, read once from their own game into the user folder."""
@@ -490,6 +494,18 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
 
     def fighter_name_id(self, gid):
         return next((f["name"] for f in self._fighter_table() if f["id"] == gid), "")
+
+    def fighter_label(self, key):
+        return next((f["name"] for f in self._fighter_table() if f["key"] == key), key or "")
+
+    def rank_plate(self, tier):
+        """The plate the T5DR launcher read from this build (output folder, cache, ranks). Looked up once per tier: the
+        online table asks for every player on every redraw."""
+        plates = self.__dict__.setdefault("_plates", {})
+        if tier not in plates:
+            path = os.path.join(self.s.out_dir, "cache", "ranks", "rank_%02d.png" % tier) if isinstance(tier, int) else ""
+            plates[tier] = path if path and os.path.isfile(path) else ""
+        return plates[tier]
 
     def fighter_image(self, key):
         gid = next((f["id"] for f in self._fighter_table() if f["key"] == key), None)

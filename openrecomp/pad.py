@@ -12,9 +12,9 @@ from .adapters.t5_coexist import readonly_imports
 
 # (source name of a pressed thing, action); the names are padnav's, so both readers end in one table
 SOURCES = (("A", "confirm"), ("B", "back"), ("X", "x"), ("Y", "social"), ("LB", "prev"), ("RB", "next"), ("START", "play"), ("BACK", "switchGame"),
-           ("DUP", "up"), ("DDOWN", "down"), ("DLEFT", "left"), ("DRIGHT", "right"))
+           ("DUP", "up"), ("DDOWN", "down"), ("DLEFT", "left"), ("DRIGHT", "right"), ("LT", "chapterPrev"), ("RT", "chapterNext"))
 # padnav's names for a PlayStation pad: buttons in the pad's own order, the hat, the left stick (Y- is up)
-PS_NAMES = {"B1": "X", "B2": "A", "B3": "B", "B4": "Y", "B5": "LB", "B6": "RB", "B9": "BACK", "B10": "START",
+PS_NAMES = {"B1": "X", "B2": "A", "B3": "B", "B4": "Y", "B5": "LB", "B6": "RB", "B7": "LT", "B8": "RT", "B9": "BACK", "B10": "START",
             "HAT_UP": "DUP", "HAT_DOWN": "DDOWN", "HAT_LEFT": "DLEFT", "HAT_RIGHT": "DRIGHT",
             "X-": "DLEFT", "X+": "DRIGHT", "Y-": "DUP", "Y+": "DDOWN"}
 DIRECTIONS = {"up", "down", "left", "right"}
@@ -32,9 +32,16 @@ class _XInputState(ctypes.Structure):
     _fields_ = [("packet", ctypes.c_ulong), ("pad", _XInputGamepad)]
 
 
-def xinput_held(buttons, lx, ly):
-    """The source names held on one XInput pad: its buttons, the left stick as a D-pad."""
+TRIGGER = 128      # an analog trigger past half counts as pressed
+
+
+def xinput_held(buttons, lx, ly, lt=0, rt=0):
+    """The source names held on one XInput pad: its buttons, the triggers, the left stick as a D-pad."""
     held = {name for bit, name in XI_BITS if buttons & bit}
+    if lt > TRIGGER:
+        held.add("LT")
+    if rt > TRIGGER:
+        held.add("RT")
     if ly > STICK:
         held.add("DUP")
     elif ly < -STICK:
@@ -68,7 +75,7 @@ class XInputReader:
         st = _XInputState()
         for i in range(4):
             if self.get(i, ctypes.byref(st)) == 0:
-                held[i] = xinput_held(st.pad.buttons, st.pad.lx, st.pad.ly)
+                held[i] = xinput_held(st.pad.buttons, st.pad.lx, st.pad.ly, st.pad.lt, st.pad.rt)
         return held
 
     def return_devices(self):

@@ -39,7 +39,16 @@ class Hub:
         i = self.focus_index(items)
         it = items[i] if items else {}
         secs = self.sections()
-        if a in ("up", "down"):
+        page = it.get("region") is not None and self.section() == "online"
+        if page and a in ("up", "down"):
+            self.focus[self.key()] = self._online_move(items, i, -1 if a == "up" else 1)
+        elif page and a in ("left", "right") and self._online_side(items, i, -1 if a == "left" else 1) is not None:
+            self.focus[self.key()] = self._online_side(items, i, -1 if a == "left" else 1)
+        elif page and a in ("chapterPrev", "chapterNext"):
+            self._online_chapter(items, i, -1 if a == "chapterPrev" else 1)
+        elif page and a == "x" and it.get("replay") is None:
+            self._chat_jump(items, i)
+        elif a in ("up", "down"):
             step = -1 if a == "up" else 1
             j = i + step
             while 0 <= j < len(items) and items[j].get("kind") == "heading":
@@ -135,10 +144,21 @@ class Hub:
                            images=[uri(p) for p in d.get("images", []) if p], image=uri(d.get("image", "")), progress=d.get("progress", -1))
         v["hint"] = it.get("hint", "")
         prompts = []
+        page = sec == "online" and it.get("region") is not None
+        if sec == "settings" and items:
+            self._view_settings_page(v, items, fi)
+        if page:
+            state = g.a.online_state()
+            self._view_online_page(v, g, state, items, fi)
+            if v["hint"] in ("", "@online.challenge_hint", "@online.chat_hint") and state.get("message"):
+                v["hint"] = state["message"]
         if it.get("kind") == "cycler":
             prompts += [self.prompt("confirm", "@change"), self.prompt("right", "@change")]
         elif it.get("verb"):
             prompts.append(self.prompt("confirm", it["verb"]))
+        if page:
+            prompts.append(dict(action="chapterNext", label="@online_ui.chapters", g=self.glyph("chapters")))
+            prompts.append(self.prompt("x", "@online_ui.chat_back" if it.get("region") == "chat" else "@online.chat"))
         if it.get("replay") is not None:
             prompts.append(self.prompt("x", "@hide_result" if self.show_results else "@show_result"))
         prompts.append(self.prompt("back", "@games"))

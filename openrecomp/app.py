@@ -23,7 +23,8 @@ from .app_game_setup import GameSetupBackend
 
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right", Qt.Key_Return: "confirm", Qt.Key_Enter: "confirm",
-        Qt.Key_Escape: "back", Qt.Key_Space: "play", Qt.Key_X: "x", Qt.Key_F: "social", Qt.Key_G: "switchGame", Qt.Key_Q: "prev", Qt.Key_E: "next"}
+        Qt.Key_Escape: "back", Qt.Key_Space: "play", Qt.Key_X: "x", Qt.Key_F: "social", Qt.Key_G: "switchGame", Qt.Key_Q: "prev", Qt.Key_E: "next",
+        Qt.Key_PageUp: "chapterPrev", Qt.Key_PageDown: "chapterNext"}
 KEYS = {int(k): v for k, v in KEYS.items()}   # by number: an unknown key (any layout's letter) is no ValueError
 TICK_MS = 16
 CTRL, SHIFT, ALT = int(Qt.ControlModifier.value), int(Qt.ShiftModifier.value), int(Qt.AltModifier.value)
@@ -627,6 +628,12 @@ class Backend(QObject, GameSetupBackend):
     def clickTab(self, s):
         self.nav.device = "kb"
         self.nav.click_tab(s)
+        self.refresh()
+
+    @Slot(str)
+    def clickChapter(self, chapter):
+        self.nav.device = "kb"
+        self.nav.click_chapter(chapter)
         self.refresh()
 
     @Slot()

@@ -61,6 +61,20 @@ Column {
         }
     }
 
+    OnlineHub {
+        objectName: "onlineHub"
+        visible: hub.v.online.layout === "lobby"
+        width: 1920; height: parent.height - 84
+        root: hub.root
+    }
+
+    SettingsHub {
+        objectName: "settingsHub"
+        visible: hub.v.settingsPage.layout === "groups"
+        width: 1920; height: parent.height - 84
+        root: hub.root
+    }
+
     BuildPage {
         objectName: "buildPage"
         visible: !!(hub.v.build && hub.v.build.show)
@@ -69,7 +83,7 @@ Column {
     }
 
     Row {
-        visible: !(hub.v.build && hub.v.build.show)
+        visible: !(hub.v.build && hub.v.build.show) && hub.v.online.layout !== "lobby" && hub.v.settingsPage.layout !== "groups"
         width: 1920; height: parent.height - 84
         // ---------------------------------------------------------------- the list
         Item {

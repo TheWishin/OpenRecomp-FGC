@@ -15,6 +15,7 @@ from openrecomp.adapters import t4_online
 from openrecomp.nav import Game, Nav
 import test_t4_online as fakes
 from test_t4_beta_network import Subject as DirectSubject
+from pad_step import pad_step
 
 ROOT = Path(__file__).resolve().parents[1]
 VENDOR = ROOT / "openrecomp" / "vendor" / "t4lobby"
@@ -456,7 +457,7 @@ class T4LobbyRows(unittest.TestCase):
         items = self.nav.items()
         target = next(i for i, item in enumerate(items) if item.get("id") == iid)
         while self.nav.focus_index(items) != target:
-            self.nav.act("down" if self.nav.focus_index(items) < target else "up", device="xbox")
+            pad_step(self.nav, target)
             items = self.nav.items()
         self.nav.act("confirm", device="xbox")
 

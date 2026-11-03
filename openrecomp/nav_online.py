@@ -214,6 +214,7 @@ class Online:
             out.append(action("leave_set", "@online.leave_set", "@online.leave_ranked_set" if set_state.get("rated") else "@online.leave_set"))
         if g.a.native_label:
             out.append(self._native_item(g))
+        out = self._online_layout_items(g, state, out)
         return self._remember_online_rows(g, out, state)
 
     def _online_feature_items(self, g, state, out, action):
@@ -238,7 +239,10 @@ class Online:
         previous = self.online_rows.get(g.id)
         index = self.focus.get(g.id + ":online", 0)
         if previous is not None and (index >= len(previous) or index >= len(rows) or previous[index] != rows[index]):
-            self.focus[g.id + ":online"] = 0
+            # The same row moved (a chat line or a player arrived above it): the focus goes with it -- it is the same
+            # action. A row that is gone or changed its target: the top (the status row, which does nothing).
+            moved = rows.index(previous[index]) if index < len(previous) and previous[index] in rows else 0
+            self.focus[g.id + ":online"] = moved
         self.online_rows[g.id] = rows
         return out
 

@@ -19,6 +19,8 @@ from .nav_hub import Hub
 from .nav_keyboard import Keyboard
 from .nav_library import Library
 from .nav_online import Online
+from .nav_online_layout import OnlineLayout
+from .nav_settings_page import SettingsPage
 from .nav_picker import Picker
 from .nav_sections import Sections
 from .nav_shelf import Shelf
@@ -34,7 +36,7 @@ class Game:
         self.accent = manifest["accent"]
 
 
-class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online, Library):
+class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online, OnlineLayout, SettingsPage, Library):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None,
                  on_update_check=None, on_update_install=None, on_game_preview=None, on_game_accept=None,
@@ -298,7 +300,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
                  trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True),
                  shelf=dict(tiles=[], x=0, w=SCREEN_W), tabs=[], rows=[], detail=dict(rows=[], results=[], images=[]), hint="", prompts=[], accent="#ECE9E1", badge="", gameShort="", numeral="",
                  topline="", hold=0, more=dict(up=False, down=False), grid=dict(cells=[], main=""), osk=dict(rows=[], text="", title="", selected=False, paste="", copy="", canCopy=False), dialog=dict(title="", text="", options=[]),
-                 picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]), build=dict(show=False, cards=[], main=dict(button={}, logLines=[]), more=[]), quickAccess="@quick_access", recentSets="@recent_sets", folder="@folder", file="@file", pick="@picker.pick", mainLabel="@main", fighterTitle="@fighter.choose", fighterMain="@fighter.main")
+                 picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]), build=dict(show=False, cards=[], main=dict(button={}, logLines=[]), more=[]), online=dict(layout=""), settingsPage=dict(layout=""), quickAccess="@quick_access", recentSets="@recent_sets", folder="@folder", file="@file", pick="@picker.pick", mainLabel="@main", fighterTitle="@fighter.choose", fighterMain="@fighter.main")
         if self.screen == "start":
             self._view_start(v)
         else:

@@ -84,6 +84,7 @@ class Online:
         self._online_match = {}
         self._online_players = []
         self._online_other_builds = 0
+        self._online_me = {}
         self._online_rooms = []
         self._online_chat = []
         self._online_challenge = {}
@@ -309,6 +310,16 @@ class Online:
                     friend_outgoing=[dict(f) for f in self._online_friend_outgoing],
                     invites=[dict(inv) for inv in self._online_invites],
                     outgoing_invite=dict(self._online_outgoing_invite))
+        if self.online_ranked:
+            snapshot["capabilities"]["strict"] = True
+            snapshot["strict"] = bool(getattr(self, "_online_strict", False))
+        if self._online_client is not None:
+            # The profile card: this player's own lobby entry, the round trip to the server, encryption.
+            snapshot["me"] = dict(getattr(self, "_online_me", None) or {})
+            rtt = getattr(self._online_client, "server_rtt", None)
+            if isinstance(rtt, (int, float)) and not isinstance(rtt, bool) and 0 <= rtt < 100000:
+                snapshot["server_ping"] = round(rtt)
+            snapshot["secure"] = bool(getattr(self._online_client, "tls", False))
         return t5_features.state(self, snapshot)
 
     def _online_social_cap(self, capability):
@@ -580,6 +591,11 @@ class Online:
         if action == "acknowledge_recovery":
             self._online_recovery_codes = []
             return
+        if action == "ranked_strict":
+            # Ranked only against players within the server's strict range (150 rating points): a choice of this
+            # launcher, sent with the next ranked search.
+            self._online_strict = not getattr(self, "_online_strict", False)
+            return
         if action == "cancel" and self._online_phase == "searching" and self._online_client is not None:
             # Leave the queue and stay logged in (a closed connection here was a logout after every cancelled
             # search), also while the search request is still on its way: the queue lock sends the leave after it,
@@ -627,6 +643,7 @@ class Online:
 
     def _online_search_submit(self, mode):
         client, generation, char = self._online_client, self._online_generation, self.chosen_fighter()
+        strict = bool(getattr(self, "_online_strict", False))
 
         def work():
             problem = self._online_game_check()
@@ -634,7 +651,9 @@ class Online:
                 raise SearchRefused(problem)
             with self._online_queue_lock:
                 self._online_check_request(generation, client)
-                if mode == "ranked":
+                if mode == "ranked" and strict:
+                    client.ranked_match(char, strict=True)
+                elif mode == "ranked":
                     client.ranked_match(char)
                 else:
                     client.quick_match(char)
@@ -654,8 +673,40 @@ class Online:
         rating = player.get("rating")
         if isinstance(rating, bool) or not isinstance(rating, (int, float)):
             rating = None
-        return dict(id=str(player.get("id") or "")[:80], name=str(player.get("name") or "")[:64],
-                    rating=rating, rank=self._online_player_rank(rating))
+        out = dict(id=str(player.get("id") or "")[:80], name=str(player.get("name") or "")[:64],
+                   rating=rating, rank=self._online_player_rank(rating))
+        # What the lobby table shows beside the name (all optional: older servers send less).
+        if not out["rank"] and isinstance(player.get("rank"), str):
+            out["rank"] = player["rank"][:40]
+        if player.get("guest") is True:
+            out["guest"] = True
+        if player.get("status") in ("idle", "room", "queue", "match", "playing"):
+            out["status"] = player["status"]
+        record = player.get("record")
+        if (isinstance(record, (list, tuple)) and 2 <= len(record) <= 3
+                and all(isinstance(n, int) and not isinstance(n, bool) and n >= 0 for n in record)):
+            out["record"] = [min(n, 10 ** 7) for n in record]
+        tier = player.get("tier")
+        if isinstance(tier, int) and not isinstance(tier, bool) and 0 <= tier < 64:
+            out["tier"] = tier
+        if player.get("provisional") is True:
+            out["provisional"] = True
+        placement = player.get("placement")
+        if (isinstance(placement, (list, tuple)) and len(placement) == 2
+                and all(isinstance(n, int) and not isinstance(n, bool) and 0 <= n < 100 for n in placement)):
+            out["placement"] = list(placement)
+        if isinstance(player.get("main"), str) and player["main"]:
+            out["main"] = player["main"][:40]
+        ping_to = getattr(self._online_client, "ping_to", None)
+        if callable(ping_to):
+            try:
+                ping, measured = ping_to(player)
+            except Exception:  # noqa: BLE001 -- an older client: no ping column
+                ping, measured = None, False
+            if isinstance(ping, (int, float)) and not isinstance(ping, bool) and 0 <= ping < 100000:
+                out["ping"] = round(ping)
+                out["ping_measured"] = bool(measured)
+        return out
 
     def _online_room_view(self, room):
         if not isinstance(room, dict):
@@ -760,6 +811,8 @@ class Online:
                                 if isinstance(p, dict) and p.get("id") != me.get("id")][:200]
         self._online_other_builds = sum(1 for p in players if isinstance(p, dict) and p.get("id") != me.get("id")
                                         and p.get("status") == "queue" and not self._online_same_build(p))
+        own = next((p for p in players if isinstance(p, dict) and me.get("id") and p.get("id") == me.get("id")), None)
+        self._online_me = self._online_player(own) if own else {}
         self._online_rooms = [self._online_room_view(r) for r in rooms
                               if isinstance(r, dict) and not (r.get("hidden") or r.get("ranked") or r.get("training"))
                               and (self._online_social_cap("private_rooms") or not (
@@ -1463,6 +1516,7 @@ class Online:
         self._online_match = {}
         self._online_players = []
         self._online_other_builds = 0
+        self._online_me = {}
         self._online_rooms = []
         self._online_chat = []
         self._online_challenge = {}

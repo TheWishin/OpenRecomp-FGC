@@ -71,7 +71,12 @@ class Sections:
 
     # ---- online
     def _items_online(self, g):
-        return self._setup_items(g, "online") + self._items_online_rows(g)
+        rows = self._items_online_rows(g)
+        setup = self._setup_items(g, "online")
+        if rows and rows[0].get("region"):            # the lobby page: a game's install notice sits in its top card
+            for item in setup:
+                item.update(region="find", group="")
+        return setup + rows
 
     def _items_online_rows(self, g):
         if g.m.get("adapter") == "t4" and not g.a.found():
@@ -319,7 +324,7 @@ class Sections:
         if not out:
             out.append(dict(kind="action", id="none", label="@no_settings", verb="", hint="@no_settings_hint",
                             detail=dict(kicker="@section.settings", title="@no_settings", lead="@no_settings_hint", rows=[])))
-        return out
+        return self._settings_groups(g, out)
 
     def _coexistence_items(self, g, choose=False):
         state = g.a.coexistence_state()

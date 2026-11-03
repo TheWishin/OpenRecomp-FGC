@@ -205,6 +205,13 @@ class Graphics(unittest.TestCase):
                 seen = set()
                 for setting in self.adapter.settings():
                     if setting["id"] in targets:
+                        # Settings are grouped (Display & graphics first): walk to the row with the pad.
+                        for _ in range(60):
+                            items = nav.items()
+                            target = next(i for i, item in enumerate(items) if item.get("id") == setting["id"])
+                            if nav.focus_index(items) == target:
+                                break
+                            nav.act("down" if nav.focus_index(items) < target else "up")
                         seen.add(setting["id"])
                         for field in ("label", "hint", "lead"):
                             self.assertTrue(setting[field].startswith("@"))
@@ -224,7 +231,6 @@ class Graphics(unittest.TestCase):
                         self.assertNotEqual(self.rows()[setting["id"]]["value"], before)
                         nav.act("confirm")
                         self.assertEqual(self.rows()[setting["id"]]["value"], before)
-                    nav.act("down")
                 self.assertEqual(seen, targets)
                 self.assertEqual(nav.toast, "")
 
