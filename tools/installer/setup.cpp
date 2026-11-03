@@ -1042,7 +1042,9 @@ static int uninstall(const std::wstring &folder, int settings_choice /* -1 ask, 
     DeleteFileW(join(folder, MANIFEST).c_str());
     for (auto &dir : {known_folder(FOLDERID_Programs), known_folder(FOLDERID_Desktop)})
         if (!dir.empty()) remove_link_into(join(dir, LINK_NAME), folder);
-    RegDeleteTreeW(HKEY_CURRENT_USER, UNINSTALL_KEY);
+    // Only this folder's entries: a second copy's uninstaller never takes the Apps entry of the registered one.
+    if (lower(get_string(HKEY_CURRENT_USER, UNINSTALL_KEY, L"InstallLocation")) == lower(folder))
+        RegDeleteTreeW(HKEY_CURRENT_USER, UNINSTALL_KEY);
     if (lower(get_string(HKEY_CURRENT_USER, OWN_KEY, L"InstallLocation")) == lower(folder))
         RegDeleteTreeW(HKEY_CURRENT_USER, L"Software\\OpenRecomp-FGC");
     std::wstring home = user_home();
