@@ -175,10 +175,34 @@ class BorrowedInstall(unittest.TestCase):
         adapter = self.adapter()
         self.assertTrue(adapter.ready())
         adapter.core.game_state.return_value = dict(ok=False, built=False, needs_rebuild=False)
-        with mock.patch.object(t5dr, "build_compatibility", return_value="unknown"):
+        started = []
+
+        class Worker:
+            def __init__(self, target, name, daemon):
+                started.append(target)
+
+            def start(self):
+                pass
+
+        with mock.patch.object(t5dr, "build_compatibility", return_value="unknown"),                 mock.patch.object(t5dr.threading, "Thread", Worker):
+            # Asked again at once (every redraw): the window never waits for the game's files.
+            self.assertTrue(adapter.ready())
+            self.assertEqual(started, [])
+            adapter._state_at -= t5dr.STATE_SECONDS
+            self.assertTrue(adapter.ready())          # the old answer now, the new one is read on a worker
+            self.assertTrue(adapter.ready())
+            self.assertEqual(len(started), 1)
+            started[0]()
             self.assertFalse(adapter.ready())
             self.assertEqual(adapter.state()["compatibility"], "unknown")
-        self.assertEqual(adapter.core.game_state.call_count, 3)
+        self.assertEqual(adapter.core.game_state.call_count, 2)
+
+    def test_state_fresh_reads_at_once(self):
+        adapter = self.adapter()
+        self.assertTrue(adapter.ready())
+        adapter.core.game_state.return_value = dict(ok=False, built=False, needs_rebuild=False)
+        with mock.patch.object(t5dr, "build_compatibility", return_value="unknown"):
+            self.assertFalse(adapter.state(fresh=True)["ok"])
 
     def test_invalid_new_folder_preserves_registered_root(self):
         adapter = self.adapter()

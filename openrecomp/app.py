@@ -12,7 +12,7 @@ from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QIcon, QWindow
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401 -- so the scene's root comes back as a QQuickWindow
 
-from . import adapters, file_dialog, i18n, manifest as mf
+from . import adapters, file_dialog, i18n, manifest as mf, stall
 from .nav import Game, Nav
 from .pad import Pads, PlayStationReader, WinMMPlayStationReader, XInputReader
 from .update_service import UpdateService
@@ -140,6 +140,12 @@ class Backend(QObject, GameSetupBackend):
         self.timer.setInterval(TICK_MS)
         self.timer.timeout.connect(self._tick)
         self.timer.start()
+        self.stall = stall.from_env()      # OPENRECOMP_STALL_LOG: log every time the window stood still
+        if self.stall is not None:
+            self._heart = QTimer(self)
+            self._heart.setInterval(10)
+            self._heart.timeout.connect(self.stall.beat)
+            self._heart.start()
 
     def _update_busy(self):
         if getattr(self, "_library_work", None) is not None:

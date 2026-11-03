@@ -110,10 +110,17 @@ class _CoexistSettings:
         return os.path.dirname(self.private_path("settings.json"))
 
     def private_path(self, name):
+        # The checks resolve every folder on disk (realpath): seconds of a frozen window when the launcher asked
+        # on every redraw. The answer only changes with the folders it was made from.
+        key = (name, user_dir(), self._coexist_root, tuple(self._coexist_protected))
+        known = self.__dict__.setdefault("_coexist_checked", {})
+        if key in known:
+            return known[key]
         path = local_path(self._coexist_root, name)
         if any(_overlap(self._coexist_home, source) or _overlap(path, source)
                for source in self._coexist_protected):
             raise ValueError("@not_ready")
+        known[key] = path
         return path
 
     @property

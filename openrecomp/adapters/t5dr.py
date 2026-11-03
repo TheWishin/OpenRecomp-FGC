@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 
 from .base import Adapter, NO_WINDOW, add_path, expand_locations
 from .t5_controls import Controls
@@ -32,6 +33,7 @@ RES_NAMES = {"lowest": "@resolution.lowest", "lower": "@resolution.lower", "nati
              "1440p": "1440p", "4k": "4K", "auto": "@resolution.auto"}
 ON_OFF = [("on", "@on"), ("off", "@off")]
 YES_NO = [(False, "@off"), (True, "@on")]
+STATE_SECONDS = 3.0          # beside a T5DR launcher: how old the build state may get before it is read again
 RANK_TAG = re.compile(r"\s*\[\d+\]$")
 
 
@@ -183,16 +185,39 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         return True
 
     def state(self, fresh=False):
-        if self._state is None or fresh or getattr(self.s, "coexistence", False):
-            self._state = dict(self.core.game_state(self.s.out_dir))
-            if getattr(self.s, "coexistence", False):
-                compatibility = self.coexistence_state()["build"]
-                self._state["compatibility"] = compatibility
-                if compatibility == "different":
-                    self._state.update(ok=False, needs_rebuild=True)
-                elif compatibility == "unknown" and self._state.get("built"):
-                    self._state["ok"] = False
+        """The build's state. Beside a T5DR launcher (coexistence) that launcher can rebuild the shared game at any
+        time, so the answer is read again -- but on a worker every STATE_SECONDS: reading it hashes the patch series
+        and took 100-450 ms, and the window asked several times per redraw (the launcher froze while scrolling)."""
+        coexist = getattr(self.s, "coexistence", False)
+        if self._state is None or fresh:
+            self._state = self._read_state()
+            self._state_at = time.monotonic()
+        elif coexist and time.monotonic() - getattr(self, "_state_at", 0.0) >= STATE_SECONDS                 and not getattr(self, "_state_busy", False):
+            self._state_busy = True
+            threading.Thread(target=self._refresh_state, name="openrecomp-t5-state", daemon=True).start()
         return self._state
+
+    def _read_state(self):
+        state = dict(self.core.game_state(self.s.out_dir))
+        if getattr(self.s, "coexistence", False):
+            compatibility = self.coexistence_state()["build"]
+            state["compatibility"] = compatibility
+            if compatibility == "different":
+                state.update(ok=False, needs_rebuild=True)
+            elif compatibility == "unknown" and state.get("built"):
+                state["ok"] = False
+        return state
+
+    def _refresh_state(self):
+        try:
+            state = self._read_state()
+            if self._state is not None:      # a reset (new package, finished build) asks again itself
+                self._state = state
+        except Exception:  # noqa: BLE001 -- the last answer stays; the next refresh tries again
+            pass
+        finally:
+            self._state_at = time.monotonic()
+            self._state_busy = False
 
     def coexistence_state(self):
         return dict(active=self._borrowed(), source=self.root,
