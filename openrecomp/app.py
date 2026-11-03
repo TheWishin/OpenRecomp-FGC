@@ -103,6 +103,9 @@ class Backend(QObject, GameSetupBackend):
                        on_game_preview=self._preview_game, on_game_accept=self._accept_game,
                        on_game_remove=self._remove_game, on_game_update_check=self._check_game_update,
                        on_game_update_install=self._install_game_update, **self._setup_kwargs())
+        times = self.config.get("build_times")
+        self.nav.build_history = {k: v for k, v in times.items() if isinstance(v, dict)} if isinstance(times, dict) else {}
+        self.nav.on_build_history = self._save_build_history      # the Build page's "about N min left" next time
         self.updates = UpdateService(busy=self._update_busy, quit=self._quit,
                                      prereleases=lambda: bool(self.config.get("game_prereleases")))
         self._offered_update = False
@@ -338,6 +341,11 @@ class Backend(QObject, GameSetupBackend):
 
     def _save_game(self, game_id):
         self.config["last_game"] = game_id
+        self._save_config()
+
+    def _save_build_history(self, game_id, history):
+        times = self.config.get("build_times")
+        self.config["build_times"] = dict(times if isinstance(times, dict) else {}, **{game_id: history})
         self._save_config()
 
     def _save_picker_dir(self, key, folder):

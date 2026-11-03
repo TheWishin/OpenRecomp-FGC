@@ -10,6 +10,7 @@ from .nav_common import (
     OSK_ACTIONS, PICKER_VISIBLE, ROWS_VISIBLE, SCREEN_W, SECTION_TITLES,
     SPINE_GAME, SPINE_SLOT, TRAIL, WIDE, badge, uri, window,
 )
+from .nav_build import BuildPage
 from .nav_dialog import Dialog
 from .nav_drawer import Drawer
 from .nav_game_setup import GameSetupNav
@@ -33,7 +34,7 @@ class Game:
         self.accent = manifest["accent"]
 
 
-class Nav(GameSetupNav, Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online, Library):
+class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online, Library):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None,
                  on_update_check=None, on_update_install=None, on_game_preview=None, on_game_accept=None,
@@ -146,6 +147,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Pi
         changed = self.poll_online()
         changed = self.poll_sources() or changed
         changed = self.poll_tools_install() or changed
+        changed = self.poll_build(dt) or changed
         if self.toast:
             self.toast_left -= dt
             if self.toast_left <= 0:
@@ -296,7 +298,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Pi
                  trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True),
                  shelf=dict(tiles=[], x=0, w=SCREEN_W), tabs=[], rows=[], detail=dict(rows=[], results=[], images=[]), hint="", prompts=[], accent="#ECE9E1", badge="", gameShort="", numeral="",
                  topline="", hold=0, more=dict(up=False, down=False), grid=dict(cells=[], main=""), osk=dict(rows=[], text="", title="", selected=False, paste="", copy="", canCopy=False), dialog=dict(title="", text="", options=[]),
-                 picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]), quickAccess="@quick_access", recentSets="@recent_sets", folder="@folder", file="@file", pick="@picker.pick", mainLabel="@main", fighterTitle="@fighter.choose", fighterMain="@fighter.main")
+                 picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]), build=dict(show=False, cards=[], main=dict(button={}, logLines=[]), more=[]), quickAccess="@quick_access", recentSets="@recent_sets", folder="@folder", file="@file", pick="@picker.pick", mainLabel="@main", fighterTitle="@fighter.choose", fighterMain="@fighter.main")
         if self.screen == "start":
             self._view_start(v)
         else:

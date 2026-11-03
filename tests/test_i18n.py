@@ -187,6 +187,8 @@ def untranslated_literals(source):
         "build_id", "elf_sha1", "net", "strict_hello", "delay_match", r"[0-9a-f]{16}",
         r"[A-Za-z0-9_.+ -]{1,100}", r"[0-9a-f]{64}", r"[0-9a-f]{40}",
         "stdout.txt", "stderr.txt", "wb",
+        # The Build page: card ids and card states (nav_build), the tools pipeline's install outcomes.
+        "files", "more", "todo", "work", "wait", "failed", "reboot", "--silent",
         "launcher.json", "settings.json", "controls.json", "servers.json", "t5dr_build.json", "PS3_CONTROLS",
         ".settings-", ".controls-", "_OpenRecompSettings", "_coexist_defaults", "code_id", "same", "different",
         "unknown", "coexistence", "coexistence_folder", "t5dr_settings_copy",
