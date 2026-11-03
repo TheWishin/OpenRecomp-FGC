@@ -363,6 +363,25 @@ class T4LobbyRows(unittest.TestCase):
         item = next(item for item in self.nav.items() if item.get("id") == "login_saved")
         self.assertEqual(item["label"], "@online.saved")
 
+    def test_password_change_says_it_applies_to_both_games(self):
+        self.press("login_guest")
+        self.a.snapshot.update(phase="logged_in", account=True, name="Alice")
+        self.a.snapshot["capabilities"]["account_tools"] = True
+        hints = {item.get("id"): item.get("hint") for item in self.nav.items()}
+        self.assertEqual(hints["account_change_password"], "@t4.account_both_hint")
+        self.assertEqual(hints["account_new_codes"], "@t4.account_both_hint")
+        self.a.snapshot["capabilities"]["t4_lobby"] = False          # T5DR's own screen keeps its text
+        self.a.m["adapter"] = "t5"
+        hints = {item.get("id"): item.get("hint") for item in self.nav.items()}
+        self.assertEqual(hints.get("account_change_password"), "@online120.account_hint")
+
+    def test_login_hint_names_the_shared_account(self):
+        for language in ("en", "de"):
+            from openrecomp import i18n
+            text = i18n.text(language, "t4.online_setup_hint")
+            self.assertIn("T5DR Online", text)
+            self.assertIn("Tekken 4", text)
+
     def test_direct_screen_offers_the_lobby(self):
         self.a.snapshot.update(phase="offline", role="host", checks=[],
                                capabilities=dict(direct_ip=True, lobby_available=True))

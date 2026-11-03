@@ -35,6 +35,8 @@ server (TLS); guests also work over plain TCP.
 
 **One account for T5DR and T4.** A T5DR Online account logs into the T4 lobby with the
 same name and password once the T4 server shares T5DR's accounts (ranks stay per game).
+Register account in T4 makes one account for both games; a password change, new recovery
+codes or a ban apply to both. The login and account screens say so.
 A player whose T5DR login is saved on this PC gets **Use your T5DR login** on the T4
 login screen: one press, no password. The launcher offers a saved T5DR login only to a
 T4 server that the local server list marks with `"shared_login": true` (same host as
