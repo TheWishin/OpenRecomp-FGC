@@ -311,6 +311,26 @@ def bundle_note(lines):
     return ("\n".join(head + lines) + "\n").encode("utf-8")
 
 
+US_BOOT = "SLUS_203.28"
+US_ELF_SHA1 = "a4b7dde20a2918c550badd127a245db155c36815"
+
+
+def check_us_t4(t4_entries):
+    """The bundle's T4 is the USA line (SLUS-20328) only. A source whose disc check or build script pins another
+    disc (a PAL SCES-50878 project has the same layout) refuses the bundle; the launcher refuses it too
+    (openrecomp/adapters/t4_region.py)."""
+    files = dict(t4_entries)
+    iso_tool = files.get("tools/iso_extract.py", b"").decode("utf-8", "replace")
+    build = files.get("tools/build_game.ps1", b"").decode("utf-8", "replace")
+    boot = re.search(r"""^EXPECTED_BOOT\s*=\s*["']([^"']+)["']""", iso_tool, re.M)
+    sha1 = re.search(r"""^EXPECTED_SHA1\s*=\s*["']([0-9A-Fa-f]{40})["']""", iso_tool, re.M)
+    pinned = re.search(r"""\$ExpectedElfSha1\s*=\s*['"]([0-9A-Fa-f]{40})['"]""", build)
+    found = [m.group(1) for m in (boot,) if m] + [m.group(1).lower() for m in (sha1, pinned) if m]
+    wrong = [value for value in found if value.upper() != US_BOOT and value != US_ELF_SHA1]
+    if wrong:
+        raise ValueError("The T4 source is not the USA line (SLUS-20328): it names " + ", ".join(wrong))
+
+
 def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None, note=(), terms=None):
     runtime_cache = ROOT / "dist/portable-cache" if runtime_cache is None else Path(runtime_cache)
     root, t4_root = Path(root).absolute(), Path(t4_root).absolute()
@@ -348,6 +368,7 @@ def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None, note=()
         entries.append((LAUNCHER_FOLDER + "/" + name, snapshot(path)))
     # Re-scan T4's snapshots with the same scan used by its source test zip.
     checked_t4 = scan_clean_t4_entries(scanner, scan_entries, originals, t4_entries)
+    check_us_t4(checked_t4)
     entries.extend((T4_FOLDER + "/" + name, data) for name, data in checked_t4)
     if runtime_root is not None:
         runtime = _module("t4_bundle_portable", ROOT / "tools/portable_runtime.py")

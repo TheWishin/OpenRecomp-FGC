@@ -200,6 +200,22 @@ class T4TestBundleTests(unittest.TestCase):
         with zipfile.ZipFile(archive) as result:
             self.assertIn("T4/LICENSE", result.namelist())
 
+    def test_only_a_usa_t4_source_goes_into_the_bundle(self):
+        us = (b'EXPECTED_BOOT = "SLUS_203.28"\nEXPECTED_SHA1 = "' + bundle.US_ELF_SHA1.encode() + b'"\n'
+              b'MSG = "not PAL SCES-50878"\n')
+        ps_us = b"$ExpectedElfSha1 = '" + bundle.US_ELF_SHA1.encode() + b"'\n"
+        good = [("LICENSE", b"T4 license"), ("tools/iso_extract.py", us), ("tools/build_game.ps1", ps_us)]
+        self.scanner.source_entries.return_value = good
+        self.assertTrue(any(name == "T4/tools/iso_extract.py" for name, _ in self.entries()))
+        for name, data in (("tools/iso_extract.py", us.replace(b"SLUS_203.28", b"SCES_508.78")),
+                           ("tools/iso_extract.py", us.replace(bundle.US_ELF_SHA1.encode(), b"0" * 40)),
+                           ("tools/build_game.ps1", ps_us.replace(bundle.US_ELF_SHA1.encode(), b"1" * 40))):
+            with self.subTest(name=name):
+                self.scanner.source_entries.return_value = [(n, data if n == name else d) for n, d in good]
+                with self.assertRaisesRegex(ValueError, "not the USA line"):
+                    bundle.create_bundle(self.root, self.root / "source")
+                self.assertFalse((self.root / "dist").exists())
+
     def test_powershell_wrappers_pass_the_release_tag(self):
         for name in ("make_t4_test_bundle.ps1", "make_test_bundle.ps1"):
             self.assertIn("[string]$ReleaseTag", (ROOT / "tools" / name).read_text(encoding="utf-8"))
