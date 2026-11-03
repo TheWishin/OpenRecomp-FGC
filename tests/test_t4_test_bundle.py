@@ -54,7 +54,7 @@ class T4TestBundleTests(unittest.TestCase):
             self.assertEqual(result.read("OpenRecomp-FGC/run.cmd"), (self.root / "run.cmd").read_bytes())
             self.assertEqual(result.read("T4/LICENSE"), b"T4 license")
             guide = result.read("START_HIER.txt").decode("utf-8")
-            self.assertLessEqual(len(guide.splitlines()), 16)
+            self.assertLessEqual(len(guide.splitlines()), 18)
             self.assertNotIn("Python", guide)
             self.assertNotIn("Internet", guide)
             self.assertIn("run.cmd", guide)

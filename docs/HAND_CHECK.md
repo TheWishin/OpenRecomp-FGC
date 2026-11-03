@@ -97,6 +97,8 @@ keine Spielerlogs oder Screenshots ins Repository legen.
 
 - `OpenRecomp-FGC/run.cmd` doppelklicken. Öffnet sich das Fenster ohne
   Installation und ohne Download? Kein Konsolenfenster bleibt hängen?
+  Warnt Windows vor der heruntergeladenen Datei (SmartScreen / „Datei öffnen“),
+  notieren, welche Meldung kam, und „Trotzdem ausführen“ wählen.
 - Im Regal stehen **Tekken 4** und **Tekken 5 DR** als eigene Kacheln.
   `T4/` und `T5DR-Online-1.2.0` werden als Nachbarordner ohne Ordnerwahl
   erkannt? Ohne Bilder im Paket bleiben Titel, Schaltflächen und sichtbarer
