@@ -786,6 +786,8 @@
     "t5.screen_side": "Côté de l’écran",
     "t5.side_server": "Utiliser le côté attribué",
     "t5.side_left": "Toujours m’afficher à gauche",
+    "t5.side_right": "Toujours m’afficher à droite",
+    "t5.screen_side.hint": "Matchs amicaux uniquement : ton combattant du côté choisi, gauche/droite inversées en miroir. Ranked et Quick Match gardent le côté attribué.",
     "t5.replay_folder": "Dossier des ralentis",
     "t5.replay_folder_hint": "Choisissez un dossier existant sur ce PC pour les enregistrements et les ralentis.",
     "t5.replay_folder_default": "Dossier des ralentis par défaut",

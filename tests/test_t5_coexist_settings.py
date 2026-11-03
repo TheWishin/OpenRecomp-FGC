@@ -66,6 +66,20 @@ class CoexistSettingsTests(unittest.TestCase):
         self.assertEqual(settings.path, str(self.source))
         self.assertEqual(settings.source_path, str(self.source))
 
+    def test_saved_always_left_edit_keeps_its_meaning_on_a_three_way_install(self):
+        # An OpenRecomp edit from a 1.1.9 install (always_left only) must still choose the side on 1.2.0.
+        self.core.DEFAULTS.update(screen_side="dealt", always_left=False)
+        settings = self.load()
+        settings["always_left"] = True
+        settings.save()
+        self.assertEqual(self.load()["screen_side"], "left")
+        path = Path(settings.private_path("settings.json"))
+        path.write_text(json.dumps(dict(always_left=True, screen_side="right")), encoding="utf-8")
+        self.assertEqual(self.load()["screen_side"], "right")
+        del self.core.DEFAULTS["screen_side"]
+        path.write_text(json.dumps(dict(always_left=True)), encoding="utf-8")
+        self.assertNotIn("screen_side", self.load())
+
     def test_explicit_change_saves_only_override_and_leaves_native_unknown_fields(self):
         settings = self.load()
         before = self.source.read_bytes()

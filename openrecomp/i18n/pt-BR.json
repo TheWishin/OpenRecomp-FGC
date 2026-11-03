@@ -786,6 +786,8 @@
     "t5.screen_side": "Lado da tela",
     "t5.side_server": "Usar o lado atribuído",
     "t5.side_left": "Sempre me mostrar à esquerda",
+    "t5.side_right": "Sempre me mostrar à direita",
+    "t5.screen_side.hint": "Somente partidas casuais: seu lutador no lado escolhido, com esquerda/direita invertidas no espelhamento. Ranked e Quick Match mantêm o lado atribuído.",
     "t5.replay_folder": "Pasta de replays",
     "t5.replay_folder_hint": "Escolha uma pasta existente neste PC para gravações e replays.",
     "t5.replay_folder_default": "Pasta padrão de replays",

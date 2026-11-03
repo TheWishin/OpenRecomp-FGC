@@ -95,6 +95,10 @@ class _CoexistSettings:
             overrides = {}
         for key, value in overrides.items():
             super().__setitem__(key, value)
+        if ("screen_side" in self._coexist_defaults and "always_left" in overrides
+                and "screen_side" not in overrides):
+            # An edit saved before the install had the three-way side (1.1.9) keeps its meaning on 1.2.0.
+            super().__setitem__("screen_side", "left" if overrides["always_left"] is True else "dealt")
         self._coexist_loading = False
 
     @property

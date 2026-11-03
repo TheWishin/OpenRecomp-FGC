@@ -94,6 +94,9 @@ class T5Match(Online):
                                  ("ingame_rematch", "game_supports_ingame_ui")):
                 check = getattr(module, helper, None)
                 options[flag] = bool(check and check(paths))
+            # 1.2.0's in-game rematch is opt-in: its own launcher announces it only with T5_INGAME_REMATCH=1
+            # (tk_tab._game_has_ingame_ui), so both launchers offer the same matches on the same build.
+            options["ingame_rematch"] = options["ingame_rematch"] and os.environ.get("T5_INGAME_REMATCH") == "1"
             check = getattr(module, "game_supports_auto_skip", None)
             options["auto_skip_after_round"] = bool(options["ingame_rematch"] and check and check(paths))
         except (ImportError, OSError, RuntimeError, AttributeError, ValueError):
@@ -122,6 +125,10 @@ class T5Match(Online):
             parameters = inspect.signature(module.MatchDriver).parameters
             if "ingame_rematch" in parameters:
                 options["ingame_rematch"] = bool(getattr(client, "ingame_rematch", False))
+            side = getattr(self, "screen_side", None)
+            if "screen_side" in parameters and callable(side):
+                # 1.2.0: dealt / left / right per match (T5_SCREEN_SIDE); always_left alone sends only 0/1.
+                options["screen_side"] = side
         except (TypeError, ValueError):
             pass
         return module.MatchDriver(_DriverClient(self, client, generation), launch,

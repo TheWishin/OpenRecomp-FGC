@@ -786,6 +786,8 @@
     "t5.screen_side": "画面のサイド",
     "t5.side_server": "割り当てられたサイドを使用",
     "t5.side_left": "自分を常に左側に表示",
+    "t5.side_right": "自分を常に右側に表示",
+    "t5.screen_side.hint": "カジュアル対戦のみ：選んだ側に自分を表示し、反転時は左右の操作も入れ替えます。Ranked と Quick Match は割り当てられた側のままです。",
     "t5.replay_folder": "リプレイフォルダー",
     "t5.replay_folder_hint": "録画とリプレイ用に、このPCの既存フォルダーを選択します。",
     "t5.replay_folder_default": "標準のリプレイフォルダー",

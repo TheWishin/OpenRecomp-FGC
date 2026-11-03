@@ -786,6 +786,8 @@
     "t5.screen_side": "Lado de pantalla",
     "t5.side_server": "Usar el lado asignado",
     "t5.side_left": "Verme siempre a la izquierda",
+    "t5.side_right": "Verme siempre a la derecha",
+    "t5.screen_side.hint": "Solo partidas casuales: tu luchador en el lado elegido, con izquierda/derecha intercambiadas al reflejar. Ranked y Quick Match mantienen el lado asignado.",
     "t5.replay_folder": "Carpeta de repeticiones",
     "t5.replay_folder_hint": "Elige una carpeta existente de este PC para las grabaciones y repeticiones.",
     "t5.replay_folder_default": "Carpeta de repeticiones predeterminada",

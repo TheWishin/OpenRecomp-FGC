@@ -25,6 +25,9 @@ from openrecomp.nav import Game, Nav
 REPO = Path(__file__).resolve().parents[1]
 SOURCE_ROOTS = tuple(REPO.parent / "OpenRecomp-work" / name for name in
                      ("T5DR-codex-integrated", "T5DROnline-Source"))
+if os.environ.get("OPENRECOMP_TEST_T5DR_SOURCE"):
+    # An installed T5DR release (for example an unzipped 1.2.0 player zip) instead of a checkout.
+    SOURCE_ROOTS = (Path(os.environ["OPENRECOMP_TEST_T5DR_SOURCE"]),)
 SOURCE = SOURCE_ROOTS[-1]
 LOOPBACK = "127.0.0.1"
 

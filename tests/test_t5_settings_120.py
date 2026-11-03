@@ -66,6 +66,40 @@ class T5SettingsTests(unittest.TestCase):
         self.assertEqual(row["options"], [(False, "@t5.side_server"), (True, "@t5.side_left")])
         self.a.set_setting("always_left", True)
         self.assertTrue(self.a.s["always_left"])
+        self.assertEqual(self.a.screen_side(), "left")
+
+    def install_120(self, side="dealt"):
+        # 1.2.0's core: screen_side dealt | left | right, always_left kept in step for older readers
+        self.a.s["screen_side"] = side
+        self.a.core.DEFAULTS["screen_side"] = "dealt"
+        self.a.core.SCREEN_SIDES = {"dealt": "As dealt", "left": "Always left", "right": "Always right"}
+
+    def test_120_screen_side_offers_three_sides(self):
+        self.install_120()
+        rows = self.rows()
+        self.assertNotIn("always_left", rows)
+        row = rows["screen_side"]
+        self.assertEqual(row["label"], "@t5.screen_side")
+        self.assertEqual(row["options"], [("dealt", "@t5.side_server"), ("left", "@t5.side_left"),
+                                          ("right", "@t5.side_right")])
+        self.assertEqual(row["value"], "dealt")
+        self.a.set_setting("screen_side", "right")
+        self.assertEqual((self.a.s["screen_side"], self.a.s["always_left"]), ("right", False))
+        self.assertEqual(self.a.screen_side(), "right")
+        self.a.set_setting("screen_side", "left")
+        self.assertEqual((self.a.s["screen_side"], self.a.s["always_left"]), ("left", True))
+        with self.assertRaises(ValueError):
+            self.a.set_setting("screen_side", "middle")
+        self.assertEqual(self.a.s["screen_side"], "left")
+
+    def test_120_old_always_left_edit_still_reaches_the_game(self):
+        # An older OpenRecomp row (always_left) must move the side the 1.2.0 game reads.
+        self.install_120()
+        self.a.set_setting("always_left", True)
+        self.assertEqual(self.a.s["screen_side"], "left")
+        self.assertEqual(self.a.screen_side(), "left")
+        self.a.s["screen_side"] = "nonsense"
+        self.assertEqual(self.rows()["screen_side"]["value"], "left")
 
     def test_replay_folder_can_be_chosen_and_reset_without_touching_a_replay(self):
         folder = "chosen-replays"
