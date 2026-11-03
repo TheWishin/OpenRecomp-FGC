@@ -27,7 +27,9 @@ Item {
                     Rectangle {
                         required property int index
                         readonly property var o: ov.root.ok(ov.v.dialog.options, index)
-                        width: 360; height: 104; color: o.focused ? ov.root.bone : "#24272C"
+                        // Two answers 360 each; three (e.g. Cancel / Copy commands / Install) share the same width.
+                        width: (732 - 12 * (ov.v.dialog.options.length - 1)) / Math.max(1, ov.v.dialog.options.length); height: 104
+                        color: o.focused ? ov.root.bone : "#24272C"
                         Text { textFormat: Text.PlainText; anchors.centerIn: parent; width: parent.width - 24; horizontalAlignment: Text.AlignHCenter; text: parent.o.label || ""; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: 24; color: parent.o.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 56 }
                         TapHandler { onTapped: ov.root.backend.clickEntry(parent.index) }
                     }

@@ -74,6 +74,8 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Pi
         self.picker_dirs = dict(picker_dirs or {})  # {".iso": folder, "folder": folder}: where the player last chose one
         self.on_picker_dir = on_picker_dir or (lambda _key, _folder: None)
         self.osk = None
+        self.tools_game = None                      # the game whose missing build tools the dialog lists
+        self.tools_installing = None                # the game whose tools are being installed (result toast once)
         self.pad_kind = "xbox"
         self.was_running = {}
         self.controls_game = None
@@ -143,6 +145,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Pi
         """Time passes (the app's timer). -> True when the screen must be redrawn."""
         changed = self.poll_online()
         changed = self.poll_sources() or changed
+        changed = self.poll_tools_install() or changed
         if self.toast:
             self.toast_left -= dt
             if self.toast_left <= 0:

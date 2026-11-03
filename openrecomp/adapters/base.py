@@ -204,6 +204,14 @@ class Adapter:
         """Explicitly recheck tools; never install them or run a build."""
         pass
 
+    def prerequisite_install_state(self):
+        """dict(running, done, total, current, result) of install_prerequisites()."""
+        return dict(running=False, done=0, total=0, current="", result="")
+
+    def install_prerequisites(self):
+        """Install the missing tools after the player confirmed the list; False = nothing started."""
+        return False
+
     def sources(self):
         """[dict(id, label, value, ok, hint, exts, dirs)]: the player's files the build needs."""
         return []

@@ -106,6 +106,7 @@ class T4(T4Online, Adapter):
         self.last_result = ""
         self._prerequisite_rows = []
         self._prerequisite_worker = None
+        self._tool_install = dict(running=False, done=0, total=0, current="", result="")
         if getattr(core, "source_only", False):
             self.native_label = ""
             self._prerequisite_rows = [dict(id=key, label="@t4.tools." + key, value="@t4.tools.checking",
@@ -402,10 +403,51 @@ class T4(T4Online, Adapter):
     def prerequisites(self):
         return [dict(row) for row in self._prerequisite_rows]
 
+    def prerequisite_install_state(self):
+        return dict(self._tool_install)
+
+    def install_prerequisites(self, run=None):
+        """Install the missing tools with winget, one after the other on a worker, then check them all again.
+
+        Only what the launcher's dialog listed (the missing rows' COMMANDS) is run; the player confirmed it there."""
+        from . import t4_prerequisites as tools
+        plan = tools.install_plan(self._prerequisite_rows)
+        if (not plan or self._tool_install["running"] or self._prerequisite_worker and self._prerequisite_worker.is_alive()
+                or self.running() or self.build and self.build.running()):
+            return False
+        self._tool_install = dict(running=True, done=0, total=len(plan), current=plan[0][0], result="")
+
+        def work():
+            failed = False
+            for index, (label, command) in enumerate(plan):
+                self._tool_install.update(done=index, current=label)
+                try:
+                    ok = tools.run_install(command, **({"run": run} if run else {}))
+                except FileNotFoundError:
+                    self._tool_install = dict(running=False, done=index, total=len(plan), current="",
+                                              result="@t4.tools.no_winget")
+                    return
+                except Exception:  # noqa: BLE001 -- one failed installer must not strand the row in Installing
+                    ok = False
+                failed = failed or not ok
+            try:
+                tools.refresh_path()
+            except Exception:  # noqa: BLE001 -- the re-check still runs with the old PATH
+                pass
+            self._tool_install = dict(running=False, done=len(plan), total=len(plan), current="",
+                                      result="@t4.tools.install_failed" if failed else "@t4.tools.install_done")
+            self.refresh_prerequisites()
+        try:
+            threading.Thread(target=work, daemon=True).start()
+        except Exception:  # noqa: BLE001 -- the action stays available
+            self._tool_install = dict(running=False, done=0, total=0, current="", result="@t4.tools.install_failed")
+            return False
+        return True
+
     def refresh_prerequisites(self):
         if not getattr(self.core, "source_only", False):
             return False
-        if (self._prerequisite_worker and self._prerequisite_worker.is_alive()
+        if (self._tool_install["running"] or self._prerequisite_worker and self._prerequisite_worker.is_alive()
                 or self._source_state["running"] or self.running() or self._online_work_active()
                 or self.build and self.build.running()):
             return False

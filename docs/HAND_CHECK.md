@@ -112,9 +112,11 @@ keine Spielerlogs oder Screenshots ins Repository legen.
 
 ### Tekken 4 bauen und offline spielen
 
-- Tekken 4 > Build: Werkzeugprüfung und genaue winget-Befehle lesen,
-  Kopieren prüfen, fehlende Werkzeuge und genaue MSVC-Version nachvollziehen.
-  Auf einem sauberen Windows-PC: installieren, dann Werkzeuge erneut prüfen.
+- Tekken 4 > Build: alle Werkzeuge da = eine Zeile „Build-Werkzeuge bereit“
+  (Versionen und genaue MSVC-Version in ihren Details). Auf einem sauberen
+  Windows-PC: „Fehlende Werkzeuge installieren“ zeigt die Liste, „Installieren“
+  installiert sie mit winget und prüft danach erneut; Kopieren („Befehle
+  kopieren“ im selben Dialog) prüfen.
 - Nur die USA-Version: Der Launcher nimmt nur einen T4-Ordner der USA-Linie
   (SLUS-20328). Wer einen Ordner eines PAL-Projekts (SCES-50878) wählt, muss
   „Dieser Tekken-4-Ordner ist nicht die USA-Version …“ sehen; ISO-Prüfung,

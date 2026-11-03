@@ -14,6 +14,8 @@ class Dialog:
             return self._library_dialog(a)
         if self.confirm_kind.startswith("setup_"):
             return self._setup_dialog(a)
+        if self.confirm_kind == "tools_install":
+            return self._tools_dialog(a)
         if a in ("left", "right", "up", "down"):
             self.exit_focus = 1 - self.exit_focus
         elif a == "back":
@@ -48,6 +50,8 @@ class Dialog:
             return self._view_library_dialog(v)
         if self.confirm_kind.startswith("setup_"):
             return self._view_setup_dialog(v)
+        if self.confirm_kind == "tools_install":
+            return self._view_tools_dialog(v)
         if self.confirm_kind == "exit":
             title, text = "@dialog.quit.title", "@dialog.quit.text"
         elif self.confirm_kind == "stop_game":

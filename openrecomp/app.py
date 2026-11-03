@@ -499,7 +499,8 @@ class Backend(QObject, GameSetupBackend):
         for g in self.nav.games:
             # A short run, final build result or tool check can finish between polls.
             for method, cache_name in (("status", "_last_status"), ("build_state", "_last_build"),
-                                       ("prerequisites", "_last_prerequisites")):
+                                       ("prerequisites", "_last_prerequisites"),
+                                       ("prerequisite_install_state", "_last_tool_install")):
                 cache = getattr(self, cache_name, None)
                 if cache is None:
                     cache = {}

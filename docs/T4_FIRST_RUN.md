@@ -32,13 +32,19 @@ ganze Zwei-PC-Ablauf mit beiden Spielen steht in [HAND_CHECK.md](HAND_CHECK.md).
    Internetverbindung beim ersten Start erforderlich. Die Laufzeit liegt in
    `OpenRecomp-FGC/portable/`. Die folgenden Build-Werkzeuge fuer T4 werden
    weiterhin separat geprueft und vom Spieler installiert.
-2. T4 waehlen, dann **Build**. Die Werkzeugpruefung zeigt Python, Git,
-   CMake, Ninja, VS 2022 Build Tools und die MSVC-Version. Bei einem fehlenden
-   Werkzeug den angezeigten genauen **winget**-Befehl mit **Kopieren** uebernehmen.
-   Die Installation erfolgt durch den Spieler; der Launcher installiert nichts
-   selbst. Bei VS 2022 muessen C++-Buildwerkzeuge und Windows SDK vorhanden sein.
-   Nach einer Installation den Launcher vollstaendig schliessen und neu starten,
-   damit er den neuen PATH erbt; danach die Werkzeuge erneut pruefen.
+2. T4 waehlen, dann **Build**. Der Launcher prueft Python, Git, CMake, Ninja,
+   VS 2022 Build Tools und die MSVC-Version selbst im Hintergrund. Sind alle da,
+   steht nach **Build** nur eine Zeile **Build-Werkzeuge bereit** (die Versionen
+   stehen in ihren Details). Fehlt etwas, steht vor **Build** eine Zeile
+   **Fehlende Werkzeuge installieren**: sie zeigt zuerst, was installiert wird,
+   und installiert es nach **Installieren** mit **winget** (Windows fragt eventuell
+   nach Erlaubnis; VS 2022 mit C++-Buildwerkzeugen und Windows SDK dauert eine
+   Weile). Danach prueft der Launcher die Werkzeuge erneut und uebernimmt den
+   neuen PATH ohne Neustart. Wer lieber selbst installiert: im selben Dialog die
+   genauen winget-Befehle mit **Befehle kopieren** uebernehmen (Kopieren statt
+   Installieren) und in einem Terminal ausfuehren. Fehlt danach noch etwas, den
+   Launcher vollstaendig schliessen und neu starten, damit er den neuen PATH erbt;
+   danach die Werkzeuge erneut pruefen (Zeile **Build-Werkzeuge** bestaetigen).
 3. **Game ISO** waehlen und die eigene USA **SLUS-20328 v1.00** auswaehlen.
    Die Pruefung laeuft im Hintergrund; eine falsche oder veraenderte ISO muss
    verstaendlich abgelehnt werden. Keine ISO vom anderen Spieler anfordern.
