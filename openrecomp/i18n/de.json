@@ -572,7 +572,7 @@
     "updates.waiting": "Update bereit. Beende Spiel, Build, Support-Prüfung und Online-Sitzung, um den Launcher neu zu starten.",
     "t4.returning": "Zurück zum Launcher.",
     "t4.quit_busy": "Warte, bis Installation oder Disc-Prüfung beendet sind. Bei einem Build öffnet Bestätigen die Abbruchfrage; beende den Launcher danach erneut.",
-    "t4.online_setup_hint": "Gib den Spieler- oder Kontonamen mit der Bildschirmtastatur ein und wähle Gast-Anmeldung. Für ein Konto gib auch dein Passwort ein. Eine leere Lobby-Adresse verwendet die lokale Lobby 127.0.0.1:7791. Für einen anderen T4-Server gib dessen Adresse ein.",
+    "t4.online_setup_hint": "Gib den Spieler- oder Kontonamen mit der Bildschirmtastatur ein und wähle Gast-Anmeldung. Für ein Konto gib auch dein Passwort ein; Konten brauchen einen gesicherten Server (tls:// oder eine Adresse mit #Fingerabdruck). Die Lobby-Adresse ist der T4-Server, auf dem du spielst.",
     "t4.online_name_required": "Wähle Spieler- oder Kontoname und gib mit der Bildschirmtastatur einen Namen ein. Versuche dann erneut, dich anzumelden.",
     "t4.onboarding_hint": "Wähle mit dem Controller deine vollständige portable T4-Veröffentlichung als ZIP oder Ordner. Wähle danach deine Tekken 4 USA ISO (SLUS-20328).",
     "t4.onboarding_source": "Deine vollständige portable T4-Veröffentlichung als ZIP oder Ordner",
@@ -1074,5 +1074,11 @@
     "t4.source.game_failed": "Spiel mit Fehler beendet: {code}",
     "t4.source.resolution_native": "Nativ (640x448)",
     "t4.tools.copy_failed": "Der Befehl konnte nicht kopiert werden. Erneut versuchen.",
-    "preferences.save_failed": "Die Änderungen gelten für diese Sitzung, konnten aber nicht gespeichert werden. Vor dem Neustart die Einstellungsdatei des Launchers prüfen."
+    "preferences.save_failed": "Die Änderungen gelten für diese Sitzung, konnten aber nicht gespeichert werden. Vor dem Neustart die Einstellungsdatei des Launchers prüfen.",
+    "t4.lobby_mode": "T4-Online-Lobby",
+    "t4.lobby_mode_hint": "Über einen T4-Lobby-Server spielen: als Gast oder mit Konto anmelden, in der Lobby chatten, ein schnelles Match suchen oder einen Spieler herausfordern. Direkte IP / VPN bleibt verfügbar.",
+    "t4.direct_mode": "Direkte IP / VPN",
+    "t4.direct_mode_hint": "Zurück zu Host / Join per IP-Adresse oder VPN, ohne Lobby-Server.",
+    "t4.lobby_no_server": "Es ist noch kein T4-Lobby-Server eingerichtet. Trage unter Lobby-Adresse die Adresse ein, die du vom Betreiber des Servers bekommen hast, oder nutze Direkte IP / VPN.",
+    "t4.mode_busy": "Beende zuerst die laufende Prüfung, das Match oder die Anmeldung, oder brich sie ab."
 }

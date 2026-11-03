@@ -572,7 +572,7 @@
     "updates.waiting": "Update ready. Close the game, build, support check and online session to restart the launcher.",
     "t4.returning": "Returning to the launcher.",
     "t4.quit_busy": "Wait for installation or disc checking to finish. For a build, Confirm opens Cancel; then quit again.",
-    "t4.online_setup_hint": "Enter Player name with the on-screen keyboard, then choose Guest login. For account login, enter your password too. An empty Lobby address uses the local lobby at 127.0.0.1:7791. Enter the address to use another T4 server.",
+    "t4.online_setup_hint": "Enter Player name with the on-screen keyboard, then choose Guest login. For an account, enter your password too; accounts need a secured server (tls:// or an address with #fingerprint). Lobby address is the T4 server you play on.",
     "t4.online_name_required": "Choose Player name and enter a name with the on-screen keyboard, then try logging in again.",
     "t4.onboarding_hint": "Choose your complete T4 portable release zip or its folder with the pad. Then choose your Tekken 4 USA ISO (SLUS-20328).",
     "t4.onboarding_source": "Your own complete T4 portable release zip or folder",
@@ -1074,5 +1074,11 @@
     "t4.source.game_failed": "Game ended with an error: {code}",
     "t4.source.resolution_native": "Native (640x448)",
     "t4.tools.copy_failed": "The command could not be copied. Try again.",
-    "preferences.save_failed": "Changes apply for this session, but could not be saved. Check the launcher settings file before restarting."
+    "preferences.save_failed": "Changes apply for this session, but could not be saved. Check the launcher settings file before restarting.",
+    "t4.lobby_mode": "T4 Online lobby",
+    "t4.lobby_mode_hint": "Play through a T4 lobby server: log in as a guest or with an account, chat in the lobby, search a quick match or challenge a player. Direct IP / VPN stays available.",
+    "t4.direct_mode": "Direct IP / VPN",
+    "t4.direct_mode_hint": "Back to Host / Join by IP address or VPN, without a lobby server.",
+    "t4.lobby_no_server": "No T4 lobby server is set up yet. Enter the address you got from the server's organizer under Lobby address, or use Direct IP / VPN.",
+    "t4.mode_busy": "Finish or cancel the current check, match or login first."
 }

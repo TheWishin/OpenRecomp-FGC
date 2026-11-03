@@ -572,7 +572,7 @@
     "updates.waiting": "업데이트가 준비되었습니다. 게임, 빌드, 지원 검사 및 온라인 세션을 종료하면 런처가 다시 시작됩니다.",
     "t4.returning": "런처로 돌아갑니다.",
     "t4.quit_busy": "설치 또는 디스크 확인이 끝날 때까지 기다리세요. 빌드 중에는 확인을 눌러 취소 창을 연 다음 다시 종료하세요.",
-    "t4.online_setup_hint": "화면 키보드로 이름을 입력하고 게스트 로그인을 선택하세요. 계정 로그인에는 비밀번호도 입력하세요. 로비 주소가 비어 있으면 로컬 로비 127.0.0.1:7791을 사용합니다. 다른 T4 서버를 사용하려면 주소를 입력하세요.",
+    "t4.online_setup_hint": "화면 키보드로 이름을 입력하고 게스트 로그인을 선택하세요. 계정에는 비밀번호도 입력하세요. 계정에는 보안 서버(tls:// 또는 #지문이 있는 주소)가 필요합니다. 로비 주소는 플레이할 T4 서버입니다.",
     "t4.online_name_required": "플레이어 이름 또는 계정 이름을 선택해 화면 키보드로 이름을 입력한 후 다시 로그인하세요.",
     "t4.onboarding_hint": "컨트롤러로 완전한 T4 포터블 배포본 ZIP 또는 해당 폴더를 선택하세요. 그런 다음 Tekken 4 USA(SLUS-20328) ISO를 선택하세요.",
     "t4.onboarding_source": "보유한 완전한 T4 포터블 배포본 ZIP 또는 폴더",
@@ -1074,5 +1074,11 @@
     "t4.source.game_failed": "Game ended with an error: {code}",
     "t4.source.resolution_native": "Native (640x448)",
     "t4.tools.copy_failed": "The command could not be copied. Try again.",
-    "preferences.save_failed": "변경 사항은 현재 세션에 적용되지만 저장하지 못했습니다. 다시 시작하기 전에 런처 설정 파일을 확인하세요."
+    "preferences.save_failed": "변경 사항은 현재 세션에 적용되지만 저장하지 못했습니다. 다시 시작하기 전에 런처 설정 파일을 확인하세요.",
+    "t4.lobby_mode": "T4 온라인 로비",
+    "t4.lobby_mode_hint": "T4 로비 서버로 플레이합니다. 게스트 또는 계정으로 로그인하고, 로비에서 채팅하고, 빠른 대전을 찾거나 플레이어에게 도전할 수 있습니다. 직접 IP / VPN도 계속 사용할 수 있습니다.",
+    "t4.direct_mode": "직접 IP / VPN",
+    "t4.direct_mode_hint": "로비 서버 없이 IP 주소 또는 VPN으로 호스트 / 참가하는 화면으로 돌아갑니다.",
+    "t4.lobby_no_server": "아직 설정된 T4 로비 서버가 없습니다. 서버 운영자에게 받은 주소를 로비 주소에 입력하거나 직접 IP / VPN을 사용하세요.",
+    "t4.mode_busy": "진행 중인 확인, 대전 또는 로그인을 먼저 끝내거나 취소하세요."
 }

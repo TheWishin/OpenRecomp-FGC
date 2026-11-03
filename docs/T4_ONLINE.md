@@ -1,15 +1,70 @@
-# T4 direct IP / VPN beta
+# T4 Online: lobby and direct IP / VPN beta
 
-The beta supports T4 offline and online by direct IP or VPN, with no lobby and
-no ranked. There is no account, matchmaking, room, chat, relay, leaderboard or
-server-reported result flow. Lobby-based online stays hidden until its server
-exists. T5DR Online uses its installed lobby client; the old T5DR Online launcher
-remains available. Its separate checks are in [T5DR_ONLINE.md](T5DR_ONLINE.md).
+The beta plays T4 online in two ways, with no ranked:
+
+- **T4 lobby:** through a T4 lobby server. Guest or account login, the player list,
+  lobby chat, quick match and challenges (accept or decline), then the same explicit
+  Start game, a result report and back to the lobby. The server pairs only players
+  with the same T4 build and finds the connection (direct, or through its relay).
+- **Direct IP / VPN:** Host and Join by address, as described below. No server.
 
 Both players need compatible locally built T4 runtimes and their own supported
-USA SLUS-20328 ISO. The launcher reads the installed T4 build identity and uses
-the same build/compiler/ISO and UDP checks as T4's `tools\net_play.ps1`.
-It does not build a game or repair an incompatible installation during a check.
+USA SLUS-20328 ISO. T5DR Online uses its installed lobby client; the old T5DR Online
+launcher remains available. Its separate checks are in [T5DR_ONLINE.md](T5DR_ONLINE.md).
+
+## T4 lobby
+
+The launcher has **no built-in T4 server**. It uses the first of:
+
+1. the environment variable `OPENRECOMP_T4_SERVER` (for example `host:7791`,
+   `host:7791#<certificate SHA-256>` or `tls://host:7791`);
+2. `t4_lobby_server` in the launcher's `config.json`;
+3. the default entry of a server list: `servers.json` (format `t5dr-servers/1`) in
+   the launcher's `openrecomp\vendor\` folder (a test bundle may add one) or in the
+   player's `%LOCALAPPDATA%\OpenRecomp\t4-online\` folder.
+
+Without any of these, Online opens on Direct IP / VPN; **T4 Online lobby** switches to
+the lobby screen, which says that no server is set up and lets the player type the
+address under Lobby address. The choice between lobby and direct IP is remembered.
+Login, search and chat are always explicit actions; opening the page connects nowhere.
+
+The lobby client ships inside the launcher (client modules of T5DR Online's open-source
+lobby, renamed for Tekken 4; no server code, certificates or server list). Logins and
+saved sessions are stored apart from T5DR's (`online-t4.json`). T4 accounts are
+separate from T5DR accounts. Accounts need a secured server (TLS); guests also work
+over plain TCP.
+
+What the client expects from the server: a T4 lobby (welcome `"game": "t4"`, UDP magic
+`T4LB`, relayed game packets `T4NP`), TCP and UDP 7791 plus UDP 7792 for the NAT probe
+unless the address names other ports, guests on, quick match and challenges (unranked), the
+lobby chat, and a short minimum match length or none (the T4 game writes no result
+file yet: the players report the winner). The players' game port is any free UDP port
+the launcher picks; nothing needs forwarding.
+
+### Controller walk (lobby)
+
+1. Select T4, then Online with LB/RB. If Direct IP / VPN shows, choose **T4 Online lobby**.
+2. Enter Player name with the **on-screen keyboard**, check Lobby address, then choose
+   **Guest login** (or enter a password for Account login or Register).
+3. The lobby lists the other players and the chat. **Refresh players**, choose a player
+   to challenge them, or **Quick match**. An incoming challenge shows Accept and Decline.
+   Chat: choose the chat field, type with the keyboard, then **Send chat**.
+4. When a match is found, choose **Start match**. T4 starts with the lobby's connection;
+   pick characters and stage in T4's own VS menus. View + Menu held two seconds ends the
+   game (as for direct IP).
+5. After the game, report **I won**, **I lost** or **No result**; the lobby's verdict
+   appears, then **Back to lobby**. **Direct IP / VPN** on the login screen goes back.
+
+Not in the T4 beta lobby: ranked and leaderboards, rooms, friends, private chat,
+spectating, tournaments, replays, in-game result files and direct entry into a fight.
+
+### End-to-end check on one PC
+
+`tools\t4_lobby_e2e.py` runs a local T4 lobby server (127.0.0.1, in-memory database)
+and two launchers offscreen, driven by pad presses: login, player list, chat both ways,
+a declined challenge, a quick match and an accepted challenge with results. `--stub`
+uses the T4 lobby's stand-in game; `--real` starts the real T4 build twice (a heavy run).
+Its docstring names the three one-PC allowances it needs.
 
 ## Internet vorbereiten: auf beiden PCs
 
@@ -69,7 +124,7 @@ vor privater Weitergabe den Inhalt pruefen.
 2. The joining player enters the host's IPv4 address using the **on-screen
    keyboard**. Use the host's VPN address when both PCs use the same VPN.
    The default UDP port is 7400. Arrange the address with the other player
-   outside the launcher; this beta has no player directory.
+   outside the launcher; direct IP has no player directory (the lobby has one).
 3. Both players select **Check connection**. The check waits up to 90 seconds
    for the peer. It compares the build identity, compiler/MSVC version and ISO
    SHA-256 hash, then checks two-way UDP reachability. Each check explains its
@@ -79,6 +134,7 @@ vor privater Weitergabe den Inhalt pruefen.
    action; a successful check never launches T4 by itself. Choose characters
    and stage in T4's normal menus. This beta does not promise direct entry into
    a fight, trusted match results or persistent sessions with new opponents.
+   **T4 Online lobby** at the end of the list switches to the lobby screen.
 5. To stop the owned T4 process and return, hold View + Menu (Share + Options)
    on one controller for two seconds. An external game is never taken over.
 6. After closing T4, **Collect logs** calls the installed T4
@@ -110,6 +166,9 @@ Ordinary graphics and sound settings keep their existing defaults.
 Source reading and fake tests cannot approve real online play. Before a Sunday
 release, the owner must use two physical PCs and record a successful host/join
 test on the intended direct IP or VPN route. Repeat with the PCs' roles reversed.
+For the lobby, both PCs log in to the real T4 server, see each other, chat, play one
+quick match and one accepted challenge, and report results; one PC behind a router
+without port forwarding.
 
 - Use only a pad for address entry, checks, start, cancel, log collection and Back.
   Check all seven languages at 1080p and Windows 150% scaling, including long
@@ -127,7 +186,7 @@ test on the intended direct IP or VPN route. Repeat with the PCs' roles reversed
   logs and reports local; no game data, saves or personal paths belong in this
   public repository.
 
-The launcher window, a game, a build and real networking were not started for
-this source review. Runtime compatibility and the two-PC result remain release
+Apart from the one-PC lobby check above, the launcher window, a game, a build and
+real networking were not started for this source review. Runtime compatibility and the two-PC result remain release
 acceptance work; see [T4_FIRST_RUN.md](T4_FIRST_RUN.md) and
 [PACKAGING.md](PACKAGING.md) for the other gates.

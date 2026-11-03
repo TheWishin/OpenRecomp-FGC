@@ -572,7 +572,7 @@
     "updates.waiting": "Mise à jour prête. Terminez le jeu, la compilation, le diagnostic et la session en ligne pour redémarrer le lanceur.",
     "t4.returning": "Retour au lanceur.",
     "t4.quit_busy": "Attendez la fin de l’installation ou de la vérification du disque. Pendant une compilation, Confirmer ouvre Annuler ; quittez ensuite à nouveau.",
-    "t4.online_setup_hint": "Saisissez votre Nom du joueur ou du compte au clavier à l’écran, puis connectez-vous en invité. Pour un compte, saisissez aussi le mot de passe. Une Adresse du salon vide utilise le salon local 127.0.0.1:7791. Saisissez l’adresse pour utiliser un autre serveur T4.",
+    "t4.online_setup_hint": "Saisissez votre Nom du joueur ou du compte au clavier à l’écran, puis connectez-vous en invité. Pour un compte, saisissez aussi le mot de passe ; les comptes exigent un serveur sécurisé (tls:// ou une adresse avec #empreinte). L’Adresse du salon est le serveur T4 sur lequel vous jouez.",
     "t4.online_name_required": "Choisissez Nom du joueur ou du compte et saisissez un nom au clavier à l’écran, puis réessayez de vous connecter.",
     "t4.onboarding_hint": "Choisissez à la manette le ZIP portable complet de T4 ou son dossier. Choisissez ensuite votre ISO de Tekken 4 USA (SLUS-20328).",
     "t4.onboarding_source": "Votre ZIP portable complet de T4 ou son dossier",
@@ -1074,5 +1074,11 @@
     "t4.source.game_failed": "Game ended with an error: {code}",
     "t4.source.resolution_native": "Native (640x448)",
     "t4.tools.copy_failed": "The command could not be copied. Try again.",
-    "preferences.save_failed": "Les modifications s’appliquent à cette session, mais n’ont pas pu être enregistrées. Vérifiez le fichier de paramètres du lanceur avant de le redémarrer."
+    "preferences.save_failed": "Les modifications s’appliquent à cette session, mais n’ont pas pu être enregistrées. Vérifiez le fichier de paramètres du lanceur avant de le redémarrer.",
+    "t4.lobby_mode": "Salon en ligne T4",
+    "t4.lobby_mode_hint": "Jouez via un serveur de salon T4 : connectez-vous en invité ou avec un compte, discutez dans le salon, cherchez un match rapide ou défiez un joueur. L’IP directe / VPN reste disponible.",
+    "t4.direct_mode": "IP directe / VPN",
+    "t4.direct_mode_hint": "Retour à Héberger / Rejoindre par adresse IP ou VPN, sans serveur de salon.",
+    "t4.lobby_no_server": "Aucun serveur de salon T4 n’est encore configuré. Saisissez dans Adresse du salon l’adresse reçue de l’organisateur du serveur, ou utilisez l’IP directe / VPN.",
+    "t4.mode_busy": "Terminez ou annulez d’abord la vérification, le match ou la connexion en cours."
 }

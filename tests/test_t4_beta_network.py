@@ -83,7 +83,8 @@ class DirectBetaTests(unittest.TestCase):
             self.a.online_action("login_guest")
             self.a.online_action("search_ranked")
             self.a.online_action("search_quick")
-        self.assertEqual(state["capabilities"], dict(direct_ip=True, lobby=False, ranked=False, match_flow=False))
+        self.assertEqual(state["capabilities"], dict(direct_ip=True, lobby=False, ranked=False, match_flow=False,
+                                                    lobby_available=True))
         self.assertEqual(self.a.starts, [])
         self.scan.assert_not_called()
 

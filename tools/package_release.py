@@ -36,6 +36,10 @@ SOURCE_GROUPS = {
                            "t5_moderation.py", "t5_private_chat.py", "t5_profiles.py", "t5_rules.py",
                            "t5_spectating.py", "t5_tournaments.py"),
     "openrecomp/data": ("t4_ranks.json", "known_games.json"),
+    # The T4 lobby's client side only (MIT, from T5DR Online's open-source lobby); no server code or server list.
+    "openrecomp/vendor/t4lobby": ("__init__.py", "LICENSE", "buildid.py", "client.py", "handover.py", "i18n.py",
+                                  "i18n_known.py", "nat.py", "portmap.py", "proto.py", "servers.py", "spectate.py",
+                                  "t4game.py", "tour_client.py"),
     "openrecomp/i18n": ("__init__.py", "de.json", "en.json", "es.json", "fr.json", "ja.json", "ko.json", "pt-BR.json"),
     "openrecomp/ui": ("Glyph.qml", "Hub.qml", "Main.qml", "Overlays.qml", "ResultCell.qml", "Shelf.qml"),
     "openrecomp/ui/assets": ("icon.ico", "icon.svg", "logo-mark-light.svg", "logo-mark.svg", "logo-wordmark-light.svg", "logo-wordmark.svg"),

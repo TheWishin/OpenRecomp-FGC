@@ -572,7 +572,7 @@
     "updates.waiting": "Actualización lista. Cierra el juego, la compilación, la comprobación de asistencia y la sesión en línea para reiniciar el lanzador.",
     "t4.returning": "Volviendo al lanzador.",
     "t4.quit_busy": "Espera a que termine la instalación o la comprobación del disco. Durante una compilación, Confirmar abre Cancelar; después vuelve a salir.",
-    "t4.online_setup_hint": "Introduce tu Nombre de jugador o de cuenta con el teclado en pantalla y elige Entrar como invitado. Para una cuenta, introduce también la contraseña. Una Dirección de la sala vacía usa la sala local 127.0.0.1:7791. Introduce la dirección para usar otro servidor de T4.",
+    "t4.online_setup_hint": "Introduce tu Nombre de jugador o de cuenta con el teclado en pantalla y elige Entrar como invitado. Para una cuenta, introduce también la contraseña; las cuentas necesitan un servidor seguro (tls:// o una dirección con #huella). La Dirección de la sala es el servidor de T4 en el que juegas.",
     "t4.online_name_required": "Elige Nombre de jugador o de cuenta e introduce un nombre con el teclado en pantalla; después vuelve a iniciar sesión.",
     "t4.onboarding_hint": "Elige con el mando el ZIP portátil completo de T4 o su carpeta. Después elige tu ISO de Tekken 4 USA (SLUS-20328).",
     "t4.onboarding_source": "Tu ZIP portátil completo de T4 o su carpeta",
@@ -1074,5 +1074,11 @@
     "t4.source.game_failed": "Game ended with an error: {code}",
     "t4.source.resolution_native": "Native (640x448)",
     "t4.tools.copy_failed": "The command could not be copied. Try again.",
-    "preferences.save_failed": "Los cambios se aplican a esta sesión, pero no se pudieron guardar. Revisa el archivo de configuración del lanzador antes de reiniciarlo."
+    "preferences.save_failed": "Los cambios se aplican a esta sesión, pero no se pudieron guardar. Revisa el archivo de configuración del lanzador antes de reiniciarlo.",
+    "t4.lobby_mode": "Sala online de T4",
+    "t4.lobby_mode_hint": "Juega a través de un servidor de sala de T4: entra como invitado o con una cuenta, chatea en la sala, busca una partida rápida o desafía a un jugador. IP directa / VPN sigue disponible.",
+    "t4.direct_mode": "IP directa / VPN",
+    "t4.direct_mode_hint": "Vuelve a Crear / Unirse por dirección IP o VPN, sin servidor de sala.",
+    "t4.lobby_no_server": "Todavía no hay ningún servidor de sala de T4. Introduce en Dirección de la sala la dirección que te dio el organizador del servidor, o usa IP directa / VPN.",
+    "t4.mode_busy": "Primero termina o cancela la comprobación, la partida o el inicio de sesión en curso."
 }

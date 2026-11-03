@@ -1,4 +1,4 @@
-"""T4 direct-IP beta checks and the dormant future lobby process flow."""
+"""T4 online: direct-IP / VPN checks, and the lobby (accounts, players, chat, matches) through the vendored client."""
 import importlib
 import ipaddress
 import json
@@ -13,8 +13,30 @@ import zipfile
 
 from .base import NO_WINDOW
 from .t5_online import Online, SearchRefused, game_process_running
-from ..manifest import user_dir
+from ..manifest import save_config, user_dir
 from ..ranks import t4_rank_name
+
+
+# The T4 lobby client ships with the launcher (openrecomp/vendor/t4lobby); T4 installs have none.
+VENDOR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vendor")
+SERVER_ENV = "OPENRECOMP_T4_SERVER"
+SERVERS_FORMAT = "t5dr-servers/1"
+# Rooms are not part of the T4 beta lobby: players, chat, quick match and challenges only.
+ROOM_ACTIONS = ("refresh_rooms", "create_room", "create_password_room", "create_code_room",
+                "join_room_code", "leave_room")
+
+
+def source_net_profile(config):
+    """The netplay switches a source-test build runs online with, the same for direct IP and lobby matches."""
+    env = dict(TEKKEN4_NET_COALESCE="1", TEKKEN4_NET_DIAG="1",
+               TEKKEN4_RB_AUDIO_TIMELINE="0", TEKKEN4_NET_REFRESH_RC="0",
+               TEKKEN4_NET_AUTO_VS="0", TEKKEN4_NET_TIMESYNC="1",
+               TEKKEN4_NET_MAXPRED="8", TEKKEN4_NET_EARLY="1",
+               TEKKEN4_NET_LAZY="1", TEKKEN4_NET_LOCALPAD="1")
+    diagnostics = config.get("t4_diagnostics")
+    if isinstance(diagnostics, dict) and diagnostics.get("net_diagnostics") is False:
+        env["TEKKEN4_NET_DIAG"] = "0"
+    return env
 
 
 DIRECT_CHECKS = ("build", "compiler", "iso", "udp")
@@ -87,7 +109,8 @@ class T4Direct:
                     build_id=identity.get("build_id", ""), compiler=identity.get("compiler", ""),
                     log_path=self._direct_log_path,
                     name="", account=False, queue="", match={}, saved_available=False,
-                    capabilities=dict(direct_ip=True, ranked=False, lobby=False, match_flow=False))
+                    capabilities=dict(direct_ip=True, ranked=False, lobby=False, match_flow=False,
+                                      lobby_available=True))
 
     def _direct_local_identity(self):
         """Display the local stamp only; the peer preflight still verifies every input."""
@@ -288,14 +311,7 @@ class T4Direct:
                            TEKKEN4_NET_BIND="", TEKKEN4_NET_PEER="", TEKKEN4_NET_KEY="", TEKKEN4_NET_SEED="",
                            TEKKEN4_NET_TIMEOUT="90")
                 if getattr(self.core, "source_only", False):
-                    env.update(TEKKEN4_NET_COALESCE="1", TEKKEN4_NET_DIAG="1",
-                               TEKKEN4_RB_AUDIO_TIMELINE="0", TEKKEN4_NET_REFRESH_RC="0",
-                               TEKKEN4_NET_AUTO_VS="0", TEKKEN4_NET_TIMESYNC="1",
-                               TEKKEN4_NET_MAXPRED="8", TEKKEN4_NET_EARLY="1",
-                               TEKKEN4_NET_LAZY="1", TEKKEN4_NET_LOCALPAD="1")
-                    diagnostics = self.config.get("t4_diagnostics")
-                    if isinstance(diagnostics, dict) and diagnostics.get("net_diagnostics") is False:
-                        env["TEKKEN4_NET_DIAG"] = "0"
+                    env.update(source_net_profile(self.config))
                 with self._online_lock:
                     if generation != self._direct_generation:
                         raise RuntimeError("@online.cancelled")
@@ -466,13 +482,100 @@ class T4Online(T4Direct, Online):
     online_game = "t4"
     online_port = 7791
     online_ranked = False
-    online_lobby = False
+    online_lobby = True
     online_match_flow = True
     online_legacy_config = False
+    online_registration = True
+
+    @property
+    def online_direct_ip(self):
+        return self._t4_online_mode() == "direct"
+
+    def _t4_online_mode(self):
+        """The player's last choice; without one the lobby once a T4 server is known, else direct IP."""
+        mode = self.config.get("t4_online_mode")
+        if mode in ("direct", "lobby"):
+            return mode
+        return "lobby" if self._online_default_server() else "direct"
+
+    def _t4_set_mode(self, mode):
+        if mode == self._t4_online_mode():
+            return
+        if self.online_direct_ip:
+            self._direct_init()
+            if (self._direct_busy or self._direct_phase in ("checking", "starting", "playing", "stopping")
+                    or getattr(self, "_online_owned_run", None) is not None):
+                self._direct_message = "@t4.mode_busy"
+                return
+        else:
+            self._online_init()
+            if (self._online_client is not None or self._online_busy
+                    or getattr(self, "_online_owned_run", None) is not None):
+                self._online_message = "@t4.mode_busy"
+                return
+        self.config["t4_online_mode"] = mode
+        # Both screens share _online_phase: each starts from its own idle state.
+        if mode == "lobby":
+            self._online_init()
+            self._online_phase, self._online_message = "offline", "@online.offline"
+        else:
+            self._direct_init()
+            self._direct_status("offline", "@t4.direct_hint")
+        try:
+            save_config(self.config)
+        except (OSError, ValueError, TypeError):
+            pass  # the choice still holds for this session
 
     def online_cfg_path(self):
         # Endpoints, TLS pins and session tokens remain scoped to the T4 service.
         return os.path.join(user_dir(), "online-t4.json")
+
+    def _online_lobby_dir(self):
+        return VENDOR
+
+    def _online_servers_dir(self):
+        # Never T5DR's servers.json in the launcher's home folder.
+        return os.path.join(user_dir(), "t4-online")
+
+    def _online_default_server(self):
+        """OPENRECOMP_T4_SERVER, the launcher config's t4_lobby_server, or a T4 servers.json entry; never built in."""
+        configured = os.environ.get(SERVER_ENV, "").strip() or str(self.config.get("t4_lobby_server") or "").strip()
+        if configured:
+            return configured[:256]
+        if not hasattr(self, "_t4_listed_server"):
+            self._t4_listed_server = ""
+            for path in (os.path.join(VENDOR, "servers.json"), os.path.join(self._online_servers_dir(), "servers.json")):
+                try:
+                    with open(path, encoding="utf-8") as stream:
+                        doc = json.load(stream)
+                except (OSError, ValueError):
+                    continue
+                servers = doc.get("servers") if isinstance(doc, dict) and doc.get("format") == SERVERS_FORMAT else None
+                listed = [entry for entry in servers if isinstance(entry, dict) and str(entry.get("host") or "").strip()
+                          ] if isinstance(servers, list) else []
+                chosen = next((entry for entry in listed if entry.get("default") is True), listed[0] if listed else None)
+                if chosen:
+                    # A listed name resolves through the same servers.json files when the client connects.
+                    self._t4_listed_server = str(chosen.get("name") or chosen.get("host")).strip()[:64]
+        return self._t4_listed_server
+
+    def _online_init(self):
+        if hasattr(self, "_online_fields"):
+            return
+        # The direct-IP screen mirrors its phase into _online_phase and owns _online_lock;
+        # neither means the lobby state exists yet.
+        lock = getattr(self, "_online_lock", None)
+        phase = self.__dict__.pop("_online_phase", None)
+        try:
+            super()._online_init()
+        except BaseException:
+            if phase is not None:
+                self._online_phase = phase
+            raise
+        if lock is not None:
+            self._online_lock = lock
+        if not self._online_fields["online_server"].strip():
+            self._online_fields["online_server"] = self._online_default_server()
 
     def _online_build(self, api):
         if not self.ready():
@@ -492,10 +595,18 @@ class T4Online(T4Direct, Online):
         if self.online_direct_ip:
             return self._direct_state()
         state = super().online_state()
+        server = bool(self._online_fields["online_server"].strip())
         if state["phase"] == "offline" and state["message"] == "@online.offline":
-            state["message"] = "@t4.online_setup_hint"
+            state["message"] = "@t4.online_setup_hint" if server else "@t4.lobby_no_server"
+        state["capabilities"].update(t4_lobby=True, rooms=False, direct_available=True, server_set=server)
         state["rank"] = t4_rank_name(getattr(self, "_online_rating", None)) if state["name"] else ""
         return state
+
+    def _online_lobby_action(self, action, client):
+        if action in ROOM_ACTIONS or action.startswith("join_room:"):
+            self._online_message = "@online.social_unavailable"
+            return
+        super()._online_lobby_action(action, client)
 
     def _online_client_options(self):
         options = super()._online_client_options()
@@ -509,7 +620,7 @@ class T4Online(T4Direct, Online):
         api = self._online_modules()
         if "game_env" not in api:
             module = importlib.import_module(self.online_package + ".t4game")
-            package = os.path.normcase(os.path.realpath(os.path.join(self.root, "lobby", self.online_package)))
+            package = os.path.normcase(os.path.realpath(os.path.join(self._online_lobby_dir(), self.online_package)))
             origin = getattr(module, "__file__", None)
             try:
                 local = isinstance(origin, str) and os.path.commonpath(
@@ -519,7 +630,12 @@ class T4Online(T4Direct, Online):
             if not local or not callable(getattr(module, "game_env", None)):
                 raise RuntimeError("@online.client_missing")
             api["game_env"] = module.game_env
-        return api["game_env"](ticket)
+        env = dict(TEKKEN4_NET_STRICT_HELLO="0", TEKKEN4_NET_DELAY_MATCH="0")
+        if getattr(self.core, "source_only", False):
+            env.update(source_net_profile(self.config))
+        # The lobby's endpoint, key, seed and build always win over the local profile.
+        env.update(api["game_env"](ticket))
+        return env
 
     def _online_match_message(self):
         reason = getattr(self, "_online_evidence", {}).get("reason")
@@ -698,16 +814,21 @@ class T4Online(T4Direct, Online):
         return False
 
     def online_action(self, action):
+        if action in ("mode_lobby", "mode_direct"):
+            return self._t4_set_mode("lobby" if action == "mode_lobby" else "direct")
         if self.online_direct_ip:
             return self._direct_action(action)
         self._online_init()
-        if (action in ("login_guest", "login_account", "login_saved")
+        if (action in ("login_guest", "login_account", "login_saved", "login_register")
                 and self._online_client is None and not self._online_busy):
             if not self.ready():
                 self._online_phase, self._online_message = "error", "@online.build_required"
                 return
             if action != "login_saved" and not self.online_text_value("online_name").strip():
                 self._online_phase, self._online_message = "error", "@t4.online_name_required"
+                return
+            if not self.online_text_value("online_server").strip():
+                self._online_phase, self._online_message = "error", "@t4.lobby_no_server"
                 return
         if action == "search_ranked":
             self._online_message = "@online.ranked_unavailable"
@@ -871,7 +992,9 @@ class T4Online(T4Direct, Online):
                     self._online_connected = True
                 if "NETSUMMARY" in line:
                     self._online_playing = True
-                    for key, pattern in (("frames", r"(?:frames|frame)\s*[=: ]\s*(\d+)"),
+                    # The T4 game writes "NETSUMMARY [final] live <frames> logical ...; rollbacks N resim frames N".
+                    for key, pattern in (("frames", r"\blive\s+(\d+)"),
+                                         ("frames", r"(?<!resim )\b(?:frames|frame)\s*[=: ]\s*(\d+)"),
                                          ("desync", r"mismatches\s*[=: ]\s*(\d+)")):
                         found = re.search(pattern, line)
                         if found:

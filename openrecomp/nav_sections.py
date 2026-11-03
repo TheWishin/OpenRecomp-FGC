@@ -77,7 +77,7 @@ class Sections:
             return [dict(kind="action", id="folder", label="@onboarding.choose_folder", verb="@go_build",
                          run=lambda: self._go(g, "build"), hint="@onboarding.hint",
                          detail=dict(kicker="@section.online", title="@onboarding.choose_folder", lead="@onboarding.hint", rows=[]))]
-        if g.m.get("adapter") == "t4" or (g.a.online_state().get("capabilities") or {}).get("direct_ip"):
+        if self._direct_online(g):
             return self._direct_online_items(g)
         if getattr(g.a, "online_supported", lambda: False)():
             return self._online_items(g)

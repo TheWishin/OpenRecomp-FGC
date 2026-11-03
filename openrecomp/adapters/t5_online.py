@@ -53,6 +53,7 @@ class Online:
     online_lobby = False
     online_match_flow = False
     online_legacy_config = True
+    online_registration = None  # None: only the T5DR client registers accounts
 
     def online_supported(self):
         return True
@@ -156,9 +157,21 @@ class Online:
                 continue
         return private or {}
 
+    def _online_lobby_dir(self):
+        """The folder that holds the client package: the selected install's own lobby."""
+        return os.path.join(self.root, "lobby")
+
+    def _online_servers_dir(self):
+        return os.path.dirname(self.online_cfg_path())
+
+    def _online_can_register(self):
+        if self.online_registration is None:
+            return self.online_package == "t5lobby"
+        return bool(self.online_registration)
+
     def _online_modules(self):
         if not hasattr(self, "_online_api"):
-            lobby = os.path.join(self.root, "lobby")
+            lobby = self._online_lobby_dir()
             package_root = os.path.normcase(os.path.realpath(os.path.join(lobby, self.online_package)))
 
             def local_origin(origin):
@@ -205,7 +218,7 @@ class Online:
         self._online_init()
         capabilities = dict(ranked=self.online_ranked, lobby=self.online_lobby,
                             match_flow=self.online_match_flow)
-        if self.online_package == "t5lobby":
+        if self._online_can_register():
             capabilities["registration"] = True
         if self.online_lobby and self.online_game != "t4":
             capabilities.update(private_rooms=self._online_social_cap("private_rooms"),
@@ -365,7 +378,7 @@ class Online:
         cfg = self._online_config() if cfg is None else cfg
         api = self._online_modules()
         build = self._online_build(api)
-        directory = os.path.dirname(self.online_cfg_path())
+        directory = self._online_servers_dir()
         if getattr(self.s, "coexistence", False) and not os.path.isfile(os.path.join(directory, "servers.json")):
             sources = self.s.legacy_online_paths
             if sources:
@@ -490,7 +503,7 @@ class Online:
         if self._online_client is None and t5_features.offline_action(self, action):
             return
         if action in ("login_guest", "login_account", "login_register", "login_saved"):
-            if action == "login_register" and self.online_package != "t5lobby":
+            if action == "login_register" and not self._online_can_register():
                 return
             if self._online_client is None:
                 self._online_login(action)
