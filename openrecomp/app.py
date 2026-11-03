@@ -546,6 +546,7 @@ def main(argv=None):
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("TheWishin.OpenRecompFGC")
     backend = Backend(windowed=args.windowed)
     app.aboutToQuit.connect(backend.nav.close_online)
+    app.aboutToQuit.connect(backend.setup.shutdown)      # an install/update stops or finishes before the exit
     engine = make_engine(backend, full=backend.nav.fullscreen)
     # A broken QML scene must never acknowledge an update. The old helper owns rollback.
     QTimer.singleShot(updater.CONFIRM_AFTER_MS, lambda: updater.confirm_startup(backend.updates.root))

@@ -683,7 +683,10 @@ def _move(a, b, timeout=20.0):
 
 def swap(src, root, new, backup):
     """Exchange the release's top-level items; the old ones wait in backup until the new ones are in, and come
-    back on any failure (T5DR updater.swap's way). Player files are never named or moved."""
+    back on any failure (T5DR updater.swap's way). Player files are never named or moved.
+
+    A journal beside backup (backup + ".json") names what moves: when the old files cannot all be put back
+    (a file locked by another program), the backup stays and recover_update() finishes the rollback later."""
     protected = {n.lower() for n in src.protected}
     names = sorted(os.listdir(new))
     if any(n.lower() in protected for n in names):
@@ -691,6 +694,8 @@ def swap(src, root, new, backup):
     olds = [n for n in sorted(os.listdir(root)) if n.lower() in {x.lower() for x in names}]
     moved_old, moved_new = [], []
     os.makedirs(backup, exist_ok=True)
+    journal = backup + ".json"
+    _write_json(journal, dict(state="swapping", old=olds, new=names))
     try:
         for n in olds:
             _move(os.path.join(root, n), os.path.join(backup, n))
@@ -699,18 +704,72 @@ def swap(src, root, new, backup):
             _move(os.path.join(new, n), os.path.join(root, n))
             moved_new.append(n)
     except OSError as e:
+        left = []
         for n in reversed(moved_new):
             try:
                 _move(os.path.join(root, n), os.path.join(new, n))
             except OSError:
-                pass
+                left.append(n)
         for n in reversed(moved_old):
+            if os.path.lexists(os.path.join(root, n)):
+                left.append(n)              # its new copy is still in the way: the old one stays in backup
+                continue
             try:
                 _move(os.path.join(backup, n), os.path.join(root, n))
             except OSError:
-                pass
+                left.append(n)
+        if left:
+            raise ReleaseError("@setup.err_restore", f"{e}; not put back: {', '.join(sorted(set(left)))}") from None
+        _remove(journal)
         raise ReleaseError("@setup.err_busy", str(e)) from None
+    _write_json(journal, dict(state="swapped", old=olds, new=names))
     return moved_old, moved_new
+
+
+def update_stage(root):
+    """The folder an update of root works in (beside root, so every move stays on one drive)."""
+    root = os.path.abspath(root)
+    return os.path.join(os.path.dirname(root), f".{os.path.basename(root)}.openrecomp-update")
+
+
+def interrupted_update(root):
+    """True when an earlier update of root left its backup (rollback unfinished, or the launcher was stopped)."""
+    backup = os.path.join(update_stage(root), "backup")
+    return bool(root) and os.path.isdir(backup) and bool(os.listdir(backup))
+
+
+def recover_update(game, root):
+    """Finish what an interrupted update left: put the old files back unless the exchange was complete.
+    Raises @setup.err_restore while a file is still locked (the backup stays for the next try)."""
+    stage = update_stage(root)
+    backup = os.path.join(stage, "backup")
+    if not interrupted_update(root):
+        return False
+    root = os.path.abspath(root)
+    journal = _read_json(backup + ".json") or {}
+    if journal.get("state") != "swapped":
+        protected = {n.lower() for n in SOURCES[game].protected}
+        discard = os.path.join(stage, "discard")
+        os.makedirs(discard, exist_ok=True)
+        olds = {str(n) for n in journal.get("old") or []}
+        names = [str(n) for n in journal.get("new") or []]
+        try:
+            for n in sorted(os.listdir(backup)):
+                if n.lower() in protected or n != os.path.basename(n):
+                    continue
+                if os.path.lexists(os.path.join(root, n)):
+                    _move(os.path.join(root, n), os.path.join(discard, n))
+                _move(os.path.join(backup, n), os.path.join(root, n))
+            for n in names:                 # items only the new release has (the old one had none of that name)
+                if (n not in olds and n.lower() not in protected and n == os.path.basename(n)
+                        and os.path.lexists(os.path.join(root, n))):
+                    _move(os.path.join(root, n), os.path.join(discard, n))
+        except OSError as e:
+            raise ReleaseError("@setup.err_restore", str(e)) from None
+        if any(n.lower() not in protected for n in os.listdir(backup)):
+            raise ReleaseError("@setup.err_restore", "the backup still holds files")
+    shutil.rmtree(stage, ignore_errors=True)
+    return True
 
 
 def tree_digest(root, names):
@@ -752,11 +811,13 @@ def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=Non
     parent = os.path.dirname(root)
     if free_space(parent) < space_needed(src, offer, update=True):
         raise ReleaseError("@setup.err_space")
-    stage = os.path.join(parent, f".{os.path.basename(root)}.openrecomp-update")
-    if os.path.exists(os.path.join(stage, "backup")) and os.listdir(os.path.join(stage, "backup")):
-        raise ReleaseError("@setup.err_busy", "an earlier update left its backup")
+    stage = update_stage(root)
+    recover_update(game, root)            # an earlier update that could not finish its rollback: finish it first
+    if interrupted_update(root):
+        raise ReleaseError("@setup.err_restore", "an earlier update left its backup")
     shutil.rmtree(stage, ignore_errors=True)
     os.makedirs(stage)
+    keep = False
     try:
         zpath = verified_zip(src, offer, os.path.join(stage, "download"), keys=keys, opener=opener,
                              progress=progress, cancel=cancel)
@@ -767,9 +828,15 @@ def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=Non
         before_code = t5dr_build_code(root) if game == "t5dr" else None
         old_digest = tree_digest(root, [n for n in names if os.path.exists(os.path.join(root, n))]) if game == "t4" else None
         new_digest = tree_digest(new, names) if game == "t4" else None
+        if cancel is not None and cancel.is_set():
+            raise ReleaseError("@setup.cancelled")      # last moment to stop: nothing of root has moved yet
         if progress:
             progress("swap", 0, 0)
-        swap(src, root, new, os.path.join(stage, "backup"))
+        try:
+            swap(src, root, new, os.path.join(stage, "backup"))
+        except ReleaseError as e:
+            keep = e.key == "@setup.err_restore"         # the old files wait in the backup: never delete them
+            raise
         marker = _read_json(os.path.join(root, MARKER)) or dict(game=game)
         marker.update(game=game, version=offer["version"], tag=offer["tag"], sha256=offer["zip"].get("sha256"),
                       prerelease=bool(offer.get("prerelease")))
@@ -784,7 +851,8 @@ def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=Non
                 _write_json(os.path.join(root, MARKER), marker)
         return dict(version=offer["version"], rebuild=rebuild, restart=game == "t5dr")
     finally:
-        shutil.rmtree(stage, ignore_errors=True)
+        if not keep:
+            shutil.rmtree(stage, ignore_errors=True)
 
 
 def on_test_track(game, root):

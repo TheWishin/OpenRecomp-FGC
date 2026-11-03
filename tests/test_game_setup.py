@@ -276,6 +276,92 @@ class InstallUpdate(Env):
         self.assertIn("1.2.0", (Path(root) / "launcher" / "core.py").read_text(encoding="utf-8"))
         self.assertTrue((Path(root) / "launcher.json").is_file())
 
+    def test_failed_rollback_keeps_the_backup_and_the_next_check_puts_the_old_files_back(self):
+        self.gh.add_t5dr("1.2.0")
+        root = self.install()
+        self.player_files(root)
+        self.gh.add_t5dr("1.2.1")
+        stage = Path(gr.update_stage(root))
+        real = gr._move
+        calls = []
+
+        def locked(a, b, timeout=20.0):
+            if os.path.dirname(b) == os.path.abspath(root) and "backup" not in a:     # a new item going in
+                calls.append(a)
+                if len(calls) == 2:
+                    raise PermissionError(5, "in use")         # the second new item cannot go in
+            elif calls and os.path.dirname(a) == os.path.abspath(root):
+                raise PermissionError(5, "still in use")       # the first new one cannot leave: rollback fails too
+            return real(a, b, timeout)
+        with mock.patch.object(gr, "_move", side_effect=locked), self.assertRaises(gr.ReleaseError) as raised:
+            gr.update_in_place("t5dr", self.offer(), root)
+        self.assertEqual(raised.exception.key, "@setup.err_restore")
+        self.assertTrue(gr.interrupted_update(root))
+        self.assertTrue(list((stage / "backup").iterdir()))     # the recovery copy is still there
+        # The next check (on the worker) finishes the rollback: the old version is back, player files untouched.
+        setup = gs.GameSetup({}, worker=lambda fn: fn())
+        setup.check("t5dr", root, force=False)
+        [(_, kind, _, error)] = setup.poll()
+        self.assertEqual((kind, error), ("check", None))
+        self.assertFalse(stage.exists())
+        self.assertEqual(gr.installed_version("t5dr", root), "1.2.0")
+        self.assertEqual(setup.view("t5dr")["installed"], "1.2.0")
+        self.assertIn("1.2.0", (Path(root) / "launcher" / "core.py").read_text(encoding="utf-8"))
+        self.assertTrue((Path(root) / "launcher.json").is_file())
+        self.assertTrue((Path(root) / "gamedata" / "save.bin").is_file())
+        self.assertEqual(gr.update_in_place("t5dr", self.offer(), root)["version"], "1.2.1")
+
+    def test_recovery_while_still_locked_keeps_the_backup_and_an_update_refuses(self):
+        self.gh.add_t5dr("1.2.0")
+        root = self.install()
+        self.gh.add_t5dr("1.2.1")
+        real = gr._move
+        calls = []
+
+        def locked(a, b, timeout=20.0):
+            if os.path.dirname(b) == os.path.abspath(root) and "backup" not in a:     # a new item going in
+                calls.append(a)
+                if len(calls) == 2:
+                    raise PermissionError(5, "in use")
+            elif calls and os.path.dirname(a) == os.path.abspath(root):
+                raise PermissionError(5, "still in use")
+            return real(a, b, timeout)
+        with mock.patch.object(gr, "_move", side_effect=locked):
+            with self.assertRaises(gr.ReleaseError):
+                gr.update_in_place("t5dr", self.offer(), root)
+            with self.assertRaises(gr.ReleaseError) as raised:
+                gr.update_in_place("t5dr", self.offer(), root)
+        self.assertEqual(raised.exception.key, "@setup.err_restore")
+        self.assertTrue(gr.interrupted_update(root))
+        self.assertTrue(gr.recover_update("t5dr", root))
+        self.assertEqual(gr.installed_version("t5dr", root), "1.2.0")
+
+    def test_a_complete_exchange_left_behind_keeps_the_new_files(self):
+        self.gh.add_t5dr("1.2.0")
+        root = self.install()
+        self.gh.add_t5dr("1.2.1")
+        with mock.patch.object(gr.shutil, "rmtree"):       # the launcher stopped right after the exchange
+            gr.update_in_place("t5dr", self.offer(), root)
+        self.assertTrue(gr.interrupted_update(root))
+        self.assertTrue(gr.recover_update("t5dr", root))
+        self.assertFalse(Path(gr.update_stage(root)).exists())
+        self.assertEqual(gr.installed_version("t5dr", root), "1.2.1")
+
+    def test_cancel_after_unpacking_stops_before_the_exchange(self):
+        self.gh.add_t5dr("1.2.0")
+        root = self.install()
+        self.gh.add_t5dr("1.2.1")
+        cancel = threading.Event()
+
+        def progress(step, done, total):
+            if step == "unpack":
+                cancel.set()                    # pressed while the last file was unpacked
+        with self.assertRaises(gr.ReleaseError) as raised:
+            gr.update_in_place("t5dr", self.offer(), root, progress=progress, cancel=cancel)
+        self.assertEqual(raised.exception.key, "@setup.cancelled")
+        self.assertEqual(gr.installed_version("t5dr", root), "1.2.0")
+        self.assertFalse(Path(gr.update_stage(root)).exists())
+
     def test_t4_update_keeps_its_build_and_asks_for_a_new_one_when_the_sources_changed(self):
         self.gh.add_t4("v0.1.0-beta.1")
         root = self.install("t4", "prerelease")
@@ -373,6 +459,31 @@ class Worker(Env):
         self.assertEqual(events[0][3][0], "@setup.cancelled")
         self.assertEqual(setup.view("t5dr")["phase"], "ready")
         self.assertEqual(list((self.dir / "games").iterdir()), [])
+
+
+class Shutdown(Env):
+    def test_update_threads_are_waited_for_and_asked_to_stop_at_exit(self):
+        setup = gs.GameSetup({})
+        started, release = threading.Event(), threading.Event()
+        seen = []
+
+        def update(gid, offer, root, progress=None, cancel=None):
+            started.set()
+            release.wait(5)
+            seen.append(cancel.is_set())
+            return dict(version="1.2.1")
+        setup.update_fn = update
+        setup.offers["t5dr"] = dict(version="1.2.1", zip=dict(size=1))
+        self.assertTrue(setup.update("t5dr", str(self.dir)))
+        self.assertTrue(started.wait(5))
+        self.assertEqual(len(setup.jobs), 1)
+        self.assertFalse(setup.jobs[0].daemon)            # Python itself waits for it at exit
+        threading.Timer(0.2, release.set).start()
+        self.assertTrue(setup.shutdown(5))
+        self.assertEqual(seen, [True])
+        checks = gs.GameSetup({}, latest=lambda src, channel: None)
+        checks.check("t5dr", None, force=True)
+        self.assertEqual(checks.jobs, [])                 # a check is no job to wait for
 
 
 class LobbyRelease(unittest.TestCase):

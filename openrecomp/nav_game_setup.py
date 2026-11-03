@@ -124,6 +124,7 @@ class GameSetupNav:
                     else:
                         self._setup_where(gid)
             elif kind == "install":
+                self.setup_cancelling = False
                 if self.overlay == "dialog" and self.confirm_kind == "setup_progress":
                     self.overlay = None
                 if error:
@@ -131,6 +132,7 @@ class GameSetupNav:
                 else:
                     self.on_setup("attach", gid, result)
             elif kind == "update":
+                self.setup_cancelling = False
                 if self.overlay == "dialog" and self.confirm_kind == "setup_progress":
                     self.overlay = None
                 if error:
@@ -164,10 +166,18 @@ class GameSetupNav:
             self.exit_focus = (self.exit_focus + 1) % count
             return
         gid = getattr(self, "setup_game", "")
+        if kind == "setup_progress":
+            if a in ("back", "confirm"):
+                # The dialog stays until the worker has stopped: no build, Play or quit against files being
+                # replaced (poll_setup closes it with the worker's result).
+                if self._setup(gid).get("phase") not in ("installing", "updating"):
+                    self.overlay = None
+                elif not getattr(self, "setup_cancelling", False):
+                    self.setup_cancelling = True
+                    self.on_setup("cancel", gid, None)
+                    self.say("@setup.cancelling")
+            return
         if a == "back":
-            if kind == "setup_progress":
-                self.on_setup("cancel", gid, None)
-                self.say("@setup.cancelling")
             self.overlay = None
             return
         if a != "confirm":
@@ -176,10 +186,6 @@ class GameSetupNav:
         if kind in ("setup_loading", "setup_none"):
             self.setup_waiting = False
             self.overlay = None
-        elif kind == "setup_progress":
-            self.on_setup("cancel", gid, None)
-            self.say("@setup.cancelling")
-            self.overlay = None
         elif kind == "setup_install":
             if not yes:
                 self.overlay = None
@@ -187,6 +193,7 @@ class GameSetupNav:
             elif (self.setup_space or {}).get("problem"):
                 self.say(self.setup_space["problem"], 10)
             elif self.on_setup("install", gid, self.setup_parent):
+                self.setup_cancelling = False
                 self._ask("setup_progress")
             else:
                 self.overlay = None
@@ -197,6 +204,7 @@ class GameSetupNav:
                 if self._update_busy():
                     self.say("@setup.busy")
                 elif self.on_setup("update", gid, None):
+                    self.setup_cancelling = False
                     self._ask("setup_progress")
                 else:
                     self.say("@setup.busy")
@@ -234,7 +242,8 @@ class GameSetupNav:
             labels = ["@setup.other_folder", "@setup.install_here"]
         elif kind == "setup_progress":
             title = "@setup.working"
-            text = i18n.message("setup.progress_text", name=name, progress=self._setup_progress_text(st))
+            progress = "@setup.cancelling" if getattr(self, "setup_cancelling", False) else self._setup_progress_text(st)
+            text = i18n.message("setup.progress_text", name=name, progress=progress)
             labels = ["@cancel"]
         elif kind == "setup_update":
             title = "@setup.update"

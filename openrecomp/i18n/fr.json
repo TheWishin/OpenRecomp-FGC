@@ -1162,5 +1162,7 @@
     "setup.err_not_newer": "Cette version est déjà installée.",
     "setup.err_running": "Fermez d'abord le jeu et son propre lanceur, puis mettez à jour.",
     "setup.err_busy": "Un fichier est en cours d'utilisation. Fermez le jeu et réessayez. Rien n'a été modifié.",
+    "setup.err_restore": "Certains fichiers n'ont pas pu être remis en place car un autre programme les utilise. Fermez le jeu et les autres programmes, puis recherchez à nouveau les mises à jour : le launcher restaure d'abord les anciens fichiers.",
+    "setup.quit_busy": "Un jeu est en cours d'installation ou de mise à jour. Attendez la fin ou annulez, puis quittez.",
     "setup.err_unknown": "Un problème est survenu. Rien n'a été modifié."
 }

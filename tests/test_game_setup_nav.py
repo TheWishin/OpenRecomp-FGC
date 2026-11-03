@@ -134,6 +134,44 @@ class SetupNav(unittest.TestCase):
         self.ready_state(nav, installed="1.2.0", available=True)
         self.assertEqual(text(nav, nav.view()["shelf"]["tiles"][0]["update"]), "UPDATE")
 
+    def start_update(self, nav):
+        self.ready_state(nav, installed="1.2.0", available=True)
+        nav.setup_offer_update(nav.games[0])
+        nav.act("right", device="xbox")
+        nav.act("confirm", device="xbox")
+        nav.setup_state["t5dr"].update(phase="updating", step="swap", done=0, total=0)
+        self.assertEqual(nav.confirm_kind, "setup_progress")
+
+    def test_quit_during_an_update_is_refused_and_shows_the_progress(self):
+        nav = self.nav(Game5())
+        quits = []
+        nav.on_quit = lambda: quits.append(1)
+        self.start_update(nav)
+        nav.overlay = None                                 # even with the dialog gone (window close, quit key)
+        self.assertFalse(nav.request_quit())
+        self.assertEqual((nav.overlay, nav.confirm_kind), ("dialog", "setup_progress"))
+        self.assertIn("installed or updated", text(nav, nav.toast))
+        nav.act("quit", device="kb")
+        self.assertEqual(nav.confirm_kind, "setup_progress")
+        self.assertEqual(quits, [])
+        nav.setup_state["t5dr"].update(phase="updated")
+        nav.poll_setup([("t5dr", "update", dict(version="1.2.1", rebuild=False, restart=False), None)])
+        self.assertTrue(nav.request_quit())                # finished: quitting asks as usual
+        self.assertEqual(nav.confirm_kind, "exit")
+
+    def test_cancel_keeps_the_dialog_until_the_worker_has_stopped(self):
+        nav = self.nav(Game5())
+        self.start_update(nav)
+        nav.act("back", device="xbox")
+        self.assertEqual(self.setup.calls[-1], ("cancel", "t5dr", None))
+        self.assertEqual((nav.overlay, nav.confirm_kind), ("dialog", "setup_progress"))   # Play/Build stay blocked
+        self.assertIn("Cancelling", text(nav, nav.view()["dialog"])["text"])
+        nav.act("confirm", device="xbox")
+        self.assertEqual([c for c in self.setup.calls if c[0] == "cancel"], [("cancel", "t5dr", None)])  # asked once
+        nav.setup_state["t5dr"].update(phase="ready", error="@setup.cancelled")
+        nav.poll_setup([("t5dr", "update", None, ("@setup.cancelled", ""))])
+        self.assertIsNone(nav.overlay)
+
     def test_t5dr_update_asks_to_restart_the_launcher(self):
         nav = self.nav(Game5())
         self.ready_state(nav, installed="1.2.0", available=True)

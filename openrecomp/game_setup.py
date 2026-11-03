@@ -25,7 +25,8 @@ def default_parent():
 class GameSetup:
     def __init__(self, config, *, worker=None, latest=None, install=None, update=None, now=None):
         self.config = config                         # the launcher's config dict (read only here)
-        self.worker = worker or self._thread
+        self.worker = worker
+        self.jobs = []                               # install/update threads: the launcher waits for them at exit
         self.latest = latest or gr.latest
         self.install_fn = install or gr.install_fresh
         self.update_fn = update or gr.update_in_place
@@ -37,9 +38,22 @@ class GameSetup:
         self.lobby = {}                              # gid -> the lobby's announced release (offer), when seen
         self.cancels = {}
 
-    @staticmethod
-    def _thread(fn):
-        threading.Thread(target=fn, daemon=True, name="openrecomp-game-setup").start()
+    def _thread(self, fn, keep=False):
+        """A check may die with the launcher; an install or update never does (not a daemon: Python waits for it
+        at exit, so an exchange of files always finishes or rolls back)."""
+        t = threading.Thread(target=fn, daemon=not keep, name="openrecomp-game-setup")
+        if keep:
+            self.jobs = [j for j in self.jobs if j.is_alive()] + [t]
+        t.start()
+
+    def shutdown(self, timeout=None):
+        """At the launcher's exit: ask every running install/update to stop, then wait for it (a cancel stops a
+        download or unpack at once; an exchange of files already started runs to its end or its rollback)."""
+        for event in list(self.cancels.values()):
+            event.set()
+        for t in list(self.jobs):
+            t.join(timeout)
+        return not any(t.is_alive() for t in self.jobs)
 
     def _st(self, gid):
         return self.state.setdefault(gid, dict(phase="idle", installed="", latest="", required=False,
@@ -58,7 +72,10 @@ class GameSetup:
                 self.results.put((gid, kind, None, (e.key, str(e))))
             except Exception as e:  # noqa: BLE001 -- never a dead worker: the player sees a plain failure
                 self.results.put((gid, kind, None, ("@setup.err_unknown", repr(e))))
-        self.worker(work)
+        if self.worker is None:
+            self._thread(work, keep=kind in ("install", "update"))
+        else:
+            self.worker(work)
 
     # ------------------------------------------------------------------------------------------ checks
     def _cache(self):
@@ -90,14 +107,22 @@ class GameSetup:
         installed = gr.installed_version(gid, root) if root else ""
         st.update(installed=installed, error="", detail="", root=root or "")
         cached = self._cache().get(gid)
-        if (not force and isinstance(cached, dict) and cached.get("channel") == channel
+        leftover = bool(root) and gr.interrupted_update(root)      # an update stopped midway: finish its rollback
+        if (not leftover and not force and isinstance(cached, dict) and cached.get("channel") == channel
                 and 0 <= self.now() - cached.get("checked", 0) < CACHE_SECONDS):
             self.github[gid] = cached.get("offer")
             self._apply(gid)
             return True
         st["phase"] = "checking"
         src = gr.SOURCES[gid]
-        self._run(gid, "check", lambda: dict(offer=self.latest(src, channel), channel=channel))
+
+        def work():
+            out = dict(channel=channel)
+            if leftover and gr.recover_update(gid, root):
+                out["installed"] = gr.installed_version(gid, root)    # the old files are back
+            out["offer"] = self.latest(src, channel)
+            return out
+        self._run(gid, "check", work)
         return True
 
     def note_lobby(self, gid, data, root=None):
@@ -189,6 +214,8 @@ class GameSetup:
             elif kind == "check":
                 self._store(gid, dict(checked=self.now(), channel=result["channel"], offer=result["offer"]))
                 self.github[gid] = result["offer"]
+                if "installed" in result:
+                    st["installed"] = result["installed"]
                 self._apply(gid)
             elif kind == "install":
                 st.update(phase="installed", result=result, installed=self.offers[gid]["version"],

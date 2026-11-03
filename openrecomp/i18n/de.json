@@ -1162,5 +1162,7 @@
     "setup.err_not_newer": "Diese Version ist schon installiert.",
     "setup.err_running": "Schließe zuerst das Spiel und seinen eigenen Launcher, dann aktualisieren.",
     "setup.err_busy": "Eine Datei ist in Benutzung. Schließe das Spiel und versuche es noch einmal. Nichts wurde geändert.",
+    "setup.err_restore": "Einige Dateien konnten nicht zurückgelegt werden, weil ein anderes Programm sie benutzt. Schließe das Spiel und andere Programme und suche dann erneut nach Updates: Der Launcher stellt zuerst die alten Dateien wieder her.",
+    "setup.quit_busy": "Ein Spiel wird gerade installiert oder aktualisiert. Warte, bis es fertig ist, oder brich es ab, und beende dann.",
     "setup.err_unknown": "Etwas ist schiefgegangen. Nichts wurde geändert."
 }

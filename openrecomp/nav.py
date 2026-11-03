@@ -218,6 +218,14 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Pi
         if self.library_busy:
             self.say("@library.busy", 12)
             return False
+        setup = next((gid for gid, st in (getattr(self, "setup_state", None) or {}).items()
+                      if (st or {}).get("phase") in ("installing", "updating")), None)
+        if setup:                     # files of a game are being exchanged: never quit in the middle of it
+            self.setup_game = setup
+            if not (self.overlay == "dialog" and self.confirm_kind == "setup_progress"):
+                self._ask("setup_progress")
+            self.say("@setup.quit_busy", 12)
+            return False
         busy = next((g for g in self.games if g.a.source_state().get("running") or g.a.build_state().get("running")), None)
         if busy:
             self._cancel_hold()
