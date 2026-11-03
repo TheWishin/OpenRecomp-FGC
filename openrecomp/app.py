@@ -550,7 +550,8 @@ def main(argv=None):
     engine = make_engine(backend, full=backend.nav.fullscreen)
     # A broken QML scene must never acknowledge an update. The old helper owns rollback.
     QTimer.singleShot(updater.CONFIRM_AFTER_MS, lambda: updater.confirm_startup(backend.updates.root))
-    QTimer.singleShot(2000, backend._check_updates)
+    # The launcher's own update check runs with the game checks a few seconds after the start (quiet unless an
+    # update is there: app_game_setup._poll_setup -> _auto_check_updates), never here.
     code = app.exec()
     del engine
     return code

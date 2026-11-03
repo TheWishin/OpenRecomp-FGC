@@ -130,9 +130,33 @@ class Integration(unittest.TestCase):
             app.main([])
             engine.assert_called_once()
             confirm.assert_not_called()
-            self.assertEqual([delay for delay, _fn in callbacks], [app.updater.CONFIRM_AFTER_MS, 2000])
+            # no loud update check of its own: the quiet one runs with the game checks
+            self.assertEqual([delay for delay, _fn in callbacks], [app.updater.CONFIRM_AFTER_MS])
             callbacks[0][1]()
             confirm.assert_called_once_with(Path("fake-install"))
+
+    def test_automatic_check_at_start_is_quiet(self):
+        """The start's check (with the game checks) says nothing when the launcher is up to date."""
+        from openrecomp import app, app_game_setup
+        updates = SimpleNamespace(state=dict(phase="idle"), quiet=False, poll=lambda: False)
+        updates.check = mock.Mock(side_effect=lambda quiet=False: (setattr(updates, "quiet", quiet),
+                                                                  updates.state.update(phase="current")))
+        said = []
+        backend = SimpleNamespace(updates=updates, _update_busy=lambda: False, _update_phase="idle",
+                                  _offered_update=False,
+                                  nav=SimpleNamespace(update_state={}, say=lambda *a: said.append(a)))
+        backend._auto_check_updates = lambda: app.Backend._auto_check_updates(backend)
+        backend._auto_check_updates()
+        updates.check.assert_called_once_with(quiet=True)
+        self.assertTrue(app.Backend._poll_updates(backend))
+        self.assertEqual(said, [])
+        self.assertGreater(app_game_setup.FIRST_CHECK_SECONDS, 0)
+        app.Backend._check_updates(backend)                 # Quick access: the player asked, so it answers
+        updates.state["phase"] = "checking"
+        app.Backend._poll_updates(backend)
+        updates.state["phase"] = "current"
+        app.Backend._poll_updates(backend)
+        self.assertEqual(said, [("@updates.current", 8)])
 
     def test_failed_scene_does_not_arm_confirmation(self):
         from openrecomp import app
