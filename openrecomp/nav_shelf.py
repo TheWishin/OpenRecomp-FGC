@@ -47,7 +47,7 @@ class Shelf:
         keep = self.game.id if self.game else None
         self._cancel_hold()
         self.overlay = None
-        self.picker = self.osk = None
+        self.picker = self.osk = self.pending_native = None
         self.support_game = self.support_snapshot = None
         self.games = games
         self.game = self.game_by_id(keep) or (games[0] if games else None)
