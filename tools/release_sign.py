@@ -67,6 +67,11 @@ def main(argv=None):
     signing.add_argument("--version", required=True)
     signing.add_argument("--sums", required=True)
     signing.add_argument("--out", required=True)
+    game = commands.add_parser("sign-t4", help="sign a Tekken 4 release's SHA256SUMS (game_releases SOURCES['t4'])")
+    game.add_argument("--key-file", required=True)
+    game.add_argument("--version", required=True, help="the release tag without its leading v, e.g. 0.1.0")
+    game.add_argument("--sums", required=True)
+    game.add_argument("--out", required=True)
     args = parser.parse_args(argv)
     if args.command == "keygen":
         destination = _outside_repository(args.out)
@@ -91,8 +96,30 @@ def main(argv=None):
         with open(args.out, "x", encoding="ascii") as output:
             json.dump(metadata, output, indent=2)
             output.write("\n")
+    elif args.command == "sign-t4":
+        sums = Path(args.sums).read_bytes()
+        if len(sums) > 65536:
+            raise ValueError("SHA256SUMS is too large.")
+        envelope = game_signature("t4", args.version, sums, seed)
+        with open(args.out, "xb") as output:
+            output.write(envelope)
     print(f"public key: {public.hex()}\nkey id: {key_id}")
     return 0
+
+
+def game_signature(game, version, sums, seed):
+    """SHA256SUMS.sig for a game release in the form game_releases.check_signature reads (T5DR's own releases
+    are signed by T5DR's tools; this is for T4). Verified with the launcher's own check before it is returned."""
+    from openrecomp import game_releases
+    src = game_releases.SOURCES[game]
+    if game_releases.version_key(version) is None or version[:1] in ("v", "V"):
+        raise ValueError("The version is the tag without its leading v, e.g. 0.1.0 or 0.1.0-beta.1.")
+    public = public_key(seed)
+    statement = (f"{src.statement}\nversion={version}\nsums-sha256={hashlib.sha256(sums).hexdigest()}\n").encode("utf-8")
+    envelope = (json.dumps(dict(format=src.sig_format, version=version, key=hashlib.sha256(public).hexdigest()[:16],
+                                signature=sign(seed, statement).hex()), indent=2) + "\n").encode("ascii")
+    game_releases.check_signature(src, version, sums, envelope, keys=(public.hex(),))
+    return envelope
 
 
 if __name__ == "__main__":

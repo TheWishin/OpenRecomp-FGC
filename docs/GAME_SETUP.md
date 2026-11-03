@@ -7,7 +7,7 @@ your PC as before.
 | Game | Comes from | What is downloaded |
 | --- | --- | --- |
 | Tekken 5 DR Online | github.com/TheWishin/T5DROnline, releases | `T5DR-Online-X.Y.Z.zip`, `SHA256SUMS`, `SHA256SUMS.sig` |
-| Tekken 4 | github.com/TheWishin/Tekken4Recomp, releases | the release's launcher zip; only its `T4` folder is used |
+| Tekken 4 | github.com/TheWishin/Tekken4Recomp, releases | `OpenRecomp-Tekken4-<tag>.zip`, `SHA256SUMS`, `SHA256SUMS.sig`; only the zip's `T4` folder is used |
 
 ## Install
 
@@ -18,8 +18,9 @@ below it. Install looks up the newest release, then asks where: the default is b
 free space (download + unpacked files + room for the build) and that it can write there.
 
 The download is checked like T5DR's own updater does: only this project's GitHub addresses, `SHA256SUMS` must name
-the zip and agree with GitHub's digest, and for T5DR the release signature (Ed25519, T5DR's release key; an
-installed T5DR's own key list counts too) must be valid. Every path in the zip is checked before it is written; the
+the zip and agree with GitHub's digest, and the release signature must be valid: T5DR's own release key
+(Ed25519; an installed T5DR's own key list counts too) for T5DR, the T4 release key built into the launcher for
+Tekken 4 ([RELEASE_KEYS.md](RELEASE_KEYS.md); an unsigned T4 release is refused). Every path in the zip is checked before it is written; the
 files are unpacked into a staging folder beside the target and moved in at the end, so a failed or cancelled
 install leaves nothing behind. Afterwards the launcher attaches the new install and opens its Build section:
 choose your own package/license (T5DR) or disc image (T4) and build.
@@ -51,8 +52,14 @@ Close the game first (the update refuses while a program from that folder runs).
 
 ## Test versions
 
-**Quick access -> Test versions: On** also offers published pre-releases (testers; T4's beta, T5DR test builds).
-Drafts are never offered. Off (default) = published `vX.Y.Z` releases only, the same rule as T5DR's own updater.
+**Quick access -> Test versions: On** also offers published pre-releases (testers; T5DR test builds, and the
+launcher's own test builds, see [UPDATES.md](UPDATES.md)). Drafts are never offered. Off (default) = published
+`vX.Y.Z` releases only, the same rule as T5DR's own updater, with two exceptions:
+
+- Tekken 4 is in beta and has only pre-releases: its published pre-releases are offered to everyone
+  (`SOURCES["t4"].beta`; a launcher update turns that off once T4 has a stable release).
+- An install that is itself a test version (installed from a pre-release, or its version has a test suffix)
+  keeps getting newer test versions, so a tester is not stuck until the next stable release.
 
 ## For developers
 
@@ -61,8 +68,11 @@ Drafts are never offered. Off (default) = published `vX.Y.Z` releases only, the 
 `tests/test_game_setup_nav.py` with the fake GitHub in `tests/release_fixtures.py`. Test hook (only for an
 address on this PC): `OPENRECOMP_RELEASES_TEST=http://127.0.0.1:<port>` serves the API and files,
 `OPENRECOMP_RELEASES_TEST_KEY=<64 hex>` adds a test signing key. `OPENRECOMP_NO_GAME_CHECKS=1` turns the automatic
-check off.
+check off (the launcher's own check too).
 
-T4 has no published release yet: the launcher takes the release's one zip named like `OpenRecomp-Tekken4-<tag>.zip`
-(or another single `OpenRecomp*/Tekken4*/T4*.zip`) with `SHA256SUMS` or `<zip>.sha256`, and uses its `T4` folder,
-which must be a complete T4 source tree. If the T4 release looks different, change `SOURCES["t4"]`.
+T4's release is made by `tools/make_release.py` ([RELEASING.md](RELEASING.md)): `OpenRecomp-Tekken4-<tag>.zip` (the
+both-games bundle: the launcher + `T4/`), `SHA256SUMS` and `SHA256SUMS.sig` (T4 key). The launcher also takes another
+single `OpenRecomp*/Tekken4*/T4*.zip` with `SHA256SUMS` or `<zip>.sha256`, but always needs the T4 signature. It uses
+only the `T4` folder, which must be a complete T4 source tree. A T4 folder that Setup or an older test bundle put
+there has no `openrecomp-release.json`, so its version is unknown and no update is offered: install T4 once from
+the launcher (a new folder) to get updates.

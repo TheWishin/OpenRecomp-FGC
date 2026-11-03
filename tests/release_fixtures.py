@@ -14,6 +14,8 @@ from openrecomp import updater as _ed
 
 T5DR_REPO, T5DR_ID = "TheWishin/T5DROnline", "1423117739"
 T4_REPO, T4_ID = "TheWishin/Tekken4Recomp", "1435747302"
+LAUNCHER_REPO, LAUNCHER_ID = "TheWishin/OpenRecomp-FGC", "1439720330"
+IDS = {T5DR_REPO: T5DR_ID, T4_REPO: T4_ID, LAUNCHER_REPO: LAUNCHER_ID}
 TEST_SEED = bytes(range(32))
 
 
@@ -92,7 +94,7 @@ class FakeGitHub:
     """GitHub's release API and download URLs for the two repositories, on 127.0.0.1."""
 
     def __init__(self, redirect=True):
-        self.releases = {T5DR_REPO: [], T4_REPO: []}
+        self.releases = {repo: [] for repo in IDS}
         self.files = {}
         self.redirect = redirect
         self.requests = []
@@ -114,7 +116,7 @@ class FakeGitHub:
                 if path in fake.files:
                     if fake.redirect and "/releases/download/" in path:
                         repo = "/".join(path.split("/")[1:3])
-                        rid = T5DR_ID if repo == T5DR_REPO else T4_ID
+                        rid = IDS[repo]
                         self.send_response(302)
                         tag, name = path.split("/")[-2:]
                         self.send_header("Location", f"/storage/{rid}/{tag}/{name}?k={len(fake.requests)}")
@@ -140,7 +142,7 @@ class FakeGitHub:
                 self.wfile.write(body)
 
         def rf_repo(rid):
-            return T5DR_REPO if rid == T5DR_ID else T4_REPO
+            return next((repo for repo, value in IDS.items() if value == rid), T4_REPO)
 
         self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
@@ -179,8 +181,39 @@ class FakeGitHub:
         body = f"Test release {version}\n\n| Code ID | `{code_id}` |\n"
         return self.add(T5DR_REPO, "v" + version, assets, prerelease=prerelease, body=body)
 
-    def add_t4(self, tag, marker="", prerelease=True, name=None):
+    def add_t4(self, tag, marker="", prerelease=True, name=None, signed=True, seed=TEST_SEED, zip_data=None):
+        """T4's release: the zip, SHA256SUMS and (signed) SHA256SUMS.sig, as tools/make_release.py writes them."""
         name = name or f"OpenRecomp-Tekken4-{tag}.zip"
-        data = zip_bytes(t4_entries(tag, marker))
-        return self.add(T4_REPO, tag, {name: data, name + ".sha256": f"{hashlib.sha256(data).hexdigest()}  {name}\n".encode()},
-                        prerelease=prerelease)
+        data = zip_data if zip_data is not None else zip_bytes(t4_entries(tag, marker))
+        sums = f"{hashlib.sha256(data).hexdigest()}  {name}\n".encode()
+        assets = {name: data, "SHA256SUMS": sums}
+        if signed:
+            assets["SHA256SUMS.sig"] = t4_signature(tag[1:], sums, seed)
+        return self.add(T4_REPO, tag, assets, prerelease=prerelease)
+
+
+def launcher_signature(channel, tag, sums_bytes, seed=TEST_SEED):
+    """SHA256SUMS.sig of a launcher release (tools/release_sign.py sign)."""
+    public = public_key(seed)
+    message = _ed.signature_message(channel, tag, sums_bytes)
+    return json.dumps(dict(algorithm="ed25519", channel=channel, version=tag, key_id=hashlib.sha256(public).hexdigest()[:16],
+                           signature=sign(message, seed).hex())).encode("ascii")
+
+
+def launcher_release_assets(tag, zip_data, channel="openrecomp-fgc", seed=TEST_SEED, extra=None):
+    """{name: bytes} of a launcher release: OpenRecomp-<tag>.zip, SHA256SUMS (zip + extra files), SHA256SUMS.sig."""
+    name = f"OpenRecomp-{tag}.zip"
+    assets = {name: zip_data, **(extra or {})}
+    sums = "".join(f"{hashlib.sha256(data).hexdigest()}  {n}\n" for n, data in sorted(assets.items())).encode("ascii")
+    assets["SHA256SUMS"] = sums
+    assets["SHA256SUMS.sig"] = launcher_signature(channel, tag, sums, seed)
+    return assets
+
+
+def t4_signature(version, sums_bytes, seed=TEST_SEED):
+    """SHA256SUMS.sig of a T4 release (tools/release_sign.py sign-t4)."""
+    public = public_key(seed)
+    statement = (f"Tekken4Recomp-release-signature-v1\nversion={version}\n"
+                 f"sums-sha256={hashlib.sha256(sums_bytes).hexdigest()}\n").encode("utf-8")
+    return json.dumps(dict(format="tekken4-release-sig/1", version=version, key=hashlib.sha256(public).hexdigest()[:16],
+                           signature=sign(statement, seed).hex())).encode("utf-8")

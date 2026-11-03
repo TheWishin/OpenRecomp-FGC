@@ -75,6 +75,8 @@ class Source:
     unpack_factor: int = 3
     markers: tuple = field(default=())   # files that must exist in the unpacked game
     asset_pattern: str = ""          # when the release has no `asset`: the one zip whose name matches this
+    sig_format: str = "t5dr-release-sig/1"
+    beta: bool = False               # no stable release yet: its published pre-releases are offered to everyone
 
 
 SOURCES = {
@@ -93,10 +95,16 @@ SOURCES = {
         id="t4", title="Tekken 4", repository="TheWishin/Tekken4Recomp", repository_id="1435747302",
         asset="OpenRecomp-Tekken4-{tag}.zip", top="T4", folder="T4",
         sums=("SHA256SUMS", "{asset}.sha256"),
+        # T4's own release key (tools/release_sign.py sign-t4, key id 6c690283a70408ad; docs/RELEASE_KEYS.md): the
+        # T4 source's build scripts run on the player's PC, so its release is signed like T5DR's.
+        signature="SHA256SUMS.sig", sig_format="tekken4-release-sig/1", statement="Tekken4Recomp-release-signature-v1",
+        keys=("19f5844ad99435605c4fc6585dbb87a5e620b672c81537830878ed3f2da4a79f",),
         protected=("deps", "game", "generated", "out", "logs", "build", "settings.json", MARKER),
         build_bytes=6_000_000_000, markers=("tools/build_game.ps1",),
-        # T4 has no release yet: its zip name is not fixed. One zip named like the launcher bundle is taken.
-        asset_pattern=r"(?i)(?:openrecomp|tekken4|t4)[-_.a-z0-9]*\.zip"),
+        # The release asset is OpenRecomp-Tekken4-<tag>.zip (tools/make_release.py); one zip named like the launcher
+        # bundle is also taken.
+        asset_pattern=r"(?i)(?:openrecomp|tekken4|t4)[-_.a-z0-9]*\.zip",
+        beta=True),
 }
 
 
@@ -372,7 +380,7 @@ def check_signature(src, version, sums_bytes, sig_bytes, keys=None):
     keys = signing_keys(src) if keys is None else keys
     try:
         sig = json.loads(sig_bytes.decode("utf-8"))
-        if not isinstance(sig, dict) or sig.get("format") != "t5dr-release-sig/1" or sig.get("version") != version:
+        if not isinstance(sig, dict) or sig.get("format") != src.sig_format or sig.get("version") != version:
             raise ValueError
         signature = bytes.fromhex(sig["signature"])
         statement = (f"{src.statement}\nversion={version}\n"
@@ -606,7 +614,8 @@ def install_fresh(game, offer, parent, *, opener=None, progress=None, cancel=Non
         new = unpack(src, zpath, os.path.join(stage, "new"), offer, cancel=cancel,
                      progress=lambda n, t: progress and progress("unpack", n, t))
         _write_json(os.path.join(new, MARKER), dict(game=game, version=offer["version"], tag=offer["tag"],
-                                                    installed_by="OpenRecomp-FGC", sha256=offer["zip"].get("sha256")))
+                                                    installed_by="OpenRecomp-FGC", sha256=offer["zip"].get("sha256"),
+                                                    prerelease=bool(offer.get("prerelease"))))
         if os.path.isdir(target):
             os.rmdir(target)            # empty (checked above)
         os.rename(new, target)
@@ -762,7 +771,8 @@ def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=Non
             progress("swap", 0, 0)
         swap(src, root, new, os.path.join(stage, "backup"))
         marker = _read_json(os.path.join(root, MARKER)) or dict(game=game)
-        marker.update(game=game, version=offer["version"], tag=offer["tag"], sha256=offer["zip"].get("sha256"))
+        marker.update(game=game, version=offer["version"], tag=offer["tag"], sha256=offer["zip"].get("sha256"),
+                      prerelease=bool(offer.get("prerelease")))
         _write_json(os.path.join(root, MARKER), marker)
         if game == "t5dr":
             info = _read_json(os.path.join(root, "release.json")) or {}
@@ -777,5 +787,24 @@ def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=Non
         shutil.rmtree(stage, ignore_errors=True)
 
 
-def channel(config):
-    return "prerelease" if (config or {}).get("game_prereleases") else "stable"
+def on_test_track(game, root):
+    """An install of a pre-release (our marker says so, or its version has a test suffix) keeps getting the
+    newer test versions: a tester who installed v0.2.0-beta.1 is not stranded until v0.2.0."""
+    if not root:
+        return False
+    marker = _read_json(os.path.join(root, MARKER))
+    if marker and marker.get("game") == game and marker.get("prerelease"):
+        return True
+    key = version_key(installed_version(game, root))
+    return bool(key and key[1] != (1,))
+
+
+def channel(config, game=None, root=None):
+    """'prerelease' when the player turned on Test versions, for a game still in beta (no stable release: T4),
+    or for an install that already is a test version; else 'stable' (published plain vX.Y.Z only)."""
+    if (config or {}).get("game_prereleases"):
+        return "prerelease"
+    src = SOURCES.get(game)
+    if src is not None and (src.beta or on_test_track(game, root)):
+        return "prerelease"
+    return "stable"

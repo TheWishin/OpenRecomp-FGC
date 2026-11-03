@@ -86,7 +86,7 @@ class GameSetup:
         if gid not in gr.SOURCES or self.busy(gid):
             return False
         st = self._st(gid)
-        channel = gr.channel(self.config)
+        channel = gr.channel(self.config, gid, root)
         installed = gr.installed_version(gid, root) if root else ""
         st.update(installed=installed, error="", detail="", root=root or "")
         cached = self._cache().get(gid)

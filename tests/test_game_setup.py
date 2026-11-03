@@ -77,13 +77,59 @@ class Releases(Env):
         self.gh.add_t4("v0.1.0-beta.1", name="OpenRecomp-FGC-T4-beta1.zip")
         offer = self.offer("t4", "prerelease")
         self.assertEqual(offer["zip"]["name"], "OpenRecomp-FGC-T4-beta1.zip")
-        self.assertEqual(offer["sums"]["name"], "OpenRecomp-FGC-T4-beta1.zip.sha256")
+        self.assertEqual(offer["sums"]["name"], "SHA256SUMS")
         two = self.gh.add_t4("v0.1.1-beta.1")
         two["assets"].append(dict(two["assets"][0], name="T4-other.zip"))
         two["assets"] = [a for a in two["assets"] if a["name"] != "OpenRecomp-Tekken4-v0.1.1-beta.1.zip"]
         with self.assertRaises(gr.ReleaseError):
             gr.parse_release(gr.SOURCES["t4"], dict(two, assets=two["assets"] + [dict(two["assets"][0], name="T4-third.zip")]),
                              "prerelease")
+
+    def test_t4_is_signed_with_its_own_key(self):
+        src = gr.SOURCES["t4"]
+        self.assertEqual(hashlib.sha256(bytes.fromhex(src.keys[0])).hexdigest()[:16], "6c690283a70408ad")
+        self.assertNotIn(src.keys[0], gr.SOURCES["t5dr"].keys)
+        cases = [dict(seed=bytes(32)), dict(signed=False)]
+        for i, case in enumerate(cases):
+            with self.subTest(case=i):
+                self.gh.releases[rf.T4_REPO] = []
+                self.gh.add_t4(f"v0.1.{i}", **case)
+                with self.assertRaises(gr.ReleaseError) as raised:
+                    gr.verified_zip(src, self.offer("t4", "prerelease"), str(self.dir / f"t4-{i}"))
+                self.assertEqual(raised.exception.key, "@setup.err_signature")
+        self.gh.releases[rf.T4_REPO] = []
+        self.gh.add_t4("v0.1.9")
+        self.assertTrue(zipfile.is_zipfile(gr.verified_zip(src, self.offer("t4", "prerelease"), str(self.dir / "t4-ok"))))
+        # A T5DR signature is not a T4 one (another statement and format).
+        sums = b"0" * 64 + b"  x.zip\n"
+        with self.assertRaises(gr.ReleaseError):
+            gr.check_signature(src, "0.1.0", sums, rf.t5dr_signature("0.1.0", sums), keys=(TEST_KEY,))
+        self.assertEqual(gr.check_signature(src, "0.1.0", sums, rf.t4_signature("0.1.0", sums), keys=(TEST_KEY,)),
+                         hashlib.sha256(bytes.fromhex(TEST_KEY)).hexdigest()[:16])
+
+    def test_release_sign_tool_writes_the_t4_envelope_the_launcher_checks(self):
+        sys.path.insert(0, str(ROOT))
+        from tools import release_sign
+        sums = b"1" * 64 + b"  OpenRecomp-Tekken4-v0.1.0.zip\n"
+        envelope = release_sign.game_signature("t4", "0.1.0", sums, rf.TEST_SEED)
+        gr.check_signature(gr.SOURCES["t4"], "0.1.0", sums, envelope, keys=(TEST_KEY,))
+        with self.assertRaises(gr.ReleaseError):
+            gr.check_signature(gr.SOURCES["t4"], "0.1.1", sums, envelope, keys=(TEST_KEY,))
+        with self.assertRaises(ValueError):
+            release_sign.game_signature("t4", "v0.1.0", sums, rf.TEST_SEED)
+
+    def test_channels_for_the_switch_t4_beta_and_installed_test_versions(self):
+        install = self.dir / "inst"
+        install.mkdir()
+        self.assertEqual(gr.channel({}, "t5dr", None), "stable")
+        self.assertEqual(gr.channel({"game_prereleases": True}, "t5dr", None), "prerelease")
+        self.assertEqual(gr.channel({}, "t4", None), "prerelease")       # T4 is in beta: no stable release yet
+        (install / "release.json").write_text(json.dumps(dict(version="1.3.0-beta.1")), encoding="utf-8")
+        self.assertEqual(gr.channel({}, "t5dr", str(install)), "prerelease")
+        (install / "release.json").write_text(json.dumps(dict(version="1.2.0")), encoding="utf-8")
+        self.assertEqual(gr.channel({}, "t5dr", str(install)), "stable")
+        (install / gr.MARKER).write_text(json.dumps(dict(game="t5dr", version="1.2.0", prerelease=True)), encoding="utf-8")
+        self.assertEqual(gr.channel({}, "t5dr", str(install)), "prerelease")
 
     def test_addresses_this_project_only(self):
         src = gr.SOURCES["t5dr"]
