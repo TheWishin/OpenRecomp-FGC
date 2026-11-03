@@ -152,7 +152,7 @@ def untranslated_literals(source):
         "create_room", "leave_room", "send_chat", "no_players", "no_rooms", "no_chat",
         "start_match", "cancel_match", "stop_match", "result_win", "result_loss", "result_none", "return_lobby",
         "starting", "playing", "result", "result_sent",
-        "t4lobby", "online-t4.json", ".client", ".buildid", ".servers", ".proto", "IMAGENAME eq ",
+        "t4lobby", "online-t4.json", "hashes.json", ".client", ".buildid", ".servers", ".proto", "IMAGENAME eq ",
         "net.log", "rb_frames.log", "host:", "join:", "manual", "start_game",
         "game_started", "game_playing", "nat_fallback", "direct", "lan", "r", "NETSUMMARY",
         r"\bconnected\b", r"(?:frames|frame)\s*[=: ]\s*(\d+)", r"mismatches\s*[=: ]\s*(\d+)",

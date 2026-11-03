@@ -66,15 +66,16 @@ Invoke-T4NetPreflight -AsHost ([bool]$AsHost) -Peer $Peer -Port $Port -Identity 
 '''
 
 
-LOBBY_CODE_PREFIX = "t4-lobby-code-v1"
+LOBBY_CODE_PREFIX = b"t4-lobby-code-v1:"
+HEX_DIGEST = re.compile(r"[0-9a-f]{40,64}")
 _hash_cache = {}
 
 
 def lobby_code(code_id, compiler, iso_sha):
     """The code field a lobby launcher sends: SHA-1 over the build's code id, the compiler and the ISO (40 hex digits
     like a code id). Equal only for the same code, the same compiler and the same disc image."""
-    text = f"{LOBBY_CODE_PREFIX}:{str(code_id).lower()}:{compiler}:{str(iso_sha).lower()}"
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()
+    fields = (str(code_id).lower(), str(compiler), str(iso_sha).lower())
+    return hashlib.sha1(LOBBY_CODE_PREFIX + b":".join(field.encode() for field in fields)).hexdigest()
 
 
 def stamp_compiler(path):
@@ -83,26 +84,26 @@ def stamp_compiler(path):
     with open(path, "rb") as stream:
         data = stream.read(32769)
     if len(data) > 32768:
-        raise ValueError("t4net_build.json too large")
+        raise ValueError          # (callers say "rebuild"; no text of its own)
     stamp = json.loads(data.decode("utf-8-sig"))
     toolchain = stamp.get("toolchain") if isinstance(stamp, dict) else None
     if not isinstance(toolchain, list) or not all(isinstance(line, str) for line in toolchain):
-        raise ValueError("no toolchain in t4net_build.json")
+        raise ValueError
     ids = [line[7:] for line in toolchain if line.startswith("CXX_ID=")]
     versions = [line[12:] for line in toolchain if line.startswith("CXX_VERSION=")]
     if len(ids) != 1 or len(versions) != 1:
-        raise ValueError("no compiler in t4net_build.json")
+        raise ValueError
     compiler = ids[0] + " " + versions[0]
     if not re.fullmatch(IDENTITY_RULES["compiler"], compiler):
-        raise ValueError("unexpected compiler text")
+        raise ValueError
     return compiler
 
 
-def _file_hash(path, algorithm):
+def _file_hash(path, algorithm):          # algorithm: a hashlib constructor
     """hashlib digest of a file, remembered for its size and time (an ISO is hashed once per launcher run and
     once more only when it changes; the cache file keeps it across runs)."""
     info = os.stat(path)
-    key = f"{algorithm}|{os.path.normcase(os.path.realpath(path))}|{info.st_size}|{info.st_mtime_ns}"
+    key = f"{algorithm().name}|{os.path.normcase(os.path.realpath(path))}|{info.st_size}|{info.st_mtime_ns}"
     if key in _hash_cache:
         return _hash_cache[key]
     cache_path = os.path.join(user_dir(), "t4-online", "hashes.json")
@@ -114,8 +115,8 @@ def _file_hash(path, algorithm):
     if not isinstance(saved, dict):
         saved = {}
     digest = saved.get(key)
-    if not (isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{40,64}", digest)):
-        h = hashlib.new(algorithm)
+    if not (isinstance(digest, str) and HEX_DIGEST.fullmatch(digest)):
+        h = algorithm()
         with open(path, "rb") as stream:
             for block in iter(lambda: stream.read(1 << 20), b""):
                 h.update(block)
@@ -136,11 +137,11 @@ def _file_hash(path, algorithm):
 
 
 def iso_sha256(path):
-    return _file_hash(path, "sha256")
+    return _file_hash(path, hashlib.sha256)
 
 
 def t4_elf_sha1(path):
-    return _file_hash(path, "sha1")
+    return _file_hash(path, hashlib.sha1)
 
 
 class DirectCheckError(RuntimeError):

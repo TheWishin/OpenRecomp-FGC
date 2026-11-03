@@ -90,22 +90,23 @@ class LobbyIdentity(unittest.TestCase):
 
     def test_the_iso_is_hashed_once_and_again_when_it_changes(self):
         holder, info, out = self.install("a")
-        calls = []
-        real = t4_online.hashlib.new
+        iso = os.path.join(holder.root, "game.iso")
+        reads = []
+        real = open
 
-        def counting(name, *args):
-            calls.append(name)
-            return real(name, *args)
-        with mock.patch.object(t4_online.hashlib, "new", side_effect=counting):
+        def counting(path, *args, **kwargs):
+            if os.path.normcase(str(path)) == os.path.normcase(iso):
+                reads.append(path)
+            return real(path, *args, **kwargs)
+        with mock.patch("builtins.open", side_effect=counting):
             first = holder._t4_identity_build(self.api, info, out).build_id
             t4_online._hash_cache.clear()                                 # a new launcher run: the cache file
             self.assertEqual(holder._t4_identity_build(self.api, info, out).build_id, first)
-            self.assertEqual(calls.count("sha256"), 1)
-            iso = Path(holder.root, "game.iso")
-            iso.write_bytes(b"iso image changed")
+            self.assertEqual(len(reads), 1)
+            Path(iso).write_bytes(b"iso image changed")
             os.utime(iso, ns=(1, 1))
             self.assertNotEqual(holder._t4_identity_build(self.api, info, out).build_id, first)
-            self.assertEqual(calls.count("sha256"), 2)
+            self.assertEqual(len(reads), 2)
 
 
 if __name__ == "__main__":
