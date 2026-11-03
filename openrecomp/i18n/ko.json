@@ -786,6 +786,8 @@
     "t5.screen_side": "화면 위치",
     "t5.side_server": "배정된 위치 사용",
     "t5.side_left": "항상 내 캐릭터를 왼쪽에 표시",
+    "t5.side_right": "항상 내 캐릭터를 오른쪽에 표시",
+    "t5.screen_side.hint": "일반 매치 전용: 선택한 쪽에 내 캐릭터를 표시하고 반전 시 좌우 조작도 바꿉니다. Ranked와 Quick Match는 배정된 쪽을 유지합니다.",
     "t5.replay_folder": "리플레이 폴더",
     "t5.replay_folder_hint": "녹화 및 리플레이를 저장할 이 PC의 기존 폴더를 선택하세요.",
     "t5.replay_folder_default": "기본 리플레이 폴더",

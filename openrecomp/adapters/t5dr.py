@@ -345,8 +345,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                  value=s["training"], hint="@training.hint", lead="@training.lead"),
             dict(id="practice", label="@practice_tools", options=YES_NO, value=bool(s["practice"]),
                  hint="@practice.hint", lead="@practice.lead"),
-            dict(id="always_left", label="@t5.screen_side", options=[(False, "@t5.side_server"), (True, "@t5.side_left")], value=bool(s["always_left"]),
-                 hint="@always_left.hint", lead="@always_left.lead"),
+            self._screen_side_setting(),
             dict(id="mute", label="@mute", options=YES_NO, value=bool(s["mute"]), hint="@mute.hint", lead="@mute.hint"),
             dict(id="replays", label="@save_replays", options=YES_NO, value=bool(s["replays"]),
                  hint="@save_replays.hint", lead="@save_replays.lead"),
@@ -369,7 +368,39 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                             display=folder or "@t5.replay_folder_default", hint="@t5.replay_folder_hint"))
         return out
 
+    def _screen_sides(self):
+        """1.2.0 has dealt / left / right (screen_side); older installs only the always_left flag."""
+        sides = getattr(self.core, "SCREEN_SIDES", None)
+        if "screen_side" in getattr(self.core, "DEFAULTS", {}) and isinstance(sides, dict):
+            labels = {"dealt": "@t5.side_server", "left": "@t5.side_left", "right": "@t5.side_right"}
+            return [(side, labels[side]) for side in ("dealt", "left", "right") if side in sides]
+        return None
+
+    def _screen_side_setting(self):
+        sides = self._screen_sides()
+        if sides is None:
+            return dict(id="always_left", label="@t5.screen_side", options=[(False, "@t5.side_server"), (True, "@t5.side_left")],
+                        value=bool(self.s["always_left"]), hint="@always_left.hint", lead="@always_left.lead")
+        value = self.s.get("screen_side")
+        if value not in {side for side, _label in sides}:
+            value = "left" if self.s.get("always_left") is True else "dealt"
+        return dict(id="screen_side", label="@t5.screen_side", options=sides, value=value,
+                    hint="@t5.screen_side.hint", lead="@always_left.lead")
+
+    def screen_side(self):
+        """The token the game gets as T5_SCREEN_SIDE (1.2.0), also for each online match of a persistent game."""
+        return self._screen_side_setting()["value"] if self._screen_sides() else (
+            "left" if self.s.get("always_left") else "dealt")
+
     def set_setting(self, sid, value):
+        if sid == "screen_side":
+            if value not in {side for side, _label in (self._screen_sides() or ())}:
+                raise ValueError("@not_ready")
+            # Keep the legacy flag in step, as the installed Settings.save() does for older readers.
+            self.s["always_left"] = value == "left"
+        elif sid == "always_left" and self._screen_sides():
+            value = bool(value)
+            self.s["screen_side"] = "left" if value else "dealt"
         if sid == "input_delay":
             value = str(value)
             if value not in {option for option, _label in self._input_delay_options()}:

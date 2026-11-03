@@ -786,6 +786,8 @@
     "t5.screen_side": "Bildschirmseite",
     "t5.side_server": "Zugewiesene Seite verwenden",
     "t5.side_left": "Mich immer links anzeigen",
+    "t5.side_right": "Mich immer rechts anzeigen",
+    "t5.screen_side.hint": "Nur Casual-Matches: dein Kämpfer auf der gewählten Seite, bei gespiegeltem Bild links/rechts vertauscht. Ranked und Quick Match behalten die zugeteilte Seite.",
     "t5.replay_folder": "Wiederholungsordner",
     "t5.replay_folder_hint": "Einen vorhandenen Ordner auf diesem PC für Aufnahmen und Wiederholungen wählen.",
     "t5.replay_folder_default": "Standardordner für Wiederholungen",

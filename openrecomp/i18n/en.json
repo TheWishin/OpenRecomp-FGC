@@ -786,6 +786,8 @@
     "t5.screen_side": "Screen side",
     "t5.side_server": "Use assigned side",
     "t5.side_left": "Always see me on the left",
+    "t5.side_right": "Always see me on the right",
+    "t5.screen_side.hint": "Casual matches only: your fighter on the chosen side, left/right controls swapped when mirrored. Ranked and Quick Match keep the dealt side.",
     "t5.replay_folder": "Replay folder",
     "t5.replay_folder_hint": "Choose an existing folder on this PC for recordings and replays.",
     "t5.replay_folder_default": "Default replay folder",

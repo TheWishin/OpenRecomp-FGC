@@ -23,8 +23,12 @@ from openrecomp.nav import Game, Nav
 
 
 REPO = Path(__file__).resolve().parents[1]
-SOURCE_ROOTS = tuple(REPO.parent / "OpenRecomp-work" / name for name in
-                     ("T5DR-codex-integrated", "T5DROnline-Source"))
+# The checkouts sit in C:\OpenRecomp-work: beside a worktree that lives there too, or one level down from C:\OpenRecomp-FGC.
+WORK = REPO.parent if REPO.parent.name.lower() == "openrecomp-work" else REPO.parent / "OpenRecomp-work"
+SOURCE_ROOTS = tuple(WORK / name for name in ("T5DR-codex-integrated", "T5DROnline-Source"))
+if os.environ.get("OPENRECOMP_TEST_T5DR_SOURCE"):
+    # An installed T5DR release (for example an unzipped 1.2.0 player zip) instead of a checkout.
+    SOURCE_ROOTS = (Path(os.environ["OPENRECOMP_TEST_T5DR_SOURCE"]),)
 SOURCE = SOURCE_ROOTS[-1]
 LOOPBACK = "127.0.0.1"
 

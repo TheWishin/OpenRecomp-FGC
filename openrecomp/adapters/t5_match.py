@@ -94,12 +94,47 @@ class T5Match(Online):
                                  ("ingame_rematch", "game_supports_ingame_ui")):
                 check = getattr(module, helper, None)
                 options[flag] = bool(check and check(paths))
+            # 1.2.0's in-game rematch is opt-in: its own launcher announces it only with T5_INGAME_REMATCH=1
+            # (tk_tab._game_has_ingame_ui), so both launchers offer the same matches on the same build.
+            options["ingame_rematch"] = options["ingame_rematch"] and os.environ.get("T5_INGAME_REMATCH") == "1"
             check = getattr(module, "game_supports_auto_skip", None)
             options["auto_skip_after_round"] = bool(options["ingame_rematch"] and check and check(paths))
         except (ImportError, OSError, RuntimeError, AttributeError, ValueError):
             # Old installs keep their original game/launcher interaction.
             pass
         return options
+
+    def _online_new_client(self, server, cfg=None):
+        client, target = super()._online_new_client(server, cfg)
+        # As the native Online tab: this PC's speed goes with the login (the lobby warns about a slow PC and keeps
+        # one below its minimum out of ranked); the last online match's, else the newest game log's.
+        if hasattr(client, "perf_fps") and not client.perf_fps:
+            client.perf_fps = self._online_last_fps(self._online_config() if cfg is None else cfg)
+        return client, target
+
+    def _online_last_fps(self, cfg):
+        try:
+            fps = float(cfg.get("last_fps")) if isinstance(cfg, dict) and cfg.get("last_fps") else None
+        except (TypeError, ValueError):
+            fps = None
+        if fps is not None and 0 < fps < 1000:
+            return round(fps, 1)
+        try:
+            module = self._online_driver_module()
+            fps = module.fps_from_logs(os.path.join(self._online_out_dir(), "logs"))
+        except (ImportError, OSError, RuntimeError, AttributeError, ValueError, TypeError):
+            return None
+        return fps if type(fps) in (int, float) and 0 < fps < 1000 else None
+
+    def _online_remember_fps(self, driver):
+        fps = getattr(driver, "last_fps", None)
+        if type(fps) not in (int, float) or not 0 < fps < 1000 or fps == getattr(self, "_online_saved_fps", None):
+            return
+        self._online_saved_fps = fps
+        try:
+            self._online_write_preferences(dict(last_fps=fps))
+        except (OSError, ValueError, TypeError):
+            pass
 
     def _online_make_driver(self, client, generation):
         module = self._online_driver_module()
@@ -122,6 +157,10 @@ class T5Match(Online):
             parameters = inspect.signature(module.MatchDriver).parameters
             if "ingame_rematch" in parameters:
                 options["ingame_rematch"] = bool(getattr(client, "ingame_rematch", False))
+            side = getattr(self, "screen_side", None)
+            if "screen_side" in parameters and callable(side):
+                # 1.2.0: dealt / left / right per match (T5_SCREEN_SIDE); always_left alone sends only 0/1.
+                options["screen_side"] = side
         except (TypeError, ValueError):
             pass
         return module.MatchDriver(_DriverClient(self, client, generation), launch,
@@ -401,10 +440,20 @@ class T5Match(Online):
             self._online_rematch = False
             if driver:
                 mid = self._online_match_id
+                set_over = (getattr(self, "_online_set", None) or {}).get("state") == "ended"
+
                 def leave():
                     # A previously sent offer cannot be undone by a second driver.rematch call.
                     # The installed client's explicit leave ends its rematch window as well.
-                    client.leave_set()
+                    # Only a running set can be left: after a decided set (every 1.2.0 casual game is an
+                    # FT1 set) or a match without one the server answers bad_state, which must not
+                    # log this player out of the lobby.
+                    if not set_over:
+                        try:
+                            client.leave_set()
+                        except Exception as exc:  # noqa: BLE001 -- only "not in a set" is expected here
+                            if getattr(exc, "code", None) != "bad_state":
+                                raise
                     driver.rematch(mid, False)
                 self._online_submit("t5_return", lambda: self._online_driver_call(driver, leave))
             else:
@@ -431,6 +480,7 @@ class T5Match(Online):
             driver, notes = value
             self._online_driver = driver
             self._online_driver_notes(notes)
+            self._online_remember_fps(driver)
             if (self._online_phase == "starting" and getattr(driver, "ticket", None) is not None
                     and getattr(driver.ticket, "match_id", None) == getattr(self, "_online_match_id", None)
                     and driver.game_running()):
@@ -477,6 +527,10 @@ class T5Match(Online):
             elif kind == "game_closed":
                 self._online_message = "@online.game_closed"
             elif kind == "game_state":
+                if self._online_phase in ("result", "result_sent"):
+                    # A persistent game goes back to its select screen right after the fight: the result
+                    # (confirmed, set won/lost, rematch offer) stays the message until the next game starts.
+                    continue
                 state = note.get("state")
                 self._online_message = ("@online.playing" if state == "fight" else "@online.loading"
                                         if state in ("loading", "stage") else "@online.select")

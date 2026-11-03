@@ -1,4 +1,5 @@
 """Ranked and FT set contracts with inert clients and a fake native driver."""
+import os
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -142,7 +143,8 @@ class SetTests(unittest.TestCase):
                                  game_supports_pick=mock.Mock(return_value=True),
                                  game_supports_ingame_ui=mock.Mock(return_value=True),
                                  game_supports_auto_skip=mock.Mock(return_value=True), MatchDriver=factory)
-        with mock.patch("openrecomp.adapters.t5_match.importlib.import_module", return_value=module):
+        with mock.patch("openrecomp.adapters.t5_match.importlib.import_module", return_value=module), \
+                mock.patch.dict(os.environ, T5_INGAME_REMATCH="1"):
             options = self.a._online_match_client_options()
             self.assertTrue(options["sets"])
             self.assertTrue(options["ingame_pick"])
@@ -151,6 +153,43 @@ class SetTests(unittest.TestCase):
             T5Match._online_make_driver(self.a, client, self.a._online_generation)
         self.assertTrue(driver_factory.call_args.kwargs["ingame_rematch"])
         self.assertIsInstance(driver_factory.call_args.args[0], _DriverClient)
+
+    def test_screen_side_reaches_a_driver_that_takes_it(self):
+        # 1.2.0's MatchDriver reads screen_side() per match (T5_SCREEN_SIDE); 1.1.9's has no such parameter.
+        client = self.match()
+        calls = []
+
+        def new_driver(client, launch, workdir, always_left=None, screen_side=None, **kwargs):
+            calls.append(dict(always_left=always_left, screen_side=screen_side))
+
+        def old_driver(client, launch, workdir, always_left=None, **kwargs):
+            calls.append(dict(always_left=always_left, extra=sorted(kwargs)))
+
+        self.a.screen_side = lambda: "right"
+        for factory in (new_driver, old_driver):
+            module = SimpleNamespace(__file__=self.directory.name + "/lobby/t5lobby/match_driver.py",
+                                     game_files=mock.Mock(return_value=[]), MatchDriver=factory)
+            with mock.patch("openrecomp.adapters.t5_match.importlib.import_module", return_value=module):
+                T5Match._online_make_driver(self.a, client, self.a._online_generation)
+        self.assertEqual(calls[0]["screen_side"](), "right")
+        self.assertNotIn("screen_side", calls[1]["extra"])
+        self.assertTrue(callable(calls[1]["always_left"]))
+
+    def test_ingame_rematch_needs_the_native_switch_as_in_the_1_2_0_launcher(self):
+        # 1.2.0's tk_tab announces in-game rematch only with T5_INGAME_REMATCH=1 and a game that has it.
+        module = SimpleNamespace(__file__=self.directory.name + "/lobby/t5lobby/match_driver.py",
+                                 game_files=mock.Mock(return_value=["inert-file"]),
+                                 game_supports_ingame_ui=mock.Mock(return_value=True),
+                                 game_supports_auto_skip=mock.Mock(return_value=True))
+        with mock.patch("openrecomp.adapters.t5_match.importlib.import_module", return_value=module):
+            for value in (None, "0", "1"):
+                env = {} if value is None else dict(T5_INGAME_REMATCH=value)
+                with mock.patch.dict(os.environ, env):
+                    if value is None:
+                        os.environ.pop("T5_INGAME_REMATCH", None)
+                    options = self.a._online_match_client_options()
+                self.assertEqual(options["ingame_rematch"], value == "1", value)
+                self.assertEqual(options["auto_skip_after_round"], value == "1", value)
 
     def test_auto_skip_opt_in_requires_both_native_game_markers(self):
         module = SimpleNamespace(__file__=self.directory.name + "/lobby/t5lobby/match_driver.py",
