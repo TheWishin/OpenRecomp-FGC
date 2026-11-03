@@ -138,6 +138,31 @@ class T4TestBundleTests(unittest.TestCase):
             bundle.scan_private_terms([("T4/" + word + ".txt", b"")], [word])
         self.assertEqual(bundle.scan_private_terms([("T4/a.txt", b"nothing here")], [word]), 1)
 
+    def test_a_name_with_other_letters_is_found_in_any_case_and_both_spellings(self):
+        word = "Jörg"
+        for data in ("JÖRG".encode("utf-8"), "JÖRG".encode("utf-16-le"), b"x" + "jöRG".encode("utf-16-le"),
+                     "C:\\Users\\JÖRG\\x".encode("utf-8")):
+            with self.subTest(data=data):
+                with self.assertRaises(ValueError):
+                    bundle.scan_private_terms([("T4/a.txt", b"# " + data)], [word])
+        self.assertEqual(bundle.scan_private_terms([("T4/a.txt", "Jorg Jürgen".encode("utf-8"))], [word]), 1)
+
+    def test_a_common_account_name_is_looked_for_only_in_its_profile_path(self):
+        environment = {"USERNAME": "User", "USERPROFILE": "C:\\Users\\User", "COMPUTERNAME": "DESKTOP"}
+        with mock.patch.dict(bundle.os.environ, environment), \
+                mock.patch.object(bundle.subprocess, "run", side_effect=OSError):
+            terms = bundle.local_terms(self.root)
+        self.assertEqual(terms, ["C:\\Users\\User", "C:/Users/User"])
+        # This repository's own shipped code (user_dir, "User-Agent", Default...) is clean for such a PC ...
+        root = Path(bundle.__file__).resolve().parents[1]
+        entries = [(path.relative_to(root).as_posix(), path.read_bytes())
+                   for folder in ("openrecomp", "tools") for path in (root / folder).rglob("*.py")]
+        self.assertGreater(len(entries), 50)
+        self.assertEqual(bundle.scan_private_terms(entries, terms), 2)
+        # ... and the profile path itself is still refused.
+        with self.assertRaises(ValueError):
+            bundle.scan_private_terms([("T4/log.txt", b"opened c:\\users\\user\\x.iso")], terms)
+
     def test_a_zip_refused_after_writing_is_removed(self):
         with mock.patch.object(bundle, "scan_private_terms", side_effect=[0, ValueError("synthetic late refusal")]):
             with self.assertRaisesRegex(ValueError, "late refusal"):

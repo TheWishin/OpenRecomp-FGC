@@ -276,12 +276,19 @@ def release_manifest(version, channel):
     return (json.dumps({"project": "openrecomp-fgc", "version": version, "channel": channel}, indent=2) + "\n").encode("ascii")
 
 
+# Account and computer names Windows or a PC maker gives many PCs. As a bare word they are ordinary code
+# ("user_dir", "Default"), so they identify nobody: such a name is looked for only inside its profile path
+# (USERPROFILE: that name's folder under Users), which stays a term.
+COMMON_NAMES = frozenset(("user", "users", "admin", "administrator", "owner", "guest", "default", "public",
+                          "test", "home", "desktop", "laptop", "office", "windows", "player", "gamer"))
+
+
 def local_terms(root=None, extra=()):
     """This PC's own identifiers, read at run time and never stored: none may be in a bundle."""
     terms = [str(term) for term in extra if term]
     for name in ("USERNAME", "USERPROFILE", "COMPUTERNAME"):
         value = os.environ.get(name, "")
-        if value:
+        if value and not (name != "USERPROFILE" and value.casefold() in COMMON_NAMES):
             terms.append(value)
     profile = os.environ.get("USERPROFILE", "")
     if profile:
@@ -301,12 +308,29 @@ def local_terms(root=None, extra=()):
     return out
 
 
+def _unicode_texts(data):
+    """data read as UTF-8 and as UTF-16LE (both byte alignments), case folded: where a non-ASCII term can hide."""
+    return [data.decode("utf-8", "ignore").casefold(),
+            data.decode("utf-16-le", "ignore").casefold(),
+            data[1:].decode("utf-16-le", "ignore").casefold()]
+
+
 def scan_private_terms(entries, terms):
-    """Every entry, the pinned runtime included, in UTF-8 and UTF-16 spelling, any case."""
-    needles = [term.casefold().encode(encoding) for term in terms for encoding in ("utf-8", "utf-16-le")]
+    """Every entry, the pinned runtime included, in UTF-8 and UTF-16 spelling, any case. ASCII terms are compared
+    on the bytes (bytes.lower() is exact for them); a term with other letters (Jörg) on the decoded, Unicode
+    case folded text, so JÖRG in UTF-8 or UTF-16 is found too."""
+    folded = [term.casefold() for term in terms]
+    other_terms = [term for term in folded if not term.isascii()]
+    needles = [term.encode(encoding) for term in folded if term.isascii() for encoding in ("utf-8", "utf-16-le")]
     for name, data in entries:
-        haystacks = (name.casefold().encode("utf-8"), data.lower())
-        if any(needle in haystack for needle in needles for haystack in haystacks):
+        found = any(term in name.casefold() for term in folded)
+        if not found and needles:
+            lowered = data.lower()
+            found = any(needle in lowered for needle in needles)
+        if not found and other_terms and data:
+            texts = _unicode_texts(data)
+            found = any(term in text for term in other_terms for text in texts)
+        if found:
             raise ValueError("This PC's own user name, profile path, computer name or e-mail is in: " + name)
     return len(terms)
 
