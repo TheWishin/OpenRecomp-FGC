@@ -250,6 +250,26 @@ class SetTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "@online.cancelled"):
             proxy.ready(True, "one")
 
+    def test_declined_casual_ready_check_keeps_its_reason_when_the_unplayed_set_ends(self):
+        # QA run (two launchers, local lobby): the declined player read "The set has ended." instead of
+        # "The other player declined the match." (1.2.0 sends set_end right after match_cancel).
+        for rated, reason, expected in ((False, "declined", "@online.peer_declined"),
+                                        (True, "declined", "@online.set_ended")):
+            with self.subTest(rated=rated):
+                self.setUp()
+                client = self.login()
+                client.events.put(dict(t="match_found", match="one", slot=0,
+                                       set=dict(id="set-one", rated=rated, casual=not rated, first_to=1, wins=[0, 0])))
+                self.a.online_poll()
+                self.a.online_poll()
+                client.events.put(dict(t="match_cancel", match="one", reason=reason))
+                self.a.online_poll()
+                client.events.put(dict(t="set_end", set="set-one", rated=rated, reason=reason, wins=[0, 0]))
+                self.a.online_poll()
+                self.a.online_poll()
+                self.assertEqual(self.a.online_state()["phase"], "logged_in")
+                self.assertEqual(self.a.online_state()["message"], expected)
+
     def test_close_releases_character_lock(self):
         client = self.login()
         self.offer(client)

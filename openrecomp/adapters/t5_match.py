@@ -10,6 +10,15 @@ from .t5_coexist import readonly_imports
 from .. import i18n
 
 
+MATCH_CANCEL_REASONS = {
+    "ready_timeout": "@online.ready_expired", "relay_full": "@online.relay_full",
+    "declined": "@online.peer_declined", "opponent_left": "@online.peer_quit",
+    "peer_quit": "@online.peer_quit", "timeout": "@online.peer_timeout",
+    "udp_unreachable": "@online.connection_failed", "no_connection": "@online.connection_failed",
+}
+MATCH_CANCEL_MESSAGES = frozenset(MATCH_CANCEL_REASONS.values()) | {"@online.cancelled"}
+
+
 class _DriverClient:
     """Keep native game-menu actions subject to the same session reservation."""
     def __init__(self, owner, client, generation):
@@ -291,8 +300,12 @@ class T5Match(Online):
             self._online_set = self._online_set_view(dict(event, id=info.get("id")), ended=True)
             self._online_rematch = bool(event.get("reason") == "decided" and getattr(self, "_online_rematch", False))
             self._online_next_authorized = False
-            self._online_message = {"win": "@online.set_won", "loss": "@online.set_lost"}.get(
-                event.get("result"), "@online.set_ended")
+            # A casual set of one ends with the ready check its match never passed: the player keeps reading why
+            # (QA: "The other player declined the match." was overwritten by "The set has ended." at once).
+            if not (event.get("reason") != "decided" and not info.get("rated")
+                    and self._online_message in MATCH_CANCEL_MESSAGES):
+                self._online_message = {"win": "@online.set_won", "loss": "@online.set_lost"}.get(
+                    event.get("result"), "@online.set_ended")
             self._online_driver_events = getattr(self, "_online_driver_events", []) + [event]
             return True
         if not current:
@@ -310,12 +323,7 @@ class T5Match(Online):
         if kind == "match_cancel":
             # Back to the lobby, still logged in (closing here logged the player out after every declined or
             # timed-out ready check).
-            self._online_to_lobby({
-                "ready_timeout": "@online.ready_expired", "relay_full": "@online.relay_full",
-                "declined": "@online.peer_declined", "opponent_left": "@online.peer_quit",
-                "peer_quit": "@online.peer_quit", "timeout": "@online.peer_timeout",
-                "udp_unreachable": "@online.connection_failed", "no_connection": "@online.connection_failed",
-            }.get(event.get("reason"), "@online.cancelled"))
+            self._online_to_lobby(MATCH_CANCEL_REASONS.get(event.get("reason"), "@online.cancelled"))
             return True
         if kind == "match_start":
             ticket = event.get("ticket")
