@@ -1,7 +1,11 @@
 @echo off
-rem Starts OpenRecomp-FGC. The first start makes .venv and installs what requirements.txt names.
+rem Starts OpenRecomp-FGC. Prefer the bundled runtime; otherwise prepare .venv on first start.
 setlocal
 cd /d "%~dp0"
+if exist "portable\python.exe" if exist "portable\pythonw.exe" (
+    start "" "portable\pythonw.exe" -B -m openrecomp %*
+    exit /b 0
+)
 if not exist ".venv\Scripts\python.exe" (
     echo First start: installing PySide6...
     py -3.12 -m venv .venv || python -m venv .venv || goto :nopython
