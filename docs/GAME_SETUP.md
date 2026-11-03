@@ -25,6 +25,20 @@ files are unpacked into a staging folder beside the target and moved in at the e
 install leaves nothing behind. Afterwards the launcher attaches the new install and opens its Build section:
 choose your own package/license (T5DR) or disc image (T4) and build.
 
+## The Build page
+
+Build is a page of cards: **Get the game** (Install, or the folder you already have), **Your game files** (T4: the
+disc image; T5DR: package and licence; after a file is chosen the focus moves to the next missing one, then to the
+button), **Build tools** (T4 from source only) and on the right one big button with the step's name, the time so far
+and about how long it still takes (from your last build's step times, else from the progress, else the usual
+range). If a step prints nothing for two minutes the card says it is still working on it. X opens the build log.
+
+The build tools are never listed. The launcher checks them by itself; when some are missing, **Build** installs them
+first with winget ("Installing build tools (x of y) ..."), checks again and builds. A failed install shows the error
+with Try again and Help (what is needed, the commands to copy). When Windows needs a restart to finish, the launcher
+remembers it and continues the build after the restart. A T4 disc image that was verified stays verified while it is
+the same file (path, size, time), also after a launcher restart.
+
 An install made by the launcher belongs to OpenRecomp-FGC: building in it changes no other launcher's game. A T5DR
 you installed yourself keeps the coexistence rules (docs/T5DR_COEXISTENCE.md).
 
