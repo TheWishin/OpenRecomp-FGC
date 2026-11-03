@@ -821,22 +821,56 @@ static std::wstring install(const Payload &payload, const Options &o, Progress &
         done += e->size;
         pr.step(T_EXTRACTING, (int)(total ? done * 80 / total : 80));
     }
-    // 2. The files moved into place (same drive: a rename each). Nothing of the player's is touched.
+    // 2. The files moved into place (same drive: a rename each). Nothing of the player's is touched. A file
+    // that is replaced waits in the staging folder's backup until the install record is written: any failure
+    // before that puts every replaced file back and takes every new one out (a failed first install leaves no
+    // files without a record, a failed update leaves the old version as it was).
     pr.step(T_COPYING, 80);
     std::set<std::wstring> now;
     Record rec;
     rec.version = payload.version;
     rec.desktop = o.desktop;
     rec.games = old.games;
+    std::wstring backup = join(stage, L".old");
+    struct Placed { std::wstring rel; bool had_old; };
+    std::vector<Placed> placed;
+    auto roll_back = [&]() -> bool {
+        bool clean = true;
+        for (auto it = placed.rbegin(); it != placed.rend(); ++it) {
+            std::wstring target = join(folder, it->rel);
+            SetFileAttributesW(target.c_str(), FILE_ATTRIBUTE_NORMAL);
+            if (!DeleteFileW(target.c_str()) && exists(target)) { clean = false; continue; }
+            if (it->had_old) {
+                if (!move_with_retry(join(backup, it->rel), target)) { clean = false; continue; }
+            } else {
+                remove_empty_parents(folder, it->rel);
+            }
+        }
+        if (clean) remove_tree(stage);
+        else logf(L"rollback incomplete: the old files wait in %s", backup.c_str());
+        return clean;
+    };
+    int fail_at = _wtoi(env(L"OPENRECOMP_SETUP_TEST_FAIL_AT").c_str());   // tests: the n-th placement fails
     for (auto *e : todo) {
         std::wstring target = join(folder, e->path);
         size_t slash = target.find_last_of(L'\\');
-        if (!make_dirs(target.substr(0, slash)) || !move_with_retry(join(stage, e->path), target)) {
+        bool had_old = exists(target);
+        bool ok = make_dirs(target.substr(0, slash));
+        if (ok && had_old) {
+            std::wstring saved = join(backup, e->path);
+            ok = make_dirs(saved.substr(0, saved.find_last_of(L'\\'))) && move_with_retry(target, saved);
+        }
+        if (ok && fail_at > 0 && (int)placed.size() + 1 == fail_at) { ok = false; SetLastError(ERROR_SHARING_VIOLATION); }
+        if (ok) ok = move_with_retry(join(stage, e->path), target);
+        if (!ok) {
             DWORD err = GetLastError();
             logf(L"could not place %s: %s", e->path.c_str(), last_error_text(err).c_str());
-            remove_tree(stage);
+            if (had_old && !exists(target)) move_with_retry(join(backup, e->path), target);
+            if (!had_old) remove_empty_parents(folder, e->path);     // folders made for this file only
+            roll_back();
             return T(T_FAILED, e->path + L": " + last_error_text(err));
         }
+        placed.push_back({e->path, had_old});
         if (is_game_entry(e->path)) {
             if (std::find(rec.games.begin(), rec.games.end(), e->path) == rec.games.end()) rec.games.push_back(e->path);
         } else {
@@ -844,7 +878,12 @@ static std::wstring install(const Payload &payload, const Options &o, Progress &
             now.insert(lower(e->path));
         }
     }
-    remove_tree(stage);
+    if (!write_record(folder, rec)) {
+        DWORD err = GetLastError();
+        roll_back();
+        return T(T_FAILED, last_error_text(err));
+    }
+    remove_tree(stage);              // the new version is recorded: the backup of the old files goes
     // 3. Launcher files of the old version that the new one no longer has.
     for (auto &f : old.files) {
         if (now.count(lower(f))) continue;
@@ -852,15 +891,19 @@ static std::wstring install(const Payload &payload, const Options &o, Progress &
         SetFileAttributesW(p.c_str(), FILE_ATTRIBUTE_NORMAL);
         if (DeleteFileW(p.c_str())) remove_empty_parents(folder, f);
     }
-    if (!write_record(folder, rec)) return T(T_FAILED, last_error_text(GetLastError()));
     // 4. Shortcuts and the Apps & Features entry (this user only).
     pr.step(T_SHORTCUTS, 95);
     std::wstring programs = known_folder(FOLDERID_Programs), desktop = known_folder(FOLDERID_Desktop);
     std::wstring target = python_exe(folder), args = L"-B -m openrecomp", work = launcher_dir(folder), icon = icon_path(folder);
-    if (!programs.empty()) make_link(join(programs, LINK_NAME), target, args, work, icon, APP_NAME);
+    if (!programs.empty() && !make_link(join(programs, LINK_NAME), target, args, work, icon, APP_NAME))
+        logf(L"could not make the Start menu shortcut in %s", programs.c_str());
     if (!desktop.empty()) {
-        if (o.desktop) make_link(join(desktop, LINK_NAME), target, args, work, icon, APP_NAME);
-        else remove_link_into(join(desktop, LINK_NAME), folder);
+        if (o.desktop) {
+            if (!make_link(join(desktop, LINK_NAME), target, args, work, icon, APP_NAME))
+                logf(L"could not make the desktop shortcut in %s", desktop.c_str());
+        } else {
+            remove_link_into(join(desktop, LINK_NAME), folder);
+        }
     }
     HKEY k;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, UNINSTALL_KEY, 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) == ERROR_SUCCESS) {
@@ -1059,7 +1102,10 @@ static void refresh_space() {
 }
 
 static DWORD WINAPI worker_main(LPVOID) {
+    // COM is per thread: without this the shortcuts' CoCreateInstance failed and a window install had none.
+    HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
     g.result = install(*g.payload, g.opt, g.pr, g.updated);
+    if (SUCCEEDED(com)) CoUninitialize();
     PostMessageW(g.wnd, WM_APP + 2, 0, 0);
     return 0;
 }

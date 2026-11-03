@@ -102,6 +102,13 @@ class SetupSourceTest(unittest.TestCase):
         self.assertIn("HKEY_CURRENT_USER, UNINSTALL_KEY", SETUP)
         self.assertNotIn("HKEY_LOCAL_MACHINE", SETUP)
 
+    def test_the_window_installs_worker_thread_starts_com_for_the_shortcuts(self):
+        # COM is per thread; the window's install runs on worker_main, not on wWinMain's thread (review F5).
+        body = SETUP[SETUP.index("static DWORD WINAPI worker_main"):SETUP.index("static void browse")]
+        self.assertLess(body.index("CoInitializeEx"), body.index("install("))
+        self.assertIn("CoUninitialize", body)
+        self.assertIn("could not make the Start menu shortcut", SETUP)
+
     def test_uninstall_keeps_games_and_saves(self):
         body = SETUP[SETUP.index("static void remove_settings"):SETUP.index("static std::vector<std::wstring> leftovers")]
         self.assertNotIn('L"installs"', body)
@@ -118,6 +125,58 @@ class BuildTest(unittest.TestCase):
                                           icon=ROOT / "openrecomp" / "ui" / "assets" / "icon.ico")
             self.assertEqual(warnings, [])
             self.assertEqual(out.read_bytes()[:2], b"MZ")
+
+    def test_a_failed_placement_puts_everything_back(self):
+        """A real Setup (fake bundle), run silently with OPENRECOMP_SETUP_TEST_FAIL_AT: only failing runs, so no
+        shortcut or Apps & Features entry is ever made on this PC (review installer-8d29372 finding 3)."""
+        import subprocess
+        import winreg
+
+        def registered():
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\OpenRecomp-FGC\Setup"):
+                    return True
+            except OSError:
+                return False
+        if registered():
+            self.skipTest("OpenRecomp-FGC is installed for this user: Setup /S refuses another folder")
+        with tempfile.TemporaryDirectory() as work:
+            work = Path(work)
+            facts = mi.make(bundle(), work / "dist", log=lambda *a: None)
+            self.assertEqual(facts["warnings"], [])
+            setup = facts["setup"]
+            # Never run a Setup without the failure hook: it would really install (shortcut, Apps & Features).
+            self.assertIn("OPENRECOMP_SETUP_TEST_FAIL_AT".encode("utf-16-le"), Path(setup).read_bytes())
+
+            def run(folder, fail_at):
+                env = dict(os.environ, OPENRECOMP_SETUP_TEST_FAIL_AT=str(fail_at))
+                return subprocess.run([setup, "/S", "/nostart", "/nodesktop", "/D=" + str(folder),
+                                       "/log=" + str(work / "setup.log")], env=env, timeout=120).returncode
+
+            # A first install that fails after two files: nothing of it stays (no files without a record).
+            fresh = work / "fresh"
+            self.assertEqual(run(fresh, 3), 2)
+            left = [p for p in fresh.rglob("*")] if fresh.exists() else []
+            self.assertEqual([p for p in left if p.is_file()], [])
+            # An update that fails midway: every replaced file is the old one again, the record unchanged.
+            old = work / "old"
+            names = ["OpenRecomp-FGC/openrecomp/__init__.py", "OpenRecomp-FGC/openrecomp/app.py",
+                     "OpenRecomp-FGC/portable/pythonw.exe", "OpenRecomp-FGC/portable/python312._pth"]
+            for name in names:
+                (old / name).parent.mkdir(parents=True, exist_ok=True)
+                (old / name).write_text("old " + name, encoding="utf-8")
+            record = "# OpenRecomp-FGC install record\nversion=1.0.0\ndesktop=0\n" + "".join(
+                "file=" + name + "\n" for name in names)
+            (old / "OpenRecomp-install.txt").write_text(record, encoding="utf-8")
+            for fail_at in (1, 3, 5):
+                with self.subTest(fail_at=fail_at):
+                    self.assertEqual(run(old, fail_at), 2)
+                    for name in names:
+                        self.assertEqual((old / name).read_text(encoding="utf-8"), "old " + name)
+                    self.assertEqual((old / "OpenRecomp-install.txt").read_text(encoding="utf-8"), record)
+                    self.assertEqual(sorted(p.name for p in old.iterdir()), ["OpenRecomp-FGC", "OpenRecomp-install.txt"])
+            self.assertFalse(registered())
+            self.assertIn("could not place", (work / "setup.log").read_text(encoding="utf-8-sig"))
 
 
 if __name__ == "__main__":
