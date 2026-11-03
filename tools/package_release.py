@@ -53,7 +53,8 @@ SOURCE_GROUPS = {
                             "OFL-IBMPlexMono.txt", "OFL-IBMPlexSans.txt"),
     "games": ("t4.json", "t5dr.json"),
     "docs": ("PACKAGING.md", "INSTALLING.md", "UPDATES.md", "T4_FIRST_RUN.md", "T4_ONLINE.md", "T5DR_ONLINE.md",
-             "T5DR_COEXISTENCE.md", "HAND_CHECK.md", "ADD_YOUR_GAME.md", "GAME_SETUP.md"),
+             "T5DR_COEXISTENCE.md", "HAND_CHECK.md", "ADD_YOUR_GAME.md", "GAME_SETUP.md", "INSTALLER.md",
+             "RELEASING.md", "RELEASE_KEYS.md"),
 }
 SOURCE_FILES = {folder + "/" + name for folder, names in SOURCE_GROUPS.items() for name in names}
 SOURCE_FILES.update(("LICENSE", "README.md"))

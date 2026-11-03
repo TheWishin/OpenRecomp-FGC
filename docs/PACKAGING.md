@@ -1,6 +1,12 @@
 # Launcher distribution and updates
 
-The release is a Windows x64 zip with a native `OpenRecomp.exe`, a private CPython
+**Releases are made with `tools/make_release.py`** ([RELEASING.md](RELEASING.md)): the `OpenRecomp-FGC/`
+folder with its pinned portable runtime (the bundle below), Setup.exe from it, signed checksums. That is the
+layout the launcher's updater installs ([UPDATES.md](UPDATES.md)). The native-starter assembly described
+after the bundle section (`package_release.py` without `--scan-only`, `OpenRecomp.exe` + `python/`) is a
+separate, unused path: its zip is not an update the launcher accepts.
+
+The native-starter design: a Windows x64 zip with a native `OpenRecomp.exe`, a private CPython
 3.12, PySide6 Essentials 6.8.2.1, shiboken6 6.8.2.1 and the launcher source.
 Players extract the entire zip and run the executable; Python installation,
 administrator access and a game installation are not prerequisites. Keep the

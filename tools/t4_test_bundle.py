@@ -218,8 +218,8 @@ def load_t4_scanner(root):
             sys.modules["publish_source"] = old_publish
 
 
-def scan_bundle_entries(entries, runtime_cache=None):
-    """Check source bytes and the exact pinned portable-runtime inventory."""
+def scan_bundle_entries(entries, runtime_cache=None, t4=True):
+    """Check source bytes and the exact pinned portable-runtime inventory. t4=False: a launcher-only zip."""
     entries = list(entries)
     runtime_prefix = LAUNCHER_FOLDER + "/portable/"
     runtime = [(name[len(runtime_prefix):], data) for name, data in entries
@@ -260,10 +260,20 @@ def scan_bundle_entries(entries, runtime_cache=None):
                 raise ValueError("Shipped game manifests must have no fixed install locations")
         checked.append((name, data))
     required = {"START_HERE.txt", "START_HIER.txt", LAUNCHER_FOLDER + "/run.cmd", LAUNCHER_FOLDER + "/requirements.txt",
-                LAUNCHER_FOLDER + "/LICENSE", T4_FOLDER + "/LICENSE"}
-    if not required <= {name for name, _ in checked}:
+                LAUNCHER_FOLDER + "/LICENSE"} | ({T4_FOLDER + "/LICENSE"} if t4 else set())
+    names = {name for name, _ in checked}
+    if not required <= names:
         raise ValueError("Bundle must retain start files and both licenses")
+    if not t4 and any(name.split("/", 1)[0] == T4_FOLDER for name in names):
+        raise ValueError("A launcher-only zip carries no T4 folder")
     return checked
+
+
+def release_manifest(version, channel):
+    """OpenRecomp-FGC/release.json of a release: what the launcher's updater checks (openrecomp/updater.py)."""
+    if not re.fullmatch(r"v\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?", str(version)):
+        raise ValueError("Launcher release version must look like v0.1.0 or v0.2.0-beta.1")
+    return (json.dumps({"project": "openrecomp-fgc", "version": version, "channel": channel}, indent=2) + "\n").encode("ascii")
 
 
 def local_terms(root=None, extra=()):
@@ -331,10 +341,15 @@ def check_us_t4(t4_entries):
         raise ValueError("The T4 source is not the USA line (SLUS-20328): it names " + ", ".join(wrong))
 
 
-def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None, note=(), terms=None):
+def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None, note=(), terms=None, release=None, start=None):
+    """release: OpenRecomp-FGC/release.json bytes (a launcher release; release_manifest). start: (START_HERE,
+    START_HIER) bytes instead of the test bundle's texts. t4_root None: the launcher alone (its release zip)."""
     runtime_cache = ROOT / "dist/portable-cache" if runtime_cache is None else Path(runtime_cache)
-    root, t4_root = Path(root).absolute(), Path(t4_root).absolute()
+    root = Path(root).absolute()
     no_links(root)
+    if t4_root is None:
+        return launcher_entries(root, runtime_root, runtime_cache, note, terms, release, start)
+    t4_root = Path(t4_root).absolute()
     no_links(t4_root)
     # Existing independent scanners are authoritative for their own catalogs.
     selected = package.source_files(root)
@@ -356,7 +371,20 @@ def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None, note=()
     if not originals:
         originals = list(t4_entries)
     t4_entries = clean_t4_entries(t4_entries)
-    entries = [("START_HERE.txt", START_HERE), ("START_HIER.txt", START_HIER), ("BUNDLE.txt", bundle_note(note))]
+    entries = _launcher_part(root, selected, note, release, start)
+    # Re-scan T4's snapshots with the same scan used by its source test zip.
+    checked_t4 = scan_clean_t4_entries(scanner, scan_entries, originals, t4_entries)
+    check_us_t4(checked_t4)
+    entries.extend((T4_FOLDER + "/" + name, data) for name, data in checked_t4)
+    entries.extend(_runtime_part(runtime_root, runtime_cache))
+    checked = scan_bundle_entries(entries, runtime_cache)
+    scan_private_terms(checked, local_terms(root) if terms is None else terms)
+    return checked
+
+
+def _launcher_part(root, selected, note, release, start):
+    here, hier = start if start else (START_HERE, START_HIER)
+    entries = [("START_HERE.txt", here), ("START_HIER.txt", hier), ("BUNDLE.txt", bundle_note(note))]
     for name, path in sorted(selected.items()):
         no_links(path)
         if name not in OMITTED_BRANDING:
@@ -366,20 +394,30 @@ def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None, note=()
         no_links(path)
         package.scan_file(path, name)
         entries.append((LAUNCHER_FOLDER + "/" + name, snapshot(path)))
-    # Re-scan T4's snapshots with the same scan used by its source test zip.
-    checked_t4 = scan_clean_t4_entries(scanner, scan_entries, originals, t4_entries)
-    check_us_t4(checked_t4)
-    entries.extend((T4_FOLDER + "/" + name, data) for name, data in checked_t4)
-    if runtime_root is not None:
-        runtime = _module("t4_bundle_portable", ROOT / "tools/portable_runtime.py")
-        entries.extend((LAUNCHER_FOLDER + "/portable/" + name, data)
-                       for name, data in runtime.runtime_entries(runtime_root, cache_root=runtime_cache))
-    checked = scan_bundle_entries(entries, runtime_cache)
+    if release is not None:
+        entries.append((LAUNCHER_FOLDER + "/release.json", bytes(release)))
+    return entries
+
+
+def _runtime_part(runtime_root, runtime_cache):
+    if runtime_root is None:
+        return []
+    runtime = _module("t4_bundle_portable", ROOT / "tools/portable_runtime.py")
+    return [(LAUNCHER_FOLDER + "/portable/" + name, data)
+            for name, data in runtime.runtime_entries(runtime_root, cache_root=runtime_cache)]
+
+
+def launcher_entries(root, runtime_root, runtime_cache, note=(), terms=None, release=None, start=None):
+    """The launcher alone (OpenRecomp-FGC/ + start texts): the launcher's own release zip and Setup's input."""
+    entries = _launcher_part(root, package.source_files(root), note, release, start)
+    entries.extend(_runtime_part(runtime_root, runtime_cache))
+    checked = scan_bundle_entries(entries, runtime_cache, t4=False)
     scan_private_terms(checked, local_terms(root) if terms is None else terms)
     return checked
 
 
-def create_bundle(root, t4_root, archive=None, runtime_root=None, runtime_cache=None, dist=None, note=(), terms=None):
+def create_bundle(root, t4_root, archive=None, runtime_root=None, runtime_cache=None, dist=None, note=(), terms=None,
+                  release=None, start=None):
     root = Path(root).absolute()
     no_links(root)
     dist = (root / "dist" if dist is None else Path(dist)).absolute()
@@ -392,7 +430,7 @@ def create_bundle(root, t4_root, archive=None, runtime_root=None, runtime_cache=
     if archive.exists():
         raise ValueError("Bundle already exists; nothing was overwritten")
     terms = local_terms(root) if terms is None else list(terms)
-    entries = bundle_entries(root, t4_root, runtime_root, runtime_cache, note=note, terms=terms)
+    entries = bundle_entries(root, t4_root, runtime_root, runtime_cache, note=note, terms=terms, release=release, start=start)
     archive.parent.mkdir(parents=True, exist_ok=True)
     no_links(archive.parent)
     output = zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=9)
@@ -405,7 +443,7 @@ def create_bundle(root, t4_root, archive=None, runtime_root=None, runtime_cache=
             if output.testzip() is not None:
                 raise ValueError("Bundle CRC check failed")
             written = [(name, output.read(name)) for name in output.namelist()]
-        scan_private_terms(scan_bundle_entries(written, runtime_cache), terms)
+        scan_private_terms(scan_bundle_entries(written, runtime_cache, t4=t4_root is not None), terms)
     except BaseException:
         archive.unlink(missing_ok=True)
         raise
