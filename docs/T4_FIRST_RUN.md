@@ -83,6 +83,12 @@ zu Dateien und Lizenzen stehen in [PACKAGING.md](PACKAGING.md).
    Verification runs in the background. A refusal stays visible and preserves
    a previously accepted choice. A changed file must be checked again. No ISO,
    game code, executable game build, saves or pictures are shipped here.
+   Once an accepted ISO is known, the launcher reads Jin's character-select
+   portrait from that disc once (`openrecomp/t4_art.py`: DATA.BIN entry 253,
+   only when the program's SHA-1 is SLUS-20328 v1.00) and keeps it as
+   `<user folder>\art\t4\hero_jin.png` for the T4 tile and hub. A
+   `hero.png` the player puts in that folder wins. Without an ISO, or with
+   another disc, the tile stays plain. Delete the PNG to have it read again.
 4. Select **Build game**. Stage progress, cancellation and retry stay in the
    launcher. The installed T4 core performs the local build. An incomplete
    portable release must be replaced through **Complete T4 release**; the

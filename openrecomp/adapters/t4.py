@@ -15,6 +15,7 @@ from . import t4_region
 from .t4_online import T4Online
 from .t5_online import game_process_running
 from .t4_install import install_root, install_source, source_root
+from .. import t4_art
 from ..manifest import art_dir, save_config
 from ..game_releases import clear_rebuild, rebuild_required
 
@@ -106,6 +107,9 @@ class T4(T4Online, Adapter):
         self.last_result = ""
         self._prerequisite_rows = []
         self._prerequisite_worker = None
+        self._art_busy = False
+        self._art_tried = None
+        self.art_note = ""
         if getattr(core, "source_only", False):
             self.native_label = ""
             self._prerequisite_rows = [dict(id=key, label="@t4.tools." + key, value="@t4.tools.checking",
@@ -141,9 +145,40 @@ class T4(T4Online, Adapter):
                     detail=detail)
 
     def hero(self):
-        """A picture the player made of their own game: <user folder>/art/t4/hero.png (never shipped)."""
-        path = os.path.join(art_dir("t4"), "hero.png")
-        return path if os.path.isfile(path) else ""
+        """The tile's picture, never shipped: <user folder>/art/t4/hero.png if the player put one there, else Jin's
+        select portrait read once from their own verified ISO (t4_art) into the same folder."""
+        own = os.path.join(art_dir("t4"), "hero.png")
+        if os.path.isfile(own):
+            return own
+        path = os.path.join(art_dir("t4"), t4_art.FILE_NAME)
+        if os.path.isfile(path):
+            return path
+        self._start_art(path)
+        return ""
+
+    def _start_art(self, path):
+        """One try per ISO (path, size, time): a disc that is not SLUS-20328 just keeps the plain tile."""
+        effective = getattr(self.core, "effective_iso", None)
+        if self._art_busy or not callable(effective):
+            return
+        try:
+            iso = effective(self.s)
+        except Exception:  # noqa: BLE001 -- the picture never stops the launcher
+            return
+        stamp = self._iso_stamp(iso) if iso else None
+        if stamp is None or stamp == self._art_tried:
+            return
+        self._art_tried = stamp
+        self._art_busy = True
+        threading.Thread(target=self._make_art, args=(iso, path), daemon=True).start()
+
+    def _make_art(self, iso, path):
+        try:
+            t4_art.make_hero(iso, path)
+        except Exception as error:  # noqa: BLE001 -- a missing picture must never stop the launcher
+            self.art_note = str(error) or error.__class__.__name__
+        finally:
+            self._art_busy = False
 
     # ---------------------------------------------------------------- playing
     def _online_work_active(self):
