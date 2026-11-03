@@ -20,7 +20,7 @@ class PackageInventoryTests(unittest.TestCase):
         raw = io.BytesIO()
         with zipfile.ZipFile(raw, "w") as archive:
             for name in sorted(package.SOURCE_FILES):
-                archive.writestr("OpenRecomp-v1.2.3/" + name, b"inert audit fixture")
+                archive.writestr(u.ARCHIVE_TOP + "/" + name, b"inert audit fixture")
         raw.seek(0)
         with zipfile.ZipFile(raw) as archive:
             members = u._archive_members(archive, "v1.2.3")

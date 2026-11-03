@@ -68,20 +68,64 @@ class UpdaterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release_sign._outside_repository(Path(__file__))
 
-    def test_default_configuration_refuses_before_network(self):
-        with mock.patch.object(u, "_open") as opener, self.assertRaises(u.UpdateError) as error:
+    def test_incomplete_configuration_refuses_before_network(self):
+        with mock.patch.multiple(u, RELEASE_REPOSITORY="", RELEASE_REPOSITORY_ID="", RELEASE_CHANNEL="",
+                                 RELEASE_PUBLIC_KEYS=()), \
+                mock.patch.object(u, "_open") as opener, self.assertRaises(u.UpdateError) as error:
             u.check_release(self.root)
         self.assertEqual(error.exception.key, "updates_unconfigured")
         opener.assert_not_called()
 
+    def test_configured_channel_is_the_launchers_own_repository_and_key(self):
+        channel = u.configured_channel()
+        self.assertEqual((channel.repository, channel.repository_id, channel.name),
+                         ("TheWishin/OpenRecomp-FGC", "1439720330", "openrecomp-fgc"))
+        self.assertEqual(len(channel.public_keys), 1)
+        self.assertEqual(hashlib.sha256(bytes.fromhex(channel.public_keys[0])).hexdigest()[:16], "240b33a1229ca79b")
+        # A test key counts only with a fake GitHub on this PC.
+        with mock.patch.dict(os.environ, {u.TEST_KEY_ENV: "ab" * 32, u.TEST_ENV: ""}):
+            self.assertEqual(len(u.configured_channel().public_keys), 1)
+        with mock.patch.dict(os.environ, {u.TEST_KEY_ENV: "ab" * 32, u.TEST_ENV: "http://example.com:80"}):
+            self.assertEqual(len(u.configured_channel().public_keys), 1)
+        with mock.patch.dict(os.environ, {u.TEST_KEY_ENV: "ab" * 32, u.TEST_ENV: "http://127.0.0.1:8123"}):
+            self.assertEqual(u.configured_channel().public_keys[-1], "ab" * 32)
+
     def test_only_plain_versions(self):
-        self.assertEqual(u.version_key("v2.10.0"), (2, 10, 0))
-        for value in ("2.0.0", "V2.0.0", "v2.0.0-rc1", "v2.0.0+build", "v02.0.0", "v2.0.0\n",
-                      "v1\u0662.0.0", "v1.2\u0662.0", "v1.2.3\u0662"):
+        self.assertEqual(u.version_key("v2.10.0")[:3], (2, 10, 0))
+        for value in ("2.0.0", "V2.0.0", "v2.0.0+build", "v02.0.0", "v2.0.0\n", "v2.0.0-", "v2.0.0-01",
+                      "v2.0.0-beta..1", "v2.0.0-b\u00e9ta", "v1\u0662.0.0", "v1.2\u0662.0", "v1.2.3\u0662"):
             with self.subTest(value=value):
                 self.assertIsNone(u.version_key(value))
                 with self.assertRaises(u.UpdateError):
                     u.parse_release(release(value), CHANNEL)
+        with self.assertRaises(u.UpdateError):             # a test version is never offered on the stable channel
+            u.parse_release(dict(release("v2.0.0-rc1"), prerelease=True), CHANNEL)
+
+    def test_test_versions_order_and_need_matching_prerelease_flag(self):
+        order = ["v1.0.0", "v1.1.0-beta.1", "v1.1.0-beta.2", "v1.1.0-beta.10", "v1.1.0-rc.1", "v1.1.0", "v1.1.1"]
+        self.assertEqual(sorted(order, key=u.version_key), order)
+        test = dict(release("v1.3.0-beta.1"), prerelease=True)
+        self.assertEqual(u.parse_release(test, CHANNEL, prereleases=True)["version"], "v1.3.0-beta.1")
+        for bad in (dict(test, prerelease=False), dict(release(), prerelease=True), dict(test, draft=True)):
+            with self.subTest(bad=bad["tag_name"]), self.assertRaises(u.UpdateError):
+                u.parse_release(bad, CHANNEL, prereleases=True)
+
+    def test_check_with_test_versions_picks_the_newest_published_one(self):
+        program(self.root, "v1.0.0")
+        listing = [dict(release("v1.3.0-beta.1"), prerelease=True), release("v1.2.3"),
+                   dict(release("v9.0.0"), draft=True), dict(release("v1.4.0-beta.1"), prerelease=True, assets=[])]
+        with mock.patch.object(u, "_open", return_value=io.BytesIO(json.dumps(listing).encode())) as opener:
+            self.assertEqual(u.check_release(self.root, CHANNEL, prereleases=True)["version"], "v1.3.0-beta.1")
+        self.assertTrue(opener.call_args.args[0].endswith(f"/repos/{CHANNEL.repository}/releases?per_page=30"))
+        with mock.patch.object(u, "_open", return_value=io.BytesIO(json.dumps(listing[1]).encode())) as opener:
+            self.assertEqual(u.check_release(self.root, CHANNEL)["version"], "v1.2.3")
+        self.assertTrue(opener.call_args.args[0].endswith(f"/repos/{CHANNEL.repository}/releases/latest"))
+        missing = u.urllib.error.HTTPError("https://api.github.com/x", 404, "Not Found", {}, None)
+        with mock.patch.object(u, "_open", side_effect=missing):
+            self.assertIsNone(u.check_release(self.root, CHANNEL))     # no release published yet: up to date
+        refused = u.urllib.error.HTTPError("https://api.github.com/x", 403, "rate limited", {}, None)
+        with mock.patch.object(u, "_open", side_effect=refused), self.assertRaises(u.UpdateError):
+            u.check_release(self.root, CHANNEL)
 
     def test_release_rejects_test_duplicate_and_foreign_assets(self):
         self.assertEqual(u.parse_release(release(), CHANNEL)["version"], "v1.2.3")
@@ -134,9 +178,9 @@ class UpdaterTests(unittest.TestCase):
             u.verify_signature(json.dumps(metadata), sums, dict(version="v1.2.3"), CHANNEL)
 
     def test_archive_refuses_traversal_case_collisions_devices_and_player_data(self):
-        prefix = "OpenRecomp-v1.2.3/"
-        bad_entries = ["../escape", "openrecomp/../../escape", "openrecomp/./bad", "settings.json", "python/CON.txt", "python/COM¹.txt",
-                       "python/bad:stream", "python/space ", "python\\escape", "/absolute"]
+        prefix = u.ARCHIVE_TOP + "/"
+        bad_entries = ["../escape", "openrecomp/../../escape", "openrecomp/./bad", "settings.json", "portable/CON.txt", "portable/COM¹.txt",
+                       "portable/bad:stream", "portable/space ", "portable\\escape", "/absolute"]
         for name in bad_entries:
             with self.subTest(path=name):
                 raw = self.archive({prefix + name: b"fake"})
@@ -151,7 +195,7 @@ class UpdaterTests(unittest.TestCase):
     def test_archive_refuses_symlink(self):
         raw = io.BytesIO()
         with zipfile.ZipFile(raw, "w") as archive:
-            link = zipfile.ZipInfo("OpenRecomp-v1.2.3/openrecomp/link")
+            link = zipfile.ZipInfo(u.ARCHIVE_TOP + "/openrecomp/link")
             link.external_attr = (0o120777 << 16)
             archive.writestr(link, "outside")
         with zipfile.ZipFile(io.BytesIO(raw.getvalue())) as archive, self.assertRaises(u.UpdateError):
@@ -171,7 +215,7 @@ class UpdaterTests(unittest.TestCase):
         source = Path(self.temp.name) / "source"
         source.mkdir()
         program(source)
-        entries = {"OpenRecomp-v1.2.3/" + str(p.relative_to(source)).replace("\\", "/"): p.read_bytes()
+        entries = {u.ARCHIVE_TOP + "/" + str(p.relative_to(source)).replace("\\", "/"): p.read_bytes()
                    for p in source.rglob("*") if p.is_file()}
         archive = self.archive(entries)
         digest = hashlib.sha256(archive).hexdigest()
@@ -184,7 +228,7 @@ class UpdaterTests(unittest.TestCase):
             return sums if url == "sums" else b"signature"
         with mock.patch.object(u, "_download", side_effect=download), mock.patch.object(u, "verify_signature") as verify:
             staged = u.stage_update(self.root, offered, CHANNEL)
-        self.assertTrue((staged / "OpenRecomp.exe").is_file())
+        self.assertTrue((staged / "run.cmd").is_file())
         verify.assert_called_once()
         with mock.patch.object(u, "_download", side_effect=download), mock.patch.object(u, "verify_signature"), self.assertRaises(u.UpdateError):
             u.stage_update(self.root, dict(offered, digest="0" * 64), CHANNEL)
@@ -210,7 +254,7 @@ class UpdaterTests(unittest.TestCase):
         with zipfile.ZipFile(archive_path, "w") as archive:
             for source in staged.rglob("*"):
                 if source.is_file():
-                    archive.write(source, "OpenRecomp-v1.2.3/" + source.relative_to(staged).as_posix())
+                    archive.write(source, u.ARCHIVE_TOP + "/" + source.relative_to(staged).as_posix())
         sums = (hashlib.sha256(archive_path.read_bytes()).hexdigest() + "  OpenRecomp-v1.2.3.zip\n").encode("ascii")
         signature = release_sign.sign(seed, u.signature_message(self.channel.name, "v1.2.3", sums))
         (staged.parent / "SHA256SUMS").write_bytes(sums)
@@ -283,11 +327,12 @@ class UpdaterTests(unittest.TestCase):
 
     def test_restart_owns_private_python_instead_of_wrapper(self):
         with mock.patch.object(u.subprocess, "Popen") as spawn:
-            u._restart(self.root)
+            u._restart(self.root, None, ["--windowed", "C:\\not-a-switch", "--x;evil"])
         command = spawn.call_args.args[0]
-        self.assertEqual(Path(command[0]), self.root / "python" / "pythonw.exe")
-        self.assertEqual(command[1:3], ["-I", "-B"])
-        self.assertEqual(Path(command[3]), self.root / "openrecomp_boot.py")
+        # Setup's shortcut: the install's own portable pythonw, -B -m openrecomp, in the program folder.
+        self.assertEqual(Path(command[0]), self.root / "portable" / "pythonw.exe")
+        self.assertEqual(command[1:], ["-B", "-m", "openrecomp", "--windowed"])
+        self.assertEqual(spawn.call_args.kwargs["cwd"], self.root)
 
     def test_live_unconfirmed_python_terminated_before_restore(self):
         path, staged = self.transaction()

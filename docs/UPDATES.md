@@ -1,121 +1,104 @@
 # Signed launcher updates
 
-The updater is implemented, but production updates remain disabled until the owner chooses
-the release channel and public signing key. No T4 or T5DR release can be used as a launcher
-update. Game installations and the player's settings are outside the program transaction.
+OpenRecomp-FGC updates itself from the signed releases of
+[TheWishin/OpenRecomp-FGC](https://github.com/TheWishin/OpenRecomp-FGC/releases). Games and the player's
+settings are not part of a launcher update; the games update from their own releases
+([GAME_SETUP.md](GAME_SETUP.md)).
 
 For a gradual move from T5DR Online 1.1.9, use the separate
 [coexistence and private update-drill guide](T5DR_COEXISTENCE.md). Its headless
 `tools/update_drill.py` checks an explicitly supplied settings-folder copy;
 it does not run this signed update transaction or qualify a packaged release.
-Keep the original T5DR installation and its launcher intact during that drill.
 
-## Owner decisions before the first release
+## The release channel
 
-Set these constants in `openrecomp/updater.py`, review them, and include them in the initial
-package:
+Built into `openrecomp/updater.py`:
 
-* `RELEASE_REPOSITORY`: the launcher's own GitHub `owner/repository`.
-* `RELEASE_REPOSITORY_ID`: that repository's immutable numeric ID.
-* `RELEASE_CHANNEL`: a unique stable channel name, chosen for this launcher only.
-* `RELEASE_PUBLIC_KEYS`: the launcher's Ed25519 public key, 64 lowercase hexadecimal digits.
+| | |
+| --- | --- |
+| `RELEASE_REPOSITORY` | `TheWishin/OpenRecomp-FGC` |
+| `RELEASE_REPOSITORY_ID` | `1439720330` (GitHub's numeric ID; release downloads must come from that ID's storage) |
+| `RELEASE_CHANNEL` | `openrecomp-fgc` |
+| `RELEASE_PUBLIC_KEYS` | one Ed25519 key, key id `240b33a1229ca79b` |
 
-Use a new launcher key. Never reuse a game's key. Empty or incomplete trust configuration
-disables checks and installation; there is no unsigned fallback. Public keys are public;
-private keys must never enter the repository, package, chat or logs.
+The private key never enters a repository, a package, a chat or a log. How it is kept, backed up and
+replaced: [RELEASE_KEYS.md](RELEASE_KEYS.md). With an empty or incomplete channel the launcher checks
+nothing and installs nothing; there is no unsigned fallback.
 
-The offline `tools/release_sign.py` tool uses Python's standard library. The owner can run
-`keygen --out <private-file-outside-checkout>` once, then `public-key --key-file <private-file>`.
-It refuses private key paths inside the checkout and never overwrites a key. Keep a separate
-offline backup. The tool prints only the public key and its ID. No key was generated as part
-of implementing this feature.
+## What a release contains
 
-After packaging, the owner runs:
+`tools/make_release.py` makes every file ([RELEASING.md](RELEASING.md)):
+
+* `OpenRecomp-vX.Y.Z.zip`: the `OpenRecomp-FGC/` program folder (launcher source, its private
+  `portable/` Python and Qt, `run.cmd`, `release.json`) and the start texts beside it.
+* `OpenRecomp-FGC-Setup-X.Y.Z.exe`: Setup, built from exactly that zip.
+* `SHA256SUMS`: both files, one `<sha256>  <name>` line each.
+* `SHA256SUMS.sig`: JSON `{algorithm: ed25519, channel, version, key_id, signature}`; the signed bytes are
 
 ```
-python tools/release_sign.py sign --key-file <private-file> --channel <chosen-channel> --version vX.Y.Z --sums <SHA256SUMS> --out <SHA256SUMS.sig>
+OpenRecomp-FGC release signature v1\n<channel>\n<tag>\n<exact SHA256SUMS bytes>
 ```
 
-Publish the zip, `SHA256SUMS`, and `SHA256SUMS.sig` together in the launcher's own release.
-Release tags must be exactly `vX.Y.Z`, with no preview suffix, build metadata, capital V or
-leading zeroes. Drafts and prereleases are refused. The package's `release.json` must identify
-`project: openrecomp-fgc`, the exact channel, and the same version. The archive and top folder
-are both named `OpenRecomp-vX.Y.Z` (the archive adds `.zip`).
+`release.json` names `project: openrecomp-fgc`, the channel and the same tag.
+
+## Stable and test versions
+
+Everyone gets published plain `vX.Y.Z` releases (GitHub's "latest release"). **Quick access -> Test
+versions: On** (the same switch as for the games) also offers published pre-releases tagged
+`vX.Y.Z-<test>` (for example `v0.2.0-beta.1`): the newest of the last 30 releases. A test tag must be marked
+pre-release on GitHub and a pre-release must have a test tag, so a stable player is never offered a test build.
+Order: `v0.2.0-beta.1 < v0.2.0-beta.2 < v0.2.0-rc.1 < v0.2.0`. Drafts never. Turning the switch off offers
+the next stable release that is newer than the installed test version.
+
+## When it checks
+
+A few seconds after the start (together with the game checks; `OPENRECOMP_NO_GAME_CHECKS=1` turns both off),
+when the Test versions switch changes, and on **Quick access -> Check for launcher updates**. The automatic
+check says nothing unless there is an update; then the update dialog opens once (not during a game, build
+or online session). No release published yet counts as up to date.
 
 ## Verification and installation
 
-Checks ask only the configured repository's latest release. Every download and redirect is
-restricted to HTTPS and that repository's release URLs or numeric GitHub asset-storage ID.
-The archive must match both the signed SHA-256 checksum and GitHub's API digest and size.
-Signatures bind this launcher project, channel, version and exact checksum-file bytes. An
-unsigned release, a foreign channel, an invalid signature or a checksum mismatch changes no
-installed files. Downloads, metadata and extraction have bounded sizes.
+Every download and redirect is restricted to HTTPS, this repository's release URLs and GitHub's storage
+for its numeric ID. The zip must match the signed checksum and GitHub's own digest and size. A wrong key,
+another channel or version, a changed zip or checksum changes no installed file.
 
-The signature envelope is JSON with `algorithm: ed25519`, `channel`, `version`, `key_id`
-(the first 16 hexadecimal characters of SHA-256 of the public key), and `signature`
-(128 hexadecimal characters). The signed bytes are:
+The player confirms the offered update. The launcher unpacks it beside the installation
+(`OpenRecomp-FGC.update\<transaction>\new`), checks every path (no links, devices, traversal, duplicates;
+only the program items `portable openrecomp games docs LICENSE README.md requirements.txt run.cmd
+release.json`), copies its private Python interpreter (not Qt) into the transaction and starts the copied
+updater, then quits. The helper waits until no program from the installation runs, authenticates the
+retained zip, signature and every staged file again, renames the program items into place on the same
+drive and starts the new launcher the way Setup's shortcut does
+(`portable\pythonw.exe -B -m openrecomp`, the same switches such as `--windowed`). The new launcher
+confirms a healthy start after 15 seconds; a failed move, start or confirmation puts the old program back
+and starts it.
 
-```
-OpenRecomp-FGC release signature v1\n<channel>\n<vX.Y.Z>\n<exact SHA256SUMS bytes>
-```
+After a confirmed update:
 
-The player explicitly confirms an offered update. A copied private Python runs the old
-updater beside the installation, waits until the launcher exits and no program from the
-installation is running, then renames program files on the same drive. The archive permits
-only the program items listed in `PROGRAM_ITEMS`, rejects unsafe Windows paths, duplicate
-names, links and special files, and validates the staged manifest before swapping.
+* Setup installs (`OpenRecomp-install.txt` beside `OpenRecomp-FGC`): the record lists the new program's
+  files, so the uninstall and the next Setup remove exactly these; Apps & Features and Setup's own key show
+  the new version. A zip install has no record and nothing changes.
+* The next start says "Launcher updated to vX.Y.Z" and removes finished update folders (10 minutes after
+  their result was shown). A folder that needs recovery, or a helper's lock, is never removed.
 
-The transaction retains the downloaded archive and exact signed checksum and signature
-files. Worker preparation verifies their signature context and the archive hash, then
-compares the staged file and directory set and every staged file's hash with the
-authenticated archive. Runtime copying and hashing run in the update worker. The UI
-checks that it is still safe to quit before starting the prepared helper. After the
-launcher exits, the helper repeats authentication, checks that the target is still an
-upgrade, and checks for running installation processes again before moving program files.
-These checks detect intervening changes when verification runs; they do not protect
-against a malicious process with the same user's permissions changing files between the
-last check and a rename, or tampering with the installed updater itself.
+Player data in `OPENRECOMP_HOME` (default `%LOCALAPPDATA%\OpenRecomp`: settings, saved logins, imported
+games) is never moved. Updating refuses an `OPENRECOMP_HOME` inside a program item. Free space is needed for
+the zip, the staged program, the old backup and the copied interpreter.
 
-The new launcher schedules confirmation after QML loads and its event loop reaches
-a timer after 15 seconds. This checks scene loading and event-loop survival; it does
-not verify every screen, controller input or adapter. A failed
-move, start, early exit or missing confirmation restores the previous program and restarts
-it. Existing backups are retained beside the installation for recovery. If restoring a
-locked file itself fails, the backup is retained; close programs using the folder before
-manual recovery. A killed helper, power loss or machine crash during renames can also need
-manual recovery from that backup. This is a rollback mechanism, not a crash-proof filesystem
-transaction.
+An `apply.lock` folder in `OpenRecomp-FGC.update` serializes helpers through the swap and any rollback. An
+interrupted helper or an unresolved recovery leaves it: close all launcher and helper processes, restore
+the transaction's `backup` if needed, then remove the empty `apply.lock`.
 
-An `apply.lock` directory in `<installation>.update` beside the installation,
-alongside the transaction folders, serializes helpers for that installation through the
-swap and any rollback. A second helper refuses to proceed while the lock exists.
-Successful completion or a completed rollback removes it. An interrupted helper
-or unresolved recovery leaves it in place to prevent another update from moving
-files before recovery is reviewed. Close all launcher and update-helper processes,
-review the transaction's backup and restore the previous program as needed, then
-remove the empty `apply.lock` directory before retrying. Do not remove the lock
-while a helper may still be working, and retain the transaction and backup until
-recovery is complete.
+## Test hook
 
-Player data in `OPENRECOMP_HOME` is never moved. Other unrecognized files in the installation
-are kept too. Updating refuses an `OPENRECOMP_HOME` that overlaps a program item. The launcher
-must not be installed into its own player-data directory. Sufficient space is needed for the
-archive, staged program, old backup and copied helper runtime.
+Never for players: `OPENRECOMP_RELEASES_TEST=http://127.0.0.1:<port>` makes the launcher and the game
+installer ask a fake GitHub on this PC (API under `/repos/...`, files under `/<repo>/releases/download/...`,
+storage under `/storage/<id>/...`); `OPENRECOMP_RELEASES_TEST_KEY=<64 hex>` adds a test public key. Both are
+ignored for any other address. Tests: `tests/test_updater.py`, `tests/test_release_updates.py` (fake GitHub in
+`tests/release_fixtures.py`).
 
-For planned key rotation, ship both public keys in an update signed by the old key, then
-ship the next update signed by the new key and remove the old public key. Losing the old
-private key before that transition requires one manual launcher installation. Changing a
-channel or repository similarly needs a deliberately reviewed transition release.
+## Not covered by the automatic checks
 
-## Verification still required
-
-Tests use fake releases, inert files and processes, plus an RFC 8032 verification vector.
-Filesystem swap tests exercise real temporary-file moves with injected process and
-restart behavior; the service tests replace the updater API and do not independently
-verify signature checking or installation. Source-string assertions about the starter
-are not a test of its compiled behavior.
-They do not exercise a public release, a real packaged executable, Windows process locking,
-network/proxy behavior or a clean PC. Before release, test on a clean Windows PC without
-Python: extraction into a moved folder, first start with no game, controller-only operation,
-settings preservation, a valid signed update, wrong-channel and tampered updates, a failed
-start and rollback. No package was built or measured during this task.
+A clean Windows PC without Python, SmartScreen and antivirus on other PCs, network proxies, and a real
+GitHub release (the first one is checked by hand after publishing, see [RELEASING.md](RELEASING.md)).

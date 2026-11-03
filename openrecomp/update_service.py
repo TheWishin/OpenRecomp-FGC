@@ -7,12 +7,14 @@ from . import updater
 
 
 class UpdateService:
-    def __init__(self, root=None, *, api=updater, busy=None, quit=None, worker=None):
+    def __init__(self, root=None, *, api=updater, busy=None, quit=None, worker=None, prereleases=None):
         self.root = Path(root) if root is not None else Path(__file__).resolve().parent.parent
         self.api = api
         self.busy = busy or (lambda: False)
         self.quit = quit or (lambda: None)
         self.worker = worker or self._thread
+        self.prereleases = prereleases or (lambda: False)     # the player's Quick access -> Test versions switch
+        self.quiet = False                                     # an automatic check: no "up to date" message
         self.state = dict(phase="idle", version="", notes="", size=0)
         self.results = queue.Queue()
         self.release = None
@@ -32,12 +34,14 @@ class UpdateService:
                 self.results.put((operation, None, phase))
         self.worker(work)
 
-    def check(self):
-        if self.state["phase"] in ("checking", "installing", "waiting"):
+    def check(self, quiet=False):
+        if self.state["phase"] in ("checking", "installing", "waiting") or self.prepared is not None:
             return
         self.release = None
+        self.quiet = bool(quiet)
+        test = bool(self.prereleases())
         self.state.update(phase="checking", version="", notes="", size=0)
-        self._run("check", lambda: self.api.check_release(self.root))
+        self._run("check", lambda: self.api.check_release(self.root, prereleases=test))
 
     def install(self):
         """Called only after the player confirms the offered release."""

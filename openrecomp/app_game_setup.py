@@ -25,6 +25,10 @@ class GameSetupBackend:
         self.config["game_prereleases"] = bool(on)
         self._save_config()
         self._setup_check_all(force=True)
+        updates = getattr(self, "updates", None)          # the launcher's own test versions follow the switch
+        if updates is not None and updates.state.get("phase") in ("idle", "current", "available", "error"):
+            self._offered_update = False
+            updates.check(quiet=True)
 
     def _setup_root(self, gid):
         game = self.nav.game_by_id(gid)
@@ -111,6 +115,9 @@ class GameSetupBackend:
             if self._setup_clock >= FIRST_CHECK_SECONDS:
                 self._setup_started = True
                 self._setup_check_all()
+                auto = getattr(self, "_auto_check_updates", None)    # the launcher's own release, same moment
+                if callable(auto):
+                    auto()
         for gid in SETUP_GAMES:
             game = self.nav.game_by_id(gid)
             seen = getattr(game.a, "lobby_release", None) if game is not None and game.a.found() else None

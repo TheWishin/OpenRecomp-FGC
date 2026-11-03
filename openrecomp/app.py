@@ -59,16 +59,20 @@ class Backend(QObject, GameSetupBackend):
                        on_game_preview=self._preview_game, on_game_accept=self._accept_game,
                        on_game_remove=self._remove_game, on_game_update_check=self._check_game_update,
                        on_game_update_install=self._install_game_update, **self._setup_kwargs())
-        self.updates = UpdateService(busy=self._update_busy, quit=self._quit)
+        self.updates = UpdateService(busy=self._update_busy, quit=self._quit,
+                                     prereleases=lambda: bool(self.config.get("game_prereleases")))
         self._offered_update = False
         self._update_phase = "idle"
         if problems:
             self.nav.say(problems[0], 8)
         try:
             result = updater.update_result(self.updates.root)
+            updater.clean_finished(self.updates.root)
         except (OSError, ValueError, TypeError):
             result = None
-        if result and result.get("status") == "rolled_back":
+        if result and result.get("status") == "updated" and result.get("version") == updater.local_version(self.updates.root):
+            self.nav.say(i18n.message("updates.updated", version=i18n.literal(result["version"])), 8)
+        elif result and result.get("status") == "rolled_back":
             self.nav.say("@updates.rolled_back", 12)
         elif result and result.get("status") == "recovery_required":
             self.nav.say("@updates.recovery", 20)
@@ -119,6 +123,11 @@ class Backend(QObject, GameSetupBackend):
     def _check_updates(self):
         self.updates.check()
 
+    def _auto_check_updates(self):
+        """A few seconds after the start (with the games' check): an offer appears, nothing is said otherwise."""
+        if self.updates.state.get("phase") == "idle" and not self._update_busy():
+            self.updates.check(quiet=True)
+
     def _install_update(self):
         if not self.updates.install():
             self.nav.say("@updates.busy")
@@ -130,7 +139,7 @@ class Backend(QObject, GameSetupBackend):
         if phase != self._update_phase:
             changed = True
             self._update_phase = phase
-            if phase in ("current", "unconfigured", "error"):
+            if phase in ("current", "unconfigured", "error") and not self.updates.quiet:
                 key = "failed" if phase == "error" else phase
                 self.nav.say("@updates." + key, 8)
         if phase == "available" and not self._offered_update and not self._update_busy():

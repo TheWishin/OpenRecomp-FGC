@@ -1,7 +1,14 @@
 """Signed, channel-bound launcher updates. Also runs alone from a private helper Python.
 
-No game files or player settings are part of a transaction. Trust is deliberately empty
-until the owner chooses this project's release repository, channel and public key.
+No game files or player settings are part of a transaction. The program is the `OpenRecomp-FGC` folder
+that Setup and the release zip put on the player's PC (portable Python in `portable/`, started as
+`portable/pythonw.exe -B -m openrecomp`); a release zip carries that folder as `OpenRecomp-FGC/`.
+
+Releases: TheWishin/OpenRecomp-FGC, published `vX.Y.Z` (and, only when the player turned on Quick access ->
+Test versions, published pre-releases `vX.Y.Z-<test>`), signed with this launcher's own Ed25519 key
+(docs/UPDATES.md, docs/RELEASE_KEYS.md). Test hook (never for players): OPENRECOMP_RELEASES_TEST=
+http://127.0.0.1:<port> serves API and files from a fake GitHub on this PC, OPENRECOMP_RELEASES_TEST_KEY=<hex>
+adds a test public key; both are ignored for any other address.
 """
 import ctypes
 import hashlib
@@ -15,26 +22,37 @@ import stat
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
 from dataclasses import dataclass
 
 
-RELEASE_REPOSITORY = ""
-RELEASE_REPOSITORY_ID = ""
-RELEASE_CHANNEL = ""
-RELEASE_PUBLIC_KEYS = ()
+# The launcher's release channel (owner, 2026-11-03). The private key is never in a repository: see
+# docs/RELEASE_KEYS.md. Key id 240b33a1229ca79b.
+RELEASE_REPOSITORY = "TheWishin/OpenRecomp-FGC"
+RELEASE_REPOSITORY_ID = "1439720330"
+RELEASE_CHANNEL = "openrecomp-fgc"
+RELEASE_PUBLIC_KEYS = ("155380e01c2fd2b5b13bc4a6f3590402294db672a2ffb5c20afb402d5b0987f1",)
 PROJECT = "openrecomp-fgc"
 CONFIRM_AFTER_MS = 15000
 CONFIRM_WAIT = 120
 CONFIRM_ENV = "OPENRECOMP_UPDATE_CONFIRM"
+TEST_ENV, TEST_KEY_ENV = "OPENRECOMP_RELEASES_TEST", "OPENRECOMP_RELEASES_TEST_KEY"
 MAX_ZIP = 1024 * 1024 * 1024
 MAX_UNPACKED = 3 * MAX_ZIP
-PROGRAM_ITEMS = ("OpenRecomp.exe", "openrecomp_boot.py", "python", "openrecomp", "games",
-                 "LICENSES", "docs", "LICENSE", "README.md", "release.json")
-REQUIRED_ITEMS = ("OpenRecomp.exe", "openrecomp_boot.py", "python/pythonw.exe", "openrecomp/app.py", "release.json")
-_VERSION = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
+ARCHIVE_TOP = "OpenRecomp-FGC"          # the zip's program folder, the same name Setup installs into
+RUNTIME = "portable"                    # the private Python inside the program folder
+PROGRAM_ITEMS = ("portable", "openrecomp", "games", "docs", "LICENSE", "README.md", "requirements.txt",
+                 "run.cmd", "release.json")
+REQUIRED_ITEMS = ("portable/pythonw.exe", "portable/python312._pth", "openrecomp/__main__.py", "openrecomp/app.py",
+                  "run.cmd", "release.json")
+LOOSE_FILES = ("START_HERE.txt", "START_HIER.txt", "BUNDLE.txt")   # beside the folder in the zip; never installed
+SETUP_RECORD = "OpenRecomp-install.txt"  # Setup's list of its files, beside the program folder
+_VERSION = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+                      r"(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z][0-9A-Za-z]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z][0-9A-Za-z]*))*))?\Z",
+                      re.ASCII)
 _CHANNEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{2,100}\Z")
 _DEVICES = ({"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
             | {f"{p}{n}" for p in ("COM", "LPT") for n in "0123456789¹²³"})
@@ -63,13 +81,34 @@ class Channel:
         return self
 
 
+def test_base():
+    """The fake GitHub of a test on this PC (OPENRECOMP_RELEASES_TEST), else ""."""
+    base = os.environ.get(TEST_ENV, "").rstrip("/")
+    return base if re.fullmatch(r"http://(?:127\.0\.0\.1|localhost|\[::1\]):[0-9]{1,5}", base) else ""
+
+
 def configured_channel():
-    return Channel(RELEASE_REPOSITORY, RELEASE_REPOSITORY_ID, RELEASE_CHANNEL, RELEASE_PUBLIC_KEYS).validate()
+    keys = RELEASE_PUBLIC_KEYS
+    test = os.environ.get(TEST_KEY_ENV, "").strip().lower()
+    if test_base() and re.fullmatch(r"[0-9a-f]{64}", test) and test not in keys:
+        keys = tuple(keys) + (test,)
+    return Channel(RELEASE_REPOSITORY, RELEASE_REPOSITORY_ID, RELEASE_CHANNEL, tuple(keys)).validate()
 
 
 def version_key(version):
+    """A sortable key for vX.Y.Z and vX.Y.Z-<test> (semantic-version order: v1.2.0-beta.1 < v1.2.0), else None."""
+    value = str(version)
+    match = _VERSION.fullmatch(value)
+    if not match or len(value) > 64:
+        return None
+    suffix = match.group(4)
+    ids = () if suffix is None else tuple((0, int(p), "") if p.isdigit() else (1, 0, p) for p in suffix.split("."))
+    return tuple(map(int, match.groups()[:3])) + (1 if suffix is None else 0, ids)
+
+
+def is_test_version(version):
     match = _VERSION.fullmatch(str(version))
-    return tuple(map(int, match.groups())) if match else None
+    return bool(match and match.group(4))
 
 
 def _json(path):
@@ -83,16 +122,37 @@ def local_version(root):
         return "dev"
 
 
+def api_paths(channel):
+    return (f"/repos/{channel.repository}/releases/latest", f"/repos/{channel.repository}/releases")
+
+
+def api_root():
+    return test_base() or "https://api.github.com"
+
+
+def files_root():
+    return test_base() or "https://github.com"
+
+
 def url_allowed(url, channel, kind="download"):
     try:
         value = urllib.parse.urlsplit(url)
         path = urllib.parse.unquote(value.path)
+        base = test_base()
+        if base:
+            if (f"{value.scheme}://{value.netloc}".lower() != base.lower() or value.username or value.password
+                    or "\\" in path or any(p in (".", "..") for p in path.split("/")) or value.fragment):
+                return False
+            if kind == "api":
+                return path in api_paths(channel)
+            return (path.startswith(f"/{channel.repository}/releases/download/")
+                    or path.startswith(f"/storage/{channel.repository_id}/"))
         if (value.scheme != "https" or value.username or value.password or value.port not in (None, 443)
                 or "\\" in path or any(p in (".", "..") for p in path.split("/")) or value.fragment):
             return False
         host = (value.hostname or "").lower()
         if kind == "api":
-            return host == "api.github.com" and path == f"/repos/{channel.repository}/releases/latest"
+            return host == "api.github.com" and path in api_paths(channel)
         if host == "github.com":
             return path.startswith(f"/{channel.repository}/releases/download/")
         return host in ("objects.githubusercontent.com", "release-assets.githubusercontent.com") and bool(
@@ -142,9 +202,15 @@ def _download(url, channel, limit, destination=None):
     return size if destination else b"".join(chunks)
 
 
-def parse_release(data, channel):
+def parse_release(data, channel, prereleases=False):
+    """The offer for one GitHub release. Stable: published plain vX.Y.Z only. prereleases=True (the player's
+    Test versions switch) also takes published pre-releases; a pre-release tag must carry a test suffix and a
+    suffixed tag must be marked pre-release on GitHub, so a stable player is never offered a test build."""
     channel.validate()
-    if not isinstance(data, dict) or data.get("draft") or data.get("prerelease") or not version_key(data.get("tag_name")):
+    if not isinstance(data, dict) or data.get("draft") is not False or not version_key(data.get("tag_name")):
+        raise UpdateError("Only published vX.Y.Z releases are accepted.")
+    test = is_test_version(data["tag_name"])
+    if data.get("prerelease") is not test or (test and not prereleases):
         raise UpdateError("Only published plain vX.Y.Z releases are accepted.")
     version = data["tag_name"]
     wanted = (f"OpenRecomp-{version}.zip", "SHA256SUMS", "SHA256SUMS.sig")
@@ -157,10 +223,11 @@ def parse_release(data, channel):
         if len(matches) != 1 or not url_allowed(matches[0].get("browser_download_url"), channel):
             raise UpdateError("The release has missing, duplicate or foreign assets.")
         selected[name] = matches[0]
-        expected_path = f"/{channel.repository}/releases/download/{version}/{name}"
-        asset_url = urllib.parse.urlsplit(matches[0]["browser_download_url"])
-        if asset_url.hostname != "github.com" or urllib.parse.unquote(asset_url.path) != expected_path:
+        expected = f"{files_root()}/{channel.repository}/releases/download/{version}/{name}"
+        if matches[0]["browser_download_url"] != expected:
             raise UpdateError("An asset does not belong to the offered release.")
+        if matches[0].get("state", "uploaded") != "uploaded":
+            raise UpdateError("A release file is still being uploaded.")
     archive = selected[wanted[0]]
     digest = archive.get("digest", "")
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest) or type(archive.get("size")) is not int or not 0 < archive["size"] <= MAX_ZIP:
@@ -170,17 +237,41 @@ def parse_release(data, channel):
                 sig_url=selected["SHA256SUMS.sig"]["browser_download_url"], digest=digest[7:])
 
 
-def check_release(root, channel=None):
+def check_release(root, channel=None, prereleases=False):
+    """The newest release above this installation's version, or None (also: no release published yet).
+    prereleases=True = the player's Test versions switch: published pre-releases count too."""
     channel = (channel or configured_channel()).validate()
     current = version_key(local_version(root))
     if current is None:
         return None
-    url = f"https://api.github.com/repos/{channel.repository}/releases/latest"
-    with _open(url, channel, "api") as response:
-        raw = response.read(1024 * 1024 + 1)
-    if len(raw) > 1024 * 1024:
+    path = api_paths(channel)[1] + ("?per_page=30" if prereleases else "/latest")
+    try:
+        with _open(api_root() + path, channel, "api") as response:
+            raw = response.read(4 * 1024 * 1024 + 1)
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None                  # GitHub's answer while the repository has no published release
+        raise UpdateError(f"GitHub answered {error.code}.") from None
+    if len(raw) > 4 * 1024 * 1024:
         raise UpdateError("The release response is too large.")
-    release = parse_release(json.loads(raw), channel)
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        raise UpdateError("The release response is not JSON.") from None
+    if not prereleases:
+        release = parse_release(data, channel)
+    else:
+        if not isinstance(data, list):
+            raise UpdateError("The release list is not a list.")
+        offers = []
+        for item in data[:100]:
+            try:
+                offers.append(parse_release(item, channel, prereleases=True))
+            except UpdateError:
+                continue                 # drafts, foreign or half-uploaded releases are skipped
+        if not offers:
+            return None
+        release = max(offers, key=lambda offer: version_key(offer["version"]))
     return release if version_key(release["version"]) > current else None
 
 
@@ -272,9 +363,12 @@ def _manifest(root, release, channel):
 
 
 def _archive_members(archive, version):
+    """The program folder's entries as (info, parts below it). The start texts beside it are skipped."""
     members, seen, total = [], set(), 0
-    expected = "OpenRecomp-" + version
+    expected = ARCHIVE_TOP
     for info in archive.infolist():
+        if info.filename in LOOSE_FILES and info.orig_filename == info.filename and not info.is_dir():
+            continue
         name = info.filename
         path = PurePosixPath(name)
         parts = path.parts
@@ -456,10 +550,13 @@ def prepare_update(root, staged, channel=None):
     release = _json(staged.parent / "verified.json")
     _verify_staged(staged, release, channel)
     runner = staged.parent / "runner"
-    shutil.copytree(root / "python", runner / "python")
+    # Only the interpreter: the helper needs the standard library, not Qt (Lib\site-packages, ~300 MB).
+    shutil.copytree(root / RUNTIME, runner / RUNTIME,
+                    ignore=lambda folder, names: ["Lib"] if Path(folder) == root / RUNTIME and "Lib" in names else [])
     shutil.copy2(__file__, runner / "updater.py")
     token = secrets.token_hex(32)
-    plan = dict(root=str(root), staged=str(staged), pid=os.getpid(), version=release["version"], channel=channel.name, token=token)
+    plan = dict(root=str(root), staged=str(staged), pid=os.getpid(), version=release["version"], channel=channel.name,
+                token=token, args=launcher_args())
     plan_path = staged.parent / "plan.json"
     plan_path.write_text(json.dumps(plan), encoding="utf-8")
     return plan_path
@@ -475,8 +572,14 @@ def launch_update(root, prepared, channel=None):
     _check_user_home(root)
     runner = transaction / "runner"
     flags = 0x00000008 | 0x00000200 if os.name == "nt" else 0
-    return subprocess.Popen([str(runner / "python" / "pythonw.exe"), "-I", "-B", str(runner / "updater.py"), "--apply", str(plan_path)],
+    return subprocess.Popen([str(runner / RUNTIME / "pythonw.exe"), "-I", "-B", str(runner / "updater.py"), "--apply", str(plan_path)],
                             cwd=runner, creationflags=flags, close_fds=True)
+
+
+def launcher_args(argv=None):
+    """The launcher's own switches, so the restarted launcher opens the same way (e.g. --windowed)."""
+    argv = sys.argv[1:] if argv is None else argv
+    return [a for a in argv if isinstance(a, str) and re.fullmatch(r"--[a-z][a-z-]{1,30}", a)][:8]
 
 
 def _pid_alive(pid):
@@ -531,13 +634,14 @@ def _install_processes(root):
     return found
 
 
-def _restart(root, marker=None):
+def _restart(root, marker=None, args=()):
+    """Start the launcher the way Setup's shortcut does: its private pythonw, -B -m openrecomp, in its folder."""
     env = dict(os.environ)
     env.pop(CONFIRM_ENV, None)
     if marker:
         env[CONFIRM_ENV] = json.dumps(marker)
-    return subprocess.Popen([str(Path(root) / "python" / "pythonw.exe"), "-I", "-B",
-                             str(Path(root) / "openrecomp_boot.py")], cwd=root, env=env, close_fds=True)
+    return subprocess.Popen([str(Path(root) / RUNTIME / "pythonw.exe"), "-B", "-m", "openrecomp", *launcher_args(list(args))],
+                            cwd=root, env=env, close_fds=True)
 
 
 def _validated_plan(plan_path, channel=None):
@@ -552,7 +656,7 @@ def _validated_plan(plan_path, channel=None):
     return plan_path, plan, root, staged, transaction
 
 
-def apply_plan(plan_path, *, wait=CONFIRM_WAIT, alive=_pid_alive, processes=_install_processes, restart=_restart, move=os.replace, sleep=time.sleep):
+def apply_plan(plan_path, *, wait=CONFIRM_WAIT, alive=_pid_alive, processes=_install_processes, restart=None, move=os.replace, sleep=time.sleep):
     """Serialize helpers before any swap, including the complete rollback on failure."""
     plan_path, _plan, _root, _staged, transaction = _validated_plan(plan_path)
     lock = transaction.parent / "apply.lock"
@@ -584,6 +688,9 @@ def _write_result(transaction, status, version):
 def _apply_plan(plan_path, *, wait, alive, processes, restart, move, sleep):
     """Run only in the copied helper. Every failed move/start/confirmation restores the old files."""
     plan_path, plan, root, staged, transaction = _validated_plan(plan_path)
+    if restart is None:
+        args = plan.get("args") if isinstance(plan.get("args"), list) else []
+        restart = lambda where, marker=None: _restart(where, marker, args)  # noqa: E731
     backup = transaction / "backup"
     try:
         _check_user_home(root)
@@ -628,6 +735,10 @@ def _apply_plan(plan_path, *, wait, alive, processes, restart, move, sleep):
                 confirmed = False  # The launcher may still be writing the marker.
             if confirmed:
                 _write_result(transaction, "updated", plan["version"])
+                try:
+                    follow_setup(root, plan["version"])
+                except Exception:  # noqa: BLE001 -- Setup's bookkeeping never undoes a healthy update
+                    pass
                 return True
             if proc.poll() is not None:
                 break
@@ -661,6 +772,57 @@ def _apply_plan(plan_path, *, wait, alive, processes, restart, move, sleep):
         except Exception as error:
             raise UpdateError("The previous launcher was restored, but could not be restarted.", safe_to_unlock=True) from error
         raise UpdateError("The update failed and the previous launcher was restored.", safe_to_unlock=True) from failure
+
+
+UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenRecomp-FGC"
+SETUP_KEY = r"Software\OpenRecomp-FGC\Setup"
+
+
+def follow_setup(root, version):
+    """When Setup installed this launcher (<folder>\\OpenRecomp-FGC + <folder>\\OpenRecomp-install.txt): list the
+    updated program's files in Setup's record, so the uninstall and the next Setup remove exactly these, and show
+    the new version in Apps & Features. A zip install has no record and nothing changes. Returns True if updated."""
+    root = Path(root).resolve()
+    folder = root.parent
+    record = folder / SETUP_RECORD
+    if root.name != ARCHIVE_TOP or not record.is_file() or record.is_symlink():
+        return False
+    text = record.read_text(encoding="utf-8")
+    if not text.startswith("# OpenRecomp-FGC install"):
+        return False
+    plain = str(version)[1:] if str(version).startswith("v") else str(version)
+    prefix = ARCHIVE_TOP.casefold() + "/"
+    lines = []
+    for line in text.splitlines():
+        key, _, value = line.partition("=")
+        if key == "version":
+            line = "version=" + plain
+        elif key == "file" and value.replace("\\", "/").casefold().startswith(prefix):
+            continue
+        lines.append(line)
+    for item in PROGRAM_ITEMS:
+        base = root / item
+        if base.is_file():
+            lines.append(f"file={ARCHIVE_TOP}/{item}")
+            continue
+        for current, dirs, files in os.walk(base, followlinks=False):
+            dirs.sort()
+            for name in sorted(files):
+                lines.append("file=" + (Path(current) / name).relative_to(folder).as_posix())
+    temporary = record.with_name(record.name + ".tmp")
+    temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    os.replace(temporary, record)
+    if os.name == "nt":
+        import winreg
+        for key_path, value_name in ((UNINSTALL_KEY, "DisplayVersion"), (SETUP_KEY, "Version")):
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ | winreg.KEY_SET_VALUE) as key:
+                    location = winreg.QueryValueEx(key, "InstallLocation")[0]
+                    if os.path.normcase(os.path.abspath(location)) == os.path.normcase(str(folder)):
+                        winreg.SetValueEx(key, value_name, 0, winreg.REG_SZ, plain)
+            except OSError:
+                continue
+    return True
 
 
 def confirm_startup(root):
@@ -704,12 +866,52 @@ def update_result(root):
             value = _json(result)
             if not isinstance(value, dict):
                 continue
+            (result.parent / "consumed.json").write_text(json.dumps(dict(status=value.get("status"))), encoding="utf-8")
             result.unlink()
         except (OSError, ValueError):
             continue
         if value.get("status") in ("updated", "rolled_back", "recovery_required", "unchanged"):
             return value
     return None
+
+
+FINISHED_AFTER = 600          # s: a helper that wrote its result is long gone by then
+ABANDONED_AFTER = 2 * 86400   # s: a staged update whose helper never ran
+
+
+def clean_finished(root, now=None):
+    """Remove old update folders beside the installation: finished ones (their result was shown) and stale
+    stagings. Never one that needs recovery, never while any helper holds apply.lock. Returns the count."""
+    now = time.time() if now is None else now
+    try:
+        work = _work_root(root)
+        if not work.is_dir() or (work / "apply.lock").exists():
+            return 0
+        entries = list(work.iterdir())
+    except (OSError, UpdateError):
+        return 0
+    removed = 0
+    for transaction in entries:
+        try:
+            if (transaction.is_symlink() or transaction.is_junction() or not transaction.is_dir()
+                    or not re.fullmatch(r"[0-9a-f]{24}", transaction.name)):
+                continue
+            consumed = transaction / "consumed.json"
+            if consumed.is_file():
+                if _json(consumed).get("status") == "recovery_required" or now - consumed.stat().st_mtime < FINISHED_AFTER:
+                    continue
+            elif ((transaction / "result.json").exists() or (transaction / "backup").exists()
+                    or now - transaction.stat().st_mtime < ABANDONED_AFTER):
+                continue
+            shutil.rmtree(transaction)
+            removed += 1
+        except (OSError, ValueError, AttributeError):
+            continue
+    try:
+        work.rmdir()                  # only when empty
+    except OSError:
+        pass
+    return removed
 
 
 if __name__ == "__main__":

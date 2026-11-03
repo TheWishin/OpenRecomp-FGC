@@ -47,7 +47,7 @@ class UpdateSafety(unittest.TestCase):
         with zipfile.ZipFile(archive_path, "w") as archive:
             for source in staged.rglob("*"):
                 if source.is_file():
-                    archive.write(source, "OpenRecomp-v1.2.3/" + source.relative_to(staged).as_posix())
+                    archive.write(source, u.ARCHIVE_TOP + "/" + source.relative_to(staged).as_posix())
         sums = (hashlib.sha256(archive_path.read_bytes()).hexdigest() + "  OpenRecomp-v1.2.3.zip\n").encode("ascii")
         signature = release_sign.sign(seed, u.signature_message(self.channel.name, "v1.2.3", sums))
         (staged.parent / "SHA256SUMS").write_bytes(sums)
@@ -86,11 +86,11 @@ class UpdateSafety(unittest.TestCase):
             "changed inert fixture", encoding="utf-8"))
 
     def test_extra_staged_code_is_rejected_before_helper_launch_or_swap(self):
-        self.assert_tampering_refused(lambda stage: (stage / "python" / "extra.py").write_text(
+        self.assert_tampering_refused(lambda stage: (stage / "portable" / "extra.py").write_text(
             "inert audit fixture", encoding="utf-8"))
 
     def test_extra_staged_directory_is_rejected_before_helper_launch_or_swap(self):
-        self.assert_tampering_refused(lambda stage: (stage / "python" / "extra").mkdir())
+        self.assert_tampering_refused(lambda stage: (stage / "portable" / "extra").mkdir())
 
     def test_modified_retained_archive_cannot_authorize_a_changed_stage(self):
         def modify(stage):
@@ -105,7 +105,7 @@ class UpdateSafety(unittest.TestCase):
     def test_staged_directory_links_are_rejected(self):
         def modify(stage):
             try:
-                os.symlink(self.root / "python", stage / "openrecomp" / "linked", target_is_directory=True)
+                os.symlink(self.root / "portable", stage / "openrecomp" / "linked", target_is_directory=True)
             except (OSError, NotImplementedError):
                 self.skipTest("Directory symlinks are unavailable without changing system permissions")
         self.assert_tampering_refused(modify)
@@ -127,7 +127,7 @@ class UpdateSafety(unittest.TestCase):
             thread.start()
             thread.join(timeout=30)
             self.assertFalse(thread.is_alive())
-        api = SimpleNamespace(check_release=lambda _root: dict(version="v1.2.3"),
+        api = SimpleNamespace(check_release=lambda _root, **_kw: dict(version="v1.2.3"),
             stage_update=lambda _root, _release: staged, prepare_update=prepare, launch_update=launch)
         quit_app = mock.Mock()
         service = UpdateService(self.root, api=api, worker=worker,
