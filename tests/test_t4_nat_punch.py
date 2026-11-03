@@ -5,12 +5,10 @@ without new punches the traffic stops (review t4-online-b740a3a finding 2).
 """
 import asyncio
 import os
-import sys
 import unittest
 from unittest import mock
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "openrecomp", "vendor"))
-from t4lobby import nat, proto  # noqa: E402
+from openrecomp.vendor.t4lobby import nat, proto
 
 
 TAG = b"m" * 8
