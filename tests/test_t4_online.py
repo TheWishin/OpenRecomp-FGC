@@ -39,13 +39,18 @@ class Subject(T4):
         core = SimpleNamespace(load_settings=lambda: {}, play_problems=lambda s: [],
                                find_runtime=lambda s: (os.path.join(directory, "bin", "ps2EntryRunner.exe"), "fake"),
                                run_lock_holder=lambda: "", SAVE_DIR=directory)
-        super().__init__(dict(id="t4", short="T4"), {}, directory, core)
+        # A configured test server; the T4 lobby has no built-in default.
+        super().__init__(dict(id="t4", short="T4"), dict(t4_lobby_server="127.0.0.1:7791"), directory, core)
         self.clients = []
         self.starts = []
         self.stops = []
         self.child_exit = None
         self.fail_start = False
         self._online_api = dict(client=self.make_client, build=Build, servers=Servers, game_env=ticket_env)
+
+    def _online_lobby_dir(self):
+        # Fake client packages are planted here; the shipping adapter loads openrecomp/vendor.
+        return os.path.join(self.root, "lobby")
 
     def make_client(self, **kwargs):
         client = MatchClient(**kwargs)
@@ -129,7 +134,9 @@ class T4OnlineTests(unittest.TestCase):
             state = self.a.online_state()
             self.a.online_poll()
         self.assertEqual(state["phase"], "offline")
-        self.assertEqual(state["capabilities"], dict(ranked=False, lobby=True, match_flow=True))
+        self.assertEqual(state["capabilities"], dict(ranked=False, lobby=True, match_flow=True, registration=True,
+                                                     t4_lobby=True, rooms=False, direct_available=True,
+                                                     server_set=True))
         self.assertEqual(self.a.starts, [])
         self.scan.assert_not_called()
 
@@ -225,6 +232,18 @@ class T4OnlineTests(unittest.TestCase):
         self.assertEqual(client.calls.count(("game_started", "fake-match")), 1)
         self.assertEqual(client.calls.count(("game_playing", "fake-match")), 1)
         self.assertEqual(self.a._online_evidence, dict(frames=700, desync=2))
+
+    def test_evidence_reads_the_t4_games_own_summary_line(self):
+        # The real game's line: the live frame count, never "resim frames".
+        client = self.playing()
+        self.write_log("net.log", "[10:00:00] connected (host, P1), peer 127.0.0.1:30002, session 1\n")
+        self.write_log("rb_frames.log", "NETSUMMARY final live 1234 logical 1234: fps window 59.9 run 59.8; "
+                       "rollbacks 3 resim frames 9 max depth 2 depths; rtt 12 ms (5) delay 1; hashes compared "
+                       "41 mismatches 0; packets out 900 in 899 sim-dropped 0 resends 1; peer ok\n")
+        for _ in range(3):
+            self.a.online_poll()
+        self.assertEqual(self.a._online_evidence, dict(frames=1234, desync=0))
+        self.assertEqual(client.calls.count(("game_playing", "fake-match")), 1)
 
     def test_stale_logs_are_ignored_and_replaced_longer_logs_are_read(self):
         self.write_log("net.log", "old connected\n")

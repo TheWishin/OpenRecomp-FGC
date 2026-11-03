@@ -28,13 +28,15 @@ def rows(nav, g, state, action):
     if phase != "logged_in":
         return out
     if capabilities.get("account_tools"):
+        # T4's lobby shares T5DR's accounts: a password change or new codes apply to both games.
+        hint = "@t4.account_both_hint" if capabilities.get("t4_lobby") else "@online120.account_hint"
         out.append(dict(kind="heading", label="@online120.account_tools"))
         for field, label in (("online_current_password", "@online120.current_password"),
                              ("online_new_password", "@online120.new_password"),
                              ("online_repeat_password", "@online120.repeat_password")):
-            out.append(_field(nav, g, field, label, "@online120.account_hint"))
-        out += [action("account_change_password", "@online120.change_password", "@online120.account_hint"),
-                action("account_new_codes", "@online120.new_codes", "@online120.account_hint")]
+            out.append(_field(nav, g, field, label, hint))
+        out += [action("account_change_password", "@online120.change_password", hint),
+                action("account_new_codes", "@online120.new_codes", hint)]
     if capabilities.get("account_blocks"):
         out += [dict(kind="heading", label="@online120.blocks"),
                 action("accounts_refresh_blocks", "@online120.refresh_blocks", "@online120.blocks_hint"),

@@ -1,7 +1,8 @@
 # T4 beta first run and release acceptance
 
-This beta offers T4 offline play and online by direct IP or VPN: no lobby and
-no ranked. Lobby-based online stays hidden until a server exists. T5DR's
+This beta offers T4 offline play and online through a T4 lobby server or by direct
+IP or VPN; no ranked. The launcher ships the **T4 Online** lobby server (T5DR Online
+accounts work there); see [T4_ONLINE.md](T4_ONLINE.md). T5DR's
 installed-client Online screens have their own [acceptance scope](T5DR_ONLINE.md);
 the old T5DR Online launcher remains available during the transition.
 

@@ -1,0 +1,19 @@
+{
+  "format": "t5dr-servers/1",
+  "servers": [
+    {
+      "name": "T4 Online",
+      "host": "46.224.146.6",
+      "port": 7791,
+      "tls": "pin",
+      "fingerprint": "bb4e660384c8f550de3e5ee9bb243c71013d22a38113f544e7c7180d34805f24",
+      "udp_ports": [
+        7791,
+        7792
+      ],
+      "region": "EU",
+      "shared_login": true,
+      "default": true
+    }
+  ]
+}

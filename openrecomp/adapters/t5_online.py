@@ -53,6 +53,7 @@ class Online:
     online_lobby = False
     online_match_flow = False
     online_legacy_config = True
+    online_registration = None  # None: only the T5DR client registers accounts
 
     def online_supported(self):
         return True
@@ -156,9 +157,21 @@ class Online:
                 continue
         return private or {}
 
+    def _online_lobby_dir(self):
+        """The folder that holds the client package: the selected install's own lobby."""
+        return os.path.join(self.root, "lobby")
+
+    def _online_servers_dir(self):
+        return os.path.dirname(self.online_cfg_path())
+
+    def _online_can_register(self):
+        if self.online_registration is None:
+            return self.online_package == "t5lobby"
+        return bool(self.online_registration)
+
     def _online_modules(self):
         if not hasattr(self, "_online_api"):
-            lobby = os.path.join(self.root, "lobby")
+            lobby = self._online_lobby_dir()
             package_root = os.path.normcase(os.path.realpath(os.path.join(lobby, self.online_package)))
 
             def local_origin(origin):
@@ -192,6 +205,50 @@ class Online:
             self._online_api = dict(client=client.LobbyClient, build=buildid.BuildInfo, servers=servers)
         return self._online_api
 
+    def online_account_sessions(self):
+        """This game's remembered account logins with the host each belongs to, for a sister game's lobby
+        (T4 Online shares T5DR's accounts). Reads files only: no import, no connection. Plain-TCP logins and
+        logins this session already saw refused are left out; the caller decides whether a host is trusted."""
+        if self.online_package != "t5lobby":
+            return []
+        self._online_init()
+        sessions = self._online_config().get("sessions")
+        if not isinstance(sessions, dict):
+            return []
+        listed = {}
+        for path in (os.path.join(self._online_lobby_dir(), "servers.json"),
+                     os.path.join(self._online_servers_dir(), "servers.json")):
+            try:
+                with open(path, encoding="utf-8") as stream:
+                    doc = json.load(stream)
+            except (OSError, ValueError):
+                continue
+            for entry in (doc.get("servers") if isinstance(doc, dict) else None) or []:
+                if isinstance(entry, dict) and entry.get("name") and entry.get("host"):
+                    listed[str(entry["name"]).strip().lower()] = (str(entry["host"]).strip().lower(),
+                                                                  str(entry.get("tls") or "ca"))
+        rejected = set(getattr(self, "_online_rejected_sessions", {}).values())
+        out = []
+        for key, saved in sessions.items():
+            if (not isinstance(saved, dict) or not isinstance(saved.get("token"), str) or not saved["token"]
+                    or saved["token"] in rejected):
+                continue
+            text = str(key).strip().lower()
+            if text in listed:
+                host, tls = listed[text]
+            else:
+                secure = text.startswith("tls://") or "#" in text
+                address = (text[6:] if text.startswith("tls://") else text).split("#", 1)[0]
+                host = address.rsplit(":", 1)[0] if ":" in address else address
+                tls = "ca" if secure else "off"
+            if tls == "off" or not host:
+                continue
+            saved_at = saved.get("saved")
+            out.append(dict(host=host, name=str(saved.get("name") or "")[:64], token=saved["token"],
+                            saved=saved_at if isinstance(saved_at, (int, float)) and not isinstance(saved_at, bool)
+                            else 0))
+        return out
+
     def _online_saved(self):
         key = self._online_fields["online_server"].strip().lower() or self._online_default_server()
         sessions = self._online_config().get("sessions") or {}
@@ -205,7 +262,7 @@ class Online:
         self._online_init()
         capabilities = dict(ranked=self.online_ranked, lobby=self.online_lobby,
                             match_flow=self.online_match_flow)
-        if self.online_package == "t5lobby":
+        if self._online_can_register():
             capabilities["registration"] = True
         if self.online_lobby and self.online_game != "t4":
             capabilities.update(private_rooms=self._online_social_cap("private_rooms"),
@@ -365,7 +422,7 @@ class Online:
         cfg = self._online_config() if cfg is None else cfg
         api = self._online_modules()
         build = self._online_build(api)
-        directory = os.path.dirname(self.online_cfg_path())
+        directory = self._online_servers_dir()
         if getattr(self.s, "coexistence", False) and not os.path.isfile(os.path.join(directory, "servers.json")):
             sources = self.s.legacy_online_paths
             if sources:
@@ -490,7 +547,7 @@ class Online:
         if self._online_client is None and t5_features.offline_action(self, action):
             return
         if action in ("login_guest", "login_account", "login_register", "login_saved"):
-            if action == "login_register" and self.online_package != "t5lobby":
+            if action == "login_register" and not self._online_can_register():
                 return
             if self._online_client is None:
                 self._online_login(action)
@@ -888,9 +945,11 @@ class Online:
                 changed = True
             elif self.online_lobby and event.get("t") == "chat":
                 sender = event.get("from") or {}
-                self._online_chat.append(dict(name=str(sender.get("name") or "")[:64]
-                                              if isinstance(sender, dict) else "",
-                                              text=str(event.get("text") or "")[:300]))
+                line = dict(name=str(sender.get("name") or "")[:64] if isinstance(sender, dict) else "",
+                            text=str(event.get("text") or "")[:300])
+                if isinstance(sender, dict) and sender.get("badge") == "dev":
+                    line["badge"] = "dev"
+                self._online_chat.append(line)
                 self._online_chat = self._online_chat[-50:]
                 changed = True
             elif self.online_lobby and event.get("t") == "challenged":

@@ -11,13 +11,14 @@ class T4BetaDocsTests(unittest.TestCase):
     def read(self, name):
         return " ".join((ROOT / name).read_text(encoding="utf-8").split())
 
-    def test_player_entry_points_describe_direct_ip_beta(self):
+    def test_player_entry_points_describe_lobby_and_direct_ip_beta(self):
         for name in ("README.md", "docs/T4_FIRST_RUN.md", "docs/T4_ONLINE.md", "docs/INSTALLING.md"):
             with self.subTest(name=name):
                 text = self.read(name)
                 self.assertIn("direct IP", text)
                 self.assertIn("VPN", text)
-                self.assertIn("no lobby", text.lower())
+                self.assertIn("lobby server", text.lower())
+                self.assertNotIn("no lobby", text.lower())
                 self.assertIn("no ranked", text.lower())
                 self.assertNotIn("casual quick match", text.lower())
                 self.assertNotIn("shared login", text.lower())

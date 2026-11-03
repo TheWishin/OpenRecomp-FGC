@@ -572,7 +572,7 @@
     "updates.waiting": "Atualização pronta. Encerre o jogo, a compilação, a verificação de suporte e a sessão online para reiniciar o inicializador.",
     "t4.returning": "Voltando ao inicializador.",
     "t4.quit_busy": "Espere a instalação ou a verificação do disco terminar. Durante uma compilação, Confirmar abre Cancelar; depois tente sair novamente.",
-    "t4.online_setup_hint": "Digite seu Nome de jogador ou da conta com o teclado na tela e entre como convidado. Para uma conta, digite também a senha. Um Endereço do saguão vazio usa o saguão local 127.0.0.1:7791. Digite o endereço para usar outro servidor de T4.",
+    "t4.online_setup_hint": "Digite seu Nome de jogador com o teclado na tela e entre como convidado. Uma conta para T5DR Online e Tekken 4: entre com o nome e a senha da sua conta do T5DR Online, ou registre uma conta para os dois jogos (as patentes são de cada jogo). Contas precisam de um servidor seguro (tls:// ou um endereço com #impressão). O Endereço do saguão é o servidor de T4 em que você joga.",
     "t4.online_name_required": "Escolha Nome de jogador ou da conta e digite um nome com o teclado na tela; depois tente fazer login novamente.",
     "t4.onboarding_hint": "Escolha com o controle o ZIP portátil completo de T4 ou sua pasta. Depois escolha sua ISO de Tekken 4 USA (SLUS-20328).",
     "t4.onboarding_source": "Seu ZIP portátil completo de T4 ou sua pasta",
@@ -1075,5 +1075,15 @@
     "t4.source.game_failed": "Game ended with an error: {code}",
     "t4.source.resolution_native": "Native (640x448)",
     "t4.tools.copy_failed": "The command could not be copied. Try again.",
-    "preferences.save_failed": "As alterações valem para esta sessão, mas não puderam ser salvas. Verifique o arquivo de configurações do iniciador antes de reiniciá-lo."
+    "preferences.save_failed": "As alterações valem para esta sessão, mas não puderam ser salvas. Verifique o arquivo de configurações do iniciador antes de reiniciá-lo.",
+    "t4.lobby_mode": "Saguão online de T4",
+    "t4.lobby_mode_hint": "Jogue por um servidor de saguão de T4: entre como convidado ou com uma conta, converse no saguão, busque uma partida rápida ou desafie um jogador. IP direto / VPN continua disponível.",
+    "t4.direct_mode": "IP direto / VPN",
+    "t4.direct_mode_hint": "Volta para Hospedar / Entrar por endereço IP ou VPN, sem servidor de saguão.",
+    "t4.lobby_no_server": "Ainda não há nenhum servidor de saguão de T4. Digite em Endereço do saguão o endereço que você recebeu do organizador do servidor, ou use IP direto / VPN.",
+    "t4.mode_busy": "Primeiro termine ou cancele a verificação, a partida ou o login em andamento.",
+    "t4.saved_shared": "Usar seu login do T5DR",
+    "t4.saved_shared_hint": "Sua conta do T5DR Online está salva neste PC. O T4 usa a mesma conta: um toque faz o login, sem digitar a senha.",
+    "t4.saved_shared_refused": "Este servidor de T4 não aceitou seu login salvo do T5DR. Digite o nome da conta e a senha e escolha Entrar na conta.",
+    "t4.account_both_hint": "Uma conta para T5DR Online e Tekken 4: uma senha nova vale na hora nos dois jogos. Os novos códigos de recuperação substituem os antigos nos dois jogos."
 }

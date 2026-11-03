@@ -14,22 +14,26 @@ used last.
 
 ## Status
 
-T4 beta release candidate. Its scope is T4 offline play and online by direct IP or
-VPN: no lobby and no ranked. Release depends on the owner's two-PC test and the
+T4 beta release candidate. Its scope is T4 offline play and online through a T4
+lobby server (guest or account login, player list, lobby chat, quick match, challenges)
+or by direct IP or VPN; no ranked. Release depends on the owner's two-PC test and the
 clean-PC checks below; a Sunday release is a target, not a completed acceptance result.
 
 | Game | How it connects | Sections |
 |---|---|---|
 | Tekken 5: Dark Resurrection | an installed [T5DR Online](https://github.com/TheWishin/T5DROnline) | Play, Online, Build, Replays, Settings |
-| Tekken 4 (USA, SLUS-20328) | a portable T4 release, or the sibling T4 source in the test bundle | Play, Online (direct IP/VPN), Build, Settings |
+| Tekken 4 (USA, SLUS-20328) | a portable T4 release, or the sibling T4 source in the test bundle | Play, Online (lobby or direct IP/VPN), Build, Settings |
 | Free slots | a manifest (below) | what the manifest says |
 
 T4 Online offers Host or Join, an on-screen keyboard for the host's IP address,
 checks for matching build, compiler/MSVC, ISO hash and two-way UDP reachability,
 then a separate Start game action. Collect logs saves local diagnostic zip files.
-See [T4 Online and release checks](docs/T4_ONLINE.md). There is no T4 account,
-matchmaking, room, chat, relay or result-reporting service in this beta. Lobby-based
-online stays hidden until its server exists. T5DR's Online section uses its installed
+T4 Online opens on the lobby (the launcher ships the **T4 Online** server): guest
+login, or your T5DR Online account (one account for both games, ranks per game), the
+player list, lobby chat, quick match and challenges, then the same explicit Start game
+and a result report. Direct IP / VPN stays one press away.
+See [T4 Online and release checks](docs/T4_ONLINE.md). T4 has no ranked, rooms,
+friends, private chat or spectating in this beta. T5DR's Online section uses its installed
 lobby client, with controller screens described in [T5DR_ONLINE.md](docs/T5DR_ONLINE.md).
 The old T5DR Online launcher remains available during the transition. Seven language catalogs
 are included; native-speaker and controller layout review remain release checks.

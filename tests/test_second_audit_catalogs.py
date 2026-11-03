@@ -9,10 +9,12 @@ import test_online_local_lobby as local_lobby
 
 
 class SecondAuditCatalogs(unittest.TestCase):
-    def test_blank_t4_address_guidance_identifies_local_target_in_every_language(self):
+    def test_blank_t4_address_guidance_never_promises_a_built_in_server(self):
+        # The T4 lobby has no default server: a blank address is the "no T4 server" state.
         for language in i18n.LANGUAGES:
             with self.subTest(language=language):
-                self.assertIn("127.0.0.1:7791", i18n.text(language, "t4.online_setup_hint"))
+                self.assertNotIn("127.0.0.1", i18n.text(language, "t4.online_setup_hint"))
+                self.assertNotEqual(i18n.text(language, "t4.lobby_no_server"), "t4.lobby_no_server")
 
     def test_search_guidance_does_not_send_players_to_the_old_launcher(self):
         for language in i18n.LANGUAGES:

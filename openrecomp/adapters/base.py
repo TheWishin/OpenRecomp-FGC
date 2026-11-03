@@ -163,6 +163,10 @@ class Adapter:
     def online_close(self):
         pass
 
+    def online_account_sessions(self):
+        """Remembered account logins a sister game may offer ({host, name, token, saved}); none by default."""
+        return []
+
     def online_items(self):
         return []
 

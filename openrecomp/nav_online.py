@@ -4,6 +4,14 @@ from .nav_keyboard import ONLINE_PASSWORDS
 
 
 class Online:
+    @staticmethod
+    def _direct_online(g):
+        """T4 shows its direct-IP screen unless its adapter reports the T4 lobby screen."""
+        capabilities = g.a.online_state().get("capabilities") or {}
+        if capabilities.get("direct_ip"):
+            return True
+        return g.m.get("adapter") == "t4" and not capabilities.get("t4_lobby")
+
     def _direct_online_back(self, g):
         if not self._online_action(g, "disconnect"):
             return
@@ -57,6 +65,8 @@ class Online:
                 out.append(dict(kind="action", id="direct:" + key, label=label, value=value, hint=value,
                                 detail=dict(kicker="@t4.direct_title", title=label, lead=value,
                                             leadLines=10, rows=[])))
+        if (state.get("capabilities") or {}).get("lobby_available"):
+            out.append(action("mode_lobby", "@t4.lobby_mode", "@t4.lobby_mode_hint", busy))
         for step in ("firewall", "forward", "tailscale", "check"):
             label = "@t4.network." + step + "_title"
             hint = "@t4.network." + step
@@ -149,13 +159,17 @@ class Online:
                 out.append(dict(kind="action", id=tid, label=label, value=i18n.literal(value), verb="@change", hint=message,
                                 detail=dict(kicker="@section.online", title=label, lead=message, leadLines=6, rows=[]),
                                 run=lambda tid=tid: self._open_osk(tid)))
-            if state.get("saved_available"):
+            if state.get("saved_available") and state.get("saved_shared"):
+                out.append(action("login_saved", "@t4.saved_shared", "@t4.saved_shared_hint"))
+            elif state.get("saved_available"):
                 out.append(action("login_saved", "@online.saved"))
             out += [action("login_guest", "@online.guest"), action("login_account", "@online.account")]
             if capabilities.get("registration", False):
                 out.append(action("login_register", "@online.register"))
             from . import nav_accounts
             out.extend(nav_accounts.rows(self, g, state, action))
+            if capabilities.get("direct_available", False):
+                out.append(action("mode_direct", "@t4.direct_mode", "@t4.direct_mode_hint"))
         elif phase == "logged_in":
             fighters = g.a.fighters()
             if fighters:
@@ -250,6 +264,14 @@ class Online:
             out.append(item)
         if not state.get("players"):
             out.append(dict(kind="action", id="no_players", label="@online.no_players", hint="@online.challenge_hint"))
+        if capabilities.get("rooms", True):
+            self._online_room_items(g, state, out, action)
+        self._online_chat_items(g, state, out, action)
+        if capabilities.get("friends", False):
+            self._online_friend_items(g, state, out, action)
+
+    def _online_room_items(self, g, state, out, action):
+        capabilities = state.get("capabilities") or {}
         out.append(dict(kind="heading", label="@online.rooms"))
         out += [action("refresh_rooms", "@online.refresh_rooms"), action("create_room", "@online.create_room")]
         if capabilities.get("private_rooms", False):
@@ -280,6 +302,8 @@ class Online:
             out.append(item)
         if not rooms:
             out.append(dict(kind="action", id="no_rooms", label="@online.no_rooms", hint="@online.room_hint"))
+
+    def _online_chat_items(self, g, state, out, action):
         out.append(dict(kind="heading", label="@online.chat"))
         for index, message in enumerate(state.get("chat") or []):
             name = i18n.literal(message["name"]) if message.get("name") else "@online.chat"
@@ -294,8 +318,6 @@ class Online:
                         detail=dict(kicker="@online.chat", title="@online.chat", lead="@online.chat_hint", rows=[]),
                         run=lambda: self._open_osk("online_chat")))
         out.append(action("send_chat", "@online.send_chat", "@online.chat_hint"))
-        if capabilities.get("friends", False):
-            self._online_friend_items(g, state, out, action)
 
     def _online_text_item(self, g, tid, label, hint):
         value = g.a.text_value(tid)
@@ -360,9 +382,15 @@ class Online:
                 if g.a.online_poll():
                     changed = True
                     state = g.a.online_state()
-                    if state.get("phase") in ("matched", "result", "result_sent", "kicked", "error"):
-                        self.focus[g.id + ":online"] = 0
+                    phase = state.get("phase")
+                    seen = self.__dict__.setdefault("_online_seen_phase", {})
+                    if phase in ("matched", "result", "result_sent", "kicked", "error"):
+                        # Connection notices keep arriving while a match waits for Start: only a new
+                        # phase moves the focus, or a pad press can land on the status row instead.
+                        if seen.get(g.id) != phase:
+                            self.focus[g.id + ":online"] = 0
                         self.say(state.get("message") or "@online.status", 12)
+                    seen[g.id] = phase
             except Exception:  # noqa: BLE001 -- keep the timer alive without exposing login details
                 self.say("@online.failure", 12)
                 changed = True

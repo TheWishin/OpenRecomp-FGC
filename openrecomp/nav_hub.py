@@ -50,8 +50,7 @@ class Hub:
             pos = secs.index(self.section())
             self.sec[self.game.id] = secs[(pos + (-1 if a == "prev" else 1)) % len(secs)]
         elif a == "back":
-            if self.section() == "online" and (self.game.m.get("adapter") == "t4"
-                    or (self.game.a.online_state().get("capabilities") or {}).get("direct_ip")):
+            if self.section() == "online" and self._direct_online(self.game):
                 self._direct_online_back(self.game)
             else:
                 self.screen = "start"
