@@ -12,7 +12,7 @@ from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QIcon, QWindow
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401 -- so the scene's root comes back as a QQuickWindow
 
-from . import adapters, i18n, manifest as mf
+from . import adapters, file_dialog, i18n, manifest as mf
 from .nav import Game, Nav
 from .pad import Pads, PlayStationReader, WinMMPlayStationReader, XInputReader
 from .update_service import UpdateService
@@ -25,6 +25,16 @@ UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right", Qt.Key_Return: "confirm", Qt.Key_Enter: "confirm",
         Qt.Key_Escape: "back", Qt.Key_Space: "play", Qt.Key_X: "x", Qt.Key_F: "social", Qt.Key_G: "switchGame", Qt.Key_Q: "prev", Qt.Key_E: "next"}
 TICK_MS = 16
+
+
+def native_picker_available():
+    """The Explorer dialog needs a real Windows desktop: never offscreen (tests) or with OPENRECOMP_NATIVE_PICKER=0."""
+    if os.name != "nt" or os.environ.get("OPENRECOMP_NATIVE_PICKER") == "0":
+        return False
+    try:
+        return QGuiApplication.platformName() == "windows"
+    except RuntimeError:
+        return False
 
 
 def load_games(config):
@@ -50,7 +60,12 @@ class Backend(QObject, GameSetupBackend):
         self._game_updaters = {}
         games, problems = load_games(self.config)
         self._setup_init()
+        self.choose_file = file_dialog.choose     # (owner, title, kind, filters, start) -> path; tests put a fake here
+        self._native_queued = False
+        self._native_open = False
         self.nav = Nav(games, on_quit=self._quit, install=self._install, launch_env=launch_env,
+                       native_picker=native_picker_available(), picker_dir=self.config.get("picker_dir", ""),
+                       on_picker_dir=self._save_picker_dir,
                        language=self.config.get("language"), on_language=self._save_language,
                        last_game=self.config.get("last_game"), on_game=self._save_game,
                        fullscreen=self.config.get("fullscreen", True) and not windowed,
@@ -281,6 +296,43 @@ class Backend(QObject, GameSetupBackend):
         self.config["last_game"] = game_id
         self._save_config()
 
+    def _save_picker_dir(self, folder):
+        self.config["picker_dir"] = folder
+        self._save_config()
+
+    def _queue_native(self):
+        """A mouse or keyboard press asked for a file: the Explorer dialog opens once this press is handled."""
+        if self.nav.pending_native is None or self._native_queued or self._native_open:
+            return
+        self._native_queued = True
+        QTimer.singleShot(0, self._run_native)
+
+    def _run_native(self):
+        self._native_queued = False
+        request = self.nav.native_request()
+        if request is None or self._native_open:
+            return
+        owner = 0
+        try:
+            owner = int(self.window.winId()) if self.window is not None else 0
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            owner = 0
+        self.nav.release("confirm")
+        self._native_open = True
+        try:
+            path = self.choose_file(owner, request["title"], request["kind"], request["filters"], request["start"])
+        except Exception:  # noqa: BLE001 -- no dialog on this PC: the launcher's own list does the same job
+            path = None
+        finally:
+            self._native_open = False
+        if self.pads is not None:
+            self.pads.suppress()          # a button held while the dialog was open is not a launcher press
+        if path is None:
+            self.nav.native_failed(request)
+        else:
+            self.nav._guard(self.nav.native_result, request, path)
+        self.refresh()
+
     def _save_preferences(self, fullscreen, reduced_motion):
         self.config.update(fullscreen=fullscreen, reduced_motion=reduced_motion)
         self._save_config()
@@ -331,6 +383,8 @@ class Backend(QObject, GameSetupBackend):
 
     def refresh(self):
         self._copy_pending()
+        if getattr(self.nav, "pending_native", None) is not None:
+            self._queue_native()
         self._view = self.nav.view()
         wordmark = os.path.join(UI_DIR, "assets", "logo-wordmark.svg")
         self._view["wordmark"] = QUrl.fromLocalFile(wordmark).toString() if os.path.isfile(wordmark) else ""

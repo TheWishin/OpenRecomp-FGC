@@ -27,7 +27,7 @@ SOURCE_GROUPS = {
                    "nav_accounts.py", "nav_challenges.py", "nav_community.py", "nav_moderation.py",
                    "nav_private_chat.py", "nav_profiles.py",
                    "nav_rules.py", "nav_spectating.py", "nav_tournaments.py",
-                   "pad.py", "ranks.py", "updater.py", "update_service.py",
+                   "pad.py", "ranks.py", "updater.py", "update_service.py", "file_dialog.py",
                    "game_library.py", "game_updates.py", "nav_library.py",
                    "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py"),
     "openrecomp/adapters": ("__init__.py", "base.py", "launch_guard.py", "support.py", "t4.py", "t4_install.py",

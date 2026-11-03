@@ -38,7 +38,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Pi
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None,
                  on_update_check=None, on_update_install=None, on_game_preview=None, on_game_accept=None,
                  on_game_remove=None, on_game_update_check=None, on_game_update_install=None, on_setup=None,
-                 game_prereleases=False, on_prereleases=None):
+                 game_prereleases=False, on_prereleases=None, native_picker=False, picker_dir="", on_picker_dir=None):
         self.games = games
         self.on_quit = on_quit or (lambda: None)
         self.install = install              # path -> message; a player's manifest (the free slots)
@@ -69,6 +69,10 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, Dialog, Drawer, Grid, Keyboard, Pi
         self.grid_focus = 0
         self.show_results = False
         self.picker = None
+        self.native_picker = bool(native_picker)    # the app can open the Windows Explorer dialog
+        self.pending_native = None                  # a dialog the app opens after this action
+        self.picker_dir = picker_dir or ""          # where the player last chose a file or folder
+        self.on_picker_dir = on_picker_dir or (lambda _folder: None)
         self.osk = None
         self.pad_kind = "xbox"
         self.was_running = {}

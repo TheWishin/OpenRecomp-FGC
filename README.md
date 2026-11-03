@@ -130,6 +130,7 @@ Tournament 2 has a placeholder in the small known-games catalog until its reposi
 | `openrecomp/nav_shelf.py` | Game shelf input and view |
 | `openrecomp/nav_hub.py`, `openrecomp/nav_sections.py` | Hub navigation and view; play, online, build, replays, and settings items |
 | `openrecomp/nav_dialog.py`, `openrecomp/nav_drawer.py`, `openrecomp/nav_grid.py`, `openrecomp/nav_keyboard.py`, `openrecomp/nav_picker.py` | Each overlay's input and view |
+| `openrecomp/file_dialog.py` | The Windows Explorer open dialog (ctypes, no Qt Widgets) for mouse and keyboard |
 | `openrecomp/pad.py` | Controllers to actions |
 | `openrecomp/app.py` | Window, QML scene, timers |
 | `openrecomp/adapters/` | One per kind of game |
