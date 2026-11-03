@@ -53,6 +53,13 @@ Desktop; a folder chosen on screen still wins. T5DR is built once in its own
 `T5DR Online.exe` (BUILD GAME with the player's .pkg and .rap); the launcher
 plays it and runs its online lobby.
 
+For a T4 release, `-ReleaseTag v0.1.0-beta.2` names the same ZIP
+`OpenRecomp-Tekken4-<tag>.zip`, the asset the launcher's game installer looks
+for in TheWishin/Tekken4Recomp's releases (docs/GAME_SETUP.md; it uses only the
+`T4/` folder), and writes `<zip>.sha256` and `SHA256SUMS` beside it. Upload all
+three to the release. The tag must look like `vX.Y.Z` or `vX.Y.Z-pre.N`; an
+existing ZIP of that name is never overwritten.
+
 Before writing and again on the written ZIP, every entry, the pinned runtime
 included, is searched in UTF-8 and UTF-16, ignoring case, for this PC's user
 name, profile path, computer name and Git e-mail, plus any `-Forbid` words. They

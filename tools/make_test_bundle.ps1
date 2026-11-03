@@ -11,6 +11,7 @@ param(
     [string]$OutputDirectory = '',
     [string[]]$Note = @(),
     [string[]]$Forbid = @(),
+    [string]$ReleaseTag = '',
     [switch]$CheckOnly
 )
 $ErrorActionPreference = 'Stop'

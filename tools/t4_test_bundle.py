@@ -391,6 +391,31 @@ def create_bundle(root, t4_root, archive=None, runtime_root=None, runtime_cache=
     return archive, len(entries)
 
 
+RELEASE_TAG = re.compile(r"v\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?")
+
+
+def release_archive_name(tag):
+    """The T4 release asset the launcher's installer looks for (game_releases SOURCES["t4"], docs/GAME_SETUP.md):
+    OpenRecomp-Tekken4-<tag>.zip, with T4/ inside, tag like v0.1.0-beta.2."""
+    if not RELEASE_TAG.fullmatch(str(tag)):
+        raise ValueError("Release tag must look like v0.1.0 or v0.1.0-beta.2, not {!r}".format(tag))
+    return "OpenRecomp-Tekken4-{}.zip".format(tag)
+
+
+def write_checksums(archive):
+    """<zip>.sha256 and SHA256SUMS beside the zip (the installer accepts either); returns the hex digest."""
+    archive = Path(archive)
+    digest = hashlib.sha256()
+    with archive.open("rb") as stream:
+        for block in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(block)
+    line = "{} *{}\n".format(digest.hexdigest(), archive.name).encode("ascii")
+    for target in (archive.with_name(archive.name + ".sha256"), archive.with_name("SHA256SUMS")):
+        no_links(target)
+        target.write_bytes(line)
+    return digest.hexdigest()
+
+
 def default_t4_source(root):
     # Maintainer source fallback; the distributed launcher discovers sibling T4.
     return Path(root).parent / "OpenRecomp-work" / "T4-codex-sunday"
@@ -407,6 +432,8 @@ def main(argv=None):
     parser.add_argument("--note", action="append", default=[], help="A line for BUNDLE.txt, e.g. the launcher commit")
     parser.add_argument("--forbid", action="append", default=[],
                         help="One more private word that must not be in any file (read at run time, never stored)")
+    parser.add_argument("--release-tag", help="Name the zip OpenRecomp-Tekken4-<tag>.zip (the T4 release asset) "
+                                              "and write <zip>.sha256 + SHA256SUMS beside it")
     args = parser.parse_args(argv)
     try:
         if not args.check_only and args.runtime is None:
@@ -418,9 +445,13 @@ def main(argv=None):
             print("Both source scans passed: {} files. Nothing written.".format(len(entries)))
             print("Private-word scan passed: {} words of this PC in none of the files.".format(len(terms)))
         else:
-            archive, count = create_bundle(args.root, source, runtime_root=args.runtime, runtime_cache=args.runtime_cache,
-                                           dist=args.dist, note=args.note, terms=terms)
+            dist = (args.root / "dist" if args.dist is None else args.dist).absolute()
+            named = dist / release_archive_name(args.release_tag) if args.release_tag else None
+            archive, count = create_bundle(args.root, source, archive=named, runtime_root=args.runtime,
+                                           runtime_cache=args.runtime_cache, dist=dist, note=args.note, terms=terms)
             print("Private-word scan passed: {} words of this PC in none of the files.".format(len(terms)))
+            if args.release_tag:
+                print("Checksums: {}.sha256 and SHA256SUMS ({})".format(archive.name, write_checksums(archive)))
             print("Test bundle: {}".format(archive))
             with zipfile.ZipFile(archive) as output:
                 unpacked = sum(entry.file_size for entry in output.infolist())

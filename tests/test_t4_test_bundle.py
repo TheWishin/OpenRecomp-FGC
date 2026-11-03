@@ -181,6 +181,31 @@ class T4TestBundleTests(unittest.TestCase):
         self.assertIn("Test bundle refused", error.getvalue())
         self.assertFalse((self.root / "dist").exists())
 
+    def test_release_name_is_the_t4_asset_the_installer_looks_for(self):
+        # docs/GAME_SETUP.md: OpenRecomp-Tekken4-<tag>.zip with a T4 folder, tag like the launcher's RE_VERSION.
+        self.assertEqual(bundle.release_archive_name("v0.1.0-beta.2"), "OpenRecomp-Tekken4-v0.1.0-beta.2.zip")
+        self.assertEqual(bundle.release_archive_name("v1.2.3"), "OpenRecomp-Tekken4-v1.2.3.zip")
+        for bad in ("0.1.0", "v0.1", "v0.1.0-beta-2", "v0.1.0+x", "v0.1.0/../x", "", None):
+            with self.subTest(tag=bad), self.assertRaisesRegex(ValueError, "Release tag"):
+                bundle.release_archive_name(bad)
+        dist = self.root / "dist"
+        archive, _ = bundle.create_bundle(self.root, self.root / "source",
+                                          dist / bundle.release_archive_name("v0.1.0-beta.2"))
+        digest = bundle.write_checksums(archive)
+        import hashlib
+        self.assertEqual(digest, hashlib.sha256(archive.read_bytes()).hexdigest())
+        line = "{} *OpenRecomp-Tekken4-v0.1.0-beta.2.zip\n".format(digest)
+        self.assertEqual((dist / "OpenRecomp-Tekken4-v0.1.0-beta.2.zip.sha256").read_text(encoding="ascii"), line)
+        self.assertEqual((dist / "SHA256SUMS").read_text(encoding="ascii"), line)
+        with zipfile.ZipFile(archive) as result:
+            self.assertIn("T4/LICENSE", result.namelist())
+
+    def test_powershell_wrappers_pass_the_release_tag(self):
+        for name in ("make_t4_test_bundle.ps1", "make_test_bundle.ps1"):
+            self.assertIn("[string]$ReleaseTag", (ROOT / "tools" / name).read_text(encoding="utf-8"))
+        self.assertIn("'--release-tag', $ReleaseTag",
+                      (ROOT / "tools/make_t4_test_bundle.ps1").read_text(encoding="utf-8"))
+
     def test_powershell_wrapper_uses_python312_without_build_or_git(self):
         text = (ROOT / "tools/make_t4_test_bundle.ps1").read_text(encoding="utf-8")
         self.assertIn("'-3.12'", text)
@@ -256,6 +281,15 @@ class T4BundleEntryPointTests(unittest.TestCase):
             self.assertIn("run.cmd", guide)
         self.assertIn("bytes ZIP;", result.stdout)
         self.assertIn("bytes unpacked;", result.stdout)
+        named = self.invoke("--runtime", str(runtime), "--runtime-cache", str(ROOT / "dist/portable-cache"),
+                            "--release-tag", "v0.1.0-beta.2")
+        self.assertEqual(named.returncode, 0, named.stderr)
+        self.assertTrue((self.root / "dist/OpenRecomp-Tekken4-v0.1.0-beta.2.zip").is_file())
+        self.assertTrue((self.root / "dist/OpenRecomp-Tekken4-v0.1.0-beta.2.zip.sha256").is_file())
+        self.assertIn("Checksums: OpenRecomp-Tekken4-v0.1.0-beta.2.zip.sha256 and SHA256SUMS", named.stdout)
+        again = self.invoke("--runtime", str(runtime), "--release-tag", "v0.1.0-beta.2")
+        self.assertEqual(again.returncode, 1)
+        self.assertIn("already exists", again.stderr)
 
     def test_cli_runtime_flag_refuses_unknown_binary_before_writing_archive(self):
         runtime = self.root / "runtime"

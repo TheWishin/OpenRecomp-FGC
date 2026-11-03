@@ -18,6 +18,9 @@
   Lines for BUNDLE.txt, such as the launcher and T4 commits.
 .PARAMETER Forbid
   More private words that must not be in any file; read now, never stored.
+.PARAMETER ReleaseTag
+  Name the zip OpenRecomp-Tekken4-<tag>.zip (the T4 release asset the launcher installs, tag like
+  v0.1.0-beta.2) and write <zip>.sha256 and SHA256SUMS beside it.
 .PARAMETER CheckOnly
   Run available source/runtime scans without fetching or creating a zip.
 #>
@@ -28,6 +31,7 @@ param(
     [string]$OutputDirectory = '',
     [string[]]$Note = @(),
     [string[]]$Forbid = @(),
+    [string]$ReleaseTag = '',
     [switch]$CheckOnly
 )
 
@@ -83,6 +87,7 @@ if ($T4Source) { $Arguments += @('--t4-source', $T4Source) }
 if ($OutputDirectory) { $Arguments += @('--dist', $OutputDirectory) }
 foreach ($Line in $Note) { if ($Line) { $Arguments += @('--note', $Line) } }
 foreach ($Word in $Forbid) { if ($Word) { $Arguments += @('--forbid', $Word) } }
+if ($ReleaseTag) { $Arguments += @('--release-tag', $ReleaseTag) }
 if ($CheckOnly) { $Arguments += '--check-only' }
 & $Python @Arguments
 if ($LASTEXITCODE -ne 0) { throw 'Test-Bundle verweigert. Die oben genannten Quelldateien pruefen.' }
