@@ -92,6 +92,10 @@ keine Spielerlogs oder Screenshots ins Repository legen.
   D:\). `T5DR-Online-1.2.0` in denselben Ordner legen. Danach liegen dort
   nebeneinander: `OpenRecomp-FGC`, `T4`, `T5DR-Online-1.2.0`, `START_HIER.txt`,
   `START_HERE.txt`, `BUNDLE.txt`. `START_HIER.txt` lesen: verständlich?
+- Liegt dem ZIP eine `OpenRecomp-FGC-Setup-….exe` bei (gleicher Stand, aus dem
+  ZIP gebaut): auf einem der PCs stattdessen damit in einen neuen Ordner
+  installieren und `T5DR-Online-1.2.0` daneben legen; Startmenü-Eintrag und
+  Start prüfen. Der Rest des Durchlaufs gilt gleich.
 
 ### Erster Start · beide Spiele im Regal
 
@@ -126,6 +130,14 @@ keine Spielerlogs oder Screenshots ins Repository legen.
   Lobby-Adresse und Spielername per Bildschirmtastatur, Gast-Anmeldung, Chat
   in beide Richtungen, Spieler herausfordern oder Quick Match, Match startet
   auf beiden PCs. Ohne Adresse: verständlicher Hinweis statt Fehler?
+- **Ein Konto für beide Spiele**: mit Name und Passwort des T5DR-Kontos in der
+  T4-Lobby anmelden (geht, sobald der T4-Server die T5DR-Konten teilt). Ist auf
+  dem PC eine T5DR-Anmeldung gespeichert und der Server in der Liste als
+  geteilt markiert: erscheint **Use your T5DR login** und meldet mit einem Druck
+  an? T4-Rang getrennt vom T5DR-Rang? Lehnt der Server ab: klare Meldung, die
+  T5DR-Anmeldung bleibt für Tekken 5 erhalten.
+- Nach dem Kampf: Ergebnis in der T4-Lobby auf beiden PCs gleich, zurück in
+  der Lobby.
 - **Direkte IP / VPN**: Host/Join und IP-Eingabe per Bildschirmtastatur
   bedienen. Fehlerfälle wie falscher Build, andere ISO, ungültige IP,
   blockiertes UDP und Abbruch müssen vor Spielstart erklärt werden.
