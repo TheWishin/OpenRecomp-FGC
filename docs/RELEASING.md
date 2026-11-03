@@ -51,8 +51,10 @@ unpack. Any failure removes the half-made files.
 3. Publish the launcher draft as a normal release (not pre-release). Launchers offer only published plain
    `vX.Y.Z` releases to everyone; a test build is tagged `vX.Y.Z-<test>` and published as a pre-release
    (players with Test versions on get it).
-4. Tekken 4: tag the T4 commit in TheWishin/Tekken4Recomp, create and publish its release. While Tekken 4 is in
-   beta (`SOURCES["t4"].beta`), launchers offer its published pre-releases to everyone; drafts never.
+4. Tekken 4: TheWishin/Tekken4Recomp needs at least one commit on `main` (a README is enough; the T4 source
+   travels in the zip, the release notes name its commit). Create the release from `COMMANDS.txt`
+   (`--target main`) and publish it. While Tekken 4 is in beta (`SOURCES["t4"].beta`), launchers offer its
+   published pre-releases to everyone; drafts never.
 5. Check (read only): `gh api repos/TheWishin/OpenRecomp-FGC/releases/latest` names the tag and the four files;
    a launcher of the previous version offers the update a few seconds after its start.
 

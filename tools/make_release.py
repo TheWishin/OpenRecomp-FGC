@@ -267,8 +267,9 @@ def notes(kind, **facts):
 
 def commands(out, version, t4_tag, launcher_files, t4_files, commit, t4_commit, t4_prerelease):
     lines = [
-        "# 1. Launcher release (TheWishin/OpenRecomp-FGC). The tag must point at the built commit.",
-        f"git -C <OpenRecomp-FGC checkout> push origin {commit}:refs/heads/main",
+        f"# 1. Launcher release (TheWishin/OpenRecomp-FGC). The tag {version} must point at the built commit {commit[:12]}",
+        f"#    (git rev-parse {version}^{{commit}}); push the branch that holds it, then the tag.",
+        "git -C <OpenRecomp-FGC checkout> push origin main",
         f"git -C <OpenRecomp-FGC checkout> push origin {version}",
         f"gh release create {version} --repo TheWishin/OpenRecomp-FGC --verify-tag --draft "
         f"--title \"OpenRecomp-FGC {version}\" --notes-file \"{out / 'launcher' / 'NOTES.md'}\" "
@@ -277,10 +278,10 @@ def commands(out, version, t4_tag, launcher_files, t4_files, commit, t4_commit, 
         "#    offers only published plain vX.Y.Z to everyone; vX.Y.Z-<test> tags marked pre-release reach testers).",
         f"gh release edit {version} --repo TheWishin/OpenRecomp-FGC --draft=false",
         "",
-        "# 2. Tekken 4 release (TheWishin/Tekken4Recomp). Tag the T4 source commit first.",
-        f"git -C <Tekken4Recomp checkout> tag {t4_tag} {t4_commit}",
-        f"git -C <Tekken4Recomp checkout> push <TheWishin/Tekken4Recomp remote> {t4_tag}",
-        f"gh release create {t4_tag} --repo TheWishin/Tekken4Recomp --verify-tag --draft "
+        f"# 2. Tekken 4 release (TheWishin/Tekken4Recomp), T4 source {t4_commit[:12]} (inside the zip).",
+        "#    The release repository needs at least one commit on main (a README, like T5DR's public release",
+        "#    repository); gh then creates the tag on main. Players get the T4 source from the zip, not from the tag.",
+        f"gh release create {t4_tag} --repo TheWishin/Tekken4Recomp --target main --draft "
         + ("--prerelease " if t4_prerelease else "")
         + f"--title \"Tekken 4 {t4_tag} (beta)\" --notes-file \"{out / 't4' / 'NOTES.md'}\" "
         + " ".join(f"\"{out / 't4' / n}\"" for n in t4_files),
