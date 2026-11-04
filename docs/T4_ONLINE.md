@@ -1,6 +1,6 @@
 # T4 Online: lobby and direct IP / VPN beta
 
-The beta plays T4 online in two ways, with no ranked:
+The beta plays T4 online in two ways (ranked on a T4 server that opens it, see "Ranked" below):
 
 - **T4 lobby:** through a T4 lobby server. Guest or account login, the player list,
   lobby chat, quick match and challenges (accept or decline), then the same explicit
@@ -95,8 +95,25 @@ the launcher picks; nothing needs forwarding.
    report **I won**, **I lost** or **No result** after the game; the lobby's verdict appears,
    then **Back to lobby**. **Direct IP / VPN** on the login screen goes back.
 
-Not in the T4 beta lobby: ranked and leaderboards, rooms, friends, private chat,
-spectating, tournaments, replays and direct entry into a fight.
+Not in the T4 beta lobby: rooms, friends, private chat, spectating, tournaments, replays and
+direct entry into a fight.
+
+### Ranked
+
+When the T4 server opens ranked (its welcome says `ranked_queue`), accounts get **Search ranked**;
+guests play casual. Ranked is a set, best of 3, rated once (Glicko-2) when it is decided; the next
+game starts by itself after the server's countdown (no ready vote), **Leave set** between games
+counts as a loss. Only results the two games proved count (the T4 game's own result file on both
+PCs); a game that only has the players' answers does not count ("The games did not prove this
+result") and is played again. The set's fighters are the ones game 1 was fought with: a later game
+fought with another fighter goes to the other player.
+
+Ranks are Tekken 7's 47 rank names (Beginner ... Tekken God Omega) on the T4 rating -- separate
+from T5DR's. The pictures are our own badges (`tools/make_rank_badges.py`, one SVG per rank in
+`openrecomp/ui/assets/ranks`), never Namco's emblems; they show in the lobby table, the profile
+card and the found match, which names **P1** and **P2** with name, rank and badge (P1 = the host).
+In the game each player's name and badge sit on their side at character select and under the
+life bars (Settings: **Name plates in the game**, on by default; nothing changes in the match).
 
 ### End-to-end check on one PC
 
