@@ -72,6 +72,16 @@ class T4BetaDocsTests(unittest.TestCase):
             self.assertNotIn("ladder update is handled separately", guide)
             self.assertNotIn("ladder change is handled separately", guide)
 
+    def test_ranked_docs_keep_guest_and_disabled_name_plate_behavior(self):
+        text = self.read("docs/T4_ONLINE.md")
+        for phrase in ("players' names replace the fighter names", "character select",
+                       "under the life bars", "badge left of the name", "guests: name only",
+                       "on by default", "off shows the game's fighter names", "The game uses the drawn badges"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+        for marker in ("<<<<<<<", "=======", ">>>>>>>"):
+            self.assertNotIn(marker, text)
+
 
 if __name__ == "__main__":
     unittest.main()

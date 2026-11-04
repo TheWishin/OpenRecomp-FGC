@@ -210,7 +210,7 @@ class T4OnlineTests(unittest.TestCase):
     def test_room_ready_states_are_independent_correlated_and_reset_for_each_offer(self):
         client = self.login()
         offer = dict(t="match_found", match="first", slot=0,
-                     opponent=dict(name="Other", rank="Initiate", tier=13))
+                     opponent=dict(name="Other", rank="Old server label", tier=13))
         client.events.put(offer)
         self.a.online_poll()
         self.assertFalse(self.a.online_state()["match"]["my_ready"])
@@ -228,11 +228,11 @@ class T4OnlineTests(unittest.TestCase):
         self.a.online_poll()
         self.assertTrue(self.a.online_state()["match"]["my_ready"])
         client.events.put(dict(t="match_reveal", match="first", slot=0,
-                               opponent=dict(name="Other", rank="Initiate", tier=13)))
+                               opponent=dict(name="Other", rank="Old server label", tier=13)))
         self.a.online_poll()
         match = self.a.online_state()["match"]
         self.assertTrue(match["my_ready"] and match["peer_ready"])
-        self.assertEqual(match["sides"][1]["rank"], "Initiate")
+        self.assertEqual(match["sides"][1]["rank"], "4th Dan")   # tier 13 uses the current ladder
         self.a.online_action("cancel_match")
         self.a.online_poll()
         client.events.put(dict(t="opponent_ready", match="first"))

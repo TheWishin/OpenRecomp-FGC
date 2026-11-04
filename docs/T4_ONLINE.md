@@ -126,8 +126,9 @@ and stay on their PC. If a plate is unavailable, T4 uses our own drawn badge
 (`tools/make_rank_badges.py`, one SVG per rank in `openrecomp/ui/assets/ranks`). They show in
 the lobby table, the profile card and the found match, which names **P1** and **P2** with name,
 rank and badge (P1 = the host).
-In the game each player's name and badge sit on their side at character select and under the
-life bars (Settings: **Name plates in the game**, on by default; nothing changes in the match).
+In the game the players' names replace the fighter names at character select and under the life
+bars, each with its rank badge left of the name on their side (guests: name only; Settings: **Name plates in the
+game**, on by default -- off shows the game's fighter names; nothing changes in the match).
 The game uses the drawn badges. See [T4 ranked assets](T4_RANKED.md) for regeneration and the
 coordinator's game-header handoff.
 
