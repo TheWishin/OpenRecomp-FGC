@@ -20,3 +20,10 @@ dist/
 
 # test runs that forgot their own temp dir
 /tmp*/
+/tests/tmp*/
+/.test-*/
+/.run-test-*/
+/.startup-test-*/
+/.module-test-*/
+/.bundle-pipeline-*/
+/local-lobby-*/

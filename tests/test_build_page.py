@@ -321,6 +321,25 @@ class Cards(unittest.TestCase):
                     self.assertNotIn('"@', text)
                     self.assertNotIn("{", text.replace('{"', "").replace("{}", ""))
 
+    def test_a_built_shared_t5dr_install_is_ready_to_play_not_not_yet(self):
+        """launcherqa: a hooked-up, built T5DR install said NOT YET / BUILD GAME while the top bar said Ready."""
+        adapter = Page(adapter="t5dr", ready=True, checks=[])
+        adapter.coexistence_state = lambda: dict(active=True, source="C:/T5DR-Online-1.2.0", build="same")
+        adapter.start = mock.Mock()
+        nav = page(adapter)
+        main = nav.view()["build"]["main"]
+        self.assertEqual((main["kicker"], main["tone"], main["button"]["label"]), ("Ready to play", "done", "Play"))
+        self.assertFalse(main["button"]["disabled"])
+        self.assertEqual(main["lead"], i18n.text("en", "t5.coexist.build_match"))
+        nav.focus["t5dr:build"] = main["button"]["index"]
+        nav.act("confirm", device="kb")
+        adapter.start.assert_called_once()
+        adapter._ready = False
+        main = page(adapter).view()["build"]["main"]
+        self.assertEqual((main["kicker"], main["button"]["label"]), ("Not yet", "Build game"))
+        self.assertTrue(main["button"]["disabled"])
+        self.assertEqual(main["lead"], i18n.text("en", "t5.coexist.build_blocked"))
+
     def test_rebuild_everything_only_once_there_was_a_build(self):
         nav = page(Page())
         self.assertNotIn("rebuild", [it.get("id") for it in nav.items()], "nothing to redo before the first build")

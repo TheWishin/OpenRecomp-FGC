@@ -15,7 +15,9 @@ class Borrowed(Fake):
 
 class CoexistenceNavigation(unittest.TestCase):
     def setUp(self):
-        self.adapter = Borrowed(manifest("t5dr", adapter="t5dr"))
+        # build "different" = not ready (the real adapter: a shared install with another Code ID cannot play);
+        # a ready shared install's Build page plays instead (test_build_page).
+        self.adapter = Borrowed(manifest("t5dr", adapter="t5dr"), is_ready=False)
         self.nav = Nav([Game(self.adapter.m, self.adapter)], language="en")
         self.nav.screen = "hub"
         self.nav.game = self.nav.games[0]
