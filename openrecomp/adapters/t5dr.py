@@ -151,6 +151,7 @@ def load_runtime(root, name):
 
 class T5DR(Controls, T5Support, T5Match, Adapter):
     native_label = "@t5.native_label"
+    other_launcher_game = "t5dr"           # its own launcher open too: other_launchers
 
     def __init__(self, manifest, config, root, core=None, replays_mod=None):
         super().__init__(manifest, config)

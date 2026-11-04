@@ -1342,5 +1342,19 @@
     "online_ui.server_line": "Servidor",
     "online_ui.or": "ou",
     "online_ui.ranked_account": "Ranqueada exige conta (convidados jogam casual)",
-    "online_ui.build_line": "Build {build}"
+    "online_ui.build_line": "Build {build}",
+    "other_launcher.title": "Outro launcher está aberto",
+    "other_launcher.use_here": "Usar o OpenRecomp aqui",
+    "other_launcher.keep_other": "Ficar com o outro",
+    "other_launcher.native_t5dr": "O launcher próprio do T5DR Online também está aberto. Você só pode ficar online em um launcher por vez: entrar aqui com a mesma conta desconecta você de lá. Um jogo iniciado aqui não para uma busca lá.",
+    "other_launcher.native_t4": "O launcher próprio do Tekken 4 também está aberto. Jogue em um launcher por vez: um jogo iniciado lá tira você da busca aqui.",
+    "other_launcher.online": "Outra janela do OpenRecomp está online com este jogo. Você só pode ficar online em uma janela por vez: entrar aqui com a mesma conta desconecta você de lá.",
+    "other_launcher.window": "Outra janela do OpenRecomp está aberta. Você só pode ficar online em uma janela por vez: entrar aqui com a mesma conta desconecta você de lá.",
+    "other_launcher.kept_note": "Você joga online no outro launcher. O OpenRecomp continua desconectado aqui e não entra sozinho.",
+    "other_launcher.kept_other": "Desconectado aqui: você joga online no outro launcher.",
+    "other_launcher.chosen_here": "Será o OpenRecomp. Entre aqui; com a mesma conta, o outro launcher é desconectado.",
+    "other_launcher.kicked_native": "Você entrou com esta conta no launcher próprio do T5DR Online, então o OpenRecomp foi desconectado aqui. Você só pode ficar online em um launcher por vez. Entre de novo aqui só para jogar aqui (isso desconecta o outro).",
+    "other_launcher.kicked_window": "Você entrou com esta conta em outra janela do OpenRecomp, então esta janela foi desconectada. Você só pode ficar online em uma janela por vez. Entre de novo aqui só para jogar aqui (isso desconecta a outra).",
+    "other_launcher.logged_in_here": "Você está no lobby. Se o outro launcher estava conectado com esta conta, ele foi desconectado agora.",
+    "other_launcher.relogin_paused": "A conexão com o lobby caiu. Outro launcher deste jogo está aberto, então o OpenRecomp não entra de novo sozinho. Entre de novo para jogar aqui."
 }

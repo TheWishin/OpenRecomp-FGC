@@ -15,7 +15,7 @@ import uuid
 
 from .base import NO_WINDOW, add_path
 from .t5_coexist import readonly_imports
-from . import t5_features
+from . import other_launchers, t5_features
 from .. import i18n
 
 
@@ -62,9 +62,84 @@ class Online:
     online_match_flow = False
     online_legacy_config = True
     online_registration = None  # None: only the T5DR client registers accounts
+    # The game whose own launcher (and other OpenRecomp windows) this adapter looks for (other_launchers); "" = none.
+    other_launcher_game = ""
+    other_launcher_detector = None              # None: the app's detector (other_launchers.DETECTOR)
 
     def online_supported(self):
         return True
+
+    # ---------------------------------------------------------------- another launcher of this game on this PC
+    # Owner: "it should say: hey, you are logged in, but you can really only play in one launcher." The lobby lets one
+    # connection per account (the newer login wins). So: while another launcher is open, OpenRecomp never logs in by
+    # itself (no automatic login, no relogin after a drop) until the player chose "Use OpenRecomp here"; "Keep the
+    # other one" logs out here and stays out. A kick says which launcher took the login. Never a logout ping-pong.
+    def _other_kind(self):
+        detector = self.other_launcher_detector or other_launchers.DETECTOR
+        found = other_launchers.kind(self.other_launcher_game, detector)
+        if not found:
+            self._other_choice = None           # it closed: the next one asks again
+        return found
+
+    def _other_native_logs_in(self):
+        # T5DR's own launcher logs in to the same lobby; Tekken 4's Easy Launcher plays by direct IP only (still one
+        # launcher at a time: a game started there takes this one out of its search).
+        return self.other_launcher_game == "t5dr"
+
+    def _other_state(self):
+        found = self._other_kind()
+        if not found:
+            return None
+        return dict(kind=found, game=self.other_launcher_game, choice=getattr(self, "_other_choice", None),
+                    logs_in=found != "native" or self._other_native_logs_in())
+
+    def _other_holds_back(self):
+        """Another launcher is open and the player has not chosen OpenRecomp: no login by itself here."""
+        return bool(self._other_kind()) and getattr(self, "_other_choice", None) != "here"
+
+    def _other_action(self, action):
+        """other_here / other_keep from the note. -> True when handled."""
+        if action not in ("other_here", "other_keep"):
+            return False
+        self._online_init()
+        if action == "other_here":
+            self._other_choice = "here"         # the next redraw's online_shown may log in with the saved login now
+            if self._online_phase in ("offline", "error", "kicked") and self._online_client is None:
+                self._online_message = "@other_launcher.chosen_here"
+            return True
+        self._other_choice = "other"
+        self._online_auto_tried = True
+        if self._online_phase in ("connecting", "logged_in", "searching", "error", "kicked") or self._online_relogin:
+            self.online_close()
+        self._online_message = "@other_launcher.kept_other"
+        return True
+
+    def _other_kick_message(self):
+        """The kick's message when this PC has another launcher of the game open, else None."""
+        detector = self.other_launcher_detector or other_launchers.DETECTOR
+        if detector.enabled:
+            try:
+                detector.refresh()              # the other one has just logged in: look now, not in 3 s
+            except Exception:  # noqa: BLE001 -- the plain kick message then
+                pass
+        found = detector.others(self.other_launcher_game) if self.other_launcher_game else {}
+        if found.get("native") and self._other_native_logs_in():
+            key = "@other_launcher.kicked_native"
+        elif found.get("online") or found.get("window"):
+            key = "@other_launcher.kicked_window"
+        else:
+            return None
+        self._other_choice = "other"            # stay out here until the player logs in by hand
+        return key
+
+    def _other_presence(self, on):
+        if not self.other_launcher_game:
+            return
+        detector = self.other_launcher_detector or other_launchers.DETECTOR
+        try:
+            detector.online(self.other_launcher_game, on)
+        except OSError:
+            pass
 
     def _online_init(self):
         if hasattr(self, "_online_phase"):
@@ -311,6 +386,9 @@ class Online:
                     invites=[dict(inv) for inv in self._online_invites],
                     outgoing_invite=dict(self._online_outgoing_invite))
         snapshot["remember"] = bool(getattr(self, "_online_remember", True))
+        other = self._other_state()
+        if other:
+            snapshot["other_launcher"] = other
         if self.online_ranked:
             snapshot["capabilities"]["strict"] = True
             snapshot["strict"] = bool(getattr(self, "_online_strict", False))
@@ -591,6 +669,8 @@ class Online:
         self._online_init()
         if action == "spec_stop" and t5_features.action(self, action, self._online_client):
             return
+        if self._other_action(action):
+            return
         if action == "logout":
             self.online_close()
             self._online_auto_tried = True        # no automatic login after the player logged out
@@ -630,6 +710,8 @@ class Online:
             if self._online_client is None:
                 self._online_relogin = None       # the player logs in by hand
                 self._online_auto_tried = True
+                if self._other_kind():
+                    self._other_choice = "here"   # a login by hand is the choice: this launcher
                 self._online_login(action)
             return
         client = self._online_client
@@ -1063,6 +1145,12 @@ class Online:
         retained = False
         priority = ("kicked", "disconnected") if self.online_match_flow else (
             "kicked", "match_found", "disconnected")
+        for event in events:
+            # The kick itself can be missed (the connection closed before its line was read): the installed client
+            # still names it in the disconnect ("removed from the lobby: ..."). Never relogin against that.
+            reason = str(event.get("reason") or "").lower()
+            if event.get("t") == "disconnected" and reason.startswith("removed from the lobby"):
+                event["t"], event["reason"] = "kicked", reason.partition(":")[2].strip()
         for kind in priority:
             event = next((event for event in events if event.get("t") == kind), None)
             if event is None:
@@ -1077,8 +1165,9 @@ class Online:
             if kind == "kicked":
                 reason = str(event.get("reason") or "").lower()
                 self._online_phase = "kicked"
-                self._online_message = ("@online.kicked" if "logged in from another place" in reason
-                                        else "@online.removed")
+                elsewhere = "logged in from another place" in reason
+                self._online_message = ((elsewhere and self._other_kick_message()) or
+                                        ("@online.kicked" if elsewhere else "@online.removed"))
             elif kind == "match_found":
                 # Closing also prevents the server requeueing this client after a ready timeout.
                 self._online_phase = "matched"
@@ -1237,6 +1326,11 @@ class Online:
                 self._online_message = value["warning"] or (
                     "@online.reconnected" if self._online_relogin else "@online.logged_in")
                 self._online_relogin = None
+                self._other_presence(True)
+                other = self._other_state()
+                if not value["warning"] and other and other["logs_in"] and self._online_account:
+                    # The lobby moved this account's login here; the other launcher shows its kick.
+                    self._online_message = "@other_launcher.logged_in_here"
             elif action.startswith("search_"):
                 if self._online_phase != "searching":
                     continue
@@ -1467,6 +1561,12 @@ class Online:
         plan = self._online_relogin
         if not plan or self._online_client is not None or self._online_busy:
             return False
+        if self._other_holds_back():
+            # Another launcher is open: logging in again by itself could take the login from it (the newer login
+            # wins), and it would take it back. The player logs in here by hand if this is the launcher to use.
+            self._online_relogin = None
+            self._online_phase, self._online_message = "offline", "@other_launcher.relogin_paused"
+            return True
         now = time.monotonic()
         if now > plan["until"] or (plan["account"] and self._online_saved() is None):
             self._online_relogin = None
@@ -1527,6 +1627,8 @@ class Online:
         self._online_init()
         if getattr(self, "_online_auto_tried", False):
             return
+        if self._other_holds_back():
+            return                                # asked again once the player chose (or the other one closed)
         self._online_auto_tried = True
         if (self._online_client is not None or self._online_busy or self._online_phase != "offline"
                 or getattr(self, "online_direct_ip", False)):
@@ -1546,6 +1648,7 @@ class Online:
             self._online_generation += 1
             t5_features.close(self)
             client, self._online_client = self._online_client, None
+        self._other_presence(False)
         self._online_busy = False
         self._online_relogin = None
         self._online_leaving = False

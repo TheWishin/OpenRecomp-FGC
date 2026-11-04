@@ -116,6 +116,25 @@ Item {
                 text: page.o.error ? (page.o.errorText || "") : (page.o.message || "")
                 color: page.o.error ? page.red : page.root.muted; font.family: page.root.sans; font.weight: page.o.error ? Font.DemiBold : Font.Normal; font.pixelSize: 18
             }
+            // another launcher of this game is open: one sentence and Use OpenRecomp here / Keep the other one
+            Rectangle {
+                objectName: "otherLauncherNote"
+                visible: !!(page.o.notice && page.o.notice.text)
+                width: parent.width; height: visible ? noticeColumn.implicitHeight + 24 : 0
+                color: "#24272C"; border.width: 1; border.color: page.acc
+                Column {
+                    id: noticeColumn
+                    x: 16; y: 12; width: parent.width - 32; spacing: 10
+                    Text { width: parent.width; wrapMode: Text.Wrap; maximumLineCount: 4; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.o.notice ? (page.o.notice.text || "") : ""; color: page.root.textC; font.family: page.root.sans; font.pixelSize: 18 }
+                    Row {
+                        spacing: 12
+                        Repeater {
+                            model: page.o.notice ? page.list(page.o.notice.buttons).length : 0
+                            Button { required property int index; b: page.root.ok(page.o.notice.buttons, index); primary: index === 0; width: 340; height: 44 }
+                        }
+                    }
+                }
+            }
             // ---------------------------------------------------------------- login
             Button { visible: page.o.page === "main" && !!page.o.saved; b: page.o.saved; width: parent.width; height: 46 }
             Field { visible: !!page.o.name; f: page.o.name; width: parent.width }

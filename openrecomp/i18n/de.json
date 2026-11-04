@@ -1342,5 +1342,19 @@
     "online_ui.server_line": "Server",
     "online_ui.or": "oder",
     "online_ui.ranked_account": "Ranked braucht ein Konto (Gäste spielen Casual)",
-    "online_ui.build_line": "Build {build}"
+    "online_ui.build_line": "Build {build}",
+    "other_launcher.title": "Ein anderer Launcher ist offen",
+    "other_launcher.use_here": "Hier OpenRecomp nutzen",
+    "other_launcher.keep_other": "Den anderen behalten",
+    "other_launcher.native_t5dr": "Der eigene Launcher von T5DR Online ist auch offen. Du kannst nur in einem Launcher gleichzeitig online sein: Meldest du dich hier mit demselben Konto an, wirst du dort abgemeldet. Ein hier gestartetes Spiel beendet eine Suche dort nicht.",
+    "other_launcher.native_t4": "Der eigene Launcher von Tekken 4 ist auch offen. Spiele in nur einem Launcher gleichzeitig: Ein dort gestartetes Spiel nimmt dich hier aus der Suche.",
+    "other_launcher.online": "Ein anderes OpenRecomp-Fenster ist mit diesem Spiel online. Du kannst nur in einem Fenster gleichzeitig online sein: Meldest du dich hier mit demselben Konto an, wirst du dort abgemeldet.",
+    "other_launcher.window": "Ein anderes OpenRecomp-Fenster ist offen. Du kannst nur in einem Fenster gleichzeitig online sein: Meldest du dich hier mit demselben Konto an, wirst du dort abgemeldet.",
+    "other_launcher.kept_note": "Du spielst online im anderen Launcher. OpenRecomp bleibt hier abgemeldet und meldet sich nicht selbst an.",
+    "other_launcher.kept_other": "Hier abgemeldet: Du spielst online im anderen Launcher.",
+    "other_launcher.chosen_here": "Also OpenRecomp. Melde dich hier an; mit demselben Konto wird der andere Launcher abgemeldet.",
+    "other_launcher.kicked_native": "Du hast dich mit diesem Konto im eigenen Launcher von T5DR Online angemeldet, deshalb wurde OpenRecomp hier abgemeldet. Du kannst nur in einem Launcher gleichzeitig online sein. Melde dich hier nur wieder an, wenn du hier spielen willst (dann wird der andere abgemeldet).",
+    "other_launcher.kicked_window": "Du hast dich mit diesem Konto in einem anderen OpenRecomp-Fenster angemeldet, deshalb wurde dieses Fenster abgemeldet. Du kannst nur in einem Fenster gleichzeitig online sein. Melde dich hier nur wieder an, wenn du hier spielen willst (dann wird das andere abgemeldet).",
+    "other_launcher.logged_in_here": "Du bist in der Lobby. Falls der andere Launcher mit diesem Konto angemeldet war, ist er jetzt abgemeldet.",
+    "other_launcher.relogin_paused": "Die Verbindung zur Lobby ist abgebrochen. Ein anderer Launcher dieses Spiels ist offen, deshalb meldet sich OpenRecomp nicht selbst wieder an. Melde dich erneut an, um hier zu spielen."
 }

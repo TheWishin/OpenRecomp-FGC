@@ -1342,5 +1342,19 @@
     "online_ui.server_line": "Servidor",
     "online_ui.or": "o",
     "online_ui.ranked_account": "Ranked necesita una cuenta (los invitados juegan casual)",
-    "online_ui.build_line": "Build {build}"
+    "online_ui.build_line": "Build {build}",
+    "other_launcher.title": "Hay otro launcher abierto",
+    "other_launcher.use_here": "Usar OpenRecomp aquí",
+    "other_launcher.keep_other": "Seguir con el otro",
+    "other_launcher.native_t5dr": "El launcher propio de T5DR Online también está abierto. Solo puedes estar en línea en un launcher a la vez: si inicias sesión aquí con la misma cuenta, se cerrará la sesión allí. Una partida iniciada aquí no detiene una búsqueda allí.",
+    "other_launcher.native_t4": "El launcher propio de Tekken 4 también está abierto. Juega en un solo launcher a la vez: una partida iniciada allí te saca de la búsqueda aquí.",
+    "other_launcher.online": "Otra ventana de OpenRecomp está en línea con este juego. Solo puedes estar en línea en una ventana a la vez: si inicias sesión aquí con la misma cuenta, se cerrará la sesión allí.",
+    "other_launcher.window": "Hay otra ventana de OpenRecomp abierta. Solo puedes estar en línea en una ventana a la vez: si inicias sesión aquí con la misma cuenta, se cerrará la sesión allí.",
+    "other_launcher.kept_note": "Juegas en línea en el otro launcher. OpenRecomp sigue sin sesión aquí y no inicia sesión por sí solo.",
+    "other_launcher.kept_other": "Sesión cerrada aquí: juegas en línea en el otro launcher.",
+    "other_launcher.chosen_here": "Usarás OpenRecomp. Inicia sesión aquí; con la misma cuenta se cerrará la sesión del otro launcher.",
+    "other_launcher.kicked_native": "Iniciaste sesión con esta cuenta en el launcher propio de T5DR Online, así que OpenRecomp cerró la sesión aquí. Solo puedes estar en línea en un launcher a la vez. Vuelve a iniciar sesión aquí solo para jugar aquí (eso cierra la sesión del otro).",
+    "other_launcher.kicked_window": "Iniciaste sesión con esta cuenta en otra ventana de OpenRecomp, así que esta ventana cerró la sesión. Solo puedes estar en línea en una ventana a la vez. Vuelve a iniciar sesión aquí solo para jugar aquí (eso cierra la sesión de la otra).",
+    "other_launcher.logged_in_here": "Estás en el lobby. Si el otro launcher tenía la sesión iniciada con esta cuenta, ahora está cerrada.",
+    "other_launcher.relogin_paused": "Se perdió la conexión con el lobby. Hay otro launcher de este juego abierto, así que OpenRecomp no vuelve a iniciar sesión por sí solo. Inicia sesión de nuevo para jugar aquí."
 }

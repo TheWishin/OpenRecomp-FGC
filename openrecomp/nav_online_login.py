@@ -18,6 +18,7 @@ ACCOUNT_IDS = ("online_password", "login_show_password", "login_remember", "logi
                "login_forgot")
 RECOVER_IDS = ("online_recovery_code", "online_new_password", "online_repeat_password", "recover_account")
 FOOTER_IDS = ("online_server", "online_fingerprint", "mode_direct", "native")
+OTHER_IDS = ("other_here", "other_keep")      # another launcher of this game is open (nav_online)
 # which field a message is about: the red line goes under it
 FIELD_ERRORS = {
     "online_name": ("@online.bad_name", "@online.name_taken"),
@@ -48,6 +49,7 @@ class OnlineLogin:
 
         # the status row stays first (the card's message; a vanished row's focus lands on it, as everywhere)
         page = [by_id["online_status"]] if "online_status" in by_id else []
+        page += [by_id[i] for i in OTHER_IDS if i in by_id]
         if recover:
             page += [by_id[i] for i in ("online_name",) + RECOVER_IDS if i in by_id]
             page.append(extra("login_back", "@online_ui.login_back", "@online120.account_hint",
@@ -71,7 +73,7 @@ class OnlineLogin:
                                   lambda: self._login_page(g, "recover"), verb="@open"))
             page += [by_id[i] for i in ("login_guest",) if i in by_id]
             known = set(("online_status", "login_saved", "online_name", "login_guest") + ACCOUNT_IDS + RECOVER_IDS
-                        + FOOTER_IDS)
+                        + FOOTER_IDS + OTHER_IDS)
             # rows this card does not place itself (a game's own extra) go above the footer
             page += [item for item in out if item.get("kind") != "heading" and item.get("id") not in known]
             page += [by_id[i] for i in FOOTER_IDS if i in by_id]
@@ -164,7 +166,7 @@ class OnlineLogin:
             password["value"] = i18n.literal(g.a.text_value("online_password"))
         footer = [one(i) for i in FOOTER_IDS if i in by_id]
         known = set(("online_status", "login_saved", "online_name", "login_guest", "login_back") + ACCOUNT_IDS
-                    + RECOVER_IDS + FOOTER_IDS)
+                    + RECOVER_IDS + FOOTER_IDS + OTHER_IDS)
         extra = [one(it.get("id")) for it in items if it.get("id") not in known and it.get("kind") != "heading"]
         recover = self.__dict__.setdefault("login_page", {}).get(g.id) == "recover"
         if recover and not error:
@@ -181,4 +183,6 @@ class OnlineLogin:
             guest=one("login_guest"), accountTitle="@online_ui.account_area", guestTitle="@online_ui.guest_area",
             guestNote="@online_ui.guest_note", footer=[f for f in footer if f], extra=[e for e in extra if e],
             serverLabel="@online_ui.server_line", orText="@online_ui.or",
-            recover=[one(i) for i in RECOVER_IDS if i in by_id], back=one("login_back"))
+            recover=[one(i) for i in RECOVER_IDS if i in by_id], back=one("login_back"),
+            notice=dict(text=self._other_launcher_text(state), buttons=[one(i) for i in OTHER_IDS if i in by_id])
+            if "other_here" in by_id else None)
