@@ -99,6 +99,8 @@ class Picker:
     def _picker_entries(self):
         p = self.picker
         p["error"] = False
+        if "choices" in p:
+            return [dict(name=i18n.literal(path), path=path, kind="pick") for path in p["choices"]]
         out = []
         if not p["dir"]:
             for letter in string.ascii_uppercase:
@@ -137,7 +139,7 @@ class Picker:
             p["focus"] = max(0, min(len(entries) - 1, p["focus"] + 1))
         elif a == "back":
             self.overlay = None
-        elif a == "x" and self.native_picker:
+        elif a == "x" and self.native_picker and "choices" not in p:
             self._request_native(p["target"], p["title"], p["exts"], p["kind"], p["dir"], p.get("filter_name", ""))
         elif a == "confirm" and entries:
             e = entries[p["focus"]]
@@ -165,9 +167,20 @@ class Picker:
             self.game.a.set_setting(target[8:], path)
         elif target.startswith("source:"):
             game = self.game
+            choices = game.a.source_choices(target[7:], path)
+            if choices is not None:
+                if not choices:
+                    self.say("@t5.install_incomplete_python", 12)
+                    return
+                if len(choices) > 1:
+                    self.picker = dict(target=target, title="@t5.choose_install", exts=[], kind="folder",
+                                       dir=path, focus=0, choices=choices)
+                    self.overlay = "picker"
+                    return
+                path = choices[0]
             message = self.game.a.set_source(target[7:], path)
             if message == "reload" and self.install:
-                self._reload_source(game)
+                self._reload_source(game, path if choices is not None else "")
             elif message:
                 self.say(message)
             else:
@@ -197,7 +210,7 @@ class Picker:
                 self.focus_next_build_step(game)
         return changed
 
-    def _reload_source(self, game):
+    def _reload_source(self, game, folder=""):
         try:
             message = self.install(None)
         except Exception:  # noqa: BLE001 -- a registration failure must not break the timer
@@ -206,6 +219,8 @@ class Picker:
         self.say(message)
         if message == "@library.busy":
             return False
+        if folder and message in ("@folder_saved", "@t5.folder_old"):
+            self.say(i18n.message("t5.folder_taken", folder=i18n.literal(folder)), 15)
         if message == "@folder_saved" and self.game and self.game.id == game.id and self.game.m.get("adapter") == "t4" and self.game.a.found():
             self.screen = "hub"
             self.sec[self.game.id] = "build"
@@ -219,7 +234,7 @@ class Picker:
         p["focus"] = max(0, min(p["focus"], len(entries) - 1))
         start = window(len(entries), p["focus"], PICKER_VISIBLE)
         rows = [dict(index=i, name=e["name"], kind=e["kind"], focused=i == p["focus"]) for i, e in enumerate(entries[start:start + PICKER_VISIBLE], start)]
-        message = ""
+        message = "@t5.folder_several" if "choices" in p else ""
         if p.get("error"):
             message = "@picker_unreadable"
         elif not entries:
@@ -231,6 +246,6 @@ class Picker:
         v["prompts"] = []
         if entries:
             v["prompts"].append(self.prompt("confirm", "@open" if entries[p["focus"]]["kind"] == "dir" else "@choose"))
-        if self.native_picker:
+        if self.native_picker and "choices" not in p:
             v["prompts"].append(self.prompt("x", "@picker.explorer"))
         v["prompts"].append(self.prompt("back", "@cancel"))

@@ -16,7 +16,7 @@ import tempfile
 import threading
 import time
 
-from .base import Adapter, NO_WINDOW, add_path, expand_locations
+from .base import Adapter, Missing, NO_WINDOW, add_path, expand_locations
 from .t5_controls import Controls
 from .support import T5Support
 from .t5_match import T5Match
@@ -62,6 +62,60 @@ def install_root(path):
     return os.path.abspath(found[0]) if len(found) == 1 else None
 
 
+def root_candidates(path):
+    """A player's folder, its three parents and direct children; never a recursive search."""
+    def complete(root):
+        return all(os.path.isfile(os.path.join(root, name)) for name in
+                   ("T5DR Online.exe", "release.json", os.path.join("python", "python.exe")))
+
+    path = os.path.realpath(path)
+    if complete(path):
+        return [path]
+    nearby = []
+    parent = path
+    for _ in range(3):
+        above = os.path.dirname(parent)
+        if above == parent:
+            break
+        nearby.append(above)
+        parent = above
+    try:
+        with os.scandir(path) as entries:
+            for entry in entries:
+                try:
+                    if entry.is_dir():
+                        nearby.append(entry.path)
+                except OSError:
+                    pass
+    except OSError:
+        pass
+    found = {}
+    for root in nearby:
+        if complete(root):
+            root = os.path.realpath(root)
+            found[os.path.normcase(root)] = root
+    return sorted(found.values(), key=str.casefold)
+
+
+def legacy_install(root):
+    return version_key(root)[:2] == (1, 1)
+
+
+class LegacyT5DR(Missing):
+    """An old release can be updated without importing its launcher modules."""
+    def __init__(self, manifest, config, root):
+        super().__init__(manifest, config)
+        self.root = root
+        self.problem = "@t5.folder_old"
+
+    def setup_root(self):
+        return self.root
+
+    def sources(self):
+        return [dict(id="folder", label="@t5.choose_install", value=self.root, ok=True,
+                     kind="folder", exts=[], dirs=[self.root], hint="@t5.folder_old", note="")]
+
+
 def _has_build(root):
     out_dir = os.path.join(root, "native")
     try:
@@ -84,7 +138,8 @@ def find_root(manifest, config):
     """The newest installed T5DR Online with a built game; else the newest install."""
     chosen = (config.get("roots") or {}).get(manifest["id"]) or os.environ.get("OPENRECOMP_T5DR_ROOT")
     if chosen:
-        return install_root(chosen)
+        roots = root_candidates(chosen)
+        return roots[0] if len(roots) == 1 else (None if roots else install_root(chosen))
     found = []
     locations = manifest.get("locations") or ["%USERPROFILE%/Downloads/T5DR-Online-*",
                                                "%USERPROFILE%/Desktop/T5DR-Online-*"]
@@ -115,7 +170,8 @@ def find_root(manifest, config):  # noqa: F811 -- the search above, with the fol
     """The chosen install; else one beside this launcher; else the newest found, a built one first."""
     chosen = (config.get("roots") or {}).get(manifest["id"]) or os.environ.get("OPENRECOMP_T5DR_ROOT")
     if chosen:
-        return install_root(chosen)
+        roots = root_candidates(chosen)
+        return roots[0] if len(roots) == 1 else (None if roots else install_root(chosen))
     return _find_root_anywhere(dict(manifest, locations=sibling_locations()), {}) or _find_root_anywhere(manifest, config)
 
 
@@ -633,11 +689,19 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                  hint="@license.hint", note=""),
         ]
 
+    def source_choices(self, sid, path):
+        return root_candidates(path) if sid == "folder" else None
+
+    def existing_installs(self, parent=""):
+        from .t5_discovery import existing_installs
+        return existing_installs(self.m, self.config, parent)
+
     def set_source(self, sid, path):
         if sid == "folder":
-            root = find_root(self.m, dict(roots={self.m["id"]: path}))
-            if not root:
-                return "@t5.coexist.install_invalid"
+            choices = root_candidates(path)
+            if len(choices) != 1:
+                return "@t5.install_incomplete_python"
+            root = choices[0]
             if os.path.normcase(os.path.realpath(root)) != os.path.normcase(os.path.realpath(self.root)):
                 self.config.pop("t5dr_settings_copy", None)
             self.config.setdefault("roots", {})[self.m["id"]] = root

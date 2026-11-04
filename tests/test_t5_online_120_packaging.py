@@ -20,6 +20,7 @@ FEATURE_SOURCES.add("openrecomp/adapters/t5_features.py")
 class T5OnlinePackagingTests(unittest.TestCase):
     def test_coexistence_runtime_modules_and_guide_are_shipped(self):
         required = {"openrecomp/adapters/t5_coexist.py", "openrecomp/adapters/t5_compatibility.py",
+                    "openrecomp/adapters/t5_discovery.py",
                     "docs/T5DR_COEXISTENCE.md"}
         self.assertEqual(required - package.SOURCE_FILES, set())
         selected = package.source_files(ROOT)
