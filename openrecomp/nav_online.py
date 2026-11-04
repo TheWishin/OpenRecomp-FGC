@@ -139,8 +139,12 @@ class Online:
         if phase in ("matched", "starting", "playing", "result", "result_sent"):
             if match.get("opponent"):
                 rows.append(dict(k="@online.opponent", v=i18n.literal(match["opponent"])))
-            if match.get("ping") is not None:
-                rows.append(dict(k="@online.ping", v=str(match["ping"])))
+            from .nav_online_layout import connection
+
+            conn = connection(match)
+            rows.append(dict(k="@online.ping", v=conn["text"]))
+            if conn["path"]:
+                rows.append(dict(k="@online_ui.path", v=conn["path"]))
         set_state = state.get("set") or {}
         if set_state:
             wins = set_state.get("wins") or []
@@ -286,7 +290,10 @@ class Online:
         capabilities = state.get("capabilities") or {}
         challenge = state.get("challenge") or {}
         if challenge:
+            from .nav_online_layout import connection
+
             details = [dict(k="@online.name", v=i18n.literal(challenge.get("name") or ""))]
+            details.append(dict(k="@online.ping", v=connection(challenge)["text"]))
             for iid, label in (("accept_challenge", "@online.accept_challenge"),
                                ("decline_challenge", "@online.decline_challenge")):
                 item = action(iid, label)

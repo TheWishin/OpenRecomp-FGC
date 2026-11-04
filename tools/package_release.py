@@ -47,7 +47,7 @@ SOURCE_GROUPS = {
                                   "i18n_known.py", "nat.py", "portmap.py", "proto.py", "servers.py", "spectate.py",
                                   "t4game.py", "tour_client.py"),
     "openrecomp/i18n": ("__init__.py", "de.json", "en.json", "es.json", "fr.json", "ja.json", "ko.json", "pt-BR.json"),
-    "openrecomp/ui": ("BuildAction.qml", "BuildPage.qml", "Glyph.qml", "Hub.qml", "Main.qml", "OnlineCard.qml", "OnlineHub.qml", "OnlineLogin.qml", "Overlays.qml", "ResultCell.qml", "SettingsHub.qml", "Shelf.qml"),
+    "openrecomp/ui": ("BuildAction.qml", "BuildPage.qml", "Glyph.qml", "Hub.qml", "Main.qml", "OnlineCard.qml", "OnlineHub.qml", "OnlineLogin.qml", "Overlays.qml", "PeerPing.qml", "ResultCell.qml", "SettingsHub.qml", "Shelf.qml"),
     "openrecomp/ui/assets": ("icon.ico", "icon.svg", "logo-mark-light.svg", "logo-mark.svg", "logo-wordmark-light.svg", "logo-wordmark.svg"),
     # The menu sounds, made by tools/make_ui_sounds.py (synthesized: nothing from a game or a sound pack)
     "openrecomp/ui/sounds": ("back.wav", "close.wav", "confirm.wav", "error.wav", "move.wav", "notify.wav",

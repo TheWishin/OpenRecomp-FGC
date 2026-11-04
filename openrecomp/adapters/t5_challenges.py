@@ -243,8 +243,14 @@ def completion(owner, operation, value, error):
         cid = reply.get("challenge") if isinstance(reply, dict) else reply
         if (owner._online_phase == "logged_in" and isinstance(cid, str) and cid
                 and cid not in owner._t5_ended_challenges):
+            event = dict(reply) if isinstance(reply, dict) else {}
+            event["to"] = next((p for p in owner._online_players if p.get("id") == value["player"]),
+                               dict(id=value["player"], name=value["name"]))
+            get_ping = getattr(owner, "_online_ping_view", None)
+            ping = get_ping(event, "to") if callable(get_ping) else {}
             owner._t5_open_challenges[cid[:80]] = dict(player=value["player"], name=value["name"],
-                first_to=value["first_to"], delay=_delay(reply.get("delay")) if isinstance(reply, dict) else {})
+                first_to=value["first_to"], delay=_delay(reply.get("delay")) if isinstance(reply, dict) else {},
+                **ping)
         owner._online_message = "@online.challenge_sent"
     return True
 

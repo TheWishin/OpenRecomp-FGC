@@ -86,6 +86,17 @@ def bars(ping):
     return next((n for limit, n in SIGNAL if ping < limit), 1)
 
 
+def connection(info):
+    ping = info.get("ping")
+    text = "@online_ui.ping_unknown"
+    if ping is not None and info.get("ping_measured"):
+        text = i18n.message("online_ui.ping_ms", ping=ping)
+    elif ping is not None:
+        text = i18n.message("online_ui.ping_est", ping=ping)
+    path = {"direct": "@online_ui.path_direct", "relay": "@online_ui.path_relay", "lan": "@online_ui.path_lan"}
+    return dict(text=text, bars=bars(ping), path=path.get(info.get("ping_path"), ""))
+
+
 def _family(iid):
     return next((p for p in TABLES if iid.startswith(p)), "")
 
@@ -415,10 +426,12 @@ class OnlineLayout:
         rows = [dict(k=r["k"], v=r["v"], accent=bool(r.get("accent"))) for r in (sd.get("rows") or []) + (
             (d.get("rows") or []) if it is not status else [])][:12]
         try:
-            phase = g.a.online_state().get("phase", "")
+            state = g.a.online_state()
+            phase = state.get("phase", "")
         except Exception:  # noqa: BLE001 -- the card without its error colour
-            phase = ""
+            state, phase = {}, ""
         v["online"] = dict(layout="card", title=sd.get("title") or status.get("label", ""), message=sd.get("lead", ""),
+                           connection=connection(state.get("match") or {}) if phase in ("matched", "starting", "playing", "result", "result_sent") else None,
                            error=phase in ("error", "kicked"),
                            statusFocused=fi == si and si >= 0, statusIndex=si,
                            lines=lines[start:start + CARD_LINES], up=start > 0, down=start + CARD_LINES < len(lines),
@@ -484,6 +497,8 @@ class OnlineLayout:
                     buttons=[self._btn(items, by_id[i], fi) for i in ("profile_self", "logout") if i in by_id])
 
     def _view_find(self, g, state, items, fi, by_id):
+        from .nav_challenges import _details
+
         def button(iid):
             if iid not in by_id:
                 return dict(index=-1, label="", focused=False, disabled=True, present=False)
@@ -495,16 +510,31 @@ class OnlineLayout:
         extra = [self._btn(items, n, fi) for n, it in enumerate(items)
                  if it.get("region") == "find" and it.get("id") in ("native", "leave_set", "game_setup", "game_update")]
         challenge = state.get("challenge") or {}
+        terms = (state.get("challenge_preferences") or {}).get("incoming") or {}
         incoming = dict(text=i18n.message("online_ui.incoming", name=i18n.literal(challenge.get("name") or "")),
+                        connection=connection(challenge),
+                        details=_details(terms) if terms.get("id") == challenge.get("id") else [],
                         buttons=[self._btn(items, by_id[i], fi) for i in ("accept_challenge", "decline_challenge") if i in by_id]) \
             if challenge and "accept_challenge" in by_id else None
+        outgoing = None
+        for offer in state.get("open_challenges") or []:
+            iid = "cancel_challenge:" + offer["id"]
+            if iid in by_id:
+                outgoing = dict(text=i18n.message("online_ui.waiting_for", name=i18n.literal(offer.get("name") or "")),
+                                connection=connection(offer), details=_details(offer),
+                                buttons=[dict(self._btn(items, by_id[iid], fi), label="@online.cancel_challenge")])
+                break
+        if not outgoing and state.get("outgoing_challenge"):
+            offer = state["outgoing_challenge"]
+            outgoing = dict(text=i18n.message("online_ui.waiting_for", name=i18n.literal(offer.get("name") or "")),
+                            connection=connection(offer), details=[], buttons=[])
         # another launcher of this game is open: the note sits over the options until the player chose
         note = self._other_launcher_text(state)
         notice = dict(text=note, buttons=[self._btn(items, by_id[i], fi) for i in ("other_here", "other_keep")
                                           if i in by_id]) if note and "other_here" in by_id else None
         return dict(ranked=button("search_ranked"), quick=button("search_casual"), notice=notice,
                     rankedNote="@online_ui.ranked_note", quickNote="@online_ui.quick_note",
-                    options=options, extra=extra, incoming=incoming, message=state.get("message") or "")
+                    options=options, extra=extra, incoming=incoming, outgoing=outgoing, message=state.get("message") or "")
 
     def _view_chapters(self, state, items, chapter):
         present = [c for c in CHAPTERS if any(it.get("region") == c for it in items)]

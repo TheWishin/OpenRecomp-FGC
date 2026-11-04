@@ -192,17 +192,29 @@ Item {
                 }
             }
         }
-        // an incoming challenge sits over the options until it is answered
+        // A challenge sits over the options until it is answered or cancelled.
         Rectangle {
-            visible: !!page.fnd.incoming
+            id: challengeBanner
+            readonly property var offer: page.fnd.incoming || page.fnd.outgoing || ({})
+            visible: !!page.fnd.incoming || !!page.fnd.outgoing
             x: 20; y: 110; width: find.width - 40; height: page.topH - 110 - 10; color: page.acc
-            Text { x: 18; anchors.verticalCenter: parent.verticalCenter; width: parent.width - incomingRow.width - 50; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.fnd.incoming ? page.fnd.incoming.text : ""; color: page.ink; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 30 }
+            Column {
+                x: 18; anchors.verticalCenter: parent.verticalCenter; width: parent.width - incomingRow.width - 50; spacing: 3
+                Text { objectName: "challengeBannerTitle"; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: challengeBanner.offer.text || ""; color: page.ink; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 30 }
+                PeerPing { connection: challengeBanner.offer.connection || ({}); ink: page.ink; dim: "#8A3838" }
+                Text {
+                    objectName: "challengeBannerTerms"
+                    width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText
+                    text: page.list(challengeBanner.offer.details).map(function(r) { return r.k + ": " + r.v }).join(" · ")
+                    color: page.ink; font.family: page.root.sans; font.pixelSize: 17
+                }
+            }
             Row {
                 id: incomingRow
                 anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; spacing: 8
                 Repeater {
-                    model: page.fnd.incoming ? page.list(page.fnd.incoming.buttons).length : 0
-                    Chip { required property int index; b: page.root.ok(page.fnd.incoming.buttons, index); strong: true; maxW: 240; height: 36; fontSize: 18 }
+                    model: page.list(challengeBanner.offer.buttons).length
+                    Chip { required property int index; b: page.root.ok(challengeBanner.offer.buttons, index); strong: true; maxW: 240; height: 36; fontSize: 18 }
                 }
             }
         }
