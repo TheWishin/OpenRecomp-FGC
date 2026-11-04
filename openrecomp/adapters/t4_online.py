@@ -823,12 +823,59 @@ class T4Online(T4Direct, Online):
             if not local or not callable(getattr(module, "game_env", None)):
                 raise RuntimeError("@online.client_missing")
             api["game_env"] = module.game_env
+            # The game's own result file (T4 game >= t4-result): absent in an older client = manual result only.
+            reader, report = getattr(module, "read_game_result", None), getattr(module, "game_result_report", None)
+            api["game_result"] = (reader, report) if callable(reader) and callable(report) else None
         env = dict(TEKKEN4_NET_STRICT_HELLO="0", TEKKEN4_NET_DELAY_MATCH="0")
         if getattr(self.core, "source_only", False):
             env.update(source_net_profile(self.config))
         # The lobby's endpoint, key, seed and build always win over the local profile.
         env.update(api["game_env"](ticket))
+        # Where the game writes its result (TEKKEN4_NET_RESULT, next to its net.log): one file per match, a stale
+        # one removed first; a file naming another match is never read (read_game_result checks the match id).
+        self._t4_result_path, self._t4_result_sent, self._t4_result_stop_at = None, False, None
+        if api.get("game_result"):
+            safe = re.sub(r"[^A-Za-z0-9_-]", "_", str(ticket.match_id))[:64] or "match"
+            path = os.path.join(self.core.SAVE_DIR, "t4_result-" + safe + ".json")
+            for stale in (path, path + ".tmp"):
+                try:
+                    os.remove(stale)
+                except OSError:
+                    pass
+            env["TEKKEN4_NET_RESULT"] = path
+            self._t4_result_path = path
         return env
+
+    def _t4_game_result_poll(self):
+        """The T4 game's own result (TEKKEN4_NET_RESULT): decided by the game on frames both games had confirmed.
+        Reported once with source "game" (the manual buttons stay for games that end without one); the game is
+        closed a few seconds later (the opponent's game may still need ours to confirm its last frames)."""
+        stop_at = getattr(self, "_t4_result_stop_at", None)
+        if stop_at is not None and time.monotonic() >= stop_at:
+            self._t4_result_stop_at = None
+            if getattr(self, "_online_owned_run", None) is not None:
+                self._online_stop_owned()
+            return True
+        path = getattr(self, "_t4_result_path", None)
+        if (not path or getattr(self, "_t4_result_sent", False) or self._online_phase != "playing"
+                or self._online_busy):
+            return False
+        client, ticket = self._online_client, self._online_ticket
+        api = self._online_modules()
+        if client is None or ticket is None or not api.get("game_result"):
+            return False
+        read, report = api["game_result"]
+        res = read(path, ticket.match_id)
+        if res is None:
+            return False
+        self._t4_result_sent = True
+        kw = dict(report(res), match_id=ticket.match_id)
+        kw["desync"] = max(kw.get("desync", 0), int(getattr(self, "_online_evidence", {}).get("desync", 0)))
+        winner, score = res["winner"], res["score"]
+        self._online_result_message = "@online.result_sent"
+        self._online_submit("result_game", lambda: client.report_result(winner=winner, score=score, **kw))
+        self._t4_result_stop_at = time.monotonic() + 5.0
+        return True
 
     def _online_match_message(self):
         reason = getattr(self, "_online_evidence", {}).get("reason")
@@ -1091,8 +1138,12 @@ class T4Online(T4Direct, Online):
         if action.startswith("login_") and not error:
             self._online_rating = value["me"].get("rating")
         if action not in ("start_match", "start_game", "game_started", "game_playing", "nat_fallback",
-                          "result_win", "result_loss", "result_none"):
+                          "result_win", "result_loss", "result_none", "result_game"):
             return False
+        if error and action == "result_game":
+            # The game's report did not go through: the player answers instead (the manual buttons).
+            self._online_phase, self._online_message = "result", "@online.result_prompt"
+            return True
         if error:
             # The match could not go on: back to the lobby, logged in (closing here was a logout). A match that has
             # not started is left; the match reset stops the owned game.
@@ -1244,6 +1295,8 @@ class T4Online(T4Direct, Online):
         if pending is not None and not self._online_busy:
             self._online_pending_start = None
             self._online_event(pending)
+            return True
+        if self._t4_game_result_poll():
             return True
         if self._online_phase != "playing" or self._online_busy:
             return changed

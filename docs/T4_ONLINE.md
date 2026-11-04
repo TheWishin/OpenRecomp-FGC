@@ -71,8 +71,12 @@ A stale ELF or a stamp without a compiler says "rebuild"; a missing ISO says "ch
 What the client expects from the server: a T4 lobby (welcome `"game": "t4"`, UDP magic
 `T4LB`, relayed game packets `T4NP`), TCP and UDP 7791 plus UDP 7792 for the NAT probe
 unless the address names other ports, guests on, quick match and challenges (unranked), the
-lobby chat, and a short minimum match length or none (the T4 game writes no result
-file yet: the players report the winner). The players' game port is any free UDP port
+lobby chat, and a short minimum match length or none. A T4 game built from a source with
+the match result (T4 `t4-result`, docs/MATCH_RESULT_T4.md there) writes its own result file
+(`TEKKEN4_NET_RESULT`, next to the game's net.log): the launcher reports it with source "game"
+(winner, round score, fighters, stage, the compared state hash) and closes the game five seconds
+later; an older build, or a game that ends without a decided match, leaves the manual answer.
+The players' game port is any free UDP port
 the launcher picks; nothing needs forwarding.
 
 ### Controller walk (lobby)
@@ -86,11 +90,13 @@ the launcher picks; nothing needs forwarding.
 4. When a match is found, choose **Start match**. T4 starts with the lobby's connection;
    pick characters and stage in T4's own VS menus. View + Menu held two seconds ends the
    game (as for direct IP).
-5. After the game, report **I won**, **I lost** or **No result**; the lobby's verdict
-   appears, then **Back to lobby**. **Direct IP / VPN** on the login screen goes back.
+5. When the game decided the match itself, the launcher reports it, closes the game and shows
+   the lobby's verdict. Otherwise (an older T4 build, a game closed before the match ended)
+   report **I won**, **I lost** or **No result** after the game; the lobby's verdict appears,
+   then **Back to lobby**. **Direct IP / VPN** on the login screen goes back.
 
 Not in the T4 beta lobby: ranked and leaderboards, rooms, friends, private chat,
-spectating, tournaments, replays, in-game result files and direct entry into a fight.
+spectating, tournaments, replays and direct entry into a fight.
 
 ### End-to-end check on one PC
 

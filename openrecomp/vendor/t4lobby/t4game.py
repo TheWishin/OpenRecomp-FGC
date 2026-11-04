@@ -21,11 +21,16 @@ T4 port's netplay environment, read by runtime/tekken4_rollback_overrides.cpp np
     TEKKEN4_NET_TIMEOUT  seconds                the peer silent this long = lost
     TEKKEN4_NET_BIND     ip                     only when the lobby tools bind the game socket somewhere special
                                                 (T5_NET_BIND=127.0.0.1 in tests)
-    TEKKEN4_NET_MATCH / _PATH / _RTT_MS         informational (not read by the game yet; in the run dir's env file)
+    TEKKEN4_NET_MATCH    the lobby's match id   written into the game's result file (a file of another match
+                                                is never reported)
+    TEKKEN4_NET_RESULT   path                   the game writes its result there (read_game_result): winner, round
+                                                score, fighters, stage, the compared state hash -- decided on frames
+                                                both games had confirmed (the T4 port's docs/MATCH_RESULT_T4.md)
+    TEKKEN4_NET_PATH / _RTT_MS                  informational (in the run dir's env file)
 
 Not passed (the T4 game has no use for them yet): T5_NET_DELAY (T5DR's lockstep delay), T5_FIGHT / T5_CTL_DIR
-(direct fight, persistent game), T5_NET_UNLOCKS, T5_NET_RESULT_FILE (the T4 game writes no result file yet: the
-result comes from the player, or "no result" -- open item in docs/LOBBY.md).
+(direct fight, persistent game), T5_NET_UNLOCKS. Without a proven result in the file (older T4 builds, a match left
+before its end) the result comes from the player, or "no result".
 
 The T4 game logs to its run dir (the working directory): net.log (transport: "connected (host, P1), peer ...",
 "cannot connect (<reason>): ...", "peer lost (<reason>): ...") and rb_frames.log ("NETSUMMARY ...", "NETDESYNC",
@@ -43,8 +48,9 @@ GAME_EXE = "ps2EntryRunner.exe"
 ELF_NAME = "SLUS_203.28"
 
 
-def game_env(ticket, delay="auto", bind=None):
-    """The TEKKEN4_* environment for one side of a lobby match (ticket: handover.MatchTicket)."""
+def game_env(ticket, delay="auto", bind=None, result_file=None):
+    """The TEKKEN4_* environment for one side of a lobby match (ticket: handover.MatchTicket). result_file: where
+    the game writes its result (TEKKEN4_NET_RESULT; read it with read_game_result)."""
     peer = f"{ticket.peer[0]}:{int(ticket.peer[1])}"
     env = {}
     if ticket.role == "host":
@@ -69,7 +75,70 @@ def game_env(ticket, delay="auto", bind=None):
     env["TEKKEN4_NET_MATCH"] = ticket.match_id
     env["TEKKEN4_NET_PATH"] = ticket.path
     env["TEKKEN4_NET_RTT_MS"] = f"{ticket.rtt_ms:.1f}"
+    if result_file:
+        env["TEKKEN4_NET_RESULT"] = str(result_file)
     return env
+
+
+# ------------------------------------------------------------------------------------------------ the game's result
+RESULT_FILE = "t4_result.json"
+RESULT_SCHEMA = "tekken4-online-session-v2"
+T4_FIGHTER_IDS = range(0, 19)     # the game's fighter ids (data/fighters.json "id")
+
+
+def read_game_result(path, match_id=None):
+    """The T4 game's own result of the session's first match (TEKKEN4_NET_RESULT), or None while there is none.
+
+    Only a proven result is returned: the game decided it on frames whose inputs both games had (no rollback can
+    change them), and its round wins agree with the game's own match decision. A file naming another match is
+    ignored. -> {"winner": 0 | 1 | None (draw), "score": [p1, p2], "chars": [id, id] | None, "stage": id | None,
+    "desync": n, "hash": hex | None, "hash_agreed": True | False | None, "frames": n}"""
+    try:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(d, dict) or d.get("schema") != RESULT_SCHEMA or d.get("match_result_proven") is not True:
+        return None
+    if match_id is not None and d.get("match") != match_id:
+        return None
+    winner, draw = d.get("winner"), d.get("draw") is True
+    if not ((winner in (0, 1) and not draw) or (winner is None and draw)) or isinstance(winner, bool):
+        return None
+    score = d.get("score")
+    if not (isinstance(score, list) and len(score) == 2
+            and all(isinstance(x, int) and not isinstance(x, bool) and 0 <= x <= 9 for x in score)):
+        return None
+    if (winner == 0 and score[0] <= score[1]) or (winner == 1 and score[1] <= score[0]) or \
+            (winner is None and score[0] != score[1]):
+        return None
+    chars = d.get("chars")
+    if not (isinstance(chars, list) and len(chars) == 2
+            and all(isinstance(x, int) and not isinstance(x, bool) and x in T4_FIGHTER_IDS for x in chars)):
+        chars = None
+    stage = d.get("stage")
+    if not (isinstance(stage, int) and not isinstance(stage, bool) and 0 <= stage < 64):
+        stage = None
+    desync = d.get("desync")
+    desync = desync if isinstance(desync, int) and not isinstance(desync, bool) and desync >= 0 else 0
+    agreed = d.get("hash_agreed")
+    h = d.get("hash")
+    h = h.lower() if isinstance(h, str) and h and all(c in "0123456789abcdefABCDEF" for c in h) else None
+    frames = d.get("frames")
+    frames = frames if isinstance(frames, int) and not isinstance(frames, bool) and frames >= 0 else None
+    if agreed is False:
+        desync = max(desync, 1)          # the two games' state hashes differ at the deciding frame
+    return {"winner": winner, "score": list(score), "chars": chars, "stage": stage, "desync": desync,
+            "hash": h, "hash_agreed": agreed if agreed in (True, False) else None, "frames": frames}
+
+
+def game_result_report(res):
+    """read_game_result's result -> the keyword arguments of client.report_result (source "game")."""
+    kw = {"source": "game", "desync": res["desync"]}
+    for k in ("hash", "frames", "chars", "stage"):
+        if res.get(k) is not None:
+            kw[k] = res[k]
+    return kw
 
 
 # ------------------------------------------------------------------------------------------------ the game's logs
@@ -187,7 +256,7 @@ class GameSetup:
         name = f"{proto.file_safe(ticket.match_id)}_{ticket.role}" + (f"_{attempt}" if attempt else "")
         run_dir = os.path.join(self.run_root, name)
         os.makedirs(run_dir, exist_ok=True)
-        env = game_env(ticket, self.delay)
+        env = game_env(ticket, self.delay, result_file=os.path.join(run_dir, RESULT_FILE))
         env.setdefault("TEKKEN4_SOUND", "1" if self.sound else "0")
         if self.pad is not None:
             env["TEKKEN4_NET_PAD"] = str(self.pad)
@@ -225,8 +294,10 @@ class T4Match:
     other, ask for the relay when the direct path stays silent (nat_fallback, a second match_start for the same match
     restarts the game), stop at NETEND or when the game exits, report the result.
 
-    result_of(watch, rc) -> (winner, score) or None: who won (the player's answer, a test's fixed value); None = no
-    result (reported as winner null). The T4 game itself writes no result file yet."""
+    The game's own result file (read_game_result) decides when it has one: reported with source "game", then the
+    game is closed (a few seconds later: the opponent's game may still need ours to confirm its last frames).
+    Otherwise result_of(watch, rc) -> (winner, score) or None: who won (the player's answer, a test's fixed value);
+    None = no result (reported as winner null)."""
 
     FALLBACK_AFTER = 20.0       # s without "connected" on the direct path -> ask for the relay (T5DR: 15 s)
     POLL = 0.2
@@ -252,9 +323,20 @@ class T4Match:
         watch = GameWatch(run_dir)
         t0 = time.monotonic()
         told_started = told_playing = asked_fallback = False
+        game_res = None
         try:
             while True:
                 watch.poll()
+                game_res = read_game_result(os.path.join(run_dir, RESULT_FILE), mid) or game_res
+                if game_res is not None and self.stop_at_end:
+                    w = game_res["winner"]
+                    self.log(f"  the game says: {'draw' if w is None else 'P%d won' % (w + 1)} "
+                             f"{game_res['score'][0]}-{game_res['score'][1]}")
+                    time.sleep(5.0)          # (the opponent's game may still need ours to confirm its last frames)
+                    watch.poll()
+                    stop(p)
+                    rc = p.poll()
+                    break
                 if watch.connected and not told_started:
                     told_started = True
                     self.log("  the two games are connected")
@@ -275,6 +357,7 @@ class T4Match:
                             attempt += 1
                             p, run_dir, env = self.setup.start(ticket, attempt)
                             watch = GameWatch(run_dir)
+                            mid = ticket.match_id
                             self.log(f"  game restarted on the relay: TEKKEN4_NET={env['TEKKEN4_NET']}")
                 rc = p.poll()
                 if rc is not None:
@@ -298,7 +381,7 @@ class T4Match:
         except BaseException:
             stop(p)
             raise
-        return self._report(ticket, watch, rc, run_dir)
+        return self._report(ticket, watch, rc, run_dir, game_res)
 
     def _quiet(self, fn, *args):
         try:
@@ -306,11 +389,22 @@ class T4Match:
         except proto.LobbyError:
             return None
 
-    def _report(self, ticket, watch, rc, run_dir):
+    def _report(self, ticket, watch, rc, run_dir, game_res=None):
         s = watch.summary or {}
         out = {"match": ticket.match_id, "role": ticket.role, "rc": rc, "run_dir": run_dir,
                "connected": watch.connected, "reason": watch.reason, "summary": s, "ended": watch.ended,
-               "desync_lines": watch.desync_lines}
+               "desync_lines": watch.desync_lines, "game_result": game_res}
+        if game_res is not None:
+            kw = dict(game_result_report(game_res), match_id=ticket.match_id)
+            if s:
+                kw["desync"] = max(kw["desync"], s.get("mismatches", 0))
+            try:
+                self.c.report_result(game_res["winner"], game_res["score"], **kw)
+                ev = self.c.next_event(30, ("match_result",))
+                out["lobby_result"] = ev
+            except proto.LobbyError as e:
+                out["lobby_error"] = str(e)
+            return out
         res = self.result_of(watch, rc) if self.result_of else None
         winner, score = (res if res else (None, None))
         reason = watch.reason or ("" if watch.connected else "no_peer")
