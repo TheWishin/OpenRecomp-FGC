@@ -96,6 +96,7 @@ class Backend(QObject, GameSetupBackend):
         self.nav = Nav(games, on_quit=self._quit, install=self._install, launch_env=launch_env,
                        native_picker=native_picker_available(), picker_dirs=picker_dirs(self.config),
                        on_picker_dir=self._save_picker_dir,
+                       online_prefs=self.config.get("online_prefs"), on_online_prefs=self._save_online_prefs,
                        language=self.config.get("language"), on_language=self._save_language,
                        last_game=self.config.get("last_game"), on_game=self._save_game,
                        fullscreen=self.config.get("fullscreen", True) and not windowed,
@@ -347,6 +348,10 @@ class Backend(QObject, GameSetupBackend):
     def _save_build_history(self, game_id, history):
         times = self.config.get("build_times")
         self.config["build_times"] = dict(times if isinstance(times, dict) else {}, **{game_id: history})
+        self._save_config()
+
+    def _save_online_prefs(self, prefs):
+        self.config["online_prefs"] = prefs
         self._save_config()
 
     def _save_picker_dir(self, key, folder):

@@ -31,13 +31,13 @@ Column {
 
     Rectangle {
         objectName: "sectionTabs"
-        width: 1920; height: 84; color: hub.root.bar
+        width: 1920; height: 64; color: hub.root.bar
         Rectangle { width: parent.width; height: 1; color: hub.root.line }
         Row {
             anchors.fill: parent
             Item {
-                width: 120; height: 84
-                Glyph { anchors.centerIn: parent; g: hub.v.prevG }
+                width: 120; height: 64
+                Glyph { anchors.centerIn: parent; g: hub.v.prevG; size: 36 }
                 TapHandler { onTapped: hub.root.backend.press("prev") }
             }
             Repeater {
@@ -45,17 +45,17 @@ Column {
                 Rectangle {
                     required property int index
                     readonly property var t: hub.root.ok(hub.v.tabs, index)
-                    width: (1920 - 240) / Math.max(1, hub.v.tabs.length); height: 84
+                    width: (1920 - 240) / Math.max(1, hub.v.tabs.length); height: 64
                     color: t.active ? hub.root.panel : "transparent"
                     Behavior on color { enabled: !hub.root.reducedMotion; ColorAnimation { duration: 100 } }
                     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 4; color: hub.v.accent; visible: !!parent.t.active }
-                    Text { textFormat: Text.PlainText; anchors.centerIn: parent; width: parent.width - 28; height: 60; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; text: parent.t.label || ""; color: parent.t.active ? hub.root.textC : hub.root.muted; font.family: hub.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: 36; minimumPixelSize: 26; fontSizeMode: Text.Fit; elide: Text.ElideRight }
+                    Text { textFormat: Text.PlainText; anchors.centerIn: parent; width: parent.width - 28; height: 48; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; text: parent.t.label || ""; color: parent.t.active ? hub.root.textC : hub.root.muted; font.family: hub.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: 28; minimumPixelSize: 20; fontSizeMode: Text.Fit; elide: Text.ElideRight }
                     TapHandler { onTapped: hub.root.backend.clickTab(parent.t.id) }
                 }
             }
             Item {
-                width: 120; height: 84
-                Glyph { anchors.centerIn: parent; g: hub.v.nextG }
+                width: 120; height: 64
+                Glyph { anchors.centerIn: parent; g: hub.v.nextG; size: 36 }
                 TapHandler { onTapped: hub.root.backend.press("next") }
             }
         }
@@ -64,34 +64,41 @@ Column {
     OnlineHub {
         objectName: "onlineHub"
         visible: hub.v.online.layout === "lobby"
-        width: 1920; height: parent.height - 84
+        width: 1920; height: parent.height - 64
         root: hub.root
     }
 
     OnlineCard {
         objectName: "onlineCardPage"
         visible: hub.v.online.layout === "card"
-        width: 1920; height: parent.height - 84
+        width: 1920; height: parent.height - 64
+        root: hub.root
+    }
+
+    OnlineLogin {
+        objectName: "onlineLoginPage"
+        visible: hub.v.online.layout === "login"
+        width: 1920; height: parent.height - 64
         root: hub.root
     }
 
     SettingsHub {
         objectName: "settingsHub"
         visible: hub.v.settingsPage.layout === "groups"
-        width: 1920; height: parent.height - 84
+        width: 1920; height: parent.height - 64
         root: hub.root
     }
 
     BuildPage {
         objectName: "buildPage"
         visible: !!(hub.v.build && hub.v.build.show)
-        width: 1920; height: parent.height - 84
+        width: 1920; height: parent.height - 64
         root: hub.root
     }
 
     Row {
-        visible: !(hub.v.build && hub.v.build.show) && hub.v.online.layout !== "lobby" && hub.v.online.layout !== "card" && hub.v.settingsPage.layout !== "groups"
-        width: 1920; height: parent.height - 84
+        visible: !(hub.v.build && hub.v.build.show) && ["lobby", "card", "login"].indexOf(hub.v.online.layout) < 0 && hub.v.settingsPage.layout !== "groups"
+        width: 1920; height: parent.height - 64
         // ---------------------------------------------------------------- the list
         Item {
             id: listArea

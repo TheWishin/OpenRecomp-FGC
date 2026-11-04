@@ -20,6 +20,7 @@ from .nav_keyboard import Keyboard
 from .nav_library import Library
 from .nav_online import Online
 from .nav_online_layout import OnlineLayout
+from .nav_online_login import OnlineLogin
 from .nav_settings_page import SettingsPage
 from .nav_picker import Picker
 from .nav_sections import Sections
@@ -36,13 +37,16 @@ class Game:
         self.accent = manifest["accent"]
 
 
-class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online, OnlineLayout, SettingsPage, Library):
+class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online, OnlineLayout, OnlineLogin, SettingsPage, Library):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None,
                  on_update_check=None, on_update_install=None, on_game_preview=None, on_game_accept=None,
                  on_game_remove=None, on_game_update_check=None, on_game_update_install=None, on_setup=None,
-                 game_prereleases=False, on_prereleases=None, native_picker=False, picker_dirs=None, on_picker_dir=None):
+                 game_prereleases=False, on_prereleases=None, native_picker=False, picker_dirs=None, on_picker_dir=None,
+                 online_prefs=None, on_online_prefs=None):
         self.games = games
+        self.online_prefs = dict(online_prefs or {})   # per game: {auto_login} (Remember me on the login card)
+        self.on_online_prefs = on_online_prefs
         self.on_quit = on_quit or (lambda: None)
         self.install = install              # path -> message; a player's manifest (the free slots)
         self.launch_env = launch_env or {}  # test runs: mute, background
@@ -147,6 +151,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
     def tick(self, dt):
         """Time passes (the app's timer). -> True when the screen must be redrawn."""
         changed = self.poll_online()
+        changed = self.poll_auto_login() or changed
         changed = self.poll_sources() or changed
         changed = self.poll_tools_install() or changed
         changed = self.poll_build(dt) or changed

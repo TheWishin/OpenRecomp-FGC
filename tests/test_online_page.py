@@ -130,17 +130,117 @@ class LobbyPage(unittest.TestCase):
         self.assertIn(("online", "ranked_strict"), self.a.calls)
 
     def test_login_screen_is_one_card(self):
-        self.a.snapshot.update(phase="offline", message="@online.login_hint")
+        self.a.snapshot.update(phase="offline", message="@online.login_hint", saved_available=True)
         page = self.page()
-        self.assertEqual(page["layout"], "card")
-        kinds = {line["label"]: line["kind"] for line in page["lines"] if line["kind"] != "heading"}
-        self.assertEqual(kinds["Player or account name"], "field")
-        self.assertEqual(kinds["Log in as guest"], "row")
+        self.assertEqual(page["layout"], "login")
+        self.assertEqual(page["page"], "main")
+        self.assertEqual(page["name"]["label"], "Player or account name")
+        self.assertEqual(page["login"]["label"], "Log in to account")
+        self.assertEqual(page["guest"]["label"], "Log in as guest")
+        self.assertTrue(page["remember"]["on"])
+        self.assertEqual([f["label"] for f in page["footer"]][:1], ["Lobby address"])     # out of the card body
         self.a.snapshot.update(phase="error", message="@online.auth_failed")
-        self.assertTrue(self.page()["error"])
+        page = self.page()
+        self.assertTrue(page["password"]["error"])                 # the red line sits under the password
+        self.assertFalse(page["error"])
+        self.a.snapshot.update(phase="error", message="@online.disconnected")
+        self.assertTrue(self.page()["error"])                       # a general error: the card's own line
+
+
+class LoginCard(unittest.TestCase):
+    def setUp(self):
+        self.a = Lobby()
+        self.a.snapshot.update(phase="offline", message="@online.login_hint", saved_available=False)
+        self.a.texts["online_name"] = ""
+        self.saved = []
+        self.nav = Nav([Game(self.a.m, self.a)], language="en", on_online_prefs=self.saved.append)
+        self.nav.screen = "hub"
+        self.nav.sec[self.a.m["id"]] = "online"
+
+    def focused(self):
+        items = self.nav.items()
+        return items[self.nav.focus_index(items)].get("id")
+
+    def go(self, iid):
+        for _ in range(40):
+            if self.focused() == iid:
+                return
+            items = self.nav.items()
+            target = next(i for i, it in enumerate(items) if it.get("id") == iid)
+            self.nav.act("down" if self.nav.focus_index(items) < target else "up", device="xbox")
+        self.fail("not reached: " + iid)
+
+    def test_pad_starts_on_the_name_then_on_log_in(self):
+        self.assertEqual(self.focused(), "online_name")
+        self.a.texts["online_name"] = "Me"
+        self.nav.login_focused.discard(self.a.m["id"])
+        self.assertEqual(self.focused(), "login_account")
+        self.nav.act("right", device="xbox")
+        self.assertEqual(self.focused(), "login_guest")
+        self.nav.act("left", device="xbox")
+        self.assertEqual(self.focused(), "login_account")
+
+    def test_show_password_and_remember_me(self):
+        self.a.texts["online_password"] = "secret"
+        self.assertNotIn("secret", str(self.nav.view()["online"]["password"]))
+        self.go("login_show_password")
+        self.nav.act("confirm", device="xbox")
+        self.assertEqual(self.nav.view()["online"]["password"]["value"], "secret")
+        self.go("login_remember")
+        self.nav.act("confirm", device="xbox")
+        self.assertFalse(self.nav.view()["online"]["remember"]["on"])
+        self.assertEqual(self.saved[-1][self.a.m["id"]]["auto_login"], False)
+        self.go("login_account")
+        self.nav.act("confirm", device="xbox")
+        # Remember me off: the adapter is told before the login, so the login is not kept
+        self.assertEqual([c for c in self.a.calls if c[0] == "online"][-2:],
+                         [("online", "login_remember"), ("online", "login_account")])
+
+    def test_forgot_password_is_its_own_page(self):
+        self.a.snapshot["capabilities"] = dict(account_recovery=True)
+        self.assertNotIn("online_recovery_code", [it.get("id") for it in self.nav.items()])
+        self.go("login_forgot")
+        self.nav.act("confirm", device="xbox")
+        page = self.nav.view()["online"]
+        self.assertEqual(page["page"], "recover")
+        self.assertIn("online_recovery_code", [it.get("id") for it in self.nav.items()])
+        self.assertNotIn("login_guest", [it.get("id") for it in self.nav.items()])
+        self.go("login_back")
+        self.nav.act("confirm", device="xbox")
+        self.assertEqual(self.nav.view()["online"]["page"], "main")
+
+    def test_remembered_login_logs_in_once_by_itself(self):
+        self.a.snapshot.update(saved_available=True)
+        self.nav.tick(0.016)
+        self.nav.tick(0.016)
+        self.assertEqual(self.a.calls.count(("online", "login_saved")), 1)
+
+    def test_no_automatic_login_when_switched_off_or_dry(self):
+        self.a.snapshot.update(saved_available=True)
+        nav = Nav([Game(self.a.m, self.a)], language="en", online_prefs={self.a.m["id"]: dict(auto_login=False)})
+        nav.screen = "hub"
+        nav.sec[self.a.m["id"]] = "online"
+        nav.tick(0.016)
+        self.assertNotIn(("online", "login_saved"), self.a.calls)
+        nav = Nav([Game(self.a.m, self.a)], language="en")
+        nav.dry = True
+        nav.screen = "hub"
+        nav.sec[self.a.m["id"]] = "online"
+        nav.tick(0.016)
+        self.assertNotIn(("online", "login_saved"), self.a.calls)
 
 
 class T4SharesThePage(unittest.TestCase):
+    def test_t4_login_uses_the_same_card(self):
+        a = T4Lobby()
+        a.snapshot.update(phase="offline", message="@online.login_hint")
+        nav = Nav([Game(a.m, a)], language="en")
+        nav.screen = "hub"
+        nav.sec["t4"] = "online"
+        page = nav.view()["online"]
+        self.assertEqual(page["layout"], "login")
+        self.assertTrue(page["guest"] and page["name"])
+
     def test_t4_lobby_uses_the_same_page(self):
         a = T4Lobby()
         a.snapshot.update(phase="logged_in", name="Me")

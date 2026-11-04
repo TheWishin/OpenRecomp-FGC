@@ -42,11 +42,15 @@ class Hub:
         page = it.get("region") is not None and self.section() == "online"
         if page and a in ("up", "down"):
             self.focus[self.key()] = self._online_move(items, i, -1 if a == "up" else 1)
+        elif page and a in ("left", "right") and it.get("region") == "login":
+            j = self._login_side(items, i, -1 if a == "left" else 1)
+            if j is not None:
+                self.focus[self.key()] = j
         elif page and a in ("left", "right") and self._online_side(items, i, -1 if a == "left" else 1) is not None:
             self.focus[self.key()] = self._online_side(items, i, -1 if a == "left" else 1)
         elif page and a in ("chapterPrev", "chapterNext"):
             self._online_chapter(items, i, -1 if a == "chapterPrev" else 1)
-        elif page and a == "x" and it.get("replay") is None:
+        elif page and a == "x" and it.get("replay") is None and it.get("region") != "login":
             self._chat_jump(items, i)
         elif a in ("up", "down"):
             step = -1 if a == "up" else 1
@@ -149,6 +153,10 @@ class Hub:
             self._view_settings_page(v, items, fi)
         if sec == "online" and not page and any(item.get("id") == "online_status" for item in items):
             self._view_online_card(v, g, items, fi)
+        login = page and it.get("region") == "login"
+        if login:
+            self._view_online_login(v, g, g.a.online_state(), items, fi)
+            page = False
         if page:
             state = g.a.online_state()
             self._view_online_page(v, g, state, items, fi)

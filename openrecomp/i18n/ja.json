@@ -1327,5 +1327,18 @@
     "settings_ui.pad_bindings": "ボタン設定",
     "settings_ui.pad_bindings_hint": "ボタン設定ページを開きます。接続中の各パッドのボタン配置です。",
     "online_ui.to_next": "{rank}まで {points}",
-    "online_ui.placement_left": "残り昇格戦 {left}"
+    "online_ui.placement_left": "残り昇格戦 {left}",
+    "online_ui.login_title": "ログインしてオンライン対戦",
+    "online_ui.recover_title": "パスワードの再設定",
+    "online_ui.account_area": "アカウント",
+    "online_ui.guest_area": "ゲストでプレイ",
+    "online_ui.guest_note": "パスワード不要。カジュアル対戦、ルーム、チャット。ランクなし。",
+    "online_ui.show_password": "パスワードを表示",
+    "online_ui.show_password_hint": "入力したパスワードを画面に表示します。",
+    "online_ui.remember": "ログインを記憶 (自動ログイン)",
+    "online_ui.remember_hint": "このPCにログインを保存し、オンラインを開くと自動でログインします。パスワードは保存せず、サーバーが無効にできるログインだけです。",
+    "online_ui.forgot": "パスワードを忘れた?",
+    "online_ui.login_back": "ログインに戻る",
+    "online_ui.server_line": "サーバー",
+    "online_ui.or": "または"
 }

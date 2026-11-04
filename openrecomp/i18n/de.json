@@ -1327,5 +1327,18 @@
     "settings_ui.pad_bindings": "Tastenbelegung",
     "settings_ui.pad_bindings_hint": "Öffnet die Seite Tastenbelegung: die Tasten jedes angeschlossenen Pads.",
     "online_ui.to_next": "{points} bis {rank}",
-    "online_ui.placement_left": "noch {left} Platzierungsmatches"
+    "online_ui.placement_left": "noch {left} Platzierungsmatches",
+    "online_ui.login_title": "Anmelden und online spielen",
+    "online_ui.recover_title": "Vergessenes Passwort zurücksetzen",
+    "online_ui.account_area": "Konto",
+    "online_ui.guest_area": "Als Gast spielen",
+    "online_ui.guest_note": "Ohne Passwort. Casual-Matches, Räume und Chat; kein Rang.",
+    "online_ui.show_password": "Passwort zeigen",
+    "online_ui.show_password_hint": "Zeigt das eingegebene Passwort auf diesem Bildschirm.",
+    "online_ui.remember": "Angemeldet bleiben (automatisch anmelden)",
+    "online_ui.remember_hint": "Behält deine Anmeldung auf diesem PC und meldet dich beim Öffnen von Online an. Nie ein Passwort: nur eine Anmeldung, die der Server widerrufen kann.",
+    "online_ui.forgot": "Passwort vergessen?",
+    "online_ui.login_back": "Zurück zur Anmeldung",
+    "online_ui.server_line": "Server",
+    "online_ui.or": "oder"
 }

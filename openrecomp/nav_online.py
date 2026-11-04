@@ -215,7 +215,13 @@ class Online:
         if g.a.native_label:
             out.append(self._native_item(g))
         out = self._online_layout_items(g, state, out)
-        return self._remember_online_rows(g, out, state)
+        out = self._login_items(g, state, out)
+        out = self._remember_online_rows(g, out, state)
+        if out and out[0].get("region") == "login":
+            self._login_start_focus(g, out)
+        else:
+            self.__dict__.setdefault("login_focused", set()).discard(g.id)
+        return out
 
     def _online_feature_items(self, g, state, out, action):
         from . import (nav_accounts, nav_challenges, nav_community, nav_moderation, nav_private_chat,

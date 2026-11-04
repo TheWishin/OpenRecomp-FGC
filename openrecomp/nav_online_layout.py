@@ -64,7 +64,7 @@ LOADERS = {"profile": "profile_self", "leaderboard": "leaderboard_refresh", "sta
 CHAT_LINES = 13
 LOBBY_HEADINGS = ("@online.players", "@online.open_challenges")
 CARD_LINES = 13
-BODY_LINES = 12
+BODY_LINES = 13
 SIGNAL = ((60, 4), (100, 3), (160, 2))
 
 

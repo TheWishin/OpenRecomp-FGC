@@ -85,19 +85,19 @@ Window {
             // ---------------------------------------------------------------- body
             Item {
                 id: body
-                width: 1920; height: 1080 - 72 - 60 - 76
+                width: 1920; height: 1080 - 72 - 48 - 60
                 Shelf { anchors.fill: parent; visible: win.v.screen === "start"; root: win }
                 Hub { anchors.fill: parent; visible: win.v.screen === "hub"; root: win }
             }
 
             // ---------------------------------------------------------------- focused hint and last input device
             Rectangle {
-                width: 1920; height: 60; color: win.bar
+                width: 1920; height: 48; color: win.bar
                 Rectangle { width: parent.width; height: 1; color: win.line }
                 Text {
                     objectName: "focusHint"
                     anchors.left: parent.left; anchors.leftMargin: 48; anchors.right: deviceLabel.left; anchors.rightMargin: 32; anchors.verticalCenter: parent.verticalCenter
-                    height: 52; text: win.v.hint; textFormat: Text.PlainText; color: win.textC; font.family: win.sans; font.pixelSize: 28; minimumPixelSize: 18; fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2; verticalAlignment: Text.AlignVCenter
+                    height: 44; text: win.v.hint; textFormat: Text.PlainText; color: win.textC; font.family: win.sans; font.pixelSize: 23; minimumPixelSize: 16; fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2; verticalAlignment: Text.AlignVCenter
                 }
                 Text { textFormat: Text.PlainText;
                     id: deviceLabel
@@ -109,7 +109,7 @@ Window {
 
             // ---------------------------------------------------------------- prompt bar
             Rectangle {
-                width: 1920; height: 76; color: win.bar
+                width: 1920; height: 60; color: win.bar
                 Row {
                     anchors.left: parent.left; anchors.right: parent.right; anchors.margins: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 20
                     Repeater {
@@ -120,8 +120,8 @@ Window {
                             readonly property var p: win.ok(win.v.prompts, index)
                             width: (1824 - Math.max(0, win.v.prompts.length - 1) * 20) / Math.max(1, win.v.prompts.length)
                             spacing: 12
-                            Glyph { id: promptGlyph; g: parent.p.g || ({}); size: 40; anchors.verticalCenter: parent.verticalCenter }
-                            Text { textFormat: Text.PlainText; objectName: "promptLabel"; width: parent.width - promptGlyph.width - 12; height: 44; text: parent.p.label || ""; color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 26; minimumPixelSize: 20; fontSizeMode: Text.Fit; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter; anchors.verticalCenter: parent.verticalCenter }
+                            Glyph { id: promptGlyph; g: parent.p.g || ({}); size: 32; anchors.verticalCenter: parent.verticalCenter }
+                            Text { textFormat: Text.PlainText; objectName: "promptLabel"; width: parent.width - promptGlyph.width - 12; height: 36; text: parent.p.label || ""; color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 21; minimumPixelSize: 16; fontSizeMode: Text.Fit; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter; anchors.verticalCenter: parent.verticalCenter }
                             TapHandler { onTapped: win.backend.press(parent.p.action) }
                         }
                     }

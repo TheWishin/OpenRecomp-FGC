@@ -1327,5 +1327,18 @@
     "settings_ui.pad_bindings": "버튼 설정",
     "settings_ui.pad_bindings_hint": "버튼 설정 페이지를 엽니다. 연결된 패드마다 버튼을 정합니다.",
     "online_ui.to_next": "{rank}까지 {points}",
-    "online_ui.placement_left": "배치 경기 {left}판 남음"
+    "online_ui.placement_left": "배치 경기 {left}판 남음",
+    "online_ui.login_title": "로그인하고 온라인 대전",
+    "online_ui.recover_title": "잊은 비밀번호 재설정",
+    "online_ui.account_area": "계정",
+    "online_ui.guest_area": "게스트로 플레이",
+    "online_ui.guest_note": "비밀번호 없음. 캐주얼 대전, 방, 채팅 가능; 등급 없음.",
+    "online_ui.show_password": "비밀번호 보기",
+    "online_ui.show_password_hint": "입력한 비밀번호를 화면에 표시합니다.",
+    "online_ui.remember": "로그인 유지 (자동 로그인)",
+    "online_ui.remember_hint": "이 PC에 로그인을 저장하고 온라인을 열면 자동으로 로그인합니다. 비밀번호는 저장하지 않으며 서버가 취소할 수 있는 로그인만 저장합니다.",
+    "online_ui.forgot": "비밀번호를 잊으셨나요?",
+    "online_ui.login_back": "로그인으로 돌아가기",
+    "online_ui.server_line": "서버",
+    "online_ui.or": "또는"
 }

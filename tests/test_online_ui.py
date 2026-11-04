@@ -56,7 +56,12 @@ class OnlineScene(unittest.TestCase):
                         backend.viewChanged.emit()
                         spin(1)
                         title = "online.match_found" if phase == "matched" else "online.status"
-                        self.assertEqual(backend._v["detail"]["title"], i18n.text(language, title))
+                        if phase in ("offline", "kicked", "error"):
+                            # the login card: the status is its message line
+                            self.assertEqual(backend._v["online"]["layout"], "login")
+                            self.assertEqual(backend._v["online"]["message"], i18n.text(language, message))
+                        else:
+                            self.assertEqual(backend._v["detail"]["title"], i18n.text(language, title))
                         self.assertEqual(backend._v["hint"], i18n.text(language, message))
                 nav._open_osk("online_password")
                 for _page in range(3):

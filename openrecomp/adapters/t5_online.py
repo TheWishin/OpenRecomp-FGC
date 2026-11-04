@@ -310,6 +310,7 @@ class Online:
                     friend_outgoing=[dict(f) for f in self._online_friend_outgoing],
                     invites=[dict(inv) for inv in self._online_invites],
                     outgoing_invite=dict(self._online_outgoing_invite))
+        snapshot["remember"] = bool(getattr(self, "_online_remember", True))
         if self.online_ranked:
             snapshot["capabilities"]["strict"] = True
             snapshot["strict"] = bool(getattr(self, "_online_strict", False))
@@ -515,6 +516,7 @@ class Online:
         server = self._online_fields["online_server"].strip()
         cfg = self._online_config()
         generation = self._online_generation
+        remember = bool(getattr(self, "_online_remember", True))     # "Remember me": keep the login for next time
         self._online_phase, self._online_message = "connecting", "@online.connecting"
         self._online_match = {}
 
@@ -536,9 +538,9 @@ class Online:
                         raise RuntimeError("@online.insecure")     # another game's login only over TLS
                     me = client.login_session(saved["token"])
                 elif action == "login_register":
-                    me = client.register(name, password, remember=True)
+                    me = client.register(name, password, remember=remember)
                 else:
-                    me = client.login(name, password, remember=True)
+                    me = client.login(name, password, remember=remember)
                 if not isinstance(me, dict):
                     raise RuntimeError("@online.client_missing")
                 self._online_check_request(generation, client)
@@ -547,7 +549,7 @@ class Online:
                 with self._online_lock:
                     if generation != self._online_generation:
                         raise RuntimeError("@online.cancelled")
-                    if action in ("login_account", "login_register") and client.session:
+                    if action in ("login_account", "login_register") and client.session and remember:
                         try:
                             self._online_write_session(target, me["name"], client.session)
                         except (OSError, ValueError, TypeError):
@@ -590,6 +592,10 @@ class Online:
             return
         if action == "acknowledge_recovery":
             self._online_recovery_codes = []
+            return
+        if action == "login_remember":
+            # Remember me: an account login is kept for the next start (and can log in by itself there).
+            self._online_remember = not getattr(self, "_online_remember", True)
             return
         if action == "ranked_strict":
             # Ranked only against players within the server's strict range (150 rating points): a choice of this

@@ -1327,5 +1327,18 @@
     "settings_ui.pad_bindings": "Configuration des touches",
     "settings_ui.pad_bindings_hint": "Ouvre la page des touches : les boutons de chaque manette branchée.",
     "online_ui.to_next": "{points} avant {rank}",
-    "online_ui.placement_left": "encore {left} matchs de placement"
+    "online_ui.placement_left": "encore {left} matchs de placement",
+    "online_ui.login_title": "Connectez-vous pour jouer en ligne",
+    "online_ui.recover_title": "Réinitialiser le mot de passe oublié",
+    "online_ui.account_area": "Compte",
+    "online_ui.guest_area": "Jouer en invité",
+    "online_ui.guest_note": "Sans mot de passe. Matchs amicaux, salles et chat ; pas de rang.",
+    "online_ui.show_password": "Afficher le mot de passe",
+    "online_ui.show_password_hint": "Affiche à l'écran le mot de passe saisi.",
+    "online_ui.remember": "Se souvenir de moi (connexion automatique)",
+    "online_ui.remember_hint": "Garde votre connexion sur ce PC et vous connecte à l'ouverture d'En ligne. Jamais de mot de passe : seulement une connexion révocable par le serveur.",
+    "online_ui.forgot": "Mot de passe oublié ?",
+    "online_ui.login_back": "Retour à la connexion",
+    "online_ui.server_line": "Serveur",
+    "online_ui.or": "ou"
 }

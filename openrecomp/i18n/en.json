@@ -1327,5 +1327,18 @@
     "settings_ui.pad_bindings": "Pad bindings",
     "settings_ui.pad_bindings_hint": "Opens the pad bindings page: buttons for every connected pad.",
     "online_ui.to_next": "{points} to {rank}",
-    "online_ui.placement_left": "{left} placement matches left"
+    "online_ui.placement_left": "{left} placement matches left",
+    "online_ui.login_title": "Log in to play online",
+    "online_ui.recover_title": "Reset forgotten password",
+    "online_ui.account_area": "Account",
+    "online_ui.guest_area": "Play as guest",
+    "online_ui.guest_note": "No password. Casual matches, rooms and chat; no rank.",
+    "online_ui.show_password": "Show password",
+    "online_ui.show_password_hint": "Shows the password you typed on this screen.",
+    "online_ui.remember": "Remember me (log in automatically)",
+    "online_ui.remember_hint": "Keeps your login on this PC and logs you in when you open Online. Never a password: only a login the server can revoke.",
+    "online_ui.forgot": "Forgot password?",
+    "online_ui.login_back": "Back to login",
+    "online_ui.server_line": "Server",
+    "online_ui.or": "or"
 }
