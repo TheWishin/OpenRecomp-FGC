@@ -41,13 +41,14 @@ assert len(portraits) == 2
 for portrait in portraits:
     outline = next(item for item in descendants(portrait) if item.objectName() == "fighterFallback")
     assert outline.isVisible()
-    assert outline.width() <= min(160, portrait.width() * .62) + .01
-    assert outline.height() <= portrait.height() * .73
+    assert outline.width() <= min(108, portrait.width() * .34) + .01
+    assert outline.height() <= portrait.height() * .58
+    assert outline.opacity() <= .5
     assert outline.x() >= 0 and outline.y() >= 0
     assert abs(outline.x() + outline.width() / 2 - portrait.width() / 2) <= .51
-assert all(item.property("font").pixelSize() >= 32 for item in named("versusPlayerName")), [(item.property("font").pixelSize()) for item in named("versusPlayerName")]
-assert all(item.property("font").pixelSize() >= 26 for item in named("versusPlayerRank")), [(item.property("font").pixelSize()) for item in named("versusPlayerRank")]
-# A synthetic rectangle checks native-size limits without using any game art.
+assert all(item.property("font").pixelSize() >= 40 for item in named("versusPlayerName")), [(item.property("font").pixelSize()) for item in named("versusPlayerName")]
+assert all(item.property("font").pixelSize() >= 30 for item in named("versusPlayerRank")), [(item.property("font").pixelSize()) for item in named("versusPlayerRank")]
+# A synthetic rectangle checks showcase scaling and compact native-size limits.
 import tempfile
 with tempfile.TemporaryDirectory(dir="build") as directory:
     path = Path(directory) / "portrait.png"
@@ -64,6 +65,15 @@ with tempfile.TemporaryDirectory(dir="build") as directory:
         assert not outline.isVisible()
         assert picture.isVisible()
         assert QQmlExpression(qmlContext(picture), picture, "fillMode === 1").evaluate()[0]  # PreserveAspectFit
+        assert picture.width() == portrait.width() and picture.height() == portrait.height()
+        assert picture.width() > 128
+        assert abs(picture.property("paintedWidth") / picture.property("paintedHeight") - 2) < .001
+        assert picture.property("paintedWidth") <= picture.width() + .01
+        assert picture.property("paintedHeight") <= picture.height() + .01
+        portrait.setProperty("showcase", False)
+    spin(20)
+    for portrait in portraits:
+        picture = next(item for item in descendants(portrait) if item.objectName() == "fighterPicture")
         assert picture.width() == 128 and picture.height() == 64
 assert not warnings, warnings
 window.setProperty("allowClose", True)

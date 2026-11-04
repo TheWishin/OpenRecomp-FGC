@@ -17,6 +17,7 @@ from .t4_support import T4Support
 from .t5_online import game_process_running
 from .t4_install import install_root, install_source, source_root
 from .. import t4_art, wine
+from ..fighter_render import t4_cache_token
 from ..manifest import art_dir, save_config
 from ..game_releases import clear_rebuild, rebuild_required
 
@@ -188,9 +189,16 @@ class T4(T4Support, T4Online, Adapter):
 
     def fighter_image(self, key):
         """A square select portrait, decoded once from the player's built game's own data."""
+        return self._fighter_picture(key)
+
+    def fighter_render(self, key, mirrored=False):
+        return self._fighter_picture(key, render=True, mirrored=mirrored)
+
+    def _fighter_picture(self, key, render=False, mirrored=False):
         if not isinstance(key, str) or key not in t4_art.FIGHTER_PORTRAITS:
             return ""
-        path = os.path.join(art_dir("t4"), "fighters", key + ".png")
+        token = t4_cache_token(key, render=render, mirrored=mirrored)
+        path = os.path.join(art_dir("t4"), "fighters", token + ".png")
         if os.path.isfile(path):
             return path
         try:
@@ -205,28 +213,33 @@ class T4(T4Support, T4Online, Adapter):
             if stamp is None:
                 return ""
             with self._fighter_art_lock:
-                if key in self._fighter_art_busy or self._fighter_art_tried.get(key) == stamp:
+                if token in self._fighter_art_busy or self._fighter_art_tried.get(token) == stamp:
                     return ""
-                self._fighter_art_tried[key] = stamp
-                self._fighter_art_busy.add(key)
+                self._fighter_art_tried[token] = stamp
+                self._fighter_art_busy.add(token)
             try:
-                threading.Thread(target=self._make_fighter_art, args=(source, key, path), daemon=True).start()
+                args = (source, key, path, render, mirrored) if render else (source, key, path)
+                threading.Thread(target=self._make_fighter_art, args=args, daemon=True).start()
             except Exception:
                 with self._fighter_art_lock:
-                    self._fighter_art_busy.discard(key)
+                    self._fighter_art_busy.discard(token)
                 raise
         except Exception as error:  # noqa: BLE001 -- optional art never stops a screen
             self.art_note = str(error) or error.__class__.__name__
         return ""
 
-    def _make_fighter_art(self, source, key, path):
+    def _make_fighter_art(self, source, key, path, render=False, mirrored=False):
         try:
-            t4_art.make_fighter(source, key, path)
+            if render:
+                t4_art.make_fighter_render(source, key, path, mirrored=mirrored)
+            else:
+                t4_art.make_fighter(source, key, path)
         except Exception as error:  # noqa: BLE001 -- a missing picture must never stop the launcher
             self.art_note = str(error) or error.__class__.__name__
         finally:
             with self._fighter_art_lock:
-                self._fighter_art_busy.discard(key)
+                token = t4_cache_token(key, render=render, mirrored=mirrored)
+                self._fighter_art_busy.discard(token)
 
     def _make_art(self, iso, path):
         try:

@@ -15,12 +15,16 @@ Item {
     readonly property real declineWidth: Math.max(100, declineText.width + 32 + ((root.v.backG || {}).text ? 38 : 0))
     readonly property real reviewWidth: Math.max(100, reviewText.width + 32)
     readonly property real actionWidth: acceptWidth + declineWidth + reviewWidth + 24
-    width: Math.min(parent.width - 64, Math.max(600, actionWidth + 48, title.implicitWidth + countdown.implicitWidth + 60))
+    readonly property bool hasDeadline: typeof offer.seconds === "number" && isFinite(offer.seconds)
+    width: Math.min(parent.width - 64, Math.max(actionWidth + 48,
+        Math.min(720, title.implicitWidth + (countdown.visible ? countdown.implicitWidth + 12 : 0) + 48),
+        Math.min(720, nameText.width + 128)))
     height: content.height + 32
     anchors.centerIn: parent
     TextMetrics { id: acceptText; font.family: "IBM Plex Sans"; font.pixelSize: Theme.onlinePx(16); text: popup.offer.acceptLabel || "" }
     TextMetrics { id: declineText; font.family: "IBM Plex Sans"; font.pixelSize: Theme.onlinePx(16); text: popup.offer.declineLabel || "" }
     TextMetrics { id: reviewText; font.family: "IBM Plex Sans"; font.pixelSize: Theme.onlinePx(16); text: popup.offer.reviewLabel || "" }
+    TextMetrics { id: nameText; font.family: "Big Shoulders"; font.weight: Font.Black; font.pixelSize: Theme.onlinePx(28); text: popup.offer.name || "" }
     Repeater {
         model: Math.min(2, Math.max(0, popup.offers.length - 1))
         Rectangle {
@@ -37,7 +41,7 @@ Item {
         Row {
             width: parent.width; spacing: 12
             OnlineStyle.SectionHeader { id: title; width: parent.width - (countdown.visible ? countdown.width + 12 : 0); text: (popup.offer.gameShort || "") + " · " + (popup.offer.title || "") }
-            OnlineStyle.Value { id: countdown; objectName: "globalOfferCountdown"; visible: !!text; width: visible ? implicitWidth : 0; horizontalAlignment: Text.AlignRight; text: popup.offer.countdown || ""; Accessible.role: Accessible.StaticText }
+            OnlineStyle.Value { id: countdown; objectName: "globalOfferCountdown"; visible: !!text; width: visible ? implicitWidth : 0; horizontalAlignment: Text.AlignRight; text: popup.hasDeadline ? popup.offer.countdown || "" : ""; Accessible.role: Accessible.StaticText }
         }
         Row {
             width: parent.width; spacing: 12

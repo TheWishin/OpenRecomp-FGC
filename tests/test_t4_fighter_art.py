@@ -43,6 +43,18 @@ class FighterExtract(unittest.TestCase):
         self.assertEqual(tuple(rows[247][:4]), (15, 240, 7, 255))
         self.assertFalse(Path(str(self.out) + ".openrecomp.tmp").exists())
 
+    def test_large_render_keeps_full_native_portrait_and_can_face_p2(self):
+        t4_art.make_fighter_render(str(self.iso), "jin", str(self.out))
+        width, height, rows = read_png(str(self.out))
+        self.assertEqual((width, height), (248, 307))
+        self.assertEqual(tuple(rows[0][:4]), (0, 255, 7, 255))
+        t4_art.make_fighter_render(str(self.iso), "jin", str(self.out), mirrored=True)
+        opposite = read_png(str(self.out))
+        self.assertEqual(opposite[:2], (width, height))
+        for original, mirrored in zip(rows, opposite[2]):
+            self.assertEqual(mirrored[:4], original[-4:])
+            self.assertEqual(mirrored[-4:], original[:4])
+
     def test_raw_sector_iso_has_the_same_crop(self):
         self.sha1 = build_iso(str(self.iso), sector=2352, offset=24)
         self.make()
@@ -180,6 +192,19 @@ class FighterAdapter(unittest.TestCase):
             cached.ready = lambda: False
             self.assertEqual(cached.fighter_image("jin"), str(self.path))
         make.assert_not_called()
+
+    def test_vs_render_cache_is_separate_from_square_portraits(self):
+        adapter = self.adapter()
+        self.assertEqual(adapter.fighter_render("jin", mirrored=True), "")
+        self.wait(adapter)
+        path = self.path.with_name("jin_render_p2.png")
+        self.assertEqual(adapter.fighter_render("jin", mirrored=True), str(path))
+        self.assertEqual(read_png(str(path))[:2], (248, 307))
+        self.assertFalse(self.path.exists())
+        self.assertEqual(adapter.fighter_image("jin"), "")
+        self.wait(adapter)
+        self.assertEqual(read_png(str(self.path))[:2], (248, 248))
+        self.assertEqual(adapter.fighter_render("../jin"), "")
 
     def test_repeated_view_reads_share_one_background_extraction(self):
         adapter = self.adapter()

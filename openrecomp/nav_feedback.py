@@ -466,7 +466,7 @@ def match_view(nav, g):
     picked = state.get("phase") == "matched" and all(
         isinstance(key, str) and key and key != "random" for key in (you_char, opp_char))
 
-    def player(info, name, pick):
+    def player(info, name, pick, mirrored=False):
         main = info.get("main") or ""
         fighter = pick if picked else main
         return dict(name=i18n.literal(str(name)), rank=i18n.literal(str(info.get("rank") or "")),
@@ -475,6 +475,7 @@ def match_view(nav, g):
                     fighter=i18n.literal(str(g.a.fighter_label(fighter))) if fighter else "",
                     main=i18n.literal(str(g.a.fighter_label(main))) if main else "", mainLabel="@online_ui.col.main", picked=bool(picked),
                     art=uri(g.a.fighter_image(fighter)) if fighter else "",
+                    render=uri(g.a.fighter_render(fighter, mirrored=mirrored)) if fighter else "",
                     plate=uri(g.a.rank_plate(info.get("tier"))) if info.get("tier") is not None else "")
     opponent = match.get("opponent")
     opponent_info = match.get("opponent_info") if isinstance(match.get("opponent_info"), dict) else match
@@ -502,7 +503,7 @@ def match_view(nav, g):
     row = next((row for row in global_view(nav) if row["game"] == g.id and row["kind"] == "match"), {})
     ready = match.get("opponent_ready")
     return dict(gameId=g.id, left=player(me, me.get("name") or state.get("name") or "", you_char),
-                right=player(opponent_info, opponent or "", opp_char), connection=connection(match), details=details,
+                right=player(opponent_info, opponent or "", opp_char, mirrored=True), connection=connection(match), details=details,
                 game=i18n.literal(g.short), versus="@feedback.vs", countdown=row.get("countdown", ""),
                 seconds=row.get("seconds"), readyLabel="@feedback.ready", disabled=bool(state.get("busy")),
                 opponentStatus="@feedback.opponent_ready" if ready is True else "@feedback.opponent_waiting" if ready is False else "")

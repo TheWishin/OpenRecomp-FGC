@@ -67,7 +67,7 @@ class SyntheticOnlineScreenshots(unittest.TestCase):
 
     def test_sanitizer_removes_profile_art_and_nested_art(self):
         view = dict(profile=dict(face="private.png", plate="private.png"),
-                    nested=[dict(image="private.png", images=["private.png"], portrait="private.png")])
+                    nested=[dict(image="private.png", images=["private.png"], portrait="private.png", render="private.png")])
         online_shots.strip_art(view)
         self.assertNotIn("private", str(view))
 

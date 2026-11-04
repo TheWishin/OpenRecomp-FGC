@@ -13,18 +13,26 @@ Item {
         property var person: ({})
         property bool mirror: false
         color: Theme.raised; radius: 6; border.width: 1; border.color: Theme.border
+        Rectangle {
+            anchors.fill: parent; anchors.margins: 1; radius: 5
+            gradient: Gradient {
+                GradientStop { position: 0; color: Qt.rgba(Theme.gameAccent.r, Theme.gameAccent.g, Theme.gameAccent.b, .12) }
+                GradientStop { position: 1; color: "transparent" }
+            }
+        }
         FighterPortrait {
             id: portrait
             objectName: "versusPortrait"
             x: 16; y: 16; width: parent.width - 32; height: Math.max(80, parent.height - identity.height - 40)
-            source: fighter.person.art || ""; mirrored: fighter.mirror
+            source: fighter.person.render || fighter.person.art || ""; mirrored: !fighter.person.render && fighter.mirror
+            showcase: true
             color: "transparent"
         }
         Column {
             id: identity; x: 16; anchors.bottom: parent.bottom; anchors.bottomMargin: 16; width: parent.width - 32; spacing: 4
-            OnlineStyle.SectionHeader { objectName: "versusPlayerName"; width: parent.width; text: parent.parent.person.name || ""; font.pixelSize: Theme.onlinePx(32); maximumLineCount: 2; elide: Text.ElideRight; Accessible.name: text }
+            OnlineStyle.SectionHeader { objectName: "versusPlayerName"; width: parent.width; text: parent.parent.person.name || ""; font.pixelSize: Theme.onlinePx(40); maximumLineCount: 2; elide: Text.ElideRight; Accessible.name: text }
             Image { visible: !!parent.parent.person.plate; source: parent.parent.person.plate || ""; width: parent.width; height: visible ? 32 : 0; fillMode: Image.PreserveAspectFit }
-            OnlineStyle.Value { objectName: "versusPlayerRank"; width: parent.width; text: [parent.parent.person.rank || "", parent.parent.person.rating || "", parent.parent.person.region || ""].filter(s => s).join(" · "); font.pixelSize: Theme.onlinePx(26) }
+            OnlineStyle.Value { objectName: "versusPlayerRank"; width: parent.width; text: [parent.parent.person.rank || "", parent.parent.person.rating || "", parent.parent.person.region || ""].filter(s => s).join(" · "); font.pixelSize: Theme.onlinePx(30) }
             OnlineStyle.HelpText { width: parent.width; text: parent.parent.person.fighter || "" }
             OnlineStyle.HelpText { objectName: "versusMain"; width: parent.width; visible: !!parent.parent.person.picked && !!parent.parent.person.main; text: visible ? (parent.parent.person.mainLabel || "") + ": " + parent.parent.person.main : "" }
         }

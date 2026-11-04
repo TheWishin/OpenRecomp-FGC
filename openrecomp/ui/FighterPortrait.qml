@@ -7,6 +7,7 @@ Rectangle {
     property url source: ""
     property string name: ""
     property bool mirrored: false
+    property bool showcase: false
     color: Theme.raised; clip: true
     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 4; color: Theme.gameAccent }
     Item {
@@ -14,8 +15,8 @@ Rectangle {
         objectName: "fighterFallback"
         visible: picture.status !== Image.Ready
         anchors.centerIn: parent
-        width: Math.min(parent.width * .62, parent.height * .60, 160); height: width * 1.2
-        opacity: .65
+        width: portrait.showcase ? Math.min(parent.width * .34, parent.height * .48, 108) : Math.min(parent.width * .62, parent.height * .60, 160); height: width * 1.2
+        opacity: portrait.showcase ? .45 : .65
         Shape {
             width: 100; height: 120
             transform: Scale { xScale: (portrait.mirrored ? -1 : 1) * fallback.width / 100; yScale: fallback.height / 120; origin.x: 50; origin.y: 60 }
@@ -27,7 +28,7 @@ Rectangle {
             }
         }
     }
-    Image { id: picture; objectName: "fighterPicture"; anchors.centerIn: parent; width: Math.min(parent.width, implicitWidth); height: Math.min(parent.height, implicitHeight); source: portrait.source; fillMode: Image.PreserveAspectFit; mirror: portrait.mirrored; asynchronous: true; visible: status === Image.Ready }
+    Image { id: picture; objectName: "fighterPicture"; anchors.centerIn: parent; width: portrait.showcase ? parent.width : Math.min(parent.width, implicitWidth); height: portrait.showcase ? parent.height : Math.min(parent.height, implicitHeight); source: portrait.source; fillMode: Image.PreserveAspectFit; mirror: portrait.mirrored; asynchronous: true; visible: status === Image.Ready }
     Rectangle { visible: !!portrait.name; anchors.bottom: parent.bottom; width: parent.width; height: caption.height + 12; color: Theme.ground; opacity: .94 }
     Text { id: caption; visible: !!portrait.name; x: 8; anchors.bottom: parent.bottom; anchors.bottomMargin: 6; width: parent.width - 16; text: portrait.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: Theme.text; font.family: "IBM Plex Sans"; font.pixelSize: Theme.onlinePx(14); Accessible.name: text }
 }

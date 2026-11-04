@@ -277,6 +277,15 @@ def read_source_entry(source, index):
 
 def make_fighter(source, key, path):
     """Cache a fighter's square head crop from the player's ISO or extracted disc, atomically."""
+    return _make_fighter(source, key, path)
+
+
+def make_fighter_render(source, key, path, mirrored=False):
+    """Keep the complete native select cut-out for a VS card, including its original alpha."""
+    return _make_fighter(source, key, path, full=True, mirrored=mirrored)
+
+
+def _make_fighter(source, key, path, full=False, mirrored=False):
     if not isinstance(key, str) or key not in FIGHTER_PORTRAITS:
         raise ArtError("unknown fighter")
     before = source_stamp(source)
@@ -286,7 +295,12 @@ def make_fighter(source, key, path):
     if (w, h) != PORTRAIT_SIZE:
         raise ArtError("unexpected portrait size")
     # These select renders put the head at the top. Keep the original alpha, without the tile's edge fade.
-    picture = png_bytes(w, w, rgba[:w * w * 4])
+    height = h if full else w
+    rgba = rgba[:w * height * 4]
+    if mirrored:
+        from .fighter_render import mirror_rgba
+        rgba = mirror_rgba(rgba, w, height)
+    picture = png_bytes(w, height, rgba)
     folder = os.path.dirname(os.path.abspath(path))
     os.makedirs(folder, exist_ok=True)
     temporary = None

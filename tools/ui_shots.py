@@ -187,7 +187,7 @@ def snapshot(nav, name):
     def no_art(value):
         if isinstance(value, dict):
             for key, child in value.items():
-                if key in ("hero", "image", "art", "wordmark", "face", "plate", "portrait", "background"):
+                if key in ("hero", "image", "art", "render", "wordmark", "face", "plate", "portrait", "background"):
                     value[key] = ""
                 elif key in ("images", "mosaic"):
                     value[key] = []

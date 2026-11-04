@@ -215,6 +215,72 @@ class GlobalOffers(unittest.TestCase):
 
 
 class OfferScene(unittest.TestCase):
+    def test_incoming_fixture_is_compact_centered_below_lobby_cards_and_has_only_server_timer(self):
+        import os
+        from pathlib import Path
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        os.environ.setdefault("QT_QUICK_BACKEND", "software")
+        from PySide6.QtCore import QObject, QPointF, QUrl
+        from PySide6.QtGui import QFontDatabase, QGuiApplication
+        from PySide6.QtQml import QQmlApplicationEngine
+        from openrecomp.app import UI_DIR
+        from test_ui_loads import FakeBackend, spin, wait_pages
+        from tools.online_shots import scene
+        gui = QGuiApplication.instance() or QGuiApplication([])
+        for path in (Path(UI_DIR) / "fonts").glob("*.ttf"):
+            QFontDatabase.addApplicationFont(str(path))
+        nav = scene("t5", "challenge_incoming", "en")
+        backend = FakeBackend(nav)
+        engine = QQmlApplicationEngine()
+        warnings = []
+        engine.warnings.connect(lambda rows: warnings.extend(row.toString() for row in rows))
+        engine.setInitialProperties(dict(backend=backend, wantFull=False))
+        engine.load(QUrl.fromLocalFile(str(Path(UI_DIR) / "Main.qml")))
+        self.assertTrue(engine.rootObjects(), warnings)
+        window = engine.rootObjects()[0]
+        for language in ("en", "de", "fr"):
+            for width, height in ((1920, 1080), (1280, 720)):
+                with self.subTest(language=language, size=(width, height)):
+                    window.setWidth(width)
+                    window.setHeight(height)
+                    nav.language = language
+                    backend.refresh()
+                    wait_pages(window)
+                    spin()
+                    popup = window.findChild(QObject, "globalOffer")
+                    self.assertTrue(popup.isVisible())
+                    stage = popup.parentItem()
+                    self.assertAlmostEqual(popup.x() + popup.width() / 2, stage.width() / 2, delta=.5)
+                    self.assertAlmostEqual(popup.y() + popup.height() / 2, stage.height() / 2, delta=.5)
+                    if language == "en" and width == 1920:
+                        self.assertLess(popup.width(), 600)
+                    for name in ("onlineProfile", "onlineFind"):
+                        card = window.findChild(QObject, name)
+                        self.assertTrue(card.isVisible())
+                        bottom = card.mapToItem(stage, QPointF(0, card.height())).y()
+                        self.assertGreaterEqual(popup.y(), bottom + 8)
+                    countdown = window.findChild(QObject, "globalOfferCountdown")
+                    self.assertFalse(countdown.isVisible())
+                    self.assertEqual(countdown.property("text"), "")
+        # A legacy/fallback label must never appear in the deadline slot.
+        backend._v["globalOffers"][0]["countdown"] = "No deadline supplied"
+        backend.viewChanged.emit()
+        spin()
+        self.assertFalse(countdown.isVisible())
+        self.assertEqual(countdown.property("text"), "")
+        nav.game.a.snapshot["challenge"].update(id="timed-challenge", seconds=19)
+        nav_feedback.observe(nav, nav.game, nav.game.a.online_state())
+        backend.refresh()
+        spin()
+        self.assertTrue(countdown.isVisible())
+        self.assertEqual(countdown.property("text"), "0:19")
+        self.assertEqual(nav.game.a.calls, [])
+        self.assertEqual(warnings, [])
+        window.setProperty("allowClose", True)
+        window.close()
+        engine.deleteLater()
+        gui.processEvents()
+
     def test_actual_global_popup_and_vs_buttons_load_and_stay_inside_their_cards(self):
         import os
         from pathlib import Path

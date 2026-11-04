@@ -79,6 +79,8 @@ Rectangle {
         objectName: "chatTabsViewport"
         x: 12; y: pane.compactTabs ? 12 : title.y + Math.max(title.height, collapse.height, pane.compact ? newAnchor.height : 0) + 8; width: parent.width - (pane.compactTabs ? newAnchor.width + collapse.width + 44 : 24); height: tabs.height
         visible: pane.expanded && (pane.chat.tabs || []).length > 0; contentWidth: tabs.width; clip: true
+        onContentWidthChanged: Qt.callLater(pane.updateHistory)
+        onWidthChanged: Qt.callLater(pane.updateHistory)
         Row {
             id: tabs; spacing: 8
             Repeater {

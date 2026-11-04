@@ -36,6 +36,24 @@ class T4ArtShots(unittest.TestCase):
         with self.assertRaises(ValueError):
             t4_art_shots.load_cache(self.cache, ("jin", "kazuya"))
 
+    def test_review_includes_incoming_challenge_with_no_invented_deadline(self):
+        self.assertIn("challenge", t4_art_shots.SCENES)
+        pictures = {key: self.picture(key) for key in ("jin", "kazuya")}
+        nav = t4_art_shots.scene("challenge", pictures)
+        offer, = nav.view()["globalOffers"]
+        self.assertEqual(offer["countdown"], "")
+        self.assertEqual(nav.game.a.calls, [])
+
+    def test_review_can_supply_native_renders_separately_from_list_faces(self):
+        pictures = {key: self.picture(key) for key in ("jin", "kazuya")}
+        renders = {key: {False: str(self.cache / (key + "-p1.png")),
+                         True: str(self.cache / (key + "-p2.png"))} for key in pictures}
+        nav = t4_art_shots.scene("vs", pictures, renders)
+        adapter = nav.game.a
+        self.assertEqual(adapter.fighter_image("jin"), pictures["jin"])
+        self.assertEqual(adapter.fighter_render("jin"), renders["jin"][False])
+        self.assertEqual(adapter.fighter_render("kazuya", True), renders["kazuya"][True])
+
     def test_review_scenes_project_supplied_art_without_real_adapters_or_network(self):
         pictures = {key: self.picture(key) for key in ("jin", "kazuya", "king")}
         with mock.patch("openrecomp.app.Backend", side_effect=AssertionError("Real backend")), \
