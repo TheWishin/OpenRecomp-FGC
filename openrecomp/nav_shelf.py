@@ -26,16 +26,60 @@ class Shelf:
             return next((s for s in g.a.sources() if s.get("kind") in ("folder", "file_or_folder")), None)
         return None
 
+    # A game that is only logged in to its lobby (in the lobby, no search, no match) does not hold up a library change:
+    # adding or removing a game or choosing a folder keeps every unchanged game's adapter and so its login; only a game
+    # whose registration changed is logged out (owner: adding a game logged every game out of Online).
+    RELOAD_ONLINE_IDLE = ("", "offline", "error", "kicked", "logged_in")
+
+    def _reload_busy(self):
+        if getattr(self, "library_busy", False):
+            return True
+        for g in self.games:
+            if (g.a.running() or g.a.build_state().get("running") or g.a.source_state().get("running")
+                    or g.a.support_state().get("running")):
+                return True
+            online = g.a.online_state()
+            if online.get("busy") or online.get("phase", "offline") not in self.RELOAD_ONLINE_IDLE:
+                return True
+        return False
+
     def can_reload_games(self):
-        return not self.library_busy and not self.binding_game and not self._update_busy()
+        return not self.library_busy and not self.binding_game and not self._reload_busy()
+
+    @staticmethod
+    def _same_game(old, new):
+        """The same registration: same adapter kind, manifest, game folder (a real one), settings source and whether the
+        game is there (then the old adapter, its login and its lobby connection stay)."""
+        def key(g):
+            settings = getattr(g.a, "s", None)
+            return (type(g.a), g.m, g.a.root, getattr(settings, "source_path", None)
+                    if not isinstance(settings, dict) else None, bool(g.a.found()))
+        try:
+            if not (isinstance(getattr(old.a, "root", None), str) and old.a.root):
+                return False                      # no folder to compare: made anew, as always
+            return old.id == new.id and key(old) == key(new)
+        except Exception:  # noqa: BLE001 -- an odd adapter is simply made anew
+            return False
 
     def set_games(self, games):
         if not self.can_reload_games():
             self.say("@library.busy")
             return False
+        kept = {}
+        for g in games:
+            old = self.game_by_id(g.id)
+            if old is not None and self._same_game(old, g):
+                kept[g.id] = old
+        games = [kept.get(g.id, g) for g in games]
+        if kept:
+            for game in games:
+                # T4 Online may offer a T5DR remembered login: the peers are the adapters that stay
+                game.a.account_peers = tuple(other.a for other in games if other is not game)
         if not self.dry:
             try:
                 for g in self.games:
+                    if kept.get(g.id) is g:
+                        continue
                     if getattr(g.a, "online_supported", lambda: False)():
                         g.a.online_close()
             except Exception:  # noqa: BLE001 -- keep a client tracked if its cleanup failed
@@ -51,7 +95,9 @@ class Shelf:
         self.support_game = self.support_snapshot = None
         self.games = games
         self.game = self.game_by_id(keep) or (games[0] if games else None)
-        self.online_rows.clear()
+        for gid in list(self.online_rows):
+            if gid not in kept:
+                del self.online_rows[gid]
         self.start_focus = min(self.start_focus, len(self.tile_ids()) - 1)
         if self.game is None:
             self.screen = "start"

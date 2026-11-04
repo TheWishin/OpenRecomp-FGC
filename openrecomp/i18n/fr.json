@@ -1357,5 +1357,19 @@
     "online_ui.server_line": "Serveur",
     "online_ui.or": "ou",
     "online_ui.ranked_account": "Le classé exige un compte (les invités jouent en amical)",
-    "online_ui.build_line": "Build {build}"
+    "online_ui.build_line": "Build {build}",
+    "other_launcher.title": "Un autre launcher est ouvert",
+    "other_launcher.use_here": "Utiliser OpenRecomp ici",
+    "other_launcher.keep_other": "Garder l'autre",
+    "other_launcher.native_t5dr": "Le launcher de T5DR Online est aussi ouvert. Tu ne peux être en ligne que dans un launcher à la fois : te connecter ici avec le même compte te déconnecte là-bas. Une partie lancée ici n'arrête pas une recherche là-bas.",
+    "other_launcher.native_t4": "Le launcher de Tekken 4 est aussi ouvert. Joue dans un seul launcher à la fois : une partie lancée là-bas te retire de la recherche ici.",
+    "other_launcher.online": "Une autre fenêtre OpenRecomp est en ligne avec ce jeu. Tu ne peux être en ligne que dans une fenêtre à la fois : te connecter ici avec le même compte te déconnecte là-bas.",
+    "other_launcher.window": "Une autre fenêtre OpenRecomp est ouverte. Tu ne peux être en ligne que dans une fenêtre à la fois : te connecter ici avec le même compte te déconnecte là-bas.",
+    "other_launcher.kept_note": "Tu joues en ligne dans l'autre launcher. OpenRecomp reste déconnecté ici et ne se connecte pas tout seul.",
+    "other_launcher.kept_other": "Déconnecté ici : tu joues en ligne dans l'autre launcher.",
+    "other_launcher.chosen_here": "Ce sera OpenRecomp. Connecte-toi ici ; avec le même compte, l'autre launcher est déconnecté.",
+    "other_launcher.kicked_native": "Tu t'es connecté avec ce compte dans le launcher de T5DR Online, donc OpenRecomp a été déconnecté ici. Tu ne peux être en ligne que dans un launcher à la fois. Reconnecte-toi ici seulement pour jouer ici (cela déconnecte l'autre).",
+    "other_launcher.kicked_window": "Tu t'es connecté avec ce compte dans une autre fenêtre OpenRecomp, donc cette fenêtre a été déconnectée. Tu ne peux être en ligne que dans une fenêtre à la fois. Reconnecte-toi ici seulement pour jouer ici (cela déconnecte l'autre).",
+    "other_launcher.logged_in_here": "Tu es dans le lobby. Si l'autre launcher était connecté avec ce compte, il est maintenant déconnecté.",
+    "other_launcher.relogin_paused": "La connexion au lobby a été perdue. Un autre launcher de ce jeu est ouvert, donc OpenRecomp ne se reconnecte pas tout seul. Reconnecte-toi pour jouer ici."
 }

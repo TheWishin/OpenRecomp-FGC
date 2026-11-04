@@ -1357,5 +1357,19 @@
     "online_ui.server_line": "서버",
     "online_ui.or": "또는",
     "online_ui.ranked_account": "랭크는 계정이 필요합니다 (게스트는 캐주얼)",
-    "online_ui.build_line": "빌드 {build}"
+    "online_ui.build_line": "빌드 {build}",
+    "other_launcher.title": "다른 런처가 열려 있습니다",
+    "other_launcher.use_here": "여기서 OpenRecomp 사용",
+    "other_launcher.keep_other": "다른 런처 유지",
+    "other_launcher.native_t5dr": "T5DR Online 자체 런처도 열려 있습니다. 한 번에 하나의 런처에서만 온라인에 접속할 수 있습니다. 같은 계정으로 여기서 로그인하면 그쪽은 로그아웃됩니다. 여기서 시작한 게임은 그쪽의 검색을 멈추지 않습니다.",
+    "other_launcher.native_t4": "Tekken 4 자체 런처도 열려 있습니다. 한 번에 하나의 런처에서만 플레이하세요. 그쪽에서 게임을 시작하면 여기의 검색이 취소됩니다.",
+    "other_launcher.online": "다른 OpenRecomp 창이 이 게임으로 온라인 상태입니다. 한 번에 하나의 창에서만 온라인에 접속할 수 있습니다. 같은 계정으로 여기서 로그인하면 그쪽은 로그아웃됩니다.",
+    "other_launcher.window": "다른 OpenRecomp 창이 열려 있습니다. 한 번에 하나의 창에서만 온라인에 접속할 수 있습니다. 같은 계정으로 여기서 로그인하면 그쪽은 로그아웃됩니다.",
+    "other_launcher.kept_note": "온라인은 다른 런처에서 플레이합니다. OpenRecomp는 여기서 로그아웃 상태를 유지하며 스스로 로그인하지 않습니다.",
+    "other_launcher.kept_other": "여기서 로그아웃했습니다. 온라인은 다른 런처에서 플레이합니다.",
+    "other_launcher.chosen_here": "OpenRecomp를 사용합니다. 여기서 로그인하세요. 같은 계정이면 다른 런처는 로그아웃됩니다.",
+    "other_launcher.kicked_native": "이 계정으로 T5DR Online 자체 런처에 로그인했기 때문에 여기의 OpenRecomp는 로그아웃되었습니다. 한 번에 하나의 런처에서만 온라인에 접속할 수 있습니다. 여기서 플레이할 때만 다시 로그인하세요(그쪽은 로그아웃됩니다).",
+    "other_launcher.kicked_window": "이 계정으로 다른 OpenRecomp 창에 로그인했기 때문에 이 창은 로그아웃되었습니다. 한 번에 하나의 창에서만 온라인에 접속할 수 있습니다. 여기서 플레이할 때만 다시 로그인하세요(그쪽은 로그아웃됩니다).",
+    "other_launcher.logged_in_here": "로비에 들어왔습니다. 다른 런처가 이 계정으로 로그인되어 있었다면 지금은 로그아웃되었습니다.",
+    "other_launcher.relogin_paused": "로비 연결이 끊겼습니다. 이 게임의 다른 런처가 열려 있어 OpenRecomp는 스스로 다시 로그인하지 않습니다. 여기서 플레이하려면 다시 로그인하세요."
 }

@@ -786,7 +786,11 @@ class T4Online(T4Direct, Online):
 
     def online_state(self):
         if self.online_direct_ip:
-            return self._direct_state()
+            state = self._direct_state()
+            other = self._other_state()
+            if other:
+                state["other_launcher"] = other
+            return state
         state = super().online_state()
         server = bool(self._online_fields["online_server"].strip())
         if state["phase"] == "offline" and state["message"] == "@online.offline":
@@ -1018,6 +1022,8 @@ class T4Online(T4Direct, Online):
     def online_action(self, action):
         if action in ("mode_lobby", "mode_direct"):
             return self._t4_set_mode("lobby" if action == "mode_lobby" else "direct")
+        if self._other_action(action):
+            return
         if self.online_direct_ip:
             return self._direct_action(action)
         self._online_init()

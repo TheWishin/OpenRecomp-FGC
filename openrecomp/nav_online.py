@@ -32,6 +32,7 @@ class Online:
         out = [dict(kind="action", id="online_status", label="@t4.direct_title", hint=message,
                     detail=dict(kicker="@section.online", title="@t4.direct_title", lead=message,
                                 leadLines=6, rows=rows))]
+        out += self._other_launcher_items(g, state)
 
         def action(iid, label, hint=message, disabled=False):
             return dict(kind="action", id=iid, label=label, disabled=disabled,
@@ -90,6 +91,34 @@ class Online:
         self.focus[g.id + ":online"] = 0
         return success
 
+    OTHER_TEXTS = {("native", "t5dr"): "@other_launcher.native_t5dr", ("native", "t4"): "@other_launcher.native_t4",
+                   "online": "@other_launcher.online", "window": "@other_launcher.window"}
+    OTHER_PHASES = ("offline", "error", "kicked", "connecting", "logged_in", "searching", "cancelling", "checked")
+
+    def _other_launcher_text(self, state):
+        """The note's sentence when another launcher of this game is open and the player has not chosen yet."""
+        other = state.get("other_launcher") or {}
+        if not other.get("kind") or other.get("choice") == "here" or state.get("phase", "offline") not in self.OTHER_PHASES:
+            return ""
+        if other.get("choice") == "other":
+            return "@other_launcher.kept_note"
+        return (self.OTHER_TEXTS.get((other["kind"], other.get("game"))) or self.OTHER_TEXTS.get(other["kind"])
+                or "@other_launcher.window")
+
+    def _other_launcher_items(self, g, state):
+        """Use OpenRecomp here / Keep the other one: the note's two buttons (owner: "it should say: hey, you are logged
+        in, but you can really only play in one launcher")."""
+        text = self._other_launcher_text(state)
+        if not text:
+            return []
+
+        buttons = (("other_here", "@other_launcher.use_here"), ("other_keep", "@other_launcher.keep_other"))
+        if (state.get("other_launcher") or {}).get("choice") == "other":
+            buttons = buttons[:1]                 # kept the other one: only the way back
+        return [dict(kind="action", id=iid, label=label, verb="@confirm", hint=text,
+                     detail=dict(kicker="@other_launcher.title", title=label, lead=text, leadLines=6, rows=[]),
+                     run=lambda iid=iid: self._online_action(g, iid)) for iid, label in buttons]
+
     def _online_items(self, g):
         from . import nav_rules
 
@@ -134,6 +163,7 @@ class Online:
                       lead="@online.match_stop" if phase == "matched" and not match_flow else message,
                       leadLines=6 if phase in ("offline", "error", "kicked") else 3, rows=rows)
         out = [dict(kind="action", id="online_status", label=detail["title"], hint=message, detail=detail)]
+        out += self._other_launcher_items(g, state)
 
         def action(iid, label, hint=message):
             return dict(kind="action", id=iid, label=label, verb="@confirm", hint=hint,
@@ -406,9 +436,12 @@ class Online:
                 changed = True
         return changed
 
-    def close_online(self):
+    def close_online(self, only=None):
+        """Log out of the lobbies (the window closes), or only one game's (only=its id: its install is replaced)."""
         if not self.dry:
             for g in self.games:
+                if only is not None and g.id != only:
+                    continue
                 if getattr(g.a, "online_supported", lambda: False)():
                     try:
                         g.a.online_close()

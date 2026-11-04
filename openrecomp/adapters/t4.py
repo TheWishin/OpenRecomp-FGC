@@ -87,6 +87,7 @@ def load_core(root):
 
 class T4(T4Online, Adapter):
     native_label = "@t4.native_label"
+    other_launcher_game = "t4"           # its own launcher open too: other_launchers
 
     def __init__(self, manifest, config, root, core=None):
         super().__init__(manifest, config)

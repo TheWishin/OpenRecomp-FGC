@@ -20,6 +20,7 @@ from . import updater
 from .game_library import Library
 from .game_updates import GameUpdates
 from .app_game_setup import GameSetupBackend
+from .adapters import other_launchers
 
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right", Qt.Key_Return: "confirm", Qt.Key_Enter: "confirm",
@@ -213,8 +214,15 @@ class Backend(QObject, GameSetupBackend):
             changed = changed or self._offered_update
         return changed
 
+    def _library_blocked(self):
+        """A library job waits for builds, games, installs and searches; a lobby login alone does not (Nav.set_games
+        keeps every unchanged game logged in)."""
+        if getattr(self, "setup", None) is not None and self._setup_busy():
+            return True
+        return not self.nav.can_reload_games()
+
     def _library_job(self, kind, operation, game_id=""):
-        if self._library_work is not None or self._update_busy():
+        if self._library_work is not None or self._library_blocked():
             return "@library.busy"
         request = self.nav.library_request
         self._library_work = (kind, request, game_id)
@@ -701,8 +709,11 @@ def main(argv=None):
         app.setWindowIcon(QIcon(icon))
     if os.name == "nt":      # the taskbar shows this program's icon, not python's
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("TheWishin.OpenRecompFGC")
+    # Another launcher of the same game (its own launcher, another OpenRecomp window): the Online note (one at a time)
+    other_launchers.enable()
     backend = Backend(windowed=args.windowed)
     app.aboutToQuit.connect(backend.nav.close_online)
+    app.aboutToQuit.connect(other_launchers.DETECTOR.disable)
     app.aboutToQuit.connect(backend.setup.shutdown)      # an install/update stops or finishes before the exit
     engine = make_engine(backend, full=backend.nav.fullscreen)
     # A broken QML scene must never acknowledge an update. The old helper owns rollback.

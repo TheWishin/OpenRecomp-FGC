@@ -176,6 +176,22 @@ Item {
                 Chip { required property int index; b: page.root.ok(page.fnd.extra, index); maxW: 340; fontSize: 16; height: 31 }
             }
         }
+        // another launcher of this game is open: the note sits over the options until the player chose
+        Rectangle {
+            objectName: "otherLauncherNote"
+            visible: !!(page.fnd.notice && page.fnd.notice.text) && !page.fnd.incoming
+            x: 20; y: 110; width: find.width - 40; height: page.topH - 110 - 10; color: page.raised
+            border.width: 1; border.color: page.acc
+            Text { x: 18; anchors.verticalCenter: parent.verticalCenter; width: parent.width - noticeRow.width - 50; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.fnd.notice ? (page.fnd.notice.text || "") : ""; color: page.root.textC; font.family: page.root.sans; font.pixelSize: 17 }
+            Row {
+                id: noticeRow
+                anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; spacing: 8
+                Repeater {
+                    model: page.fnd.notice ? page.list(page.fnd.notice.buttons).length : 0
+                    Chip { required property int index; b: page.root.ok(page.fnd.notice.buttons, index); strong: true; maxW: 260; height: 36; fontSize: 18 }
+                }
+            }
+        }
         // an incoming challenge sits over the options until it is answered
         Rectangle {
             visible: !!page.fnd.incoming

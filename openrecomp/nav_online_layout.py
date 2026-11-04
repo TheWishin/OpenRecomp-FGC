@@ -24,7 +24,7 @@ CHAPTER_LABELS = {"lobby": "@online_ui.chapter.lobby", "rooms": "@online_ui.chap
 REGIONS = ("find",) + CHAPTERS + ("chat",)
 FIND_IDS = {"online_status", "online_fighter", "search_casual", "search_ranked", "ranked_strict", "logout",
             "profile_self", "accept_challenge", "decline_challenge", "native", "leave_set", "game_setup",
-            "game_update", "rules_life", "screen_side", "always_left"}
+            "game_update", "rules_life", "screen_side", "always_left", "other_here", "other_keep"}
 # (id or id prefix, region): the first match wins
 PREFIXES = (
     (("chat:", "no_chat", "online_chat", "send_chat", "chat_toggle", "chat_lobby", "private_send", "private_close",
@@ -45,7 +45,7 @@ PREFIXES = (
     (("profile_", "online_profile", "no_ranked_chars"), "profile"),
 )
 # ids of one line, by family: consecutive rows of a family are one group (left/right inside it)
-BARS = {"profile_self": "card", "logout": "card", "search_ranked": "search", "search_casual": "search",
+BARS = {"other_here": "other", "other_keep": "other", "profile_self": "card", "logout": "card", "search_ranked": "search", "search_casual": "search",
         "accept_challenge": "incoming", "decline_challenge": "incoming", "refresh_rooms": "room_bar",
         "create_room": "room_bar", "create_password_room": "room_bar", "create_code_room": "room_bar",
         "join_room_code": "room_bar", "leave_room": "room_bar", "refresh_friends": "friend_bar", "add_friend": "friend_bar",
@@ -188,7 +188,7 @@ class OnlineLayout:
     @staticmethod
     def _find_order(items):
         order = {iid: n for n, iid in enumerate((
-            "online_status", "profile_self", "logout", "search_ranked", "search_casual", "accept_challenge",
+            "online_status", "other_here", "other_keep", "profile_self", "logout", "search_ranked", "search_casual", "accept_challenge",
             "decline_challenge", "online_fighter", "rules_life", "ranked_strict", "screen_side", "always_left"))}
         return sorted(items, key=lambda it: (order.get(it.get("id"), 50), 0))
 
@@ -498,7 +498,11 @@ class OnlineLayout:
         incoming = dict(text=i18n.message("online_ui.incoming", name=i18n.literal(challenge.get("name") or "")),
                         buttons=[self._btn(items, by_id[i], fi) for i in ("accept_challenge", "decline_challenge") if i in by_id]) \
             if challenge and "accept_challenge" in by_id else None
-        return dict(ranked=button("search_ranked"), quick=button("search_casual"),
+        # another launcher of this game is open: the note sits over the options until the player chose
+        note = self._other_launcher_text(state)
+        notice = dict(text=note, buttons=[self._btn(items, by_id[i], fi) for i in ("other_here", "other_keep")
+                                          if i in by_id]) if note and "other_here" in by_id else None
+        return dict(ranked=button("search_ranked"), quick=button("search_casual"), notice=notice,
                     rankedNote="@online_ui.ranked_note", quickNote="@online_ui.quick_note",
                     options=options, extra=extra, incoming=incoming, message=state.get("message") or "")
 

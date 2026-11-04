@@ -12,7 +12,7 @@ class GenericBackendTests(unittest.TestCase):
     def test_worker_only_enqueues_preview_and_does_not_change_navigation(self):
         nav = SimpleNamespace(library_request=7, library_busy=False)
         backend = SimpleNamespace(nav=nav, _library_work=None, _library_results=queue.Queue(),
-                                  _update_busy=lambda: False)
+                                  _update_busy=lambda: False, _library_blocked=lambda: False)
         operation = mock.Mock(return_value={"author": "Example"})
         with mock.patch.object(app.threading, "Thread") as thread:
             result = app.Backend._library_job(backend, "preview", operation)
@@ -26,7 +26,7 @@ class GenericBackendTests(unittest.TestCase):
     def test_worker_failure_is_bounded_catalog_feedback(self):
         nav = SimpleNamespace(library_request=2, library_busy=False)
         backend = SimpleNamespace(nav=nav, _library_work=None, _library_results=queue.Queue(),
-                                  _update_busy=lambda: False)
+                                  _update_busy=lambda: False, _library_blocked=lambda: False)
         with mock.patch.object(app.threading, "Thread") as thread:
             app.Backend._library_job(backend, "check", mock.Mock(side_effect=OSError("private detail")), "example")
             thread.call_args.kwargs["target"]()

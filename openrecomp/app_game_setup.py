@@ -67,7 +67,7 @@ class GameSetupBackend:
             if not root or self._update_busy():
                 return False
             if gid == "t5dr":
-                self.nav.close_online()       # the borrowed lobby client must not run during the exchange
+                self.nav.close_online(only="t5dr")   # the borrowed lobby client must not run during the exchange
             return self.setup.update(gid, root)
         if action == "cancel":
             self.setup.cancel(gid)

@@ -1357,5 +1357,19 @@
     "online_ui.server_line": "Server",
     "online_ui.or": "or",
     "online_ui.ranked_account": "Ranked needs an account (guests play casual)",
-    "online_ui.build_line": "Build {build}"
+    "online_ui.build_line": "Build {build}",
+    "other_launcher.title": "Another launcher is open",
+    "other_launcher.use_here": "Use OpenRecomp here",
+    "other_launcher.keep_other": "Keep the other one",
+    "other_launcher.native_t5dr": "T5DR Online's own launcher is open too. You can be online in one launcher at a time: logging in here with the same account logs you out there. A game started here does not stop a search there.",
+    "other_launcher.native_t4": "Tekken 4's own launcher is open too. Play in one launcher at a time: a game started there takes you out of a search here.",
+    "other_launcher.online": "Another OpenRecomp window is online with this game. You can be online in one window at a time: logging in here with the same account logs you out there.",
+    "other_launcher.window": "Another OpenRecomp window is open. You can be online in one window at a time: logging in here with the same account logs you out there.",
+    "other_launcher.kept_note": "You play online in the other launcher. OpenRecomp stays logged out here and does not log in by itself.",
+    "other_launcher.kept_other": "Logged out here: you play online in the other launcher.",
+    "other_launcher.chosen_here": "OpenRecomp it is. Log in here; with the same account the other launcher is logged out.",
+    "other_launcher.kicked_native": "You logged in with this account in T5DR Online's own launcher, so OpenRecomp was logged out here. You can be online in one launcher at a time. Log in here again only to play here (that logs the other one out).",
+    "other_launcher.kicked_window": "You logged in with this account in another OpenRecomp window, so this window was logged out. You can be online in one window at a time. Log in here again only to play here (that logs the other one out).",
+    "other_launcher.logged_in_here": "You are in the lobby. If the other launcher was logged in with this account, it is logged out now.",
+    "other_launcher.relogin_paused": "The lobby connection was lost. Another launcher of this game is open, so OpenRecomp does not log in again by itself. Log in again to play here."
 }

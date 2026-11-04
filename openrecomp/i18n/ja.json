@@ -1357,5 +1357,19 @@
     "online_ui.server_line": "サーバー",
     "online_ui.or": "または",
     "online_ui.ranked_account": "ランクマッチにはアカウントが必要です (ゲストはカジュアル)",
-    "online_ui.build_line": "ビルド {build}"
+    "online_ui.build_line": "ビルド {build}",
+    "other_launcher.title": "別のランチャーが開いています",
+    "other_launcher.use_here": "ここでOpenRecompを使う",
+    "other_launcher.keep_other": "もう一方を使う",
+    "other_launcher.native_t5dr": "T5DR Online本体のランチャーも開いています。オンラインにできるのは一度に1つのランチャーだけです。同じアカウントでここにログインすると、向こうはログアウトされます。ここで始めたゲームは向こうの検索を止めません。",
+    "other_launcher.native_t4": "Tekken 4本体のランチャーも開いています。プレイは一度に1つのランチャーで行ってください。向こうでゲームを始めると、ここでの検索は終了します。",
+    "other_launcher.online": "別のOpenRecompウィンドウがこのゲームでオンラインです。オンラインにできるのは一度に1つのウィンドウだけです。同じアカウントでここにログインすると、向こうはログアウトされます。",
+    "other_launcher.window": "別のOpenRecompウィンドウが開いています。オンラインにできるのは一度に1つのウィンドウだけです。同じアカウントでここにログインすると、向こうはログアウトされます。",
+    "other_launcher.kept_note": "オンラインはもう一方のランチャーで遊びます。OpenRecompはここでログアウトしたままで、自動ではログインしません。",
+    "other_launcher.kept_other": "ここではログアウトしました。オンラインはもう一方のランチャーで遊びます。",
+    "other_launcher.chosen_here": "OpenRecompを使います。ここでログインしてください。同じアカウントなら、もう一方のランチャーはログアウトされます。",
+    "other_launcher.kicked_native": "このアカウントでT5DR Online本体のランチャーにログインしたため、ここのOpenRecompはログアウトされました。オンラインにできるのは一度に1つのランチャーだけです。ここで遊ぶときだけ再ログインしてください（向こうはログアウトされます）。",
+    "other_launcher.kicked_window": "このアカウントで別のOpenRecompウィンドウにログインしたため、このウィンドウはログアウトされました。オンラインにできるのは一度に1つのウィンドウだけです。ここで遊ぶときだけ再ログインしてください（向こうはログアウトされます）。",
+    "other_launcher.logged_in_here": "ロビーに入りました。もう一方のランチャーがこのアカウントでログインしていた場合、今はログアウトされています。",
+    "other_launcher.relogin_paused": "ロビーとの接続が切れました。このゲームの別のランチャーが開いているため、OpenRecompは自動で再ログインしません。ここで遊ぶには再ログインしてください。"
 }

@@ -330,6 +330,12 @@ def untranslated_literals(source):
         "receipt", "to",
     })
     technical.update({
+        # another launcher of the same game (other_launchers): row ids, choices, lock files, Windows structure fields
+        "other_here", "other_keep", "other", "here", "kernel32", "ntdll", "dwSize", "cntUsage", "pid", "heap",
+        "module", "threads", "ppid", "prio", "flags", "exe", "length", "buffer", "%s-%d.lock",
+        "OpenRecomp-FGC-presence", "openrecomp-other-launchers", "online-",
+    })
+    technical.update({
         ".exe", ".png", ".jpg", ".jpeg", ".webp", "preview", "library_repository", "library_folder", "library_source", "library_manage",
         "library_loading", "library_preview", "library_remove", "library_update",
     })
