@@ -13,6 +13,7 @@ are one line: left/right moves inside it. LT/RT jump between chapters, X goes to
 import collections
 
 from . import i18n
+from .nav_netext import where
 from .nav_common import uri
 
 CHAPTERS = ("lobby", "rooms", "friends", "leaderboard", "stats", "profile", "tournaments", "spectating", "account")
@@ -24,7 +25,7 @@ CHAPTER_LABELS = {"lobby": "@online_ui.chapter.lobby", "rooms": "@online_ui.chap
 REGIONS = ("find",) + CHAPTERS + ("chat",)
 FIND_IDS = {"online_status", "online_fighter", "search_casual", "search_ranked", "ranked_strict", "logout",
             "profile_self", "accept_challenge", "decline_challenge", "native", "leave_set", "game_setup",
-            "game_update", "rules_life", "screen_side", "always_left", "other_here", "other_keep"}
+            "game_update", "rules_life", "screen_side", "always_left", "other_here", "other_keep", "netext_options"}
 # (id or id prefix, region): the first match wins
 PREFIXES = (
     (("chat:", "no_chat", "online_chat", "send_chat", "chat_toggle", "chat_lobby", "private_send", "private_close",
@@ -189,7 +190,7 @@ class OnlineLayout:
     def _find_order(items):
         order = {iid: n for n, iid in enumerate((
             "online_status", "other_here", "other_keep", "profile_self", "logout", "search_ranked", "search_casual", "accept_challenge",
-            "decline_challenge", "online_fighter", "rules_life", "ranked_strict", "screen_side", "always_left"))}
+            "decline_challenge", "online_fighter", "rules_life", "ranked_strict", "screen_side", "always_left", "netext_options"))}
         return sorted(items, key=lambda it: (order.get(it.get("id"), 50), 0))
 
     @staticmethod
@@ -491,7 +492,7 @@ class OnlineLayout:
             out["present"] = True
             return out
         options = [self._btn(items, n, fi) for n, it in enumerate(items)
-                   if it.get("region") == "find" and (it.get("kind") == "cycler" or it.get("id") in ("online_fighter", "ranked_strict"))]
+                   if it.get("region") == "find" and (it.get("kind") == "cycler" or it.get("id") in ("online_fighter", "ranked_strict", "netext_options"))]
         extra = [self._btn(items, n, fi) for n, it in enumerate(items)
                  if it.get("region") == "find" and it.get("id") in ("native", "leave_set", "game_setup", "game_update")]
         challenge = state.get("challenge") or {}
@@ -638,7 +639,7 @@ class OnlineLayout:
                     elif ping is not None:
                         shown = i18n.message("online_ui.ping_est", ping=ping)
                     cells = [dict(text="", plate=uri(g.a.rank_plate(p.get("tier"))) if "tier" in p else "", bars=bars(ping)),
-                             dict(text=i18n.literal(p.get("name") or ""), bold=True),
+                             dict(text=i18n.literal(p.get("name") or ""), bold=True, tags=i18n.literal(where(p))),
                              dict(text=self._rank_label(p)),
                              dict(text=str(p["rating"]) if p.get("rating") is not None and not p.get("guest") else ""),
                              dict(text=self._record(record) if record else ""),
@@ -655,7 +656,7 @@ class OnlineLayout:
             for main, extra in block:
                 r = rooms.get((items[main].get("id") or "").partition(":")[2], {})
                 lock = {"password": "@online_ui.lock.password", "code": "@online_ui.lock.code"}.get(r.get("lock"), "")
-                cells = [dict(text=items[main].get("label", ""), bold=True), dict(text=i18n.literal(r.get("host") or "")),
+                cells = [dict(text=items[main].get("label", ""), bold=True, tags=i18n.literal(where(r))), dict(text=i18n.literal(r.get("host") or "")),
                          dict(text=i18n.literal(r.get("status") or "")), dict(text=lock)]
                 lines.append(self._trow(items, fi, main, extra, cells, False))
             return lines

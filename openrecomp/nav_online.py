@@ -255,10 +255,10 @@ class Online:
 
     def _online_feature_items(self, g, state, out, action):
         from . import (nav_accounts, nav_challenges, nav_community, nav_moderation, nav_private_chat,
-                       nav_profiles, nav_rules, nav_spectating, nav_tournaments)
+                       nav_profiles, nav_rules, nav_spectating, nav_tournaments, nav_netext)
 
         for module in (nav_profiles, nav_tournaments, nav_spectating, nav_community, nav_accounts, nav_rules,
-                       nav_challenges, nav_moderation, nav_private_chat):
+                       nav_challenges, nav_moderation, nav_private_chat, nav_netext):
             out.extend(module.rows(self, g, state, action))
         nav_community.enhance_rows(out, state)
         nav_challenges.enhance_rows(out, state)

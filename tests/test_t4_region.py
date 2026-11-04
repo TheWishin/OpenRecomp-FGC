@@ -23,6 +23,9 @@ class Tree(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name) / "T4"
+        # Model the launcher beside the player folder even when TEMP is inside this repository.
+        self.enterContext(mock.patch.object(t4_source, "__file__",
+            str(Path(self.tmp.name) / "launcher/openrecomp/adapters/t4_source.py")))
         for name in ("config", "runtime", "patches", "tools"):
             (self.root / name).mkdir(parents=True)
         self.write("tools/iso_extract.py", us_iso_tool())

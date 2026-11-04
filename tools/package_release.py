@@ -24,7 +24,7 @@ SOURCE_GROUPS = {
     "openrecomp": ("__init__.py", "__main__.py", "app.py", "manifest.py", "nav.py", "nav_common.py",
                    "nav_build.py", "nav_dialog.py", "nav_drawer.py", "nav_grid.py", "nav_hub.py", "nav_keyboard.py",
                    "nav_online.py", "nav_online_layout.py", "nav_online_login.py", "nav_settings_page.py", "nav_picker.py", "nav_sections.py", "nav_shelf.py", "nav_tools.py",
-                   "nav_accounts.py", "nav_challenges.py", "nav_community.py", "nav_moderation.py",
+                   "nav_accounts.py", "nav_challenges.py", "nav_community.py", "nav_moderation.py", "nav_netext.py",
                    "nav_private_chat.py", "nav_profiles.py",
                    "nav_rules.py", "nav_spectating.py", "nav_tournaments.py",
                    "pad.py", "ranks.py", "stall.py", "updater.py", "update_service.py", "file_dialog.py",
@@ -35,7 +35,7 @@ SOURCE_GROUPS = {
                            "t4_online.py", "t4_source.py", "t4_prerequisites.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py",
                            "t5_coexist.py", "t5_compatibility.py", "t4_region.py", "other_launchers.py",
                            "t5_accounts.py", "t5_challenges.py", "t5_community.py", "t5_features.py",
-                           "t5_moderation.py", "t5_private_chat.py", "t5_profiles.py", "t5_rules.py",
+                           "t5_moderation.py", "t5_private_chat.py", "t5_profiles.py", "t5_rules.py", "t5_netext.py",
                            "t5_spectating.py", "t5_tournaments.py", "manifest_game.py"),
     "openrecomp/data": ("t4_ranks.json", "known_games.json"),
     # The T4 lobby server the launcher ships with: one "T4 Online" entry, a placeholder (no server) until the

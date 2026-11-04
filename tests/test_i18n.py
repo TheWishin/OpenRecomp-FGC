@@ -60,7 +60,7 @@ def untranslated_literals(source):
                 ignore(node.elts[0])
         elif (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)
               and isinstance(node.left, ast.Constant)
-              and node.left.value in ("@t4.tools.", "@t4.network.")):
+              and node.left.value in ("@t4.tools.", "@t4.network.", "@netext.")):
             ignore(node.left)  # fixed catalog families; complete keys remain checked below
         elif isinstance(node, ast.Compare):
             for child in (node.left, *node.comparators):
@@ -121,6 +121,10 @@ def untranslated_literals(source):
 
     # These are filenames, environment variables, technical units, and protocol identifiers.
     technical = {
+        "netext_options", "online_feel", "net_line", "netext_forget_confirm", "netext_forget_preview",
+        "netext_forget_cancel", "max_ping", "no_wifi", "steady", "responsive", "balanced", "smooth",
+        "netext_set:", "netext_", "mm_filters", "forget_me", "feature_", "quick_match", "ranked_match",
+        "rb_cost.txt", ".t5_netext", r"[a-z]{2,3}(?:-[A-Z]{2})?",
         "_items_", "_view_", "source:", "text:", "space", "del", "done", "random", "reload", "nt", "utf-8", "w", "replace",
         "folder", "file", "dir", "action", "dev", "auto", "1080p", "1440p", "4K", "SLUS-20328", "T5DR Online",
         "launcher", "runtime", "core.py", "t4core.py", "t4_launcher.pyw", "t5dr_launcher.pyw", "t5dr.exe",
@@ -616,6 +620,17 @@ class Catalogs(unittest.TestCase):
                 self.assertTrue(untranslated_literals(f'dict(label={value!r})'))
                 self.assertTrue(untranslated_literals(f'self.say({value!r})'))
         self.assertTrue(untranslated_literals('token = "library_player_warning"'))
+
+    def test_python_scan_accepts_netext_protocol_but_checks_visible_text(self):
+        for value in ("netext_options", "online_feel", "net_line", "max_ping", "no_wifi", "steady",
+                      "responsive", "balanced", "smooth", "mm_filters", "forget_me"):
+            with self.subTest(value=value):
+                self.assertEqual(untranslated_literals(f'token = {value!r}'), [])
+                self.assertTrue(untranslated_literals(f'dict(label={value!r})'))
+                self.assertTrue(untranslated_literals(f'self.say({value!r})'))
+        self.assertEqual(untranslated_literals('label = "@netext." + key'), [])
+        self.assertTrue(untranslated_literals('label = "@netext.unreviewed"'))
+        self.assertTrue(untranslated_literals('label = "@netext."'))
 
     def test_python_scan_accepts_runtime_names_and_temporary_file_prefix(self):
         source = ('for name in ("core", "replays"):\n'

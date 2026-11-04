@@ -71,6 +71,47 @@ capabilities that their client or server lacks.
 | Auto-spectate and spectator permissions (`tk_spectate`, `launcher/core`) | Auto-spectate, spectator permission and ranked spectator permission are offered only when supported by the selected install. |
 | Developer badge and mentions (`tk_tab`) | Developer marks come from authoritative lobby data. Mention insertion is controller-selectable, and incoming mention highlighting uses the server's mention metadata. A name or chat message cannot grant a developer badge. |
 
+## T5DR 1.2.1 online options
+
+The find-opponent card's **Search options** shortcut opens the choices in
+**Account**: highest ping (Any / 60 / 100 / 150 ms), no opponents on Wi-Fi,
+and only opponents at a steady 60 fps. The controls require both the server's
+`mm_filters` feature and an installed client accepting `options=` on both queue
+methods. Each Quick or Ranked request passes the native client's `max_ping`,
+`no_wifi` and `steady` options; the client writes the queue fields. Older clients
+and servers retain their original requests. Login sends optional network kind,
+automatic area and launcher language through `send_netinfo` where available.
+Player and room tables show area/language tags only when supplied by the server.
+
+**Account** also offers **Online feel** (Responsive / Balanced / Smooth) and
+**Show the connection line**. Preferences are kept in this launcher's online
+configuration. Match launches pass `T5_RB_NET_FEEL`, `T5_NET_LINE` (1 or 0),
+and the install's `rb_cost.txt` location as `T5_RB_COST_FILE`; the native driver's
+other match variables, including negotiated input delay, remain in use.
+
+**Remove my data** appears for accounts only when the server advertises
+`forget_me` and the installed client implements it. Enter the current password,
+confirm the account/data summary, then review the server's password-checked
+dry-run counts and confirm the irreversible removal. Cancelling clears the
+pending password. The second confirmation is tied to that login; a replaced
+session cannot reuse it. Success clears this launcher's saved login for the
+server and stays logged out. This entry removes server data; it does not offer
+the native launcher's separate local-file cleanup.
+
+Repository-only verification (2026-11-04) uses fake clients and an offscreen Qt
+scene, with application data and temporary files under `build/`. The seven
+catalogs were measured at 1920 x 1080 and 1280 x 720: 84 focused option/action
+labels and 28 confirmation dialogs. The widest new label measures 415 of its
+470.8 logical pixels; the tallest confirmation measures 673.4 pixels within the
+972-pixel overlay area. Player/room names and their area/language tags fit the
+36-pixel table cells. These geometry checks do not establish translation quality,
+physical controller behavior or interoperability with the native 1.2.1 client,
+server and game. Those still require the maintainer's install and a separate
+authorized check.
+The full `unittest discover -s tests -p "test_*.py"` run passed: 1,782 tests in
+229.1 seconds, with 15 skips for optional external integration, installer/runtime
+fixtures and unavailable symlink permissions. No game or release build was run.
+
 ## Staying logged in
 
 Owner: "make sure you are NOT logged out when you cancel the search etc." The same rules hold for T5DR and T4

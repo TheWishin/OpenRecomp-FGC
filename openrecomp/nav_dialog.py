@@ -10,6 +10,9 @@ class Dialog:
         self.exit_focus = 0
 
     def _dialog(self, a):
+        if self.confirm_kind == "netext_forget":
+            from . import nav_netext
+            return nav_netext.dialog(self, a)
         if self.confirm_kind.startswith("library_"):
             return self._library_dialog(a)
         if self.confirm_kind.startswith("setup_"):
@@ -46,6 +49,9 @@ class Dialog:
                         self.on_update_install()
 
     def _view_dialog(self, v):
+        if self.confirm_kind == "netext_forget":
+            from . import nav_netext
+            return nav_netext.view_dialog(self, v)
         if self.confirm_kind.startswith("library_"):
             return self._view_library_dialog(v)
         if self.confirm_kind.startswith("setup_"):
