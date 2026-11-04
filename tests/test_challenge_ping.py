@@ -128,7 +128,7 @@ class ChallengePingAdapter(unittest.TestCase):
         owner._online_results.put((owner._online_generation, "challenge:peer", "sent", None))
         owner.online_poll()
         offer = owner.online_state()["outgoing_challenge"]
-        self.assertEqual(offer, dict(id="sent", name="XERO", ping=48, ping_measured=False))
+        self.assertEqual(offer, dict(id="sent", player="peer", name="XERO", ping=48, ping_measured=False))
         owner._online_client.events.put(dict(t="challenge_update", challenge="sent", state="expired"))
         owner._online_events()
         self.assertEqual(owner.online_state()["outgoing_challenge"], {})
@@ -184,7 +184,10 @@ class ChallengePingScene(unittest.TestCase):
                                 self.assertEqual(conn["bars"], expected_bars)
                                 self.assertEqual(conn["path"], i18n.text(language, "online_ui.path_" + ping["ping_path"]) if ping.get("ping_path") else "")
                                 visible = [item for item in items(win.contentItem()) if item.isVisible()]
-                                text = next(item for item in visible if item.objectName() == "peerPingText")
+                                container = next(item for item in visible if item.objectName() ==
+                                                 ("onlineCard" if mode == "matched" else "arcadeOfferPing"))
+                                text = next(item for item in items(container) if item.isVisible()
+                                            and item.objectName() == "peerPingText")
                                 self.assertEqual(text.property("text"), expected)
                                 self.assertFalse(text.property("truncated"))
                                 signal = text.parentItem()

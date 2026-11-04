@@ -9,6 +9,7 @@ import time
 from types import SimpleNamespace
 
 from .t5_coexist import readonly_imports
+from . import arcade_metadata
 
 
 def init(owner):
@@ -60,6 +61,8 @@ def _targets(owner):
     if not _supported(client):
         return []
     out = []
+    known = getattr(client, "players", None)
+    known = known if isinstance(known, list) else []
     friends = getattr(client, "friend_list", None)
     friends = friends.get("friends") if isinstance(friends, dict) else None
     for friend in friends if isinstance(friends, list) else ():
@@ -85,9 +88,11 @@ def _targets(owner):
                 tid = table.get("id")
                 if table.get("watch") and isinstance(tid, (str, int)):
                     out.append(dict(id="spec_watch_table:" + rid + ":" + str(tid), kind="table",
-                                    name=name + " · " + str(tid), target=dict(room=rid, table=tid)))
+                                    name=name + " · " + str(tid), target=dict(room=rid, table=tid),
+                                    **arcade_metadata.match(table, known + (room.get("players") if isinstance(room.get("players"), list) else []))))
         elif room.get("watch"):
-            out.append(dict(id="spec_watch_room:" + rid, kind="room", name=name, target=dict(room=rid)))
+            out.append(dict(id="spec_watch_room:" + rid, kind="room", name=name, target=dict(room=rid),
+                            **arcade_metadata.match(room, known)))
     return out
 
 

@@ -45,6 +45,8 @@ class Sections:
         return out
 
     def _go(self, g, section):
+        self.main_menu_game = ""
+        self.ranked_page = ""
         self.sec[g.id] = section
 
     def _native_item(self, g):
@@ -121,6 +123,7 @@ class Sections:
                 last = r["group"]
             result = r["result"] if self.show_results else "@hidden"
             out.append(dict(kind="action", id=r["id"], replay=r["id"], label=r["label"], value=r["when"], verb="@watch",
+                            cells=[r["date"], r["opponent"], r.get("fighters") or r["label"], result, r.get("length") or "—"],
                             run=lambda rid=r["id"]: self._play_replay(g, rid),
                             hint="@replay_hint",
                             detail=dict(kicker=r["group"], title=r["label"], lead="@saved_locally", images=r.get("images", []),

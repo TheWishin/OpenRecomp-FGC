@@ -1,5 +1,5 @@
 """Login and search screens through the optional common adapter interface."""
-from . import i18n, ui_sound
+from . import i18n, nav_feedback, ui_sound
 from .nav_keyboard import ONLINE_PASSWORDS
 
 
@@ -82,14 +82,49 @@ class Online:
     def _online_action(self, g, action):
         if self._dry("@online.status"):
             return True
+        try:
+            state = g.a.online_state()
+        except Exception:  # noqa: BLE001 -- snapshot failures use the same safe receipt as action failures
+            self.say("@online.failure", 3)
+            return False
+        receipt = nav_feedback.records(self, g.id).get(action, {})
+        if action.startswith("challenge:") and receipt.get("kind") == "waiting" and any(offer.get("id") == receipt.get("challenge")
+                                                     for offer in state.get("open_challenges") or []):
+            action = "cancel_challenge:" + receipt["challenge"]
+        tracked = nav_feedback.begin(self, g, action, state)
+        if tracked is None:
+            return True
         success = True
         try:
             g.a.online_action(action)
+            nav_feedback.observe(self, g, g.a.online_state())
         except Exception:  # noqa: BLE001 -- no raw server details or credentials in an error toast
             self.say("@online.failure", 12)
+            nav_feedback.fail(self, g, action)
             success = False
-        self.focus[g.id + ":online"] = 0
+        if not tracked:
+            self.focus[g.id + ":online"] = 0
         return success
+
+    def tick_online_feedback(self, dt):
+        return nav_feedback.tick(self, dt)
+
+    def online_profile_shortcut(self):
+        if self.screen != "hub" or self.section() != "online" or self.overlay:
+            return False
+        if getattr(self, "main_menu_game", "") == self.game.id:
+            return False
+        items = self.items()
+        item = items[self.focus_index(items)] if items else {}
+        group = item.get("group")
+        if not group or item.get("region") != "lobby":
+            return False
+        profile = next((it for it in items if it.get("group") == group
+                        and (it.get("id") or "").startswith("profile_player:")), None)
+        if profile and profile.get("run"):
+            self._guard(self._activate, profile)
+            return True
+        return False
 
     OTHER_TEXTS = {("native", "t5dr"): "@other_launcher.native_t5dr", ("native", "t4"): "@other_launcher.native_t4",
                    "online": "@other_launcher.online", "window": "@other_launcher.window"}
@@ -304,6 +339,12 @@ class Online:
         for player in state.get("players") or []:
             item = action("challenge:" + str(player["id"]), i18n.literal(player["name"]), "@online.challenge_hint")
             item["verb"] = "@online.challenge"
+            receipt = nav_feedback.records(self, g.id).get(item["id"], {})
+            if receipt.get("kind") in ("pending", "waiting"):
+                can_cancel = receipt.get("kind") == "waiting" and any(
+                    offer.get("id") == receipt.get("challenge") for offer in state.get("open_challenges") or [])
+                item.update(verb="@cancel" if can_cancel else "", disabled=not can_cancel,
+                            hint=nav_feedback.view(self, g.id, item["id"])["text"])
             item["value"] = i18n.literal(player.get("rank") or "")
             item["detail"]["rows"] = [dict(k="@online.name", v=i18n.literal(player["name"]))]
             if player.get("rank"):
@@ -429,6 +470,7 @@ class Online:
                 if g.a.online_poll():
                     changed = True
                     state = g.a.online_state()
+                    nav_feedback.observe(self, g, state)
                     phase = state.get("phase")
                     seen = self.__dict__.setdefault("_online_seen_phase", {})
                     if phase in ("matched", "result", "result_sent", "kicked", "error"):

@@ -6,10 +6,10 @@ Item {
     id: page
     required property var root
     readonly property var o: root.v.online || ({})
-    readonly property var acc: root.v.accent
-    readonly property color card: "#16181C"
-    readonly property color ink: "#0E0F11"
-    readonly property color red: "#FF5A5F"
+    readonly property var acc: Theme.readableAccent(root.v.accent)
+    readonly property color card: Theme.card
+    readonly property color ink: Theme.ground
+    readonly property color red: Theme.error
     function list(a) { return a || [] }
     function click(b) { if (b && b.index !== undefined && b.index >= 0) root.backend.clickRow(b.index) }
 
@@ -21,22 +21,23 @@ Item {
         visible: !!f
         width: parent ? parent.width : 400
         height: f ? (f.error ? 92 : 70) : 0
-        Text { textFormat: Text.PlainText; text: field.f ? field.f.label : ""; color: page.root.muted; font.family: page.root.sans; font.pixelSize: 16 }
+        Text { textFormat: Text.PlainText; text: field.f ? field.f.label : ""; color: page.root.muted; font.family: page.root.sans; font.pixelSize: Theme.px(16)}
         Rectangle {
             y: 22; width: parent.width; height: 44
-            color: field.f && field.f.focused ? page.root.bone : "#0E0F11"
+            color: field.f && field.f.focused ? page.root.bone : Theme.ground
             border.width: field.f && field.f.error ? 2 : 1
             border.color: field.f && field.f.error ? page.red : (field.f && field.f.focused ? page.acc : page.root.line)
             Text {
                 x: 14; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 28 - (verbText.visible ? verbText.width + 12 : 0)
                 elide: Text.ElideLeft; textFormat: Text.PlainText
                 text: field.f ? (field.f.value || "") : ""
-                color: field.f && field.f.focused ? page.ink : page.root.textC; font.family: page.root.mono; font.pixelSize: 20
+                color: field.f && field.f.focused ? page.ink : page.root.textC; font.family: page.root.mono; font.pixelSize: Theme.px(20)
             }
-            Text { id: verbText; visible: !!(field.f && field.f.verb); anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: field.f ? (field.f.verb || "") : ""; color: page.ink; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: 17 }
-            TapHandler { onTapped: page.click(field.f) }
+            Text { id: verbText; visible: !!(field.f && field.f.verb); anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: field.f ? (field.f.verb || "") : ""; color: page.ink; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(17)}
+            TapHandler { id: uiTap0; onTapped: page.click(field.f) }
+            Interaction { handler: uiTap0; selected: !!(field.f && field.f.focused); name: (field.f || {}).label || ""; onActivated: page.click(field.f) }
         }
-        Text { visible: !!(field.f && field.f.error); y: 70; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: field.f ? (field.f.error || "") : ""; color: page.red; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: 16 }
+        Text { visible: !!(field.f && field.f.error); y: 70; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: field.f ? (field.f.error || "") : ""; color: page.red; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(16)}
     }
     // ---------------------------------------------------------------- a button: primary filled, secondary outlined
     component Button: Rectangle {
@@ -52,9 +53,10 @@ Item {
             anchors.centerIn: parent; width: parent.width - 24; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
             textFormat: Text.PlainText; text: button.b ? button.b.label : ""
             color: (button.b && button.b.focused) || button.primary ? page.ink : page.root.textC
-            font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 28
+            font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(28)
         }
-        TapHandler { onTapped: page.click(button.b) }
+        TapHandler { id: uiTap1; onTapped: page.click(button.b) }
+        Interaction { handler: uiTap1; selected: !!(button.b && button.b.focused); name: (button.b || {}).label || ""; onActivated: page.click(button.b) }
     }
     // ---------------------------------------------------------------- a small link or toggle
     component Link: Rectangle {
@@ -70,21 +72,22 @@ Item {
             x: 10; anchors.verticalCenter: parent.verticalCenter; spacing: 8
             Rectangle {
                 visible: link.check; width: 18; height: 18; anchors.verticalCenter: parent.verticalCenter
-                color: link.on ? page.acc : "transparent"; border.width: 2; border.color: link.on ? page.acc : "#6B6E75"
-                Text { visible: link.on; anchors.centerIn: parent; textFormat: Text.PlainText; text: "✓"; color: page.ink; font.pixelSize: 13; font.weight: Font.Bold }
+                color: link.on ? page.acc : "transparent"; border.width: 2; border.color: link.on ? page.acc : Theme.muted
+                Text { visible: link.on; anchors.centerIn: parent; textFormat: Text.PlainText; text: "✓"; color: page.ink; font.pixelSize: Theme.px(13); font.weight: Font.Bold }
             }
             Text {
                 textFormat: Text.PlainText; text: link.b ? link.b.label : ""; anchors.verticalCenter: parent.verticalCenter
                 color: link.b && link.b.focused ? page.ink : (link.check ? page.root.textC : page.acc)
-                font.family: page.root.sans; font.weight: Font.Medium; font.pixelSize: 17; font.underline: !link.check
+                font.family: page.root.sans; font.weight: Font.Medium; font.pixelSize: Theme.px(17); font.underline: !link.check
             }
             Text {
                 visible: !!(link.b && link.b.value) && !link.check; anchors.verticalCenter: parent.verticalCenter
                 textFormat: Text.PlainText; text: link.b ? (link.b.value || "") : ""; width: Math.min(implicitWidth, 300); elide: Text.ElideMiddle
-                color: link.b && link.b.focused ? page.ink : page.root.muted; font.family: page.root.mono; font.pixelSize: 16
+                color: link.b && link.b.focused ? page.ink : page.root.muted; font.family: page.root.mono; font.pixelSize: Theme.px(16)
             }
         }
-        TapHandler { onTapped: page.click(link.b) }
+        TapHandler { id: uiTap2; onTapped: page.click(link.b) }
+        Interaction { handler: uiTap2; selected: !!(link.b && link.b.focused); name: (link.b || {}).label || ""; onActivated: page.click(link.b) }
     }
 
     Rectangle {
@@ -103,8 +106,8 @@ Item {
             Rectangle { width: 8; height: parent.height; color: page.acc }
             Column {
                 x: 36; anchors.verticalCenter: parent.verticalCenter; spacing: 2
-                Text { textFormat: Text.PlainText; text: page.o.game || ""; color: page.acc; font.family: page.root.mono; font.weight: Font.DemiBold; font.pixelSize: 19 }
-                Text { objectName: "loginTitle"; textFormat: Text.PlainText; text: page.o.title || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 44 }
+                Text { textFormat: Text.PlainText; text: page.o.game || ""; color: page.acc; font.family: page.root.mono; font.weight: Font.DemiBold; font.pixelSize: Theme.px(19)}
+                Text { objectName: "loginTitle"; textFormat: Text.PlainText; text: page.o.title || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(44)}
             }
         }
         Column {
@@ -114,7 +117,7 @@ Item {
             Text {
                 visible: text !== ""; width: parent.width; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight; textFormat: Text.PlainText
                 text: page.o.error ? (page.o.errorText || "") : (page.o.message || "")
-                color: page.o.error ? page.red : page.root.muted; font.family: page.root.sans; font.weight: page.o.error ? Font.DemiBold : Font.Normal; font.pixelSize: 18
+                color: page.o.error ? page.red : page.root.muted; font.family: page.root.sans; font.weight: page.o.error ? Font.DemiBold : Font.Normal; font.pixelSize: Theme.px(18)
             }
             // another launcher of this game is open: one sentence and Use OpenRecomp here / Keep the other one
             Rectangle {
@@ -125,7 +128,7 @@ Item {
                 Column {
                     id: noticeColumn
                     x: 16; y: 12; width: parent.width - 32; spacing: 10
-                    Text { width: parent.width; wrapMode: Text.Wrap; maximumLineCount: 4; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.o.notice ? (page.o.notice.text || "") : ""; color: page.root.textC; font.family: page.root.sans; font.pixelSize: 18 }
+                    Text { width: parent.width; wrapMode: Text.Wrap; maximumLineCount: 4; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.o.notice ? (page.o.notice.text || "") : ""; color: page.root.textC; font.family: page.root.sans; font.pixelSize: Theme.px(18)}
                     Row {
                         spacing: 12
                         Repeater {
@@ -144,7 +147,7 @@ Item {
                 Column {
                     id: accountColumn
                     width: (parent.width - 28) * 0.62; spacing: 10
-                    Text { textFormat: Text.PlainText; text: page.o.accountTitle || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: 26 }
+                    Text { textFormat: Text.PlainText; text: page.o.accountTitle || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(26)}
                     Field { f: page.o.password; width: parent.width }
                     Row {
                         spacing: 8
@@ -161,8 +164,8 @@ Item {
                 Rectangle { width: 1; height: accountColumn.height; color: page.root.line }
                 Column {
                     width: (parent.width - 28) * 0.38 - 29; spacing: 10
-                    Text { textFormat: Text.PlainText; text: page.o.guestTitle || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: 26 }
-                    Text { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: page.o.guestNote || ""; color: page.root.muted; font.family: page.root.sans; font.pixelSize: 17 }
+                    Text { textFormat: Text.PlainText; text: page.o.guestTitle || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(26)}
+                    Text { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: page.o.guestNote || ""; color: page.root.muted; font.family: page.root.sans; font.pixelSize: Theme.px(17)}
                     Item { width: 1; height: 8 }
                     Button { b: page.o.guest; width: parent.width }
                 }

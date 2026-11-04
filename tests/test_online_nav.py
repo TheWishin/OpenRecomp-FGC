@@ -63,10 +63,14 @@ class OnlineNavigation(unittest.TestCase):
         self.nav.sec[self.a.m["id"]] = "online"
 
     def choose(self, iid):
-        items = self.nav.items()
-        target = next(i for i, it in enumerate(items) if it.get("id") == iid)
-        while self.nav.focus_index(items) != target:
+        for _ in range(2000):
+            items = self.nav.items()
+            target = next(i for i, it in enumerate(items) if it.get("id") == iid)
+            if self.nav.focus_index(items) == target:
+                break
             pad_step(self.nav, target)
+        else:
+            self.fail("Controller could not reach " + iid)
         self.nav.act("confirm", device="xbox")
 
     def pad_key(self, char):

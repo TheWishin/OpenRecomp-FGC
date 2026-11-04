@@ -22,6 +22,15 @@ CHAPTER_LABELS = {"lobby": "@online_ui.chapter.lobby", "rooms": "@online_ui.chap
                   "stats": "@online_ui.chapter.stats", "profile": "@online_ui.chapter.profile",
                   "tournaments": "@online_ui.chapter.tournaments", "spectating": "@online_ui.chapter.spectating",
                   "account": "@online_ui.chapter.account"}
+HIERARCHY_LABELS = {
+    "open_rooms": "@online_hierarchy.open_rooms", "create_room": "@online_hierarchy.create_room",
+    "room_empty": "@online_hierarchy.room_empty", "join_invite": "@online_hierarchy.join_invite",
+    "access": "@online_hierarchy.access", "open": "@online_hierarchy.open",
+    "password": "@online_hierarchy.password", "invite": "@online_hierarchy.invite",
+    "connection": "@online_hierarchy.connection", "match_options": "@online_hierarchy.match_options",
+    "advanced_options": "@online_hierarchy.advanced_options", "settings": "@online_hierarchy.settings",
+    "overview": "@online_hierarchy.overview",
+}
 REGIONS = ("find",) + CHAPTERS + ("chat",)
 FIND_IDS = {"online_status", "online_fighter", "search_casual", "search_ranked", "ranked_strict", "logout",
             "profile_self", "accept_challenge", "decline_challenge", "native", "leave_set", "game_setup",
@@ -37,7 +46,7 @@ PREFIXES = (
     (("leaderboard_", "profile_board:"), "leaderboard"),
     (("stats_", "community_totals", "community_fighter:", "no_statistics"), "stats"),
     (("refresh_rooms", "create_room", "create_password_room", "create_code_room", "join_room_code", "online_room_",
-      "room_invite_code", "leave_room", "join_room:", "no_rooms", "community_"), "rooms"),
+      "room_invite_code", "leave_room", "join_room:", "room_watch:", "no_rooms", "community_"), "rooms"),
     (("refresh_friends", "online_friend_name", "add_friend", "remove_friend:", "invite_friend:", "invite_room:",
       "accept_friend:", "decline_friend:", "cancel_friend:", "accept_invite:", "decline_invite:", "cancel_invite",
       "no_friends"), "friends"),
@@ -60,7 +69,8 @@ TABLES = ("challenge:", "join_room:", "profile_board:", "community_fighter:", "p
           "profile_char:", "profile_ranked_char:", "tour_entrant:", "tour_standing:", "community_member:")
 # rows that open a chapter's page: the chapter is shown after them
 AFTER = {"profile_self": "profile", "profile_load": "profile", "profile_player:": "profile", "profile_board:": "profile",
-         "leaderboard_refresh": "leaderboard", "stats_refresh": "stats"}
+         "leaderboard_refresh": "leaderboard", "leaderboard_sort:": "leaderboard", "leaderboard_previous": "leaderboard",
+         "leaderboard_next": "leaderboard", "stats_refresh": "stats"}
 LOADERS = {"profile": "profile_self", "leaderboard": "leaderboard_refresh", "stats": "stats_refresh"}
 CHAT_LINES = 13
 LOBBY_HEADINGS = ("@online.players", "@online.open_challenges")
@@ -176,16 +186,30 @@ class OnlineLayout:
         by_region["chat"] = tabs + [it for it in by_region["chat"] if it.get("id") != "chat_toggle"]
         by_region["lobby"] = self._lobby_order(state, by_region["lobby"])
         by_region["find"] = self._find_order(by_region["find"])
+        # Reuse only watching actions advertised by the adapter; never invent a server request.
+        watchers = {it.get("id"): it for it in by_region["spectating"]}
+        room_rows = []
+        for item in self._rooms_order(by_region["rooms"]):
+            room_rows.append(item)
+            if (item.get("id") or "").startswith("join_room:"):
+                rid = item["id"].partition(":")[2]
+                watch = watchers.get("spec_watch_room:" + rid)
+                if watch:
+                    room_rows.append(dict(watch, id="room_watch:" + rid, value=""))
+        by_region["rooms"] = room_rows
         page = []
         for region, items in by_region.items():
             for item in items:
                 item["region"] = region
                 page.append(item)
+        from . import nav_arcade
+        nav_arcade.add_rows(self, g, page)
         self._group(page)
         return page
 
     def _then_chapter(self, run, chapter):
         def go():
+            self.ranked_page = ""
             result = run()
             self._show_chapter(self.items(), chapter)
             return result
@@ -203,6 +227,30 @@ class OnlineLayout:
             "online_status", "other_here", "other_keep", "profile_self", "logout", "search_ranked", "search_casual", "accept_challenge",
             "decline_challenge", "online_fighter", "rules_life", "ranked_strict", "screen_side", "always_left", "netext_options"))}
         return sorted(items, key=lambda it: (order.get(it.get("id"), 50), 0))
+
+    @staticmethod
+    def _rooms_order(items):
+        """Read the room browser first, then the draft, creation and invite cards."""
+        def order(it):
+            iid = it.get("id") or ""
+            if iid == "refresh_rooms":
+                return 0
+            if iid.startswith("join_room:") or iid == "no_rooms":
+                return 1
+            if iid == "online_room_name":
+                return 2
+            if iid.startswith("community_option:"):
+                return 3
+            if iid == "online_room_password":
+                return 4
+            if iid in ("create_room", "create_password_room", "create_code_room", "community_create"):
+                return 5
+            if iid == "online_room_code":
+                return 6
+            if iid == "join_room_code":
+                return 7
+            return 8
+        return sorted((it for it in items if it.get("kind") != "heading"), key=order)
 
     @staticmethod
     def _lobby_order(state, items):
@@ -232,6 +280,10 @@ class OnlineLayout:
             if item.get("kind") == "heading":
                 continue
             group = BARS.get(iid) or next((g for p, g in BAR_PREFIXES.items() if iid.startswith(p)), "")
+            if item.get("region") == "rooms" and iid in ("create_room", "create_password_room", "create_code_room", "community_create"):
+                group = "room_create"
+            if iid.startswith(("join_room:", "room_watch:")):
+                group = "room:" + iid.partition(":")[2]
             prefix, _, rest = iid.partition(":")
             if prefix in ("challenge", "profile_player", "private_open", "mention") and item.get("region") == "lobby":
                 group = "p:" + rest
@@ -272,6 +324,20 @@ class OnlineLayout:
         """Up/down on the lobby page: to the next line (a group is one line), the same column where it can."""
         if not items:
             return i
+        from . import nav_arcade
+        if nav_arcade.active(self, items, i):
+            return nav_arcade.move(self, items, i, step)
+        chapter = self._chapter_of_focus(items, i)
+        if chapter != "lobby" and items[i].get("region") == "find" and step > 0:
+            first = next((n for n, it in enumerate(items) if it.get("region") == chapter and it.get("kind") != "heading"), None)
+            if first is not None:
+                return first
+        if getattr(self, "ranked_page", "") == self.game.id:
+            allowed = {"search_ranked", "online_fighter", "rules_life", "ranked_strict", "screen_side", "always_left", "netext_options"}
+            visible = [n for n, it in enumerate(items) if it.get("id") in allowed or it.get("region") == "chat"]
+            if visible:
+                position = visible.index(i) if i in visible else 0
+                return visible[max(0, min(len(visible) - 1, position + step))]
         start = self._line_start(items, i)
         column = i - start
         j = i
@@ -291,8 +357,15 @@ class OnlineLayout:
 
     def _online_side(self, items, i, step):
         """Left/right inside a line; a lone cycler row changes its value instead (the caller does that)."""
+        from . import nav_arcade
+        if nav_arcade.active(self, items, i):
+            if items[i].get("kind") == "cycler":
+                return None
+            return nav_arcade.move(self, items, i, step, horizontal=True)
         group = items[i].get("group")
         j = i + step
+        if getattr(self, "ranked_page", "") == self.game.id and 0 <= j < len(items) and items[j].get("id") == "search_casual":
+            return None
         if group and 0 <= j < len(items) and items[j].get("group") == group:
             return j
         return None
@@ -319,6 +392,7 @@ class OnlineLayout:
         self._go_chapter(items, present[(pos + step) % len(present)])
 
     def _go_chapter(self, items, target):
+        self.ranked_page = ""
         g = self.game
         self._show_chapter(items, target)
         pages = getattr(self, "_t5_profile_pages", None) or {}
@@ -337,6 +411,19 @@ class OnlineLayout:
         target = next((n for n, it in enumerate(items) if it.get("id") == remembered and it.get("region") == chapter), first)
         if target is not None:
             self.focus[self.key()] = target
+
+    def open_ranked(self, g):
+        """Open the ranked presentation. Searching remains an explicit player action."""
+        self.sec[g.id] = "online"
+        self.ranked_page = g.id
+        items = self.items()
+        target = next((n for n, it in enumerate(items) if it.get("id") == "search_ranked"), 0)
+        self.focus[self.key()] = target
+        if not self.dry and (g.a.online_state().get("capabilities") or {}).get("profiles"):
+            self.__dict__.setdefault("_t5_profile_pages", {})[g.id] = "profile"
+            self._online_action(g, "profile_self")
+            items = self.items()
+            self.focus[self.key()] = next((n for n, it in enumerate(items) if it.get("id") == "search_ranked"), 0)
 
     def click_chapter(self, chapter):
         """A mouse click on a chapter tab: the same as LT/RT reaching it."""
@@ -395,10 +482,14 @@ class OnlineLayout:
 
     # ---------------------------------------------------------------- view
     def _btn(self, items, n, fi, short=False):
+        from . import nav_feedback
+
         it = items[n]
         value = it.get("value") or ""
-        return dict(index=n, label=it.get("label", ""), value=value, focused=n == fi, disabled=bool(it.get("disabled")),
-                    cycler=it.get("kind") == "cycler", verb=it.get("verb", "") if n == fi else "")
+        return dict(index=n, id=it.get("id", ""), label=it.get("label", ""), value=value, hint=it.get("hint", ""), focused=n == fi, disabled=bool(it.get("disabled")),
+                    cycler=it.get("kind") == "cycler", toggle=it.get("kind") == "cycler" and isinstance(it.get("current"), bool),
+                    on=it.get("current") is True, verb=it.get("verb", "") if n == fi else "",
+                    feedback=nav_feedback.view(self, self.game.id, it.get("id", "")))
 
     def _view_online_card(self, v, g, items, fi):
         """Login, search, match and result: one card (title, the status message, the rows) + the focused row's details."""
@@ -450,8 +541,19 @@ class OnlineLayout:
         page["find"] = self._view_find(g, state, items, fi, by_id)
         page["chapters"] = self._view_chapters(state, items, chapter)
         page["body"] = self._view_body(g, state, items, fi, chapter)
+        page["labels"] = dict(HIERARCHY_LABELS)
+        if chapter == "rooms":
+            page["rooms"] = self._view_rooms(g, state, items, fi)
         page["chat"] = self._view_chat(g, state, items, fi)
         page["focusRegion"] = items[fi].get("region") if items else ""
+        from . import nav_arcade
+        page["arcade"] = nav_arcade.view(self, g, state, items, fi)
+        from . import nav_ranked
+        if getattr(self, "ranked_page", "") == g.id:
+            page["chapter"] = "ranked"
+            page["ranked"] = nav_ranked.ranked(self, g, state, items, fi, page["profile"], page["find"])
+        if chapter == "leaderboard":
+            page["leaderboard"] = nav_ranked.leaderboard(self, g, state, items, fi)
         v["online"] = page
 
     def _view_profile(self, g, state, items, fi, by_id):
@@ -533,7 +635,13 @@ class OnlineLayout:
         note = self._other_launcher_text(state)
         notice = dict(text=note, buttons=[self._btn(items, by_id[i], fi) for i in ("other_here", "other_keep")
                                           if i in by_id]) if note and "other_here" in by_id else None
-        return dict(ranked=button("search_ranked"), quick=button("search_casual"), notice=notice,
+        groups = []
+        for label, ids in (("@online_hierarchy.match_options", {"online_fighter", "rules_life", "ranked_strict"}),
+                           ("@online_hierarchy.advanced_options", None)):
+            members = [b for b in options if (b["id"] in ids if ids else b["id"] not in {"online_fighter", "rules_life", "ranked_strict"})]
+            if members:
+                groups.append(dict(label=label, options=members))
+        return dict(ranked=button("search_ranked"), quick=button("search_casual"), notice=notice, groups=groups,
                     rankedNote="@online_ui.ranked_note", quickNote="@online_ui.quick_note",
                     options=options, extra=extra, incoming=incoming, outgoing=outgoing, message=state.get("message") or "")
 
@@ -638,8 +746,109 @@ class OnlineLayout:
             if rows or d.get("lead"):
                 detail = dict(title=d.get("title") or it.get("label", ""), lead=d.get("lead", ""), rows=rows[:12])
         empty = not lines
-        return dict(lines=shown, up=start > 0, down=start + BODY_LINES < len(lines), detail=detail,
+        sections = []
+        for line in lines:
+            if line["kind"] == "heading":
+                sections.append(dict(title=line["label"], lines=[]))
+            else:
+                if not sections:
+                    sections.append(dict(title="@online_hierarchy.overview", lines=[]))
+                sections[-1]["lines"].append(line)
+        sections = [s for s in sections if s["lines"]]
+        return dict(lines=shown, sections=sections, up=start > 0, down=start + BODY_LINES < len(lines), detail=detail,
                     empty="@online_ui.empty" if empty else "", title=CHAPTER_LABELS.get(chapter, ""))
+
+    def focus_online_row(self, index):
+        return self.sounded("down", self._focus_online_row, index)
+
+    def _focus_online_row(self, index):
+        """A pointer can select a creation mode without submitting a room."""
+        if self.screen != "hub" or self.overlay:
+            return
+        previous = self.online_rows.get(self.game.id)
+        items = self.items()
+        current = self.online_rows.get(self.game.id)
+        if previous is not None and current is not None and (
+                index < 0 or index >= len(previous) or index >= len(current) or previous[index] != current[index]):
+            return
+        if self._online_page() and 0 <= index < len(items) and (items[index].get("region") in CHAPTERS
+                or items[index].get("id") == "online_status"):
+            self.focus[self.key()] = index
+
+    def select_online_option(self, index, option):
+        if self.screen != "hub" or self.overlay:
+            return
+        previous = self.online_rows.get(self.game.id)
+        items = self.items()
+        current = self.online_rows.get(self.game.id)
+        if previous is not None and current is not None and (
+                index < 0 or index >= len(previous) or index >= len(current) or previous[index] != current[index]):
+            return
+        if not self._online_page() or not 0 <= index < len(items):
+            return
+        item = items[index]
+        choices = item.get("options") or []
+        if item.get("id") == "community_option:access" and 0 <= option < len(choices):
+            self.focus[self.key()] = index
+            self.__dict__.setdefault("room_creation", {})[self.game.id] = "community_create"
+            self._guard(item["set"], choices[option][0])
+
+    def _view_rooms(self, g, state, items, fi):
+        """Project the same adapter rows into the browser, draft and invite cards."""
+        by_id = {it.get("id"): n for n, it in enumerate(items) if it.get("region") == "rooms"}
+        creation = ("create_room", "create_password_room", "create_code_room", "community_create")
+        available = [iid for iid in creation if iid in by_id]
+        memory = self.__dict__.setdefault("room_creation", {})
+        focused = items[fi].get("id") if items else ""
+        if focused in available:
+            memory[g.id] = focused
+        elif focused.startswith("community_option:") and "community_create" in available:
+            memory[g.id] = "community_create"
+        selected = memory.get(g.id)
+        if selected not in available:
+            selected = "community_create" if "community_create" in available else next(iter(available), "")
+        draft, invite, other = [], [], []
+        for iid, n in by_id.items():
+            if iid in creation or iid in ("refresh_rooms", "no_rooms") or iid.startswith(("join_room:", "room_watch:")):
+                continue
+            b = self._btn(items, n, fi)
+            if iid == "online_room_name" or iid == "online_room_password" or iid.startswith("community_option:"):
+                # The draft has one shared helper, rather than repeating the same paragraph on every field.
+                b["hint"] = ""
+                if iid == "community_option:access":
+                    access = {"create_room": "none", "create_password_room": "password", "create_code_room": "code"}.get(selected, items[n].get("current"))
+                    choices = (("none", "@online_hierarchy.open"), ("password", "@online_hierarchy.password"),
+                               ("code", "@online_hierarchy.invite"))
+                    b["segments"] = [dict(label=label, selected=value == access, option=o)
+                                     for o, (value, label) in enumerate(choices)]
+                draft.append(b)
+            elif iid in ("online_room_code", "join_room_code"):
+                b["hint"] = ""
+                invite.append(b)
+            else:
+                other.append(b)
+        primary = self._btn(items, by_id[selected], fi) if selected else {}
+        primary["label"] = "@online_hierarchy.create_room"
+        modes = []
+        if "community_option:access" not in by_id:
+            for iid, label in zip(creation, ("@online_hierarchy.open", "@online_hierarchy.password", "@online_hierarchy.invite")):
+                if iid in by_id:
+                    b = self._btn(items, by_id[iid], fi)
+                    b.update(label=label, active=iid == selected)
+                    modes.append(b)
+        block = []
+        for iid, n in by_id.items():
+            if iid.startswith("join_room:"):
+                watch = by_id.get("room_watch:" + iid.partition(":")[2])
+                block.append((n, [watch] if watch is not None else []))
+        room_data = {str(room.get("id")): room for room in state.get("rooms") or []}
+        browser = self._table(g, "join_room:", block, items, fi, {}, room_data) if block else []
+        refresh = self._btn(items, by_id["refresh_rooms"], fi) if "refresh_rooms" in by_id else {}
+        empty = self._btn(items, by_id["no_rooms"], fi) if "no_rooms" in by_id else {}
+        empty["label"] = "@online_hierarchy.room_empty"
+        return dict(browser=browser, refresh=refresh, empty=empty, draft=draft, modes=modes,
+                    create=primary, invite=invite, other=other,
+                    hint=items[fi].get("hint", "") if any(row.get("id") == focused for row in draft) else "")
 
     def _table(self, g, family, block, items, fi, players, rooms):
         lines = []
@@ -680,14 +889,25 @@ class OnlineLayout:
                     lines.append(self._trow(items, fi, main, extra, cells, dim))
             return lines
         if family == "join_room:":
-            cols = [("@online_ui.col.room", 0.34), ("@online_ui.col.host", 0.26), ("@online_ui.col.state", 0.2),
-                    ("@online_ui.col.lock", 0.2)]
+            cols = [("@online_hierarchy.room_name", 0.34), ("@online_hierarchy.players", 0.16),
+                    ("@online_hierarchy.format", 0.20), ("@online_hierarchy.lock", 0.17), ("@online_hierarchy.ping", 0.13)]
             lines.append(dict(kind="thead", cols=[dict(label=c, w=w) for c, w in cols]))
             for main, extra in block:
                 r = rooms.get((items[main].get("id") or "").partition(":")[2], {})
                 lock = {"password": "@online_ui.lock.password", "code": "@online_ui.lock.code"}.get(r.get("lock"), "")
-                cells = [dict(text=items[main].get("label", ""), bold=True, tags=i18n.literal(where(r))), dict(text=i18n.literal(r.get("host") or "")),
-                         dict(text=i18n.literal(r.get("status") or "")), dict(text=lock)]
+                count = r.get("players")
+                if isinstance(count, (list, tuple)):
+                    count = len(count)
+                if count is None and isinstance(r.get("members"), list):
+                    count = len(r["members"])
+                capacity = r.get("size") or r.get("maximum")
+                players_text = str(count) if count is not None else "—"
+                if capacity:
+                    players_text += " / " + str(capacity)
+                mode = {"line": "@online.room_line_mode", "tables": "@online.room_tables_mode"}.get(r.get("mode"), "—")
+                cells = [dict(text=items[main].get("label", ""), bold=True, tags=i18n.literal(where(r))),
+                         dict(text=players_text), dict(text=mode), dict(text="" if lock else "—", locked=bool(lock), hint=lock),
+                         dict(text=connection(r)["text"] if r.get("ping") is not None else "—")]
                 lines.append(self._trow(items, fi, main, extra, cells, False))
             return lines
         # generic: the label, then the rows' detail values as columns
@@ -707,6 +927,8 @@ class OnlineLayout:
         return lines
 
     def _trow(self, items, fi, main, extra, cells, dim):
+        from . import nav_feedback
+
         it = items[main]
         focused_row = fi == main or fi in extra
         buttons = []
@@ -717,7 +939,27 @@ class OnlineLayout:
             for b, j in zip(buttons[1:], extra):
                 if items[j].get("verb") and (items[j].get("id") or "").startswith(("profile_player:", "private_open:", "profile_history_replay:")):
                     b["label"] = items[j]["verb"]
-        return dict(kind="trow", index=main, focused=focused_row, dim=dim, cells=cells, buttons=buttons)
+                if (items[j].get("id") or "").startswith("profile_player:"):
+                    b.update(label="@online.profile", value="")
+        receipt = nav_feedback.records(self, self.game.id).get(it.get("id"), {})
+        cancel = next((n for n, item in enumerate(items) if receipt.get("challenge")
+                       and item.get("id") == "cancel_challenge:" + receipt["challenge"]), None)
+        active = receipt.get("kind") in ("pending", "waiting")
+        if active:
+            buttons = [b for b in buttons if b.get("id") != it.get("id")]
+        if cancel is not None and active:
+            buttons.append(dict(self._btn(items, cancel, fi), label="@cancel", value=""))
+        hint = ""
+        if focused_row:
+            primary = self.glyph("confirm")["text"]
+            profile = any((items[j].get("id") or "").startswith("profile_player:") for j in extra)
+            hint = i18n.message("feedback.action_profile" if profile else "feedback.action", primary=primary,
+                                action="@cancel" if cancel is not None else it.get("verb") or "@open", secondary=self.glyph("social")["text"])
+            if active and cancel is None:
+                hint = i18n.message("feedback.action", primary=self.glyph("social")["text"], action="@online.profile") \
+                    if profile else nav_feedback.view(self, self.game.id, it.get("id", ""))["text"]
+        return dict(kind="trow", index=main, focused=focused_row, dim=dim, cells=cells, buttons=buttons,
+                    feedback=nav_feedback.view(self, self.game.id, it.get("id", "")), actionHint=hint)
 
     def _view_chat(self, g, state, items, fi):
         open_chat = self.__dict__.setdefault("chat_open", {}).get(g.id, True)

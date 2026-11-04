@@ -27,7 +27,7 @@ VIEW_FIELDS = {
     "shelf", "tabs", "rows", "detail", "hint", "prompts", "accent", "badge", "gameShort", "numeral",
     "topline", "hold", "more", "grid", "osk", "dialog", "picker", "drawer", "quickAccess", "recentSets",
     "folder", "file", "pick", "mainLabel", "fighterTitle", "fighterMain", "fullscreen", "reducedMotion", "build", "online", "settingsPage",
-    "discord",
+    "discord", "sessionPage", "loading", "loadError", "textScale", "highContrast", "mainMenu",
 }
 
 

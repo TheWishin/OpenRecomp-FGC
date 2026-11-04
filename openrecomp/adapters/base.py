@@ -136,6 +136,8 @@ class Adapter:
         invites and outgoing_invite. Rematch is offered only while its capability is true.
         Installed T5DR clients can add capability-gated tournaments, profile, leaderboard,
         community_stats, spectating, community and challenge_preferences snapshots.
+        Outgoing offers may include server supplied remaining seconds. challenge_updates
+        contains only opaque offer ids and accepted/declined/expired/cancelled outcomes.
         Ranked sets expose set and character_locked; optional account tools expose blocks.
         Negotiated chat tools add moderation (mute rows and server notices) and private_chat
         (session threads, unread counts and explicitly selected report lines). Private-message

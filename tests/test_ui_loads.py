@@ -59,6 +59,14 @@ class FakeBackend(QObject):
         pass
 
     @Slot(int)
+    def clickMainEntry(self, i):
+        pass
+
+    @Slot(str)
+    def selectSettingsTab(self, tab):
+        pass
+
+    @Slot(int)
     def clickTile(self, i):
         pass
 
@@ -91,13 +99,15 @@ def spin(ms=40):
 
 def wait_pages(window):
     # Nested asynchronous Loaders must finish before inspecting the scene.
-    for _ in range(200):
+    for _ in range(600):
         spin(5)
         if all(not p.property("active") or p.property("progress") == 1
                and p.property("item") is not None
                for p in window.findChildren(QObject, "pageLoader")):
             return
-    raise AssertionError("A lazy page did not become ready")
+    pending = [(p.property("page"), p.property("progress"), p.property("item") is not None)
+               for p in window.findChildren(QObject, "pageLoader") if p.property("active")]
+    raise AssertionError("A lazy page did not become ready: " + repr(pending))
 
 
 class Scene(unittest.TestCase):

@@ -47,7 +47,13 @@ class OfflineFeedback(unittest.TestCase):
         self.adapter.settings = lambda: []
         self.adapter.native_label = ""
         self.adapter.replays = lambda: []
-        for section, key in (("settings", "no_settings_hint"), ("replays", "replays_hint")):
+        self.nav.screen = "hub"
+        self.nav.sec[self.nav.game.id] = "settings"
+        view = self.nav.view()
+        self.assertEqual(view["settingsPage"]["adapterEmptyHint"], i18n.text("en", "no_settings_hint"))
+        self.assertIn("text_size", [item.get("id") for item in self.nav.items()])
+        self.assertIn("back", [prompt["action"] for prompt in view["prompts"]])
+        for section, key in (("replays", "replays_hint"),):
             self.nav.screen = "hub"
             self.nav.sec[self.nav.game.id] = section
             view = self.nav.view()

@@ -131,6 +131,20 @@ def _profile_rows(nav, g, state, action):
 def _board_rows(nav, g, state, action):
     board = state.get("leaderboard") or {}
     out = [dict(kind="heading", label="@online.leaderboard")]
+    prefs = nav.__dict__.setdefault("board_filters", {}).setdefault(g.id, dict(mode="ranked", fighter=""))
+    fighters = sorted({row["main"] for row in board.get("rows") or [] if row.get("main")})
+    specs = (("mode", "@official_ui.mode", [("ranked", "@online.ranked_mode"), ("casual", "@online.casual_mode")]),
+             ("fighter", "@fighter", [("", "@online.all")] + [(key, i18n.literal(_fighter(g, key))) for key in fighters]))
+    for key, label, options in specs:
+        current = prefs.get(key, options[0][0])
+        if current not in [value for value, _ in options]:
+            current = options[0][0]
+            prefs[key] = current
+        out.append(dict(kind="cycler", id="leaderboard_" + key, label=label, options=options, current=current,
+                        value=next(text for value, text in options if value == current),
+                        set=lambda value, key=key: prefs.__setitem__(key, value), verb="@change",
+                        hint="@official_ui.page_filter",
+                        detail=dict(kicker="@online.leaderboard", title=label, lead="@official_ui.page_filter", rows=[])))
     for key, label in (("place", "@online.place"), ("name", "@online.name"), ("rating", "@rating"),
                        ("rank", "@online.rank"), ("main", "@fighter"),
                        ("ranked_wins", "@online.ranked_wins"), ("ranked_losses", "@online.ranked_losses"),
@@ -147,7 +161,8 @@ def _board_rows(nav, g, state, action):
         if key == "main":
             value = _fighter(g, value or "")
         return (0, value) if isinstance(value, (int, float)) else (1, str(value or "").casefold())
-    for row in sorted(board.get("rows") or [], key=sort_key, reverse=bool(board.get("descending"))):
+    visible = [row for row in board.get("rows") or [] if not prefs.get("fighter") or row.get("main") == prefs["fighter"]]
+    for row in sorted(visible, key=sort_key, reverse=bool(board.get("descending"))):
         item = action("profile_board:" + row["name"], i18n.literal(row["name"]))
         item["value"] = str(row.get("place", ""))
         item["detail"]["rows"] = [dict(k=label, v=i18n.literal(row[field])) for field, label in _BOARD_LABELS if field in row]

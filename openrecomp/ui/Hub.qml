@@ -31,6 +31,7 @@ Column {
 
     Rectangle {
         objectName: "sectionTabs"
+        visible: !hub.v.mainMenu.available
         width: 1920; height: 64; color: hub.root.bar
         Rectangle { width: parent.width; height: 1; color: hub.root.line }
         Row {
@@ -38,7 +39,8 @@ Column {
             Item {
                 width: 120; height: 64
                 Glyph { anchors.centerIn: parent; g: hub.v.prevG; size: 36 }
-                TapHandler { onTapped: hub.root.backend.press("prev") }
+                TapHandler { id: uiTap0; onTapped: hub.root.backend.press("prev") }
+                Interaction { handler: uiTap0; selected: false; onActivated: hub.root.backend.press("prev") }
             }
             Repeater {
                 model: hub.v.tabs.length
@@ -48,16 +50,32 @@ Column {
                     width: (1920 - 240) / Math.max(1, hub.v.tabs.length); height: 64
                     color: t.active ? hub.root.panel : "transparent"
                     Behavior on color { enabled: !hub.root.reducedMotion; ColorAnimation { duration: 100 } }
-                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 4; color: hub.v.accent; visible: !!parent.t.active }
-                    Text { textFormat: Text.PlainText; anchors.centerIn: parent; width: parent.width - 28; height: 48; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; text: parent.t.label || ""; color: parent.t.active ? hub.root.textC : hub.root.muted; font.family: hub.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: 28; minimumPixelSize: 20; fontSizeMode: Text.Fit; elide: Text.ElideRight }
-                    TapHandler { onTapped: hub.root.backend.clickTab(parent.t.id) }
+                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 4; color: Theme.readableAccent(hub.v.accent); visible: !!parent.t.active }
+                    Text { objectName: "sectionTabLabel"; textFormat: Text.PlainText; anchors.centerIn: parent; width: parent.width - 28; height: 48; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; text: parent.t.label || ""; color: parent.t.active ? hub.root.textC : hub.root.muted; font.family: hub.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(28); minimumPixelSize: Theme.px(16); fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2 }
+                    TapHandler { id: uiTap1; onTapped: hub.root.backend.clickTab(parent.t.id) }
+                    Interaction { handler: uiTap1; selected: !!parent.t.active; onActivated: hub.root.backend.clickTab(parent.t.id) }
                 }
             }
             Item {
                 width: 120; height: 64
                 Glyph { anchors.centerIn: parent; g: hub.v.nextG; size: 36 }
-                TapHandler { onTapped: hub.root.backend.press("next") }
+                TapHandler { id: uiTap2; onTapped: hub.root.backend.press("next") }
+                Interaction { handler: uiTap2; selected: false; onActivated: hub.root.backend.press("next") }
             }
+        }
+    }
+
+    Rectangle {
+        visible: !!hub.v.mainMenu.available
+        width: 1920; height: 64; color: hub.root.bar
+        Row {
+            x: 24; y: 7; spacing: 24
+            OnlineStyle.SecondaryButton {
+                b: ({label: hub.v.mainMenu.homeLabel || ""})
+                maxW: 500
+                onActivated: hub.root.backend.press("home")
+            }
+            OnlineStyle.HelpText { anchors.verticalCenter: parent.verticalCenter; text: hub.v.tabs.filter(t => t.active).map(t => t.label).join(""); color: Theme.value }
         }
     }
 
@@ -96,8 +114,15 @@ Column {
         root: hub.root
     }
 
+    PageLoader {
+        page: "SessionPage.qml"; pageName: "sessionPage"
+        active: !!(hub.v.sessionPage && hub.v.sessionPage.show)
+        width: 1920; height: parent.height - 64
+        root: hub.root
+    }
+
     Row {
-        visible: !(hub.v.build && hub.v.build.show) && ["lobby", "card", "login"].indexOf(hub.v.online.layout) < 0 && hub.v.settingsPage.layout !== "groups"
+        visible: !(hub.v.sessionPage && hub.v.sessionPage.show) && !(hub.v.build && hub.v.build.show) && ["lobby", "card", "login"].indexOf(hub.v.online.layout) < 0 && hub.v.settingsPage.layout !== "groups"
         width: 1920; height: parent.height - 64
         // ---------------------------------------------------------------- the list
         Item {
@@ -105,8 +130,9 @@ Column {
             objectName: "hubList"
             width: 760; height: parent.height
             clip: true
+            Rectangle { x: 24; y: 16; width: parent.width - 40; height: parent.height - 32; color: Theme.card; border.width: 1; border.color: hub.root.line }
             Column {
-                y: 16; width: parent.width
+                y: 24; width: parent.width
                 Repeater {
                     model: hub.v.rows.length
                     Item {
@@ -115,54 +141,56 @@ Column {
                         required property int index
                         readonly property var r: hub.root.ok(hub.v.rows, index)
                         width: 760
-                        height: r.heading ? 44 + (r.mt || 0) : Math.min(r.focused ? 100 : 84, (listArea.height - 32) / Math.max(1, hub.v.rows.length))
+                        height: r.heading ? 44 + (r.mt || 0) : Math.min(68, (listArea.height - 64) / Math.max(1, hub.v.rows.length))
                         Text {
                             visible: !!row.r.heading
                             x: 48; width: parent.width - 96; height: 40; anchors.bottom: parent.bottom
-                            textFormat: Text.PlainText; text: row.r.label || ""; color: hub.root.muted; font.family: hub.root.mono; font.pixelSize: 22
-                            minimumPixelSize: 18; fontSizeMode: Text.Fit; verticalAlignment: Text.AlignVCenter
+                            textFormat: Text.PlainText; text: row.r.label || ""; color: hub.root.muted; font.family: hub.root.mono; font.pixelSize: Theme.px(22)
+                            minimumPixelSize: Theme.px(18); fontSizeMode: Text.Fit; verticalAlignment: Text.AlignVCenter
                         }
                         Rectangle {
                             visible: !row.r.heading
-                            anchors.fill: parent
-                            color: row.r.focused ? hub.root.bone : "transparent"
+                            anchors.fill: parent; anchors.leftMargin: 32; anchors.rightMargin: 24; anchors.topMargin: 3; anchors.bottomMargin: 3
+                            radius: 4
+                            color: row.r.focused ? hub.root.bone : Theme.raised
                             Behavior on color { enabled: !hub.root.reducedMotion; ColorAnimation { duration: 90 } }
                             clip: true
-                            Rectangle { height: parent.height; width: parent.width * (row.r.holdPct || 0); color: hub.v.accent }
+                            Rectangle { height: parent.height; width: parent.width * (row.r.holdPct || 0); color: Theme.readableAccent(hub.v.accent) }
                             Text {
                                 objectName: "hubRowLabel"
-                                x: 48; width: rowAction.x - x - 20; height: parent.height - 12; anchors.verticalCenter: parent.verticalCenter
+                                x: 16; width: rowAction.x - x - 16; height: parent.height - 12; anchors.verticalCenter: parent.verticalCenter
                                 textFormat: Text.PlainText; text: row.r.label || ""
-                                color: row.r.focused ? "#0E0F11" : (row.r.hold ? hub.v.accent : (row.r.disabled ? "#8A8D94" : hub.root.textC))
-                                font.family: hub.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: row.r.focused ? 52 : 42
-                                minimumPixelSize: 22; fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2; verticalAlignment: Text.AlignVCenter
+                                color: row.r.focused ? Theme.ground : (row.r.hold ? Theme.readableAccent(hub.v.accent) : (row.r.disabled ? Theme.muted : hub.root.textC))
+                                font.family: hub.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(25)
+                                minimumPixelSize: Theme.px(22); fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2; verticalAlignment: Text.AlignVCenter
                             }
                             Row {
                                 id: rowAction
-                                anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 16
+                                anchors.right: parent.right; anchors.rightMargin: 32; anchors.verticalCenter: parent.verticalCenter; spacing: 12
                                 Text {
                                     visible: !!row.r.value; anchors.verticalCenter: parent.verticalCenter
-                                    width: Math.min(implicitWidth, 240); elide: Text.ElideMiddle
-                                    textFormat: Text.PlainText; text: row.r.value || ""; color: row.r.focused ? "#0E0F11" : (row.r.missing ? hub.v.accent : hub.root.muted); font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 26
+                                    width: Math.min(implicitWidth, 210); elide: Text.ElideMiddle
+                                    textFormat: Text.PlainText; text: row.r.value || ""; color: row.r.focused ? Theme.ground : (row.r.missing ? Theme.readableAccent(hub.v.accent) : hub.root.muted); font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: Theme.px(20)
                                 }
-                                Text { textFormat: Text.PlainText; visible: !!row.r.verb; width: Math.min(implicitWidth, 200); elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: row.r.verb || ""; color: "#0E0F11"; font.family: hub.root.sans; font.weight: Font.DemiBold; font.pixelSize: 26 }
-                                Glyph { visible: !!row.r.verb; g: hub.v.confirmInk; anchors.verticalCenter: parent.verticalCenter }
+                                Text { textFormat: Text.PlainText; visible: !!row.r.verb; width: Math.min(implicitWidth, 160); elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: row.r.verb || ""; color: Theme.ground; font.family: hub.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(20)}
+                                Glyph { visible: !!row.r.verb; size: 32; g: hub.v.confirmInk; anchors.verticalCenter: parent.verticalCenter }
                             }
-                            TapHandler { onTapped: hub.root.backend.clickRow(row.r.index) }
+                            TapHandler { id: uiTap3; onTapped: hub.root.backend.clickRow(row.r.index) }
+                            Interaction { handler: uiTap3; selected: !!row.r.focused; onActivated: hub.root.backend.clickRow(row.r.index) }
                         }
                     }
                 }
             }
-            Text { textFormat: Text.PlainText; visible: hub.v.more.up; x: 720; y: 2; text: "▲"; color: hub.root.muted; font.pixelSize: 18 }
-            Text { textFormat: Text.PlainText; visible: hub.v.more.down; x: 720; anchors.bottom: parent.bottom; anchors.bottomMargin: 2; text: "▼"; color: hub.root.muted; font.pixelSize: 18 }
+            Text { textFormat: Text.PlainText; visible: hub.v.more.up; x: 720; y: 2; text: "▲"; color: hub.root.muted; font.pixelSize: Theme.px(18)}
+            Text { textFormat: Text.PlainText; visible: hub.v.more.down; x: 720; anchors.bottom: parent.bottom; anchors.bottomMargin: 2; text: "▼"; color: hub.root.muted; font.pixelSize: Theme.px(18)}
         }
 
         // ---------------------------------------------------------------- the detail panel
         Rectangle {
             width: 1160; height: parent.height
-            color: hub.root.panel
+            color: hub.root.ground
             clip: true
-            Text { textFormat: Text.PlainText; x: 1160 - implicitWidth - 8; y: -90; text: hub.v.numeral; color: "#1A1C20"; font.family: hub.root.display; font.weight: Font.Black; font.pixelSize: 980 }
+            Rectangle { x: 0; y: 16; width: parent.width - 24; height: parent.height - 32; color: Theme.card; border.width: 1; border.color: hub.root.line }
             Image {
                 visible: !!hub.v.hero && hub.v.tabs.length > 0 && (hub.d.images || []).length === 0 && !hub.d.image
                 source: hub.v.hero || ""
@@ -171,16 +199,16 @@ Column {
             }
             Item {
                 objectName: "detailContent"
-                x: 72; y: 32; width: 1016
+                x: 32; y: 40; width: 1072
                 height: Math.min(detailContent.implicitHeight, parent.height - y - (hub.d.primary ? 160 : 32))
                 Column {
                     id: detailContent
                     width: parent.width; spacing: 0
                     transformOrigin: Item.TopLeft
                     scale: Math.min(1, parent.height / Math.max(1, implicitHeight))
-                    Text { textFormat: Text.PlainText; width: parent.width; text: hub.d.kicker || ""; elide: Text.ElideRight; color: hub.v.accent; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 24 }
-                    Text { objectName: "detailTitle"; width: parent.width; topPadding: 8; textFormat: Text.PlainText; text: hub.d.title || ""; wrapMode: Text.Wrap; lineHeight: 0.95; color: hub.root.textC; font.family: hub.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: hub.hasImages ? 64 : 72 }
-                    Text { objectName: "detailLead"; width: parent.width; topPadding: 12; visible: !!hub.d.lead; textFormat: Text.PlainText; text: hub.d.lead || ""; wrapMode: Text.Wrap; lineHeight: 1.1; color: hub.root.textC; font.family: hub.root.sans; font.pixelSize: 28 }
+                    Text { textFormat: Text.PlainText; width: parent.width; text: hub.d.kicker || ""; elide: Text.ElideRight; color: Theme.readableAccent(hub.v.accent); font.family: hub.root.mono; font.weight: Font.Medium; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(18)}
+                    Text { objectName: "detailTitle"; width: parent.width; topPadding: 8; textFormat: Text.PlainText; text: hub.d.title || ""; wrapMode: Text.Wrap; lineHeight: 0.95; color: hub.root.textC; font.family: hub.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(50)}
+                    Text { objectName: "detailLead"; width: parent.width; topPadding: 12; visible: !!hub.d.lead; textFormat: Text.PlainText; text: hub.d.lead || ""; wrapMode: Text.Wrap; lineHeight: 1.1; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: Theme.px(23)}
                     Item { width: 1; height: 16 }
                     Row {
                         visible: hub.hasImages
@@ -204,7 +232,7 @@ Column {
                         visible: (hub.d.progress === undefined ? -1 : hub.d.progress) >= 0
                         objectName: "buildProgress"
                         width: parent.width; height: 16; color: "#24272C"
-                        Rectangle { height: parent.height; width: parent.width * Math.max(0, hub.d.progress === undefined ? 0 : hub.d.progress); color: hub.v.accent }
+                        Rectangle { height: parent.height; width: parent.width * Math.max(0, hub.d.progress === undefined ? 0 : hub.d.progress); color: Theme.readableAccent(hub.v.accent) }
                     }
                     Repeater {
                         model: (hub.d.rows || []).length
@@ -213,18 +241,18 @@ Column {
                             readonly property var r: hub.root.ok(hub.d.rows, index)
                             width: detailContent.width; height: Math.max((hub.d.rows || []).length > 5 ? 38 : (hub.hasImages ? 44 : 48), Math.max(detailKey.implicitHeight, detailValue.implicitHeight) + 12); color: "transparent"
                             Rectangle { width: parent.width; height: 1; color: hub.root.line }
-                            Text { id: detailKey; objectName: "detailKey"; width: parent.width * 0.45; wrapMode: Text.Wrap; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: parent.r.k || ""; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26 }
-                            Text { id: detailValue; objectName: "detailValue"; width: parent.width * 0.53; horizontalAlignment: Text.AlignRight; wrapMode: Text.Wrap; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; textFormat: Text.PlainText; text: parent.r.v || ""; color: parent.r.accent ? hub.v.accent : hub.root.textC; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 26 }
+                            Text { id: detailKey; objectName: "detailKey"; width: parent.width * 0.45; wrapMode: Text.Wrap; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: parent.r.k || ""; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: Theme.px(26)}
+                            Text { id: detailValue; objectName: "detailValue"; width: parent.width * 0.53; horizontalAlignment: Text.AlignRight; wrapMode: Text.Wrap; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; textFormat: Text.PlainText; text: parent.r.v || ""; color: parent.r.accent ? Theme.readableAccent(hub.v.accent) : hub.root.textC; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: Theme.px(26)}
                         }
                     }
                     Row {
                         visible: (hub.d.results || []).length > 0
                         spacing: 8
                         topPadding: 16
-                        Text { textFormat: Text.PlainText; text: hub.v.recentSets; width: 260; elide: Text.ElideRight; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
+                        Text { textFormat: Text.PlainText; text: hub.v.recentSets; width: 260; elide: Text.ElideRight; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: Theme.px(26); anchors.verticalCenter: parent.verticalCenter }
                         Repeater {
                             model: (hub.d.results || []).length
-                            ResultCell { required property int index; c: hub.root.ok(hub.d.results, index); accent: hub.v.accent; root: hub.root }
+                            ResultCell { required property int index; c: hub.root.ok(hub.d.results, index); accent: Theme.readableAccent(hub.v.accent); root: hub.root }
                         }
                     }
                     }
@@ -232,13 +260,14 @@ Column {
             Rectangle {
                 objectName: "primaryAction"
                 visible: !!hub.d.primary
-                x: 72; y: parent.height - 112 - 32
-                width: 860; height: 112
+                x: 32; y: parent.height - 112 - 32
+                width: 1072; height: 80; radius: 4
                 color: hub.root.bone
-                Rectangle { width: 6; height: parent.height; color: hub.v.accent }
-                Text { textFormat: Text.PlainText; x: 40; width: parent.width - 152; height: parent.height - 24; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; minimumPixelSize: 36; fontSizeMode: Text.Fit; anchors.verticalCenter: parent.verticalCenter; text: hub.d.primary || ""; color: "#0E0F11"; font.family: hub.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 60 }
-                Glyph { anchors.right: parent.right; anchors.rightMargin: 40; anchors.verticalCenter: parent.verticalCenter; size: 56; g: hub.d.primaryG || ({}) }
-                TapHandler { onTapped: hub.root.backend.clickPrimary() }
+                Rectangle { width: 6; height: parent.height; color: Theme.readableAccent(hub.v.accent) }
+                Text { textFormat: Text.PlainText; x: 24; width: parent.width - 112; height: parent.height - 24; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; minimumPixelSize: Theme.px(28); fontSizeMode: Text.Fit; anchors.verticalCenter: parent.verticalCenter; text: hub.d.primary || ""; color: Theme.ground; font.family: hub.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(40)}
+                Glyph { anchors.right: parent.right; anchors.rightMargin: 24; anchors.verticalCenter: parent.verticalCenter; size: 40; g: hub.d.primaryG || ({}) }
+                TapHandler { id: uiTap4; onTapped: hub.root.backend.clickPrimary() }
+                Interaction { handler: uiTap4; selected: !!hub.d.focused; onActivated: hub.root.backend.clickPrimary() }
             }
         }
     }

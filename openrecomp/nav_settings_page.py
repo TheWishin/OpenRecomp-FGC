@@ -26,12 +26,27 @@ GROUP_OF = {
     "launcher_update": "updates", "game_updates": "updates", "test_versions": "updates",
 }
 SETTINGS_LINES = 12
+SETTINGS_TABS = ("video", "audio", "controls", "game", "help")
+TAB_LABELS = dict(video="@settings_tabs.video", audio="@settings_tabs.audio", controls="@settings_tabs.controls",
+                  game="@settings_tabs.game", help="@settings_tabs.help")
+TAB_OF = dict(display="video", audio="audio", controls="controls", online="game", offline="game",
+              replays="game", updates="help", advanced="help")
 
 
 class SettingsPage:
+    def select_settings_tab(self, tab):
+        if self.overlay or self.section() != "settings" or tab not in SETTINGS_TABS:
+            return
+        items = self.items()
+        target = next((n for n, it in enumerate(items) if it.get("kind") != "heading"
+                       and TAB_OF.get(it.get("settingsGroup")) == tab), None)
+        if target is not None:
+            self.focus[self.key()] = target
+
     def _settings_groups(self, g, out):
         """Settings rows -> group headings + rows in group order, plus Controls and Updates rows of the launcher."""
-        extra = []
+        self.settings_adapter_empty = not out or all(item.get("id") == "none" for item in out)
+        extra = self._accessibility_rows()
         if "controls" in self.sections(g):
             extra.append(dict(kind="action", id="pad_bindings", label="@settings_ui.pad_bindings", verb="@open",
                               hint="@settings_ui.pad_bindings_hint",
@@ -74,6 +89,34 @@ class SettingsPage:
                                  settingsGroup=group))
                 page += by_group[group]
         return page
+
+    def _accessibility_rows(self):
+        rows = []
+        specs = (("text_size", "@accessibility.text_size", "@accessibility.text_size_hint",
+                  self.text_size, [(100, "@accessibility.normal"), (115, "@accessibility.large"),
+                                   (130, "@accessibility.larger")], self._set_text_size),
+                 ("high_contrast", "@accessibility.high_contrast", "@accessibility.high_contrast_hint",
+                  self.high_contrast, [(False, "@off"), (True, "@on")], self._set_high_contrast),
+                 ("reduced_motion", "@motion", "@motion_hint", self.reduced_motion,
+                  [(False, "@motion_full"), (True, "@motion_reduced")], self._set_reduced_motion))
+        for sid, label, hint, current, options, setter in specs:
+            value = next(caption for option, caption in options if option == current)
+            rows.append(dict(kind="cycler", id=sid, group="display", label=label, value=value,
+                             options=options, current=current, set=setter, hint=hint,
+                             detail=dict(kicker="@settings_ui.group.display", title=label, lead=hint, rows=[])))
+        return rows
+
+    def _set_text_size(self, value):
+        self.text_size = value if value in (100, 115, 130) else 100
+        self.on_accessibility(self.text_size, self.high_contrast)
+
+    def _set_high_contrast(self, value):
+        self.high_contrast = bool(value)
+        self.on_accessibility(self.text_size, self.high_contrast)
+
+    def _set_reduced_motion(self, value):
+        self.reduced_motion = bool(value)
+        self.on_preferences(self.fullscreen, self.reduced_motion)
 
     def _ui_sound_rows(self):
         """The launcher's own menu sounds (ui_sound.py): the same two rows in every game's Settings > Audio."""
@@ -138,9 +181,14 @@ class SettingsPage:
                 options.append(dict(label=label, current=type(value) is type(it.get("current")) and value == it.get("current")))
         present = [g for g in GROUPS if any(line.get("group") == g for line in lines if line["kind"] == "group")]
         groups = [dict(id=g, label=GROUP_LABELS[g], active=g == it.get("settingsGroup")) for g in present]
-        v["settingsPage"] = dict(layout="groups", lines=shown, up=start > 0, down=start + SETTINGS_LINES < len(lines),
+        v["settingsPage"] = dict(layout="groups", adapterEmptyHint="@no_settings_hint" if getattr(self, "settings_adapter_empty", False) else "", lines=shown, up=start > 0, down=start + SETTINGS_LINES < len(lines),
                                  groups=groups,
                                  detail=dict(kicker=GROUP_LABELS.get(it.get("settingsGroup"), ""), title=d.get("title") or it.get("label", ""),
                                              lead=d.get("lead") or it.get("hint", ""), value=it.get("value") or "",
                                              options=options[:12], rows=[dict(k=r["k"], v=r["v"]) for r in d.get("rows") or []
                                                                      if r.get("k") != "@current"][:6]))
+        active_tab = TAB_OF.get(it.get("settingsGroup"), "video")
+        v["settingsPage"].update(activeTab=active_tab,
+            tabs=[dict(id=tab, label=TAB_LABELS[tab], active=tab == active_tab)
+                  for tab in SETTINGS_TABS if any(TAB_OF.get(line.get("group")) == tab for line in lines)],
+            tabLines=[line for line in lines if TAB_OF.get(line.get("group")) == active_tab])

@@ -55,6 +55,13 @@ class T4FirstRunNavigation(unittest.TestCase):
         for action in actions:
             self.nav.act(action, device="xbox")
 
+    def open_menu_entry(self, entry):
+        entries = self.nav._main_entries(self.game)
+        target = next(n for n, row in enumerate(entries) if row["id"] == entry)
+        while getattr(self.nav, "main_menu_focus", 0) < target:
+            self.press("down")
+        self.press("confirm")
+
     def choose_iso(self):
         self.press("confirm")
         with mock.patch.object(self.nav, "_picker_entries", return_value=[]):
@@ -120,7 +127,9 @@ class T4FirstRunNavigation(unittest.TestCase):
     def test_finished_t4_build_offers_first_play_instead_of_another_build(self):
         self.adapter.source["ok"] = True
         self.adapter.is_ready = True
-        self.press("confirm", "next", "next", "down")
+        self.press("confirm")
+        self.open_menu_entry("build")
+        self.press("down")
         view = self.nav.view()
         self.assertEqual(view["detail"]["primary"], i18n.text("en", "play"))
         self.assertEqual(view["detail"]["lead"], i18n.text("en", "t4.build_next"))
@@ -129,7 +138,9 @@ class T4FirstRunNavigation(unittest.TestCase):
 
     def test_existing_build_can_play_before_disc_is_rechecked_for_rebuilding(self):
         self.adapter.is_ready = True
-        self.press("confirm", "next", "next", "down")
+        self.press("confirm")
+        self.open_menu_entry("build")
+        self.press("down")
         self.assertFalse(self.nav.view()["rows"][1]["disabled"])
         self.press("confirm")
         self.assertEqual(self.adapter.calls, [("start", None)])
@@ -137,13 +148,16 @@ class T4FirstRunNavigation(unittest.TestCase):
     def test_ready_play_explains_how_to_return_after_a_fresh_launcher_start(self):
         self.adapter.is_ready = True
         self.press("confirm")
+        self.open_menu_entry("offline")
         self.assertEqual(self.nav.view()["detail"]["lead"], i18n.text("en", "t4.play_hint"))
 
     def test_failed_rebuild_remains_visible_even_when_the_previous_build_can_play(self):
         self.adapter.source["ok"] = True
         self.adapter.is_ready = True
         self.adapter.build_snapshot["result"] = "Build failed. Confirm retries."
-        self.press("confirm", "next", "next", "down")
+        self.press("confirm")
+        self.open_menu_entry("build")
+        self.press("down")
         self.assertEqual(self.nav.view()["detail"]["lead"], self.adapter.build_snapshot["result"])
         self.press("confirm")
         self.assertEqual(self.adapter.calls, [("build", False)])
@@ -264,7 +278,10 @@ class T4FirstRunNavigation(unittest.TestCase):
         adapter.online_action = mock.Mock()
         nav = Nav([Game(adapter.m, adapter)], language="en")
         nav.act("confirm")
-        nav.act("next")
+        target = next(n for n, row in enumerate(nav._main_entries(nav.game)) if row["id"] == "lobby")
+        for _ in range(target):
+            nav.act("down")
+        nav.act("confirm")
         ids = [item["id"] for item in nav.items()]
         self.assertIn("login_account", ids)
         self.assertIn("native", ids)

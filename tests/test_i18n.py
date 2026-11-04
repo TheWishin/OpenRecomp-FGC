@@ -60,7 +60,7 @@ def untranslated_literals(source):
                 ignore(node.elts[0])
         elif (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)
               and isinstance(node.left, ast.Constant)
-              and node.left.value in ("@t4.tools.", "@t4.network.", "@netext.")):
+              and node.left.value in ("@t4.tools.", "@t4.network.", "@netext.", "@arcade.")):
             ignore(node.left)  # fixed catalog families; complete keys remain checked below
         elif isinstance(node, ast.Compare):
             for child in (node.left, *node.comparators):
@@ -121,6 +121,7 @@ def untranslated_literals(source):
 
     # These are filenames, environment variables, technical units, and protocol identifiers.
     technical = {
+        "room_watch:", "room_create", "room:",
         "netext_options", "online_feel", "net_line", "netext_forget_confirm", "netext_forget_preview",
         "netext_forget_cancel", "max_ping", "no_wifi", "steady", "responsive", "balanced", "smooth",
         "netext_set:", "netext_", "mm_filters", "forget_me", "feature_", "quick_match", "ranked_match",
@@ -140,7 +141,7 @@ def untranslated_literals(source):
         "Context", "settings_lines", "build_info_for", "discover", "build", "desktop_dir",
         "controls_path", "DeviceRef", "load", "sources", "table", "bind", "save", "mask_text",
         "default_sources", "step", "drain", "update",
-        "idle", "waiting", "ready", "conflict", "multi", "timeout", "disconnected", "done", "ok",
+        "idle", "waiting", "ready", "conflict", "multi", "timeout", "disconnected", "done", "ok", "success",
         "check", "report", "problem", "play", "controls", "support", "error", "saved", "none", "sent", "support_note", "support_contact",
         "online_", "online_name", "online_password", "online_server", ":online",
         "offline", "connecting", "logged_in", "searching", "cancelling", "matched", "kicked", "match_found",
@@ -182,7 +183,8 @@ def untranslated_literals(source):
         "spec_watch_tour", "stats_mode", "stats_sort", "tabs", "rank_%02d.png", "ranks", "ping_measured",
         # the settings page's group ids and its own rows (nav_settings_page)
         "display", "controls", "online", "audio", "offline", "replays", "updates", "advanced", "pad_bindings",
-        "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",
+        "settings", "quick", "video", "help", "tier",  # menu routes, tab identifiers and rank data
+        "text_size", "high_contrast", "reduced_motion", "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",
         "check_all", "settingsGroup", "groups", "tier_for", "threshold", "field", "login_show_password",
         "login_remember", "login_forgot", "login_back", "login_saved", "login_account", "login_register", "login_guest",
         "online_status", "online_name", "online_password", "online_server", "mode_direct", "native", "auto_login", "recover",
@@ -343,6 +345,14 @@ def untranslated_literals(source):
     technical.update({
         ".exe", ".png", ".jpg", ".jpeg", ".webp", "preview", "library_repository", "library_folder", "library_source", "library_manage",
         "library_loading", "library_preview", "library_remove", "library_update",
+    })
+    technical.update({
+        # Arcade presentation routes, remembered context, catalog suffixes and glyph-map keys.
+        "arcade_options", "arcade_more", "arcade_help", "arcade_", "arcade_watch:",
+        "arcade_room:join_room:", "arcade_room:room_watch:", "arcade_chapter:",
+        "help_context", "cabinets", "quick_note", "ranked_note", "in_room", "empty",
+        "empty_note", "actions", "options_note", "no_matches", "a", "b", "y",
+        "optionsOpen", "moreOpen", "helpOpen",
     })
     technical.update({
         "T4", "tools/build_game.ps1", "tools/iso_extract.py", "tools/net_preflight.ps1", "config", "patches",
@@ -621,6 +631,24 @@ class Catalogs(unittest.TestCase):
                 self.assertTrue(untranslated_literals(f'dict(label={value!r})'))
                 self.assertTrue(untranslated_literals(f'self.say({value!r})'))
         self.assertTrue(untranslated_literals('token = "library_player_warning"'))
+
+    def test_python_scan_accepts_arcade_routes_but_checks_visible_text(self):
+        values = (
+            "arcade_options", "arcade_more", "arcade_help", "arcade_", "arcade_watch:",
+            "arcade_room:join_room:", "arcade_room:room_watch:", "arcade_chapter:",
+            "help_context", "cabinets", "quick_note", "ranked_note", "in_room", "empty",
+            "empty_note", "actions", "options_note", "no_matches", "a", "b", "y",
+            "optionsOpen", "moreOpen", "helpOpen",
+        )
+        for value in values:
+            with self.subTest(value=value):
+                self.assertEqual(untranslated_literals(f'token = {value!r}'), [])
+                self.assertTrue(untranslated_literals(f'dict(label={value!r})'))
+                self.assertTrue(untranslated_literals(f'self.say({value!r})'))
+        self.assertEqual(untranslated_literals('label = "@arcade." + key'), [])
+        self.assertTrue(untranslated_literals('label = "@arcade.unreviewed"'))
+        self.assertTrue(untranslated_literals('token = "@arcade."'))
+        self.assertTrue(untranslated_literals('token = "arcade_player_warning"'))
 
     def test_python_scan_accepts_netext_protocol_but_checks_visible_text(self):
         for value in ("netext_options", "online_feel", "net_line", "max_ping", "no_wifi", "steady",

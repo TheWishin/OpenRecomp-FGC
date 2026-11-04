@@ -15,7 +15,7 @@ import uuid
 
 from .base import NO_WINDOW, add_path
 from .t5_coexist import readonly_imports
-from . import other_launchers, t5_features, t5_netext
+from . import other_launchers, t5_challenges, t5_features, t5_netext
 from .. import i18n
 
 
@@ -172,6 +172,7 @@ class Online:
         self._online_chat = []
         self._online_challenge = {}
         self._online_outgoing_challenge = {}
+        self._online_challenge_updates = []
         self._online_room = {}
         self._online_friends = []
         self._online_friend_incoming = []
@@ -443,7 +444,7 @@ class Online:
         if self._online_phase == "searching" and others:
             # Somebody is searching too, but the server pairs only the same build: say it instead of searching silently.
             message = i18n.message("online.searching_other_build", count=others)
-        snapshot = dict(phase=self._online_phase, message=message, other_builds=others,
+        snapshot = dict(phase=self._online_phase, message=message, busy=bool(self._online_busy), other_builds=others,
                     name=self._online_name, account=self._online_account,
                     recovery_codes=list(self._online_recovery_codes),
                     queue=self._online_queue, match=dict(self._online_match),
@@ -451,7 +452,8 @@ class Online:
                     capabilities=capabilities,
                     players=[dict(p) for p in self._online_players], rooms=[dict(r) for r in self._online_rooms],
                     chat=[dict(line) for line in self._online_chat], challenge=dict(self._online_challenge),
-                    outgoing_challenge=dict(self._online_outgoing_challenge),
+                    outgoing_challenge=t5_challenges.offer_snapshot(self._online_outgoing_challenge),
+                    challenge_updates=[dict(row) for row in self._online_challenge_updates],
                     room=dict(self._online_room), friends=[dict(f) for f in self._online_friends],
                     friend_incoming=[dict(f) for f in self._online_friend_incoming],
                     friend_outgoing=[dict(f) for f in self._online_friend_outgoing],
@@ -660,6 +662,7 @@ class Online:
         name = self.online_text_value("online_name").strip()
         password = self._online_fields["online_password"]
         self._online_fields["online_password"] = ""
+        self._online_challenge_updates = []
         saved = self._online_saved() if action == "login_saved" else None
         if action == "login_saved" and saved is None:
             self._online_message = "@online.saved_missing"
@@ -891,6 +894,9 @@ class Online:
             out["placement"] = list(placement)
         if isinstance(player.get("main"), str) and player["main"]:
             out["main"] = player["main"][:40]
+        opponent = player.get("opponent_name") or player.get("opponent")
+        if isinstance(opponent, str):
+            out["opponent"] = opponent[:64]
         ping_to = getattr(self._online_client, "ping_to", None)
         if callable(ping_to):
             try:
@@ -910,6 +916,23 @@ class Online:
                     host=str(owner.get("name") or "")[:64] if isinstance(owner, dict) else "",
                     status=str(room.get("status") or "")[:20])
         out.update(t5_netext.tags(room))
+        from . import arcade_metadata
+        people = room.get("players")
+        if isinstance(people, list):
+            out["players"] = len(people)
+            out["members"] = arcade_metadata.players(people)
+        elif isinstance(people, int) and not isinstance(people, bool) and 0 <= people <= 200:
+            out["players"] = people
+        for key in ("size", "maximum"):
+            if isinstance(room.get(key), int) and not isinstance(room[key], bool) and 0 < room[key] <= 200:
+                out[key] = room[key]
+        if room.get("mode") in ("line", "tables"):
+            out["mode"] = room["mode"]
+        public_match = arcade_metadata.match(room)
+        if public_match.get("players"):
+            out["match_players"] = public_match["players"]
+        if public_match.get("score"):
+            out["score"] = public_match["score"]
         if self._online_social_cap("private_rooms"):
             lock = room.get("lock") or room.get("private") or "none"
             out["lock"] = lock if lock in ("none", "password", "code") else "none"
@@ -1355,6 +1378,11 @@ class Online:
                                               **self._online_ping_view(event))
                 changed = True
             elif self.online_lobby and event.get("t") == "challenge_update":
+                cid, outcome = event.get("challenge"), event.get("state")
+                if isinstance(cid, str) and outcome in ("accepted", "declined", "expired", "cancelled"):
+                    self._online_challenge_updates.append(dict(id=cid[:80], state=outcome))
+                    self._online_challenge_updates = self._online_challenge_updates[-16:]
+                    changed = True
                 if event.get("challenge") == self._online_outgoing_challenge.get("id"):
                     self._online_outgoing_challenge = {}
                     changed = True
@@ -1493,8 +1521,9 @@ class Online:
                 if isinstance(cid, str) and cid and self._online_phase == "logged_in":
                     event = dict(value) if isinstance(value, dict) else {}
                     event["to"] = player
-                    self._online_outgoing_challenge = dict(id=cid[:80], name=player.get("name", ""),
-                                                          **self._online_ping_view(event, "to"))
+                    self._online_outgoing_challenge = dict(id=cid[:80], player=target, name=player.get("name", ""),
+                                                          **self._online_ping_view(event, "to"),
+                                                          **t5_challenges.offer_deadline(value))
                 self._online_message = "@online.challenge_sent"
             elif action in ("accept_challenge", "decline_challenge"):
                 self._online_challenge = {}
@@ -1811,6 +1840,7 @@ class Online:
         self._online_invites = []
         self._online_outgoing_invite = {}
         self._online_fields["online_password"] = ""
+        self._online_challenge_updates = []
         self._online_fields["online_chat"] = ""
         self._online_fields["online_room_password"] = ""
         self._online_fields["online_room_code"] = ""

@@ -56,24 +56,16 @@ class LobbyPage(unittest.TestCase):
         self.assertEqual([line["text"] for line in page["chat"]["lines"]], ["hi", "hello"])
         self.assertTrue(page["chat"]["lines"][1]["own"])
 
-    def test_pad_moves_by_line_and_left_right_inside_a_player_row(self):
-        items = self.items()
-        target = next(i for i, it in enumerate(items) if it.get("id") == "challenge:p1")
-        for _ in range(40):
-            if self.nav.focus_index(self.items()) == target:
-                break
-            self.nav.act("down", device="xbox")
+    def test_pad_moves_across_player_cards_and_the_selected_card_has_actions(self):
+        # The first player row contains our own card followed by the two peers.
+        self.nav.act("right", device="xbox")
         self.assertEqual(self.focused()["id"], "challenge:p1")
         row = next(line for line in self.page()["body"]["lines"] if line.get("focused"))
         self.assertGreaterEqual(len(row["buttons"]), 1)
-        group = self.focused()["group"]
         self.nav.act("right", device="xbox")
-        if len([it for it in self.items() if it.get("group") == group]) > 1:
-            self.assertEqual(self.focused()["group"], group)
-            self.assertNotEqual(self.focused()["id"], "challenge:p1")
-            self.nav.act("left", device="xbox")
-        self.nav.act("down", device="xbox")                    # the next line: Busy's row
         self.assertEqual(self.focused()["id"], "challenge:p2")
+        self.nav.act("left", device="xbox")
+        self.assertEqual(self.focused()["id"], "challenge:p1")
 
     def test_chapter_buttons_switch_and_remember(self):
         self.nav.act("chapterNext", device="xbox")

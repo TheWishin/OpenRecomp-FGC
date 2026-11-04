@@ -101,7 +101,7 @@ def classify(action, before, after, hint=None):
         return OPEN
     if after["overlay"] == "dialog" and before["kind"] != after["kind"]:
         return OPEN                                   # one question led to the next
-    if hint in (TOGGLE_ON, TOGGLE_OFF):
+    if hint in (TOGGLE_ON, TOGGLE_OFF, OPEN, CLOSE, BACK):
         return hint
     if after["holding"] and not before["holding"]:
         return None                                   # the hold bar fills; its end confirms

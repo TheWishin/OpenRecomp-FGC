@@ -137,6 +137,8 @@ class Shelf:
                     self._open_source_picker(source, source.get("title") or "@onboarding.choose_folder")
                 else:
                     self.screen = "hub"
+                    if self.has_main_menu(g) and g.a.ready():
+                        self.open_main_menu(g)
             elif a == "x" and self.setup_update_needed(g):
                 self._select_game(g)
                 self.setup_offer_update(g)
@@ -166,7 +168,11 @@ class Shelf:
                 st = g.a.status()
                 ready = g.a.ready()
                 missing = not g.a.found()
+                update = self.setup_update_needed(g)
+                required = update and self._setup(g.id).get("required")
+                status = "@ui.shelf.update_required" if required else "@ui.shelf.update" if update else "@ready" if ready else "@ui.shelf.build_needed"
                 t.update(badge=badge(g), num=i18n.literal(g.m["numeral"]), name=i18n.literal(g.m["title"]), subtitle=i18n.literal(g.m["subtitle"]) if foc else st["status"], accent=g.accent, hero=uri(g.a.hero()),
+                         ready=ready, status=status, statusKind="update" if update else "ready" if ready else "build", play="@play", playG=self.glyph("play", True),
                          rows=[dict(k="@status", v=st["status"]), dict(k="@version", v=st["version"]), dict(k="@section.online", v=st["players"]), dict(k="@last_played", v=st["last"])],
                          results=self._cells(g.a.recent_results()), empty="@no_sets", sections=["@" + SECTION_TITLES[s] for s in g.m["sections"]],
                          bar="@onboarding.choose_folder" if self._folder_source(g) else ("@open" if ready else "@go_build"))

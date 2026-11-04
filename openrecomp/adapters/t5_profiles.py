@@ -1,6 +1,7 @@
 """Read-only profile, leaderboard and community views through the installed client."""
 import copy
 import math
+import time
 
 
 PAGE = 20
@@ -121,7 +122,7 @@ def _board(rows):
     out = []
     for source in rows[:PAGE] if isinstance(rows, list) else ():
         row = _fields(source, texts=("name", "rank", "main"),
-                      numbers=("place", "rating", "wins", "losses", "ranked_wins", "ranked_losses", "casual_wins", "casual_losses"),
+                      numbers=("place", "rating", "tier", "wins", "losses", "ranked_wins", "ranked_losses", "casual_wins", "casual_losses"),
                       flags=("online", "provisional"))
         if row.get("name"):
             if source.get("badge") == "dev":
@@ -259,7 +260,7 @@ def completion(owner, operation, value, error):
     elif verb == "board":
         offset, source = value
         owner._t5_board.update(rows=_board(source), offset=offset,
-                               has_next=isinstance(source, list) and len(source) >= PAGE)
+                               has_next=isinstance(source, list) and len(source) >= PAGE, updated=time.time())
     elif verb == "stats":
         owner._t5_stats.update(_stats(value))
     owner._online_message = "@online.profile_updated"

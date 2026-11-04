@@ -9,14 +9,14 @@ Rectangle {
     width: Math.max(size, label.implicitWidth + (g.round ? 0 : 24))
     height: size
     radius: g.key ? 6 : size / 2
-    color: ink ? "#0E0F11" : "#ECE9E1"
+    color: ink ? Theme.ground : Theme.text
     Text {
         id: label
         anchors.centerIn: parent
         text: glyph.g.text || ""
-        color: glyph.ink ? "#F2EFE6" : "#0E0F11"
+        color: glyph.ink ? Theme.selected : Theme.ground
         font.family: glyph.g.symbol ? "Segoe UI Symbol" : "IBM Plex Sans"
         font.weight: Font.DemiBold
-        font.pixelSize: glyph.size * 0.5
+        font.pixelSize: Theme.px(glyph.size * 0.5)
     }
 }

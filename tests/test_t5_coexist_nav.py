@@ -6,6 +6,7 @@ from openrecomp import i18n
 from openrecomp.adapters.base import Missing
 from openrecomp.nav import Game, Nav
 from test_nav import Fake, manifest
+from pad_step import pad_step
 
 
 class Borrowed(Fake):
@@ -47,7 +48,12 @@ class CoexistenceNavigation(unittest.TestCase):
     def test_controller_can_choose_another_install_and_cancel_without_changes(self):
         self.nav.sec["t5dr"] = "settings"
         with mock.patch.object(self.nav, "_picker_entries", return_value=[]):
-            self.nav.act("down", device="xbox")
+            target = next(i for i, row in enumerate(self.nav.items()) if row.get("id") == "coexistence_folder")
+            for _ in range(len(self.nav.items())):
+                if self.nav.focus_index(self.nav.items()) == target:
+                    break
+                pad_step(self.nav, target)
+            self.assertEqual(self.nav.focus_index(self.nav.items()), target)
             self.nav.act("confirm", device="xbox")
             self.assertEqual(self.nav.overlay, "picker")
             self.assertEqual(self.nav.picker["target"], "source:folder")

@@ -6,6 +6,7 @@ from openrecomp import i18n, manifest as mf
 from openrecomp.nav import Game, Nav
 from openrecomp.nav_keyboard import ONLINE_KEYS
 from test_nav import Fake, manifest
+from pad_step import pad_step
 
 
 class GenericNavigation(unittest.TestCase):
@@ -71,6 +72,12 @@ class GenericNavigation(unittest.TestCase):
         with mock.patch.object(adapter, "settings", side_effect=lambda: [dict(
                 id="mode", label="Mode", options=options, value=adapter.values["mode"])]):
             nav.act("confirm", device="xbox")
+            target = next(i for i, item in enumerate(nav.items()) if item.get("id") == "mode")
+            for _ in range(len(nav.items())):
+                if nav.focus_index(nav.items()) == target:
+                    break
+                pad_step(nav, target)
+            self.assertEqual(nav.focus_index(nav.items()), target)
             for value, label in options + options[:1]:
                 with self.subTest(value=value, value_type=type(value).__name__):
                     self.assertIs(type(adapter.values["mode"]), type(value))

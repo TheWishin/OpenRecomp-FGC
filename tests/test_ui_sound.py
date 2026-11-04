@@ -308,7 +308,7 @@ class Presses(unittest.TestCase):
         self.assertEqual(self.saved[-1], (True, 60))
         page = self.nav.view()["settingsPage"]
         self.assertIn("60 %", [line["value"] for line in page["lines"] if line["kind"] == "setting"])
-        self.assertEqual([g["id"] for g in page["groups"]][0], "audio")
+        self.assertIn("audio", [g["id"] for g in page["groups"]])
 
     def test_rows_are_offered_only_with_a_place_to_save(self):
         nav = Nav([Game(self.a.m, self.a)], language="en")

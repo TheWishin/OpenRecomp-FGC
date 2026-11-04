@@ -75,6 +75,7 @@ class BundleBridge(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parent) as folder:
             for source in Path(app.UI_DIR).glob("*.qml"):
                 shutil.copyfile(source, Path(folder) / source.name)
+            shutil.copyfile(Path(app.UI_DIR) / "qmldir", Path(folder) / "qmldir")
             engine.load(QUrl.fromLocalFile(str(Path(folder) / "Main.qml")))
             spin()
             self.assertTrue(engine.rootObjects(), warnings)

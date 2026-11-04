@@ -26,12 +26,12 @@ Row {
         objectName: "peerPingText"
         anchors.verticalCenter: parent.verticalCenter
         textFormat: Text.PlainText; text: ping.connection.text || ""
-        color: ping.ink; font.pixelSize: 20
+        color: ping.ink; font.pixelSize: Theme.px(20)
     }
     Text {
         objectName: "peerPingPath"
         anchors.verticalCenter: parent.verticalCenter
         textFormat: Text.PlainText; text: ping.connection.path || ""
-        color: ping.ink; font.pixelSize: 18
+        color: ping.ink; font.pixelSize: Theme.px(18)
     }
 }

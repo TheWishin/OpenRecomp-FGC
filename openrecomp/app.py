@@ -131,6 +131,8 @@ class Backend(QObject, GameSetupBackend):
                        last_game=self.config.get("last_game"), on_game=self._save_game,
                        fullscreen=self.config.get("fullscreen", True) and not windowed,
                        reduced_motion=self.config.get("reduced_motion", False), on_preferences=self._save_preferences,
+                       text_size=self.config.get("text_size", 100), high_contrast=self.config.get("high_contrast", False),
+                       on_accessibility=self._save_accessibility,
                        on_update_check=self._check_updates, on_update_install=self._install_update,
                        on_game_preview=self._preview_game, on_game_accept=self._accept_game,
                        on_game_remove=self._remove_game, on_game_update_check=self._check_game_update,
@@ -473,6 +475,10 @@ class Backend(QObject, GameSetupBackend):
             if changed and not self.window.windowState() & Qt.WindowMinimized:
                 self.window.showFullScreen() if fullscreen else self.window.showNormal()
 
+    def _save_accessibility(self, text_size, high_contrast):
+        self.config.update(text_size=text_size, high_contrast=bool(high_contrast))
+        self._save_config()
+
     def _save_ui_sound(self, on, volume):
         self.config.update(ui_sounds=bool(on), ui_sound_volume=ui_sound.clean_volume(volume))
         self.sounds.configure(on, volume)
@@ -767,6 +773,30 @@ class Backend(QObject, GameSetupBackend):
     def clickRow(self, i):
         self.nav.device = "kb"
         click(self.nav, "confirm", "click_row", i)
+        self.refresh()
+
+    @Slot(int)
+    def clickMainEntry(self, i):
+        self.nav.device = "kb"
+        click(self.nav, "confirm", "click_main_entry", i)
+        self.refresh()
+
+    @Slot(str)
+    def selectSettingsTab(self, tab):
+        self.nav.device = "kb"
+        self.nav.select_settings_tab(tab)
+        self.refresh()
+
+    @Slot(int)
+    def focusOnlineRow(self, i):
+        self.nav.device = "kb"
+        self.nav.focus_online_row(i)
+        self.refresh()
+
+    @Slot(int, int)
+    def selectOnlineOption(self, i, option):
+        self.nav.device = "kb"
+        self.nav.select_online_option(i, option)
         self.refresh()
 
     @Slot(int)

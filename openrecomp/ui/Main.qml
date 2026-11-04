@@ -21,17 +21,22 @@ Window {
     }
 
     readonly property var v: backend.view
-    readonly property color ground: "#0E0F11"
+    readonly property color ground: Theme.ground
     readonly property color panel: "#141619"
     readonly property color bar: "#08090A"
-    readonly property color line: "#2A2D32"
-    readonly property color textC: "#ECE9E1"
-    readonly property color muted: "#A3A5AB"
-    readonly property color bone: "#F2EFE6"
+    readonly property color line: Theme.border
+    readonly property color textC: Theme.text
+    readonly property color muted: Theme.muted
+    readonly property color bone: Theme.selected
     readonly property string display: "Big Shoulders"
     readonly property string sans: "IBM Plex Sans"
     readonly property string mono: "IBM Plex Mono"
     readonly property bool reducedMotion: !!v.reducedMotion
+    property string lastToast: ""
+    readonly property real hintHeight: Math.ceil(48 * Theme.textScale)
+
+    onVChanged: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; if (v.toast) lastToast = v.toast }
+    Component.onCompleted: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; lastToast = v.toast || "" }
 
     function ok(a, i) { return (a && a[i]) || ({}) }
 
@@ -52,68 +57,85 @@ Window {
             anchors.fill: parent
             // ---------------------------------------------------------------- top bar
             Rectangle {
+                objectName: "topBar"
                 width: 1920; height: 72; color: win.bar
+                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: win.line }
                 Row {
                     anchors.left: parent.left; anchors.leftMargin: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 28
-                    Image { visible: !!source; source: win.v.wordmark || ""; asynchronous: true; cache: true; height: 44; fillMode: Image.PreserveAspectFit; sourceSize.height: 88; smooth: true; anchors.verticalCenter: parent.verticalCenter }
-                    Text { objectName: "brandFallback"; visible: !win.v.wordmark; textFormat: Text.PlainText; text: "OpenRecomp-FGC"; color: win.textC; font.family: win.display; font.weight: Font.Black; font.pixelSize: 40; anchors.verticalCenter: parent.verticalCenter }
+                    Image { visible: !!win.v.wordmark; source: win.v.wordmark || ""; asynchronous: true; cache: true; width: 300; height: 40; fillMode: Image.PreserveAspectFit; sourceSize.height: 80; smooth: true; anchors.verticalCenter: parent.verticalCenter }
+                    Text { objectName: "brandFallback"; visible: !win.v.wordmark; width: implicitWidth; textFormat: Text.PlainText; text: "OpenRecomp-FGC"; color: win.textC; font.family: win.display; font.weight: Font.Black; font.pixelSize: Theme.px(34); anchors.verticalCenter: parent.verticalCenter }
                     Row {
-                        visible: win.v.screen === "hub"; spacing: 12; anchors.verticalCenter: parent.verticalCenter
-                        Rectangle { width: 14; height: 14; color: win.v.accent; anchors.verticalCenter: parent.verticalCenter }
-                        Text { textFormat: Text.PlainText; width: Math.min(implicitWidth, 280); elide: Text.ElideRight; text: win.v.gameShort; color: win.muted; font.family: win.sans; font.pixelSize: 26 }
+                        visible: win.v.screen === "hub" && !win.v.mainMenu.show; spacing: 12; anchors.verticalCenter: parent.verticalCenter
+                        Rectangle { width: 10; height: 10; radius: 2; color: Theme.readableAccent(win.v.accent); anchors.verticalCenter: parent.verticalCenter }
+                        Text { textFormat: Text.PlainText; width: Math.min(implicitWidth, 250); elide: Text.ElideRight; text: win.v.gameShort; color: win.muted; font.family: win.sans; font.pixelSize: Theme.px(22)}
                         Rectangle {
                             visible: !!win.v.badge
                             anchors.verticalCenter: parent.verticalCenter
-                            width: hubBadge.implicitWidth + 16; height: 30
-                            color: "transparent"; border.width: 2; border.color: win.v.accent
-                            Text { textFormat: Text.PlainText; id: hubBadge; anchors.centerIn: parent; text: win.v.badge || ""; color: win.v.accent; font.family: win.mono; font.weight: Font.DemiBold; font.pixelSize: 18 }
+                            width: Math.min(hubBadge.implicitWidth + 20, 180); height: 28; radius: 4
+                            color: Theme.raised
+                            Text { textFormat: Text.PlainText; id: hubBadge; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 20); elide: Text.ElideRight; text: win.v.badge || ""; color: Theme.readableAccent(win.v.accent); font.family: win.mono; font.weight: Font.DemiBold; font.pixelSize: Theme.px(16)}
                         }
                     }
                 }
                 Row {
-                    anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 36
-                    Text { textFormat: Text.PlainText; visible: win.v.screen === "hub"; width: Math.min(implicitWidth, 320); elide: Text.ElideRight; text: win.v.topline; color: win.muted; font.family: win.mono; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
+                    id: topActions
+                    objectName: "topActions"
+                    anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 24
+                    Text { textFormat: Text.PlainText; visible: win.v.screen === "hub" && !win.v.mainMenu.show; width: Math.min(implicitWidth, 220); elide: Text.ElideRight; text: win.v.topline; color: win.muted; font.family: win.mono; font.pixelSize: Theme.px(19); anchors.verticalCenter: parent.verticalCenter }
                     // the players' Discord (one server for every game: community.py); pads reach it in the drawer (social)
                     Rectangle {
                         objectName: "discordButton"
-                        visible: !!win.v.discord
+                        visible: !!win.v.discord && !win.v.mainMenu.show
                         anchors.verticalCenter: parent.verticalCenter
-                        width: Math.min(discordLabel.implicitWidth, 300) + 28; height: 40
-                        color: discordTap.pressed ? win.line : "transparent"; border.width: 2; border.color: win.line
-                        Text { id: discordLabel; textFormat: Text.PlainText; anchors.centerIn: parent; width: Math.min(implicitWidth, 300); elide: Text.ElideRight; text: win.v.discord || ""; color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 22 }
+                        width: Math.min(discordLabel.implicitWidth, 220) + 28; height: 36; radius: 4
+                        color: discordTap.pressed ? win.line : Theme.card; border.width: 1; border.color: win.line
+                        Text { id: discordLabel; textFormat: Text.PlainText; anchors.centerIn: parent; width: Math.min(implicitWidth, 220); elide: Text.ElideRight; text: win.v.discord || ""; color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: Theme.px(20)}
                         TapHandler { id: discordTap; onTapped: win.backend.press("discord") }
+                        Interaction { handler: discordTap; selected: false; onActivated: win.backend.press("discord") }
                     }
                     Row {
                         spacing: 12; anchors.verticalCenter: parent.verticalCenter
-                        Glyph { g: win.v.social; size: 40 }
-                        Text { textFormat: Text.PlainText; width: Math.min(implicitWidth, 260); elide: Text.ElideRight; text: win.v.quickAccess; color: win.textC; font.family: win.sans; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
-                        TapHandler { onTapped: win.backend.press("social") }
+                        Glyph { g: win.v.social; size: 32 }
+                        Text { textFormat: Text.PlainText; width: Math.min(implicitWidth, 220); elide: Text.ElideRight; text: win.v.quickAccess; color: win.textC; font.family: win.sans; font.pixelSize: Theme.px(20); anchors.verticalCenter: parent.verticalCenter }
+                        TapHandler { id: uiTap1; onTapped: win.backend.press("social") }
+                        Interaction { handler: uiTap1; selected: false; onActivated: win.backend.press("social") }
                     }
+                }
+                Text {
+                    objectName: "mainMenuStatus"
+                    visible: !!win.v.mainMenu.show
+                    x: 480; width: topActions.x - x - 32; height: parent.height - 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: [win.v.mainMenu.status || "", win.v.mainMenu.player || "", win.v.mainMenu.activity || ""].filter(s => s).join("  ·  ")
+                    textFormat: Text.PlainText; wrapMode: Text.Wrap; verticalAlignment: Text.AlignVCenter
+                    color: win.textC; font.family: win.sans; font.pixelSize: Theme.px(20)
+                    fontSizeMode: Text.Fit; minimumPixelSize: Theme.px(14); maximumLineCount: 2
                 }
             }
 
             // ---------------------------------------------------------------- body
             Item {
                 id: body
-                width: 1920; height: 1080 - 72 - 48 - 60
+                width: 1920; height: 1080 - 72 - win.hintHeight - 60
                 PageLoader { anchors.fill: parent; active: win.v.screen === "start"; page: "Shelf.qml"; root: win }
-                PageLoader { anchors.fill: parent; active: win.v.screen === "hub"; page: "Hub.qml"; root: win }
+                PageLoader { anchors.fill: parent; active: win.v.screen === "hub" && !win.v.mainMenu.show; page: "Hub.qml"; root: win }
+                PageLoader { anchors.fill: parent; active: win.v.screen === "hub" && !!win.v.mainMenu.show; page: "MainMenu.qml"; root: win }
             }
 
             // ---------------------------------------------------------------- focused hint and last input device
             Rectangle {
-                width: 1920; height: 48; color: win.bar
+                width: 1920; height: win.hintHeight; color: win.bar
                 Rectangle { width: parent.width; height: 1; color: win.line }
                 Text {
                     objectName: "focusHint"
                     anchors.left: parent.left; anchors.leftMargin: 48; anchors.right: deviceLabel.left; anchors.rightMargin: 32; anchors.verticalCenter: parent.verticalCenter
-                    height: 44; text: win.v.hint; textFormat: Text.PlainText; color: win.textC; font.family: win.sans; font.pixelSize: 23; minimumPixelSize: 16; fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2; verticalAlignment: Text.AlignVCenter
+                    height: parent.height - 4; text: win.v.hint; textFormat: Text.PlainText; color: win.textC; font.family: win.sans; font.pixelSize: Theme.px(23); minimumPixelSize: Theme.px(16); fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2; verticalAlignment: Text.AlignVCenter
                 }
                 Text { textFormat: Text.PlainText;
                     id: deviceLabel
                     anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter
                     width: 320; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight
-                    text: win.v.device; color: win.muted; font.family: win.mono; font.pixelSize: 22
+                    text: win.v.device; color: win.muted; font.family: win.mono; font.pixelSize: Theme.px(22)
                 }
             }
 
@@ -131,8 +153,9 @@ Window {
                             width: (1824 - Math.max(0, win.v.prompts.length - 1) * 20) / Math.max(1, win.v.prompts.length)
                             spacing: 12
                             Glyph { id: promptGlyph; g: parent.p.g || ({}); size: 32; anchors.verticalCenter: parent.verticalCenter }
-                            Text { textFormat: Text.PlainText; objectName: "promptLabel"; width: parent.width - promptGlyph.width - 12; height: 36; text: parent.p.label || ""; color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 21; minimumPixelSize: 16; fontSizeMode: Text.Fit; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter; anchors.verticalCenter: parent.verticalCenter }
-                            TapHandler { onTapped: win.backend.press(parent.p.action) }
+                            Text { textFormat: Text.PlainText; objectName: "promptLabel"; width: parent.width - promptGlyph.width - 12; height: 36; text: parent.p.label || ""; color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: Theme.px(21); minimumPixelSize: Theme.px(16); fontSizeMode: Text.Fit; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter; anchors.verticalCenter: parent.verticalCenter }
+                            TapHandler { id: uiTap2; onTapped: win.backend.press(parent.p.action) }
+                            Interaction { handler: uiTap2; selected: false; onActivated: win.backend.press(parent.p.action) }
                         }
                     }
                 }
@@ -143,11 +166,15 @@ Window {
 
         // ---------------------------------------------------------------- one toast, never a stack of banners
         Rectangle {
-            visible: win.v.toast !== ""
+            objectName: "resultToast"
+            opacity: win.v.toast !== "" ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { enabled: !win.reducedMotion; NumberAnimation { duration: 180 } }
             anchors.right: parent.right; anchors.rightMargin: 48; y: 88
             width: Math.min(toastText.implicitWidth + 56, 860); height: toastText.implicitHeight + 36
-            color: win.textC
-            Text { textFormat: Text.PlainText; id: toastText; x: 28; y: 18; width: Math.min(implicitWidth, 804); text: win.v.toast; color: "#0E0F11"; wrapMode: Text.Wrap; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 26 }
+            radius: 4; color: Theme.raised; border.width: 1; border.color: win.line
+            Rectangle { width: 4; height: parent.height; color: Theme.readableAccent(win.v.accent) }
+            Text { textFormat: Text.PlainText; id: toastText; x: 28; y: 18; width: Math.min(implicitWidth, 804); text: win.lastToast; color: win.textC; wrapMode: Text.Wrap; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: Theme.px(23)}
         }
     }
 }
