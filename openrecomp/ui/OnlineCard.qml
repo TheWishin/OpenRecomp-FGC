@@ -10,6 +10,7 @@ Item {
     readonly property bool versus: ["matched", "starting"].indexOf(o.phase) >= 0 && !!vs.left
     readonly property bool accepted: o.phase === "starting"
     readonly property bool starting: !!vs.starting
+    readonly property bool resultPhase: o.phase === "result" || o.phase === "result_sent"
     readonly property var decline: (o.lines || []).filter(r => r.id === "cancel_match")[0] || ({})
     QtObject {
         id: backdropRoot
@@ -78,6 +79,27 @@ Item {
         visible: page.versus
         width: parent.width * .64; height: matchCard.height + versusFooter.height + 10
         anchors.centerIn: parent
+        property real entryOffset: 0
+        transform: Translate { y: matchPresentation.entryOffset }
+        function reveal() {
+            if (visible && !page.root.reducedMotion) { matchEntry.restart(); versusFlash.restart() }
+        }
+        onVisibleChanged: reveal()
+        Component.onCompleted: reveal()
+        ParallelAnimation {
+            id: matchEntry
+            NumberAnimation { target: matchPresentation; property: "entryOffset"; from: 24; to: 0; duration: 160; easing.type: Easing.OutCubic }
+            NumberAnimation { target: matchPresentation; property: "opacity"; from: .55; to: 1; duration: 160; easing.type: Easing.OutCubic }
+        }
+        Connections {
+            target: page.root
+            function onReducedMotionChanged() {
+                if (page.root.reducedMotion) {
+                    matchEntry.stop(); versusFlash.stop()
+                    matchPresentation.entryOffset = 0; matchPresentation.opacity = 1; flash.opacity = 0
+                }
+            }
+        }
         OnlineStyle.SectionCard {
             id: matchCard
             objectName: "matchVersusCard"
@@ -107,7 +129,13 @@ Item {
                 id: versusCentre; objectName: "versusCountdownRing"
                 width: 122; height: width; radius: width / 2
                 anchors.centerIn: parent; anchors.verticalCenterOffset: -70
-                color: "#EE0B0C10"; border.width: 4; border.color: Theme.gameAccent
+                color: "#EE0B0C10"; border.width: 4; border.color: Theme.border
+                CountdownRing { anchors.fill: parent; seconds: page.vs.seconds; paused: page.accepted; reducedMotion: page.root.reducedMotion }
+                Rectangle {
+                    id: flash; objectName: "versusFlash"
+                    anchors.fill: parent; radius: parent.radius; color: Theme.selected; opacity: 0
+                    NumberAnimation { id: versusFlash; target: flash; property: "opacity"; from: .22; to: 0; duration: 160; easing.type: Easing.OutCubic }
+                }
                 Column {
                     anchors.centerIn: parent; width: parent.width - 16; spacing: 0
                     OnlineStyle.PageTitle { width: parent.width; text: page.vs.versus || ""; horizontalAlignment: Text.AlignHCenter; font.pixelSize: Theme.onlinePx(46) }
@@ -173,7 +201,30 @@ Item {
         Column {
             id: header
             x: 28; y: 20; width: parent.width - 56; spacing: 8
-            OnlineStyle.PageTitle { objectName: "onlineCardTitle"; width: parent.width; text: page.o.title || "" }
+            Rectangle {
+                id: resultBanner; objectName: "resultBanner"
+                visible: page.resultPhase
+                width: parent.width; height: visible ? resultLabel.height + 24 : 0
+                radius: 4; color: Theme.raised
+                property real entryOffset: 0
+                transform: Translate { x: resultBanner.entryOffset }
+                Rectangle { width: 5; height: parent.height; color: Theme.rankGold }
+                OnlineStyle.PageTitle { id: resultLabel; x: 18; y: 12; width: parent.width - 36; text: page.o.title || ""; color: Theme.rankGold }
+                onVisibleChanged: if (visible && !page.root.reducedMotion) resultEntry.restart()
+                Component.onCompleted: if (visible && !page.root.reducedMotion) resultEntry.restart()
+                ParallelAnimation {
+                    id: resultEntry
+                    NumberAnimation { target: resultBanner; property: "entryOffset"; from: -20; to: 0; duration: 160; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: resultBanner; property: "opacity"; from: .6; to: 1; duration: 160; easing.type: Easing.OutCubic }
+                }
+                Connections {
+                    target: page.root
+                    function onReducedMotionChanged() {
+                        if (page.root.reducedMotion) { resultEntry.stop(); resultBanner.entryOffset = 0; resultBanner.opacity = 1 }
+                    }
+                }
+            }
+            OnlineStyle.PageTitle { objectName: "onlineCardTitle"; visible: !page.resultPhase; width: parent.width; text: page.o.title || "" }
             OnlineStyle.HelpText { visible: !!text && text !== page.o.title; width: parent.width; text: page.o.message || ""; color: page.o.error ? Theme.error : page.root.muted }
             PeerPing { visible: !!page.o.connection; connection: page.o.connection || ({}); ink: page.root.textC; dim: page.root.muted }
         }

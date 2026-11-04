@@ -15,13 +15,18 @@ Loader {
     onActiveChanged: loadPage()
     onLoaded: if (!root.reducedMotion) reveal.restart()
     Component.onCompleted: loadPage()
-    NumberAnimation { id: reveal; target: loader.item; property: "opacity"; from: 0.6; to: 1; duration: 130; easing.type: Easing.OutCubic }
+    ParallelAnimation {
+        id: reveal
+        NumberAnimation { target: loader; property: "opacity"; from: 0.65; to: 1; duration: 150; easing.type: Easing.OutCubic }
+        NumberAnimation { target: loader.item; property: "y"; from: 16; to: 0; duration: 150; easing.type: Easing.OutCubic }
+    }
     Connections {
         target: loader.root
         function onReducedMotionChanged() {
             if (loader.root.reducedMotion) {
                 reveal.stop()
-                if (loader.item) loader.item.opacity = 1
+                loader.opacity = 1
+                if (loader.item) { loader.item.opacity = 1; loader.item.y = 0 }
             }
         }
     }

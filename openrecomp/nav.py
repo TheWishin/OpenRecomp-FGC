@@ -337,7 +337,7 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
         return dict(action=action, label=label, g=self.glyph(action))
 
     def view(self):
-        v = dict(screen=self.screen, overlay=self.overlay or "", toast=self.toast, fullscreen=self.fullscreen, reducedMotion=self.reduced_motion,
+        v = dict(screen=self.screen, overlay=self.overlay or "", toast=self.toast, fullscreen=self.fullscreen, reducedMotion=self.reduced_motion or getattr(self, "system_reduced_motion", False),
                  textScale=self.text_size / 100, highContrast=self.high_contrast,
                  inputMode=self.device, nativeEdit=getattr(self, "native_edit", ""), nativeField={},
                  device="@" + DEVICE_LABEL["kb" if self.device == "kb" else self.pad_kind],
@@ -356,11 +356,20 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
         v["globalOffers"] = nav_feedback.global_view(self)
         v["activity"] = nav_feedback.activity_view(self)
         v["matchVersus"] = nav_feedback.match_view(self, self.game) if self.game else {}
+        from . import nav_rank_cue
+        v["promotion"] = nav_rank_cue.view(self)
         if v["globalOffers"]:
             for prompt in v["prompts"]:
                 if prompt.get("action") == "social":
                     prompt["label"] = "@feedback.offers"
         v["gameTheme"] = self.game.m.get("adapter", "") if self.game and self.screen == "hub" else ""
+        from .living_background import background_view
+        background_game = self.game
+        if self.screen == "start":
+            ids = self.tile_ids()
+            background_game = self.game_by_id(ids[min(self.start_focus, len(ids) - 1)])
+        v["livingBackground"] = background_view(background_game.a, background_game.m.get("adapter", ""),
+                                                reduced_motion=v["reducedMotion"]) if background_game else {}
         if v["gameTheme"] in ("t4", "t5dr"):
             v["accent"] = "#71CBE5" if v["gameTheme"] == "t4" else "#D11F3F"
         v["nativeEdit"] = getattr(self, "native_edit", "")

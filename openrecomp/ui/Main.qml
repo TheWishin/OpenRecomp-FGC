@@ -32,6 +32,7 @@ Window {
     readonly property string sans: "IBM Plex Sans"
     readonly property string mono: "IBM Plex Mono"
     readonly property bool reducedMotion: !!v.reducedMotion
+    readonly property bool motionActive: visible && active && visibility !== Window.Minimized && !(v.gameRunning || false)
     readonly property bool communityLobby: v.online.layout === "lobby" && v.online.chapter === "lobby"
     readonly property bool chatDocked: v.screen === "hub" && !!v.online.chatDocked
     readonly property real chatDockWidth: chatDocked ? ((v.online.chat || {}).open !== false ? 568 : 88) : 0
@@ -46,8 +47,9 @@ Window {
     readonly property real headerHeight: Math.max(compactOnline ? 56 : 72, Theme.target(44) + (compactOnline ? 8 : 12), topActions.implicitHeight + (compactOnline ? 8 : 12))
     readonly property real promptHeight: Math.max(compactOnline ? 48 : 60, promptRow.implicitHeight + (compactOnline ? 8 : 12))
 
-    onVChanged: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; Theme.gameKind = v.gameTheme || ""; if (v.toast) lastToast = v.toast }
-    Component.onCompleted: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; Theme.gameKind = v.gameTheme || ""; lastToast = v.toast || "" }
+    onVChanged: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; Theme.gameKind = v.gameTheme || ""; Theme.reducedMotion = reducedMotion; if (v.toast) lastToast = v.toast }
+    onReducedMotionChanged: Theme.reducedMotion = reducedMotion
+    Component.onCompleted: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; Theme.gameKind = v.gameTheme || ""; Theme.reducedMotion = reducedMotion; lastToast = v.toast || "" }
 
     function ok(a, i) { return (a && a[i]) || ({}) }
     function focusStage() { stage.forceActiveFocus() }
@@ -133,6 +135,13 @@ Window {
             Item {
                 id: body
                 width: 1920; height: 1080 - win.headerHeight - win.hintHeight - win.promptHeight
+                LivingBackground {
+                    anchors.fill: parent
+                    visible: win.v.screen === "hub"
+                    scene: win.v.livingBackground || ({})
+                    reducedMotion: win.reducedMotion
+                    motionActive: visible && win.motionActive
+                }
                 PageLoader { y: win.activityHeight; width: parent.width; height: parent.height - y; active: win.v.screen === "start"; page: "Shelf.qml"; root: win }
                 PageLoader { y: win.activityHeight; width: win.onlineContentWidth; height: parent.height - y; active: win.v.screen === "hub" && !win.v.mainMenu.show; page: "Hub.qml"; root: win }
                 PageLoader { y: win.activityHeight; width: win.onlineContentWidth; height: parent.height - y; active: win.v.screen === "hub" && !!win.v.mainMenu.show; page: "MainMenu.qml"; root: win }
@@ -197,6 +206,12 @@ Window {
         }
 
         PageLoader { anchors.fill: parent; z: 1000; active: !!win.v.overlay || (win.v.globalOffers || []).length > 0; page: "Overlays.qml"; root: win }
+        PromotionBanner {
+            root: win
+            anchors.right: parent.right; anchors.rightMargin: 24
+            anchors.top: parent.top; anchors.topMargin: win.headerHeight + 12
+            z: 500
+        }
 
         // ---------------------------------------------------------------- one toast, never a stack of banners
         Rectangle {

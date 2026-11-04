@@ -1617,5 +1617,6 @@
  "playtime.offline": "Sin conexión",
  "playtime.online": "En línea",
  "playtime.sessions": "Sesiones",
- "playtime.local_only": "Guardado solo en este PC. Nunca se sube."
+ "playtime.local_only": "Guardado solo en este PC. Nunca se sube.",
+ "vibe.rank_up": "Ascenso de rango"
 }

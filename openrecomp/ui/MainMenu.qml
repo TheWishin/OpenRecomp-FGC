@@ -4,41 +4,67 @@ Item {
     id: menu
     required property var root
     readonly property var m: root.v.mainMenu || ({})
-    Image { anchors.fill: parent; source: menu.root.v.hero || ""; fillMode: Image.PreserveAspectCrop; asynchronous: true }
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: Qt.rgba(Theme.ground.r, Theme.ground.g, Theme.ground.b, .98) }
-            GradientStop { position: 0.55; color: Qt.rgba(Theme.ground.r, Theme.ground.g, Theme.ground.b, .88) }
-            GradientStop { position: 1; color: Qt.rgba(Theme.ground.r, Theme.ground.g, Theme.ground.b, .85) }
+            GradientStop { position: 0; color: Qt.rgba(Theme.ground.r, Theme.ground.g, Theme.ground.b, .72) }
+            GradientStop { position: 0.52; color: Qt.rgba(Theme.ground.r, Theme.ground.g, Theme.ground.b, .28) }
+            GradientStop { position: 1; color: "transparent" }
         }
     }
     Rectangle { x: parent.width * 0.53; y: 32; width: 3; height: parent.height - 64; color: Theme.gameAccent }
     Column {
-        x: parent.width * 0.53 + 24; y: 64; width: parent.width - x - 32; spacing: 16
-        OnlineStyle.HelpText { objectName: "mainMenuStatus"; width: parent.width; text: menu.m.status || ""; color: Theme.value; font.weight: Font.Bold }
-        Text { width: parent.width; text: menu.m.title || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: Theme.text; font.family: menu.root.display; font.weight: Font.Black; font.pixelSize: Theme.px(48); lineHeight: 0.95 }
-        OnlineStyle.HelpText { objectName: "mainMenuPlaytime"; width: parent.width; text: menu.m.playtime || ""; visible: !!text }
-        OnlineStyle.SectionHeader { width: parent.width; text: menu.m.player || "" }
-        OnlineStyle.HelpText { width: parent.width; text: menu.m.activity || "" }
-        Repeater {
-            model: menu.m.delayOptions || []
-            ArcadeAction {
-                required property var modelData
-                root: menu.root; b: modelData; width: parent.width
-                label: [b.label || "", b.value || ""].filter(s => s).join(": ")
-                onActivated: menu.root.backend.clickRow(b.index)
+        id: identity
+        x: parent.width * 0.53 + 24; y: 32; width: parent.width - x - 32; spacing: 12
+        Column {
+            id: playerDetails
+            width: parent.width; spacing: 12
+            OnlineStyle.HelpText { objectName: "mainMenuStatus"; width: parent.width; text: menu.m.status || ""; color: Theme.value; font.weight: Font.Bold }
+            Text { width: parent.width; text: menu.m.title || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: Theme.text; font.family: menu.root.display; font.weight: Font.Black; font.pixelSize: Theme.px(48); lineHeight: 0.95 }
+            OnlineStyle.HelpText { objectName: "mainMenuPlaytime"; width: parent.width; text: menu.m.playtime || ""; visible: !!text }
+            OnlineStyle.SectionHeader { width: parent.width; text: menu.m.player || "" }
+            Row {
+                width: parent.width; spacing: 12; height: Math.max(rankText.implicitHeight, rankImage.visible ? 48 : 0)
+                Image { id: rankImage; visible: !!menu.m.rankPlate; source: menu.m.rankPlate || ""; width: visible ? 150 : 0; height: 48; fillMode: Image.PreserveAspectFit; asynchronous: true; cache: true; sourceSize.height: 96 }
+                OnlineStyle.Value { id: rankText; anchors.verticalCenter: parent.verticalCenter; width: parent.width - (rankImage.visible ? rankImage.width + parent.spacing : 0); text: menu.m.rank || ""; color: Theme.rankGold }
+            }
+            OnlineStyle.HelpText { objectName: "mainMenuMain"; width: parent.width; text: menu.m.main ? (menu.m.mainLabel || "") + menu.m.main : ""; visible: !!text; color: Theme.text; font.weight: Font.Bold }
+            OnlineStyle.HelpText { width: parent.width; text: menu.m.activity || "" }
+            Repeater {
+                model: menu.m.delayOptions || []
+                ArcadeAction {
+                    required property var modelData
+                    root: menu.root; b: modelData; width: parent.width
+                    label: [b.label || "", b.value || ""].filter(s => s).join(": ")
+                    onActivated: menu.root.backend.clickRow(b.index)
+                }
             }
         }
         Row {
-            width: parent.width; height: Math.min(300, menu.height * .34); spacing: 8
+            objectName: "mainMenuFighters"
+            width: parent.width; spacing: 8
+            height: Math.max(0, Math.min(270, menu.height - identity.y - playerDetails.height - recentStats.height - 2 * identity.spacing - 16))
+            clip: true
             Repeater {
                 model: menu.m.fighters || []
-                FighterPortrait { required property var modelData; width: (parent.width - 16) / 3; height: parent.height; source: modelData.image || ""; name: modelData.name || "" }
+                FighterPortrait { required property var modelData; required property int index; width: (parent.width - 16) * (index === 0 ? .52 : .24); height: parent.height; source: modelData.image || ""; name: modelData.name || ""; showcase: index === 0 }
             }
         }
-        OnlineStyle.Value { width: parent.width; text: menu.m.rank || ""; color: Theme.rankGold }
+        Column {
+            id: recentStats
+            width: parent.width; spacing: 12
+            OnlineStyle.HelpText { width: parent.width; text: menu.m.recentLabel || ""; visible: (menu.m.recentResults || []).length > 0 }
+            Row {
+                objectName: "mainMenuRecentResults"
+                width: parent.width; height: visible ? Theme.target(44) : 0; spacing: 8
+                visible: (menu.m.recentResults || []).length > 0
+                Repeater {
+                    model: menu.m.recentResults || []
+                    ResultCell { required property var modelData; root: menu.root; c: modelData; accent: Theme.success; width: Theme.target(44); height: width }
+                }
+            }
+        }
     }
     OnlineStyle.HelpText { id: caption; x: 32; y: 16; width: parent.width * 0.53 - 64; text: menu.m.kicker || ""; font.weight: Font.Bold; color: Theme.value }
     Flickable {

@@ -13,6 +13,7 @@ QtObject {
     readonly property int inset: 24
     readonly property int gap: 16
     property bool highContrast: false
+    property bool reducedMotion: false
     property string gameKind: ""
     readonly property color gameAccent: gameKind === "t4" ? "#71CBE5" : gameKind === "t5dr" ? "#D11F3F" : "#D3B59D"
     readonly property color ground: highContrast ? "#000000" : gameKind === "t4" ? "#0D141D" : gameKind === "t5dr" ? "#100C10" : "#0E0F11"
@@ -21,12 +22,12 @@ QtObject {
     readonly property color highlighted: highContrast ? "#161616" : gameKind === "t5dr" ? "#321C25" : "#303640"
     readonly property color text: highContrast ? "#FFFFFF" : "#ECE9E1"
     readonly property color muted: highContrast ? "#D8D8D8" : "#A3A5AB"
-    readonly property color value: highContrast ? "#FFE1BC" : gameKind === "t5dr" ? "#BEC3CC" : "#D3B59D"
+    readonly property color value: highContrast ? "#FFE1BC" : gameKind === "t4" ? "#BDD4E1" : gameKind === "t5dr" ? "#BEC3CC" : "#D3B59D"
     readonly property color rankGold: highContrast ? "#FFE1BC" : gameKind === "t5dr" ? "#E5BD68" : readableAccent(gameAccent)
     readonly property color selected: highContrast ? "#FFFFFF" : "#F2EFE6"
     readonly property color inkHelp: highContrast ? "#292929" : "#50535A"
     readonly property color border: highContrast ? "#999999" : "#454A53"
-    readonly property color focus: highContrast ? "#FFFFFF" : gameKind === "t5dr" ? "#F13B56" : "#E9C5A7"
+    readonly property color focus: highContrast ? "#FFFFFF" : gameKind === "t4" ? "#CDEBF5" : gameKind === "t5dr" ? "#F13B56" : "#E9C5A7"
     readonly property color primaryFill: highContrast ? selected : gameKind === "t5dr" ? "#B51232" : readableAccent(gameAccent)
     readonly property color primaryText: highContrast ? ground : gameKind === "t5dr" ? "#FFFFFF" : ground
     readonly property color highlightStart: highContrast ? highlighted : gameKind === "t5dr" ? "#8D2F12" : highlighted

@@ -15,6 +15,12 @@ sound for the same change.
     close       an overlay closed without a choice
     error       refused: the launcher said it is busy, failed, or the row is disabled
     notify      a match was found, an update is offered
+    ready       a match enters its ready/start phase
+    countdown   the last three seconds of an offer, one tick per second
+    win / loss  a reported result or the adapter's public set outcome
+
+The original WAV family stays available to generic adapters. T4 and T5DR use original synthesized theme cues,
+computed on the audio worker and cached only in memory (see ui/sounds/LICENSE.txt).
 
 Playback: PlaySoundW from winmm with SND_MEMORY | SND_ASYNC, on one worker thread, so the GUI thread never waits for
 the audio system. A new sound cuts the one still playing (Windows plays one PlaySound per process), so holding a
@@ -27,6 +33,7 @@ OPENRECOMP_UI_SOUND=0 in the environment turns the real output off (tests, recor
 """
 import array
 import io
+import math
 import os
 import threading
 import time
@@ -36,8 +43,11 @@ SOUND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "soun
 MOVE, CONFIRM, BACK, TAB, ERROR, NOTIFY = "move", "confirm", "back", "tab", "error", "notify"
 TOGGLE_ON, TOGGLE_OFF, OPEN, CLOSE = "toggle_on", "toggle_off", "open", "close"
 NAMES = (MOVE, CONFIRM, BACK, TAB, ERROR, NOTIFY, TOGGLE_ON, TOGGLE_OFF, OPEN, CLOSE)
+READY, COUNTDOWN, WIN, LOSS = "ready", "countdown", "win", "loss"
+EVENT_NAMES = (READY, COUNTDOWN, WIN, LOSS)
 # When two sounds come from one press or one tick, the one that says the most wins.
 PRIORITY = {ERROR: 9, NOTIFY: 8, OPEN: 7, CLOSE: 6, CONFIRM: 5, BACK: 5, TAB: 4, TOGGLE_ON: 3, TOGGLE_OFF: 3, MOVE: 1}
+PRIORITY.update({READY: 8, COUNTDOWN: 7, WIN: 8, LOSS: 8})
 # Nav's actions (nav.py) as classify() reads them; CLICK_TAB = a tab clicked with the mouse.
 CLICK_TAB = "tab"
 MOVES = ("up", "down", "left", "right")
@@ -101,7 +111,7 @@ def classify(action, before, after, hint=None):
         return OPEN
     if after["overlay"] == "dialog" and before["kind"] != after["kind"]:
         return OPEN                                   # one question led to the next
-    if hint in (TOGGLE_ON, TOGGLE_OFF, OPEN, CLOSE, BACK):
+    if hint in (TOGGLE_ON, TOGGLE_OFF, OPEN, CLOSE, BACK) + EVENT_NAMES:
         return hint
     if after["holding"] and not before["holding"]:
         return None                                   # the hold bar fills; its end confirms
@@ -171,6 +181,45 @@ def scaled_wav(rate, channels, samples, volume):
     return out.getvalue()
 
 
+def synthesized(name, theme=""):
+    """Original, deterministic menu cues, computed on the audio worker and cached in memory.
+
+    T5DR has a low impact and a sharper FM edge; T4 has a lighter, silver bell tone. No game audio is read.
+    """
+    if name not in PRIORITY:
+        return None
+    rate = 48000
+    notes = {
+        MOVE: (0.045, (1318.51,)), CONFIRM: (0.13, (987.77, 1479.98)), BACK: (0.10, (1174.66, 783.99)),
+        TAB: (0.075, (1567.98,)), ERROR: (0.15, (196.0, 185.0)), NOTIFY: (0.28, (783.99, 1174.66, 1567.98)),
+        TOGGLE_ON: (0.075, (783.99, 1174.66)), TOGGLE_OFF: (0.075, (1174.66, 783.99)),
+        OPEN: (0.11, (987.77, 1975.53)), CLOSE: (0.10, (1567.98, 783.99)),
+        READY: (0.13, (1174.66, 1567.98)), COUNTDOWN: (0.08, (987.77,)),
+        WIN: (0.30, (783.99, 987.77, 1174.66, 1567.98)), LOSS: (0.26, (987.77, 783.99, 587.33)),
+    }
+    duration, pitches = notes[name]
+    red = theme == "t5dr"
+    pitch = 0.84 if red else 1.12 if theme == "t4" else 1.0
+    edge = 1.15 if red else 0.38
+    count = round(duration * rate)
+    samples = array.array("h")
+    for i in range(count):
+        t = i / rate
+        value = 0.0
+        for j, hz in enumerate(pitches):
+            age = t - j * duration * 0.52 / len(pitches)
+            if age < 0:
+                continue
+            phase = 2 * math.pi * hz * pitch * age
+            envelope = min(1.0, age / 0.002) * math.exp(-age / (duration * 0.23))
+            value += envelope * math.sin(phase + edge * math.exp(-age / 0.025) * math.sin(phase * 2.0))
+        if red and name in (CONFIRM, NOTIFY, READY, WIN):
+            value += 0.55 * math.exp(-t / 0.025) * math.sin(2 * math.pi * (110 * t + 1.8 * (1 - math.exp(-t / 0.02))))
+        fade = min(1.0, t / 0.0015, (count - 1 - i) / (rate * 0.006))
+        samples.append(round(max(-1.0, min(1.0, value * 0.24)) * fade * 32767))
+    return rate, 1, samples
+
+
 class NullOutput:
     """No sound at all: not Windows, OPENRECOMP_UI_SOUND=0, or winmm missing."""
     available = False
@@ -179,6 +228,9 @@ class NullOutput:
         pass
 
     def set_volume(self, volume):
+        pass
+
+    def stop(self):
         pass
 
     def close(self):
@@ -205,6 +257,7 @@ class WinMMOutput:
         self._want = None             # the newest sound asked for (older ones are dropped)
         self._volume_want = None      # a new volume (percent) the buffers are made again for
         self._closed = False
+        self._stop = False
         self._thread = threading.Thread(target=self._run, name="ui-sound", daemon=True)
         self._thread.start()
 
@@ -216,6 +269,12 @@ class WinMMOutput:
     def set_volume(self, volume):
         with self._lock:
             self._volume_want = volume
+        self._wake.set()
+
+    def stop(self):
+        with self._lock:
+            self._want = None
+            self._stop = True
         self._wake.set()
 
     def close(self):
@@ -231,10 +290,13 @@ class WinMMOutput:
                 name, self._want = self._want, None
                 volume, self._volume_want = self._volume_want, None
                 closed = self._closed
+                stop, self._stop = self._stop, False
             try:
                 if closed:
                     self._winmm.PlaySoundW(None, None, 0)
                     return
+                if stop:
+                    self._winmm.PlaySoundW(None, None, 0)
                 if volume is not None and volume != self._volume:
                     self._winmm.PlaySoundW(None, None, 0)   # nothing reads the old buffers any more
                     self._buffers.clear()
@@ -248,6 +310,9 @@ class WinMMOutput:
         buf = self._buffers.get(name)
         if buf is None:
             sound = self._sounds.get(name)
+            if sound is None:
+                theme, separator, cue = name.partition(":")
+                sound = synthesized(cue if separator else name, theme if separator else "")
             if sound is None:
                 return
             import ctypes
@@ -280,18 +345,36 @@ class UiSounds:
         self.output = output if output is not None else make_output(load(), self.volume)
         self.clock = clock
         self._last = {}
+        self.theme = ""
+        self._audible = False
         self.played = []              # the last sounds sent (tests and the log read it; never grows past 32)
 
     def configure(self, enabled, volume):
         self.enabled = bool(enabled)
+        if not self.enabled:
+            self.silence()
         volume = clean_volume(volume)
         if volume != self.volume:
             self.volume = volume
             self.output.set_volume(volume)
 
+    def set_theme(self, theme):
+        self.theme = theme if theme in ("t4", "t5dr") else ""
+
+    def silence(self):
+        """Stop a cue's tail immediately when focus leaves, a game starts, or sound is muted."""
+        if self._audible:
+            stop = getattr(self.output, "stop", None)
+            if stop is not None:
+                stop()
+            self._audible = False
+
     def play(self, name, active=True):
         """-> True when name went to the output. active = the window is in front and no game runs."""
-        if not name or name not in PRIORITY or not self.enabled or not active:
+        if not self.enabled or not active:
+            self.silence()
+            return False
+        if not name or name not in PRIORITY:
             return False
         now = self.clock()
         gap = MOVE_GAP_S if name == "move" else SAME_GAP_S
@@ -300,7 +383,8 @@ class UiSounds:
             return False
         self._last[name] = now
         self.played = (self.played + [name])[-32:]
-        self.output.play(name)
+        self.output.play(self.theme + ":" + name if self.theme else name)
+        self._audible = True
         return True
 
     def close(self):

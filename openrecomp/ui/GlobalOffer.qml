@@ -21,6 +21,21 @@ Item {
         Math.min(720, nameText.width + 128)))
     height: content.height + 32
     anchors.centerIn: parent
+    property real entryOffset: 0
+    transform: Translate { y: popup.entryOffset }
+    onVisibleChanged: if (visible && !root.reducedMotion) offerEntry.restart()
+    Component.onCompleted: if (visible && !root.reducedMotion) offerEntry.restart()
+    ParallelAnimation {
+        id: offerEntry
+        NumberAnimation { target: popup; property: "entryOffset"; from: 20; to: 0; duration: 160; easing.type: Easing.OutCubic }
+        NumberAnimation { target: popup; property: "opacity"; from: .6; to: 1; duration: 160; easing.type: Easing.OutCubic }
+    }
+    Connections {
+        target: popup.root
+        function onReducedMotionChanged() {
+            if (popup.root.reducedMotion) { offerEntry.stop(); popup.entryOffset = 0; popup.opacity = 1 }
+        }
+    }
     TextMetrics { id: acceptText; font.family: "IBM Plex Sans"; font.pixelSize: Theme.onlinePx(16); text: popup.offer.acceptLabel || "" }
     TextMetrics { id: declineText; font.family: "IBM Plex Sans"; font.pixelSize: Theme.onlinePx(16); text: popup.offer.declineLabel || "" }
     TextMetrics { id: reviewText; font.family: "IBM Plex Sans"; font.pixelSize: Theme.onlinePx(16); text: popup.offer.reviewLabel || "" }

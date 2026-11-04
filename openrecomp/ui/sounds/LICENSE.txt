@@ -1,0 +1,11 @@
+OpenRecomp original UI sounds
+
+All menu sounds in this folder and the runtime theme cues synthesized by
+openrecomp/ui_sound.py are original OpenRecomp work, covered by the repository's
+MIT LICENSE. No audio samples, recordings, compositions or sound effects from
+Namco, Bandai Namco, a game installation or a third-party sound pack are used.
+
+The existing WAV files are reproducible with tools/make_ui_sounds.py. T4's light
+bell cues and T5DR's sharper impact cues are computed from sine waves and FM on
+the audio worker, then cached only in memory. No audio device is polled while
+idle, and there is no background music or looping audio.

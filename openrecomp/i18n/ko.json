@@ -1617,5 +1617,6 @@
  "playtime.offline": "오프라인",
  "playtime.online": "온라인",
  "playtime.sessions": "세션 수",
- "playtime.local_only": "이 PC에만 저장되며 업로드되지 않습니다."
+ "playtime.local_only": "이 PC에만 저장되며 업로드되지 않습니다.",
+ "vibe.rank_up": "승급"
 }

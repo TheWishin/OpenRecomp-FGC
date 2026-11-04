@@ -29,6 +29,13 @@ Item {
                     color: tile.t.focused ? Theme.card : "#121417"
                     border.width: 1; border.color: tile.t.focused ? (Theme.readableAccent(tile.t.accent) || shelf.root.line) : shelf.root.line
                     clip: true
+                    LivingBackground {
+                        anchors.fill: parent
+                        visible: !!tile.t.focused
+                        scene: shelf.root.v.livingBackground || ({})
+                        reducedMotion: shelf.root.reducedMotion
+                        motionActive: visible && shelf.root.motionActive
+                    }
                     Text {
                         objectName: "shelfDecoration"
                         Accessible.ignored: true

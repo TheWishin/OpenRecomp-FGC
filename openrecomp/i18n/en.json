@@ -1617,5 +1617,6 @@
  "playtime.offline": "Offline",
  "playtime.online": "Online",
  "playtime.sessions": "Sessions",
- "playtime.local_only": "Stored only on this PC. Never uploaded."
+ "playtime.local_only": "Stored only on this PC. Never uploaded.",
+ "vibe.rank_up": "Rank up"
 }

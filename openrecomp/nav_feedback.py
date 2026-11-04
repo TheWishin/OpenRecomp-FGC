@@ -195,7 +195,8 @@ def observe(nav, g, state):
 
 
 def tick(nav, dt):
-    changed = False
+    from . import nav_rank_cue
+    changed = nav_rank_cue.tick(nav, dt)
     for row in nav.__dict__.get("_global_offer_clock", {}).values():
         old = int(row["age"])
         row["age"] += max(0, dt)

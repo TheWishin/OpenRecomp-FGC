@@ -1617,5 +1617,6 @@
  "playtime.offline": "Offline",
  "playtime.online": "Online",
  "playtime.sessions": "Sitzungen",
- "playtime.local_only": "Nur auf diesem PC gespeichert. Wird nie hochgeladen."
+ "playtime.local_only": "Nur auf diesem PC gespeichert. Wird nie hochgeladen.",
+ "vibe.rank_up": "Rangaufstieg"
 }

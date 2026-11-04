@@ -1617,5 +1617,6 @@
  "playtime.offline": "Hors ligne",
  "playtime.online": "En ligne",
  "playtime.sessions": "Sessions",
- "playtime.local_only": "Enregistré uniquement sur ce PC. Jamais envoyé."
+ "playtime.local_only": "Enregistré uniquement sur ce PC. Jamais envoyé.",
+ "vibe.rank_up": "Promotion"
 }

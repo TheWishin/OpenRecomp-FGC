@@ -180,8 +180,25 @@ class MainMenu:
                                   friends=friends, notifications=notifications),
             hint="@main_menu.hint")
         from .nav_common import uri
-        v["mainMenu"]["fighters"] = [dict(name=i18n.literal(f["name"]), image=uri(g.a.fighter_image(f["key"])))
-                                       for f in g.a.fighters()[:3]]
+        from .player_main import choose_main
+        roster = g.a.fighters()
+        main = choose_main(me)
+        if not main:
+            label = g.a.main_fighter()
+            main = next((f["key"] for f in roster if label and label in (f["key"], f["name"])), "")
+        ordered = sorted(roster, key=lambda f: f["key"] != main)
+        recent = g.a.recent_results()[:5]
+        profile = state.get("profile") or {}
+        own_name = str(me.get("name") or state.get("name") or "").casefold()
+        if not recent and own_name and str(profile.get("name") or "").casefold() == own_name:
+            recent = ["W" if row.get("result") == "win" else "L" for row in profile.get("history") or []
+                      if row.get("result") in ("win", "loss") and row.get("status") in (None, "confirmed")][:5]
+        v["mainMenu"]["fighters"] = [dict(key=f["key"], name=i18n.literal(f["name"]), image=uri(g.a.fighter_image(f["key"])))
+                                       for f in ordered[:3]]
+        v["mainMenu"].update(main=i18n.literal(g.a.fighter_label(main)) if main else "",
+                              mainLabel="@fighter.main", friendsOnline=friends,
+                              rankPlate=uri(g.a.rank_plate(me["tier"])) if me.get("tier") is not None else "",
+                              recentResults=self._cells(recent), recentLabel="@recent_sets")
         v["mainMenu"]["rank"] = self._rank_label(me) if me else ""
         v["hint"] = "@main_menu.hint"
         from .nav_lobby_chat import available

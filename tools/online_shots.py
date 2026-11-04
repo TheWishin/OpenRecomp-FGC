@@ -48,7 +48,7 @@ FINAL_SCENES = ("home", "lobby_dense", "lobby_long_names", "lobby_guest", "arcad
                 "matched", "starting", "playing", "result", "reporting", "searching", "cancelling", "disconnect_retry", "leaderboard", "profile", "settings", "controls") + OFFER_SCENES + ACTIVITY_SCENES
 SCENES = BASELINE_SCENES + ("home", "ranked", "ranked_select", "settings", "feedback") + ARCADE_SCENES + COMMUNITY_SCENES + OFFER_SCENES + ACTIVITY_SCENES
 SIZES = ((1920, 1080), (1280, 720))
-ART_FIELDS = {"hero", "image", "art", "render", "selfArt", "wordmark", "face", "plate", "portrait", "background"}
+ART_FIELDS = {"hero", "image", "art", "render", "selfArt", "wordmark", "face", "plate", "portrait", "background", "source", "rankPlate"}
 ART_LISTS = {"images", "mosaic"}
 DECORATIVE_CLIPPING = ("shelfDecoration", "buildDecoration")
 BASELINE = ROOT / "build" / "tmp-home" / "online-before"

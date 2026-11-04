@@ -1617,5 +1617,6 @@
  "playtime.offline": "オフライン",
  "playtime.online": "オンライン",
  "playtime.sessions": "セッション数",
- "playtime.local_only": "このPCにのみ保存されます。アップロードされません。"
+ "playtime.local_only": "このPCにのみ保存されます。アップロードされません。",
+ "vibe.rank_up": "昇格"
 }

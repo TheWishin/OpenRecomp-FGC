@@ -134,6 +134,9 @@ class Online:
                     self.__dict__.setdefault("closed_chat_tabs", {}).setdefault(g.id, {}).pop(selected, None)
                 g.a.set_text_value("online_private_chat", self.__dict__.get("private_drafts", {}).get(g.id, {}).get(selected, ""))
             nav_feedback.observe(self, g, g.a.online_state())
+            self.observe_online_sound(g, g.a.online_state())
+            if action in ("result_win", "result_loss") and state.get("phase") == "result":
+                self.hint_sound(ui_sound.WIN if action == "result_win" else ui_sound.LOSS)
         except Exception:  # noqa: BLE001 -- no raw server details or credentials in an error toast
             self.say("@online.failure", 12)
             nav_feedback.fail(self, g, action)
@@ -143,7 +146,9 @@ class Online:
         return success
 
     def tick_online_feedback(self, dt):
-        return nav_feedback.tick(self, dt)
+        changed = nav_feedback.tick(self, dt)
+        self.tick_offer_sounds()
+        return changed
 
     def online_profile_shortcut(self):
         if self.screen != "hub" or self.section() != "online" or self.overlay:
@@ -540,10 +545,14 @@ class Online:
             if not getattr(g.a, "online_supported", lambda: False)():
                 continue
             try:
+                from . import nav_rank_cue
+                before_rank = nav_rank_cue.baseline(g.a.online_state())
                 if g.a.online_poll():
                     changed = True
                     state = g.a.online_state()
+                    nav_rank_cue.observe(self, g, before_rank, state)
                     nav_feedback.observe(self, g, state)
+                    self.observe_online_sound(g, state)
                     phase = state.get("phase")
                     seen = self.__dict__.setdefault("_online_seen_phase", {})
                     if phase in ("matched", "result", "result_sent", "kicked", "error"):

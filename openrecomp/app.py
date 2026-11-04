@@ -69,6 +69,18 @@ def real_audio():
         return False
 
 
+def system_reduced_motion():
+    """Read Windows' client-area animation preference; never change it."""
+    if os.name != "nt":
+        return False
+    try:
+        enabled = ctypes.c_int(1)
+        return bool(ctypes.windll.user32.SystemParametersInfoW(0x1042, 0, ctypes.byref(enabled), 0)
+                    and not enabled.value)
+    except (AttributeError, OSError):
+        return False
+
+
 def native_picker_available():
     """The Explorer dialog needs a real Windows desktop: never offscreen (tests) or with OPENRECOMP_NATIVE_PICKER=0."""
     if os.name != "nt" or os.environ.get("OPENRECOMP_NATIVE_PICKER") == "0":
@@ -177,6 +189,7 @@ class Backend(QObject, GameSetupBackend):
         self._last_status = {}
         self._last_build = {}
         self._last_prerequisites = {}
+        self._system_reduced_motion = system_reduced_motion()
         self._slow = 0.0
         self._model_elapsed = 0.0
         wordmark = os.path.join(UI_DIR, "assets", "logo-wordmark.svg")
@@ -504,11 +517,13 @@ class Backend(QObject, GameSetupBackend):
 
     def _play_sound(self):
         name = self.nav.take_sound()
-        if name:
-            try:
-                self.sounds.play(name, active=Backend._sound_active(self))
-            except Exception:  # noqa: BLE001 -- a sound never breaks the screen
-                pass
+        try:
+            active = Backend._sound_active(self)
+            game = getattr(self.nav, "game", None)
+            self.sounds.set_theme(game.m.get("adapter", "") if game is not None else "")
+            self.sounds.play(name, active=active)
+        except Exception:  # noqa: BLE001 -- a sound never breaks the screen
+            pass
 
     def _load_pads(self, games):
         t5 = next((g.a for g in games if g.id == "t5dr" and g.a.found()), None)
@@ -558,7 +573,9 @@ class Backend(QObject, GameSetupBackend):
         if getattr(self, "sounds", None) is not None:
             Backend._play_sound(self)
         previous = getattr(self, "_view", None)
+        self.nav.system_reduced_motion = getattr(self, "_system_reduced_motion", False)
         self._view = self.nav.view()
+        self._view["gameRunning"] = any(g.a.running() for g in getattr(self.nav, "games", []))
         if getattr(self.nav, "pending_attention", False):
             self.nav.pending_attention = False
             Backend._offer_attention(self)
@@ -652,6 +669,8 @@ class Backend(QObject, GameSetupBackend):
         visible = self.window is None or (self.window.isVisible() and not self.window.windowState() & Qt.WindowMinimized)
         self._input_active = visible and (self.window is None or self.window.isActive()
                                          or os.environ.get("OPENRECOMP_PAD_ALWAYS") == "1")
+        if (not visible or running or self.window is not None and not self.window.isActive()) and getattr(self, "sounds", None):
+            self.sounds.silence()
         foreground = return_pad or visible and not running
         self.timer.start() if foreground else self.timer.stop()
         self._background_timer.stop() if foreground else self._background_timer.start()
@@ -712,6 +731,19 @@ class Backend(QObject, GameSetupBackend):
 
     def _slow_changes(self, running):
         changed = False
+        reduced_motion = system_reduced_motion()
+        if reduced_motion != getattr(self, "_system_reduced_motion", False):
+            self._system_reduced_motion = reduced_motion
+            changed = True
+        from .living_background import background_view
+        game = getattr(self.nav, "game", None)
+        if getattr(self.nav, "screen", "") == "start":
+            ids = self.nav.tile_ids()
+            game = self.nav.game_by_id(ids[min(self.nav.start_focus, len(ids) - 1)])
+        scene = background_view(game.a, game.m.get("adapter", ""),
+                                reduced_motion=getattr(self.nav, "reduced_motion", False) or reduced_motion) if game else {}
+        if scene != getattr(self, "_view", {}).get("livingBackground", {}):
+            changed = True
         if running != self._was_running:
             self._was_running = running
             changed = True
