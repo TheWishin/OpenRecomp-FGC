@@ -31,10 +31,11 @@ def rows(nav, g, state, action):
         choices = [("any", "@online.challenge_any_side"), ("0", "@online.challenge_p1"), ("1", "@online.challenge_p2")]
         side = prefs.get("side")
         out.append(_cycler(nav, g, "side", "@online.challenge_side", choices, "any" if side is None else str(side), hint))
-        choices = [("random", "@online.challenge_random_stage")]
-        choices += [(stage, i18n.literal(stage)) for stage in prefs.get("stages") or []]
-        current = prefs.get("stage") if prefs.get("stage") in [key for key, _ in choices] else "random"
-        out.append(_cycler(nav, g, "stage", "@online.challenge_stage", choices, current, hint))
+        if prefs.get("stages"):     # (a server without stage choice, e.g. Tekken 4's: only Random -- no row)
+            choices = [("random", "@online.challenge_random_stage")]
+            choices += [(stage, i18n.literal(stage)) for stage in prefs.get("stages") or []]
+            current = prefs.get("stage") if prefs.get("stage") in [key for key, _ in choices] else "random"
+            out.append(_cycler(nav, g, "stage", "@online.challenge_stage", choices, current, hint))
     if prefs.get("auto_skip_supported"):
         out.append(_cycler(nav, g, "auto_skip", "@online.challenge_auto_skip", [("off", "@off"), ("on", "@on")],
                            "on" if prefs.get("auto_skip") else "off", hint))

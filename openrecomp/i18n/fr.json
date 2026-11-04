@@ -536,7 +536,7 @@
  "online.match_active": "Match en cours",
  "online.cancel_match": "Refuser le match",
  "online.return_lobby": "Retour au salon",
- "online.ranked_unavailable": "Les matchs classés de T4 attendent que le jeu puisse transmettre les résultats.",
+ "online.ranked_unavailable": "Ce serveur T4 n'a pas encore de parties classées.",
  "online.lobby_updated": "Salon actualisé.",
  "online.challenge_sent": "Défi envoyé.",
  "online.challenge_answered": "Réponse au défi envoyée.",
@@ -1498,5 +1498,13 @@
  "controls.waiting.cancel": "Maintenez Retour une seconde pour annuler",
  "controls.slot.combo": "{keys} ensemble",
  "controls.slot.ps3": "Bouton {name} PS3",
- "controls.slot.join": "{a} + {b}"
+ "controls.slot.join": "{a} + {b}",
+ "t4.name_plates_hint": "En ligne : le nom et l'insigne de rang de chaque joueur de son côté, à la sélection du personnage et pendant le combat. Les noms des rangs suivent ceux de T5DR.",
+ "t4.side_rank": "{name} · {rank}",
+ "t4.result_unproven": "Les jeux n'ont pas confirmé ce résultat : il ne compte pas en classé.",
+ "t4.name_plates": "Plaques de nom en jeu",
+ "t4.result_char_lock": "Un combattant a été changé pendant le set classé : cette partie va à l'autre joueur.",
+ "t4.side_you_rank": "{name} (toi) · {rank}",
+ "t4.name_plates_lead": "Affiché seulement sur ton écran ; le match lui-même ne change pas.",
+ "t4.side_you": "{name} (toi)"
 }

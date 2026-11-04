@@ -536,7 +536,7 @@
  "online.match_active": "Match in progress",
  "online.cancel_match": "Decline match",
  "online.return_lobby": "Return to lobby",
- "online.ranked_unavailable": "Ranked is unavailable for T4 until the game can report results.",
+ "online.ranked_unavailable": "This T4 server has no ranked play yet.",
  "online.lobby_updated": "Lobby updated.",
  "online.challenge_sent": "Challenge sent.",
  "online.challenge_answered": "Challenge answered.",
@@ -1498,5 +1498,13 @@
  "controls.waiting.cancel": "Hold Back for one second to cancel",
  "controls.slot.combo": "{keys} together",
  "controls.slot.ps3": "PS3 {name} button",
- "controls.slot.join": "{a} + {b}"
+ "controls.slot.join": "{a} + {b}",
+ "t4.name_plates_hint": "Online: each player's name and rank badge on their side, at character select and in the fight. Rank names follow T5DR.",
+ "t4.side_rank": "{name} · {rank}",
+ "t4.result_unproven": "The games did not prove this result, so it does not count for ranked.",
+ "t4.name_plates": "Name plates in the game",
+ "t4.result_char_lock": "A fighter was changed during the ranked set: this game goes to the other player.",
+ "t4.side_you_rank": "{name} (you) · {rank}",
+ "t4.name_plates_lead": "Only drawn on your screen; the match itself is not changed.",
+ "t4.side_you": "{name} (you)"
 }

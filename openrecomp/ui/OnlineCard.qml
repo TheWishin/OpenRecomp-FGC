@@ -94,7 +94,8 @@ Item {
                     width: parent.width; height: 38
                     Rectangle { width: parent.width; height: 1; color: page.root.line }
                     Text { anchors.verticalCenter: parent.verticalCenter; width: parent.width * 0.5; elide: Text.ElideRight; textFormat: Text.PlainText; text: parent.r.k || ""; color: page.root.muted; font.family: page.root.sans; font.pixelSize: 19 }
-                    Text { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; width: parent.width * 0.48; horizontalAlignment: Text.AlignRight; elide: Text.ElideMiddle; textFormat: Text.PlainText; text: parent.r.v || ""; color: parent.r.accent ? page.acc : page.root.textC; font.family: page.root.mono; font.pixelSize: 19 }
+                    Text { id: cardValue; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; width: parent.width * 0.48; horizontalAlignment: Text.AlignRight; elide: Text.ElideMiddle; textFormat: Text.PlainText; text: parent.r.v || ""; color: parent.r.accent ? page.acc : page.root.textC; font.family: page.root.mono; font.pixelSize: 19 }
+                    Image { objectName: "cardPlate"; visible: !!parent.r.plate; source: parent.r.plate || ""; height: 30; width: 60; fillMode: Image.PreserveAspectFit; asynchronous: true; sourceSize.height: 60; anchors.verticalCenter: parent.verticalCenter; x: cardValue.x + cardValue.width - Math.min(cardValue.width, cardValue.contentWidth) - width - 10 }
                 }
             }
         }

@@ -97,6 +97,32 @@ class T4OnlineNavigation(unittest.TestCase):
         self.assertEqual(self.a.calls, [])
         self.assertEqual(self.a.polls, 0)
 
+    def test_match_sides_keep_peer_ping_and_path(self):
+        badge = Path(__file__).resolve().parents[1] / "openrecomp" / "ui" / "assets" / "ranks" / "t4_rank_13.svg"
+        self.a.rank_plate = lambda tier: str(badge)
+        sides = [dict(name="Host", rank="Initiate", tier=13),
+                 dict(name="Guest", you=True)]
+        for phase in ("matched", "starting", "playing", "result", "result_sent"):
+            for ping, text, path in (({}, "@online_ui.ping_unknown", ""),
+                                    (dict(ping=48, ping_path="relay"),
+                                     i18n.message("online_ui.ping_est", ping=48), "@online_ui.path_relay"),
+                                    (dict(ping=31, ping_measured=True, ping_path="direct"),
+                                     i18n.message("online_ui.ping_ms", ping=31), "@online_ui.path_direct")):
+                with self.subTest(phase=phase, ping=ping):
+                    self.a.snapshot.update(phase=phase, match=dict(opponent="Host", sides=sides, **ping))
+                    status = next(item for item in self.nav.items() if item.get("id") == "online_status")
+                    rows = status["detail"]["rows"]
+                    self.assertEqual([row["v"] for row in rows if row["k"] == "@online.ping"], [text])
+                    self.assertEqual([row["v"] for row in rows if row["k"] == "@online_ui.path"],
+                                     [path] if path else [])
+                    players = [row for row in rows if row["k"] in ("@online.challenge_p1", "@online.challenge_p2")]
+                    self.assertEqual([row["k"] for row in players], ["@online.challenge_p1", "@online.challenge_p2"])
+                    self.assertTrue(players[0]["plate"].endswith("t4_rank_13.svg"))
+                    self.assertEqual(players[0]["v"], i18n.message("t4.side_rank", name=i18n.literal("Host"),
+                                                               rank=i18n.literal("Initiate")))
+                    self.assertEqual(players[1]["v"], i18n.message("t4.side_you", name=i18n.literal("Guest")))
+                    self.assertTrue(players[1]["accent"])
+
     def test_all_day_one_states_localize_and_hide_empty_rank(self):
         for language in i18n.LANGUAGES:
             self.nav.language = language

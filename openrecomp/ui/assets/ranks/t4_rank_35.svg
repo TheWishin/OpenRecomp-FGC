@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" width="200" height="100">
+<!-- Tekken 4 Online rank badge 35: Divine Ruler (our own drawing, tools/make_rank_badges.py) -->
+<polygon points="14.00,6.00 186.00,6.00 198.00,50.00 186.00,94.00 14.00,94.00 2.00,50.00" fill="#8f2479" stroke="#e895d8" stroke-width="5" stroke-linejoin="round"/>
+<polygon points="14.00,10.00 186.00,10.00 195.00,44.00 5.00,44.00" fill="#e895d8" fill-opacity="0.22"/>
+<circle cx="50" cy="50" r="36" fill="#440c39" stroke="#e895d8" stroke-width="3"/>
+<polygon points="50.00,20.00 57.16,35.13 73.45,31.30 66.09,46.33 79.25,56.68 62.90,60.29 63.02,77.03 50.00,66.50 36.98,77.03 37.10,60.29 20.75,56.68 33.91,46.33 26.55,31.30 42.84,35.13" fill="#e895d8" stroke="#440c39" stroke-width="1.5" stroke-linejoin="round"/>
+<circle cx="96.0" cy="80.0" r="4" fill="#e895d8" stroke="#440c39" stroke-width="1.5"/>
+<circle cx="110.0" cy="80.0" r="4" fill="#e895d8" stroke="#440c39" stroke-width="1.5"/>
+<circle cx="124.0" cy="80.0" r="4" fill="#e895d8" stroke="#440c39" stroke-width="1.5"/>
+<text x="141" y="32" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="21.9" fill="#ffffff" stroke="#440c39" stroke-width="3" paint-order="stroke">DIVINE</text>
+<text x="141" y="54" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="21.9" fill="#ffffff" stroke="#440c39" stroke-width="3" paint-order="stroke">RULER</text>
+</svg>

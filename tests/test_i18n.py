@@ -160,6 +160,7 @@ def untranslated_literals(source):
         "refresh_players", "refresh_rooms", "accept_challenge", "decline_challenge",
         "create_room", "leave_room", "send_chat", "no_players", "no_rooms", "no_chat",
         "start_match", "cancel_match", "stop_match", "result_win", "result_loss", "result_none", "return_lobby",
+        "result_game", "t4_result-", "[^A-Za-z0-9_-]",       # the T4 game's own result file (t4_online)
         "starting", "playing", "result", "result_sent",
         "t4lobby", "online-t4.json", "hashes.json", "toolchain.json", ".client", ".buildid", ".servers", ".proto", "IMAGENAME eq ",
         "net.log", "rb_frames.log", "host:", "join:", "manual", "start_game",
@@ -184,6 +185,8 @@ def untranslated_literals(source):
         "hist_page", "i:", "lb_page", "lb_sort", "mention", "online_profile", "online_room_", "online_tour_", "p:",
         "pcompose", "preport", "private_open", "profile_player", "ranked_strict", "room_bar", "search", "spec_",
         "spec_watch_tour", "stats_mode", "stats_sort", "tabs", "rank_%02d.png", "ranks", "ping_measured",
+        # T4 ranked (t4_online): the badges' folder and file names, the found match's side list
+        "ui", "assets", "t4_rank_%02d.svg", "sides",
         # the settings page's group ids and its own rows (nav_settings_page)
         "display", "controls", "online", "audio", "offline", "replays", "updates", "advanced", "pad_bindings",
         "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",

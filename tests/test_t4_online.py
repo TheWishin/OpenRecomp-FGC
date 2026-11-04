@@ -138,9 +138,15 @@ class T4OnlineTests(unittest.TestCase):
             state = self.a.online_state()
             self.a.online_poll()
         self.assertEqual(state["phase"], "offline")
-        self.assertEqual(state["capabilities"], dict(ranked=False, lobby=True, match_flow=True, registration=True,
-                                                     t4_lobby=True, rooms=False, direct_available=True,
-                                                     server_set=True))
+        caps = state["capabilities"]
+        self.assertEqual({key: caps[key] for key in ("ranked", "lobby", "match_flow", "registration", "t4_lobby",
+                                                     "direct_available", "server_set", "leave_set")},
+                         dict(ranked=False, lobby=True, match_flow=True, registration=True, t4_lobby=True,
+                              direct_available=True, server_set=True, leave_set=False))
+        # T5DR's lobby features (t4-parity) show only what a logged-in server offers: nothing while offline.
+        for key in ("tournaments", "profiles", "community", "private_chat", "mutes", "challenge_preferences"):
+            self.assertFalse(caps[key], key)
+        self.assertNotIn("spectating", caps)
         self.assertEqual(self.a.starts, [])
         self.scan.assert_not_called()
 
@@ -171,8 +177,11 @@ class T4OnlineTests(unittest.TestCase):
         self.assertEqual(client.kwargs["server"], "127.0.0.1:7791")
         self.assertEqual(client.kwargs["build"], (os.path.join(self.directory.name, "bin"), "dev"))
         self.assertFalse(client.kwargs["auto_ready"])
-        for key in ("relays", "friends", "private_rooms", "spectate", "tournaments", "sets", "match_rules"):
+        self.assertTrue(client.kwargs["sets"])          # T4 ranked sets (best of 3, rated once)
+        for key in ("relays", "spectate", "match_rules", "input_delay8", "ingame_rematch", "auto_skip_intro"):
             self.assertFalse(client.kwargs[key], key)
+        for key in ("friends", "private_rooms", "tournaments", "private_chat", "casual_sets", "room_tables"):
+            self.assertTrue(client.kwargs[key], key)
         self.a.online_action("search_ranked")
         self.assertFalse(any(call[0] == "ranked" for call in client.calls if isinstance(call, tuple)))
 
@@ -224,8 +233,8 @@ class T4OnlineTests(unittest.TestCase):
         self.assertEqual(join["TEKKEN4_NET_PORT"], "31001")
         self.assertEqual(join["TEKKEN4_NET_DELAY"], "2")
         self.assertFalse(any(key.startswith("T5_") for key in join))
-        with self.assertRaises(RuntimeError):
-            ticket_env(ticket(ranked=True))
+        # T4 ranked (the game writes its own proven result): a ranked ticket gets the same documented environment.
+        self.assertEqual(ticket_env(ticket(ranked=True))["TEKKEN4_NET"], host["TEKKEN4_NET"])
 
     def test_game_evidence_notifies_started_and_playing_once(self):
         client = self.playing()
@@ -308,7 +317,7 @@ class T4OnlineTests(unittest.TestCase):
         # The game could not start: back to the lobby, still logged in, the match left.
         self.assertFalse(client.closed.is_set())
         self.assertEqual(self.a.online_state()["phase"], "logged_in")
-        self.assertNotIn("private", json.dumps(self.a.online_state()))
+        self.assertNotIn("private fake launch failure", json.dumps(self.a.online_state()))
 
     def test_disconnect_stops_owned_game_and_closes_client(self):
         client = self.playing()
@@ -428,13 +437,14 @@ class T4OnlineTests(unittest.TestCase):
         self.a.online_poll()
         self.assertEqual(self.a.online_state()["message"], "@online.result_void")
 
-    def test_own_rank_uses_only_local_mapping_and_hides_when_empty(self):
+    def test_own_rank_is_the_t4_servers_and_hides_for_guests(self):
         self.login()
         self.a._online_rating = 1500
         self.assertEqual(self.a.online_state()["rank"], "")
-        with mock.patch("openrecomp.adapters.t4_online.t4_rank_name", return_value="Maintained rank") as rank:
-            self.assertEqual(self.a.online_state()["rank"], "Maintained rank")
-            rank.assert_called_with(1500)
+        self.a._online_me = dict(name="Fake", rank="Initiate", tier=13, rating=1640)
+        self.assertEqual(self.a.online_state()["rank"], "Initiate")        # Tekken 7's names, from the T4 server
+        self.a._online_me = dict(name="Fake", rank="Beginner", tier=0, guest=True)
+        self.assertEqual(self.a.online_state()["rank"], "")
 
     def test_native_parent_online_config_cannot_supply_t5_endpoint_pin_or_session(self):
         with open(os.path.join(self.directory.name, "online.json"), "w", encoding="utf-8") as stream:

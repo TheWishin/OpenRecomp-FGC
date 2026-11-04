@@ -91,9 +91,19 @@ class BuildInfo:
             raise ValueError(f"{path}: id {sid} does not match its fields ({info.build_id})")
         return info
 
+    @staticmethod
+    def game_title(out):
+        """The title ID of the game built in `out` (its build stamp's "title": NPUB30009 for the US release,
+        NPEA00019 for the European one, 1.1.9), or None when the stamp cannot be read or has none."""
+        try:
+            with open(os.path.join(out, "build", "t5dr_build.json"), encoding="utf-8") as f:
+                return json.load(f).get("title") or None
+        except (OSError, ValueError, AttributeError):
+            return None
+
     @classmethod
     def from_out_dir(cls, out, release="dev"):
-        """From the game's exe folder (e.g. <T4 build>\\ps2xRuntime): its t4net_build.txt."""
+        """From the game's exe folder (e.g. D:\\tekken4-fork-net\\out\\net\\ps2xRuntime): its t4net_build.txt."""
         return cls.from_stamp(os.path.join(out, STAMP), release)
 
     def stamp_json(self):
