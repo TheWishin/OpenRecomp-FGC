@@ -112,8 +112,9 @@ Ranks are Tekken 7's 47 rank names (Beginner ... Tekken God Omega) on the T4 rat
 from T5DR's. The pictures are our own badges (`tools/make_rank_badges.py`, one SVG per rank in
 `openrecomp/ui/assets/ranks`), never Namco's emblems; they show in the lobby table, the profile
 card and the found match, which names **P1** and **P2** with name, rank and badge (P1 = the host).
-In the game each player's name and badge sit on their side at character select and under the
-life bars (Settings: **Name plates in the game**, on by default; nothing changes in the match).
+In the game the players' names replace the fighter names at character select and under the life
+bars, each with its rank badge left of the name (guests: name only; Settings: **Name plates in the
+game**, on by default -- off shows the game's fighter names; nothing changes in the match).
 
 ### End-to-end check on one PC
 
