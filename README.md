@@ -32,8 +32,9 @@ T4 Online opens on the lobby (the launcher ships the **T4 Online** server): gues
 login, or your T5DR Online account (one account for both games, ranks per game), the
 player list, lobby chat, quick match and challenges, then the same explicit Start game
 and a result report. Direct IP / VPN stays one press away.
-See [T4 Online and release checks](docs/T4_ONLINE.md). T4 has no ranked, rooms,
-friends, private chat or spectating in this beta. T5DR's Online section uses its installed
+See [T4 Online and release checks](docs/T4_ONLINE.md). With a T4 server from the t4-parity branch,
+T4 has T5DR's lobby: private chat, friends and invites, rooms, casual sets, tournaments, ranked,
+profile, leaderboard and statistics; spectating and replays need the T4 game first. T5DR's Online section uses its installed
 lobby client, with controller screens described in [T5DR_ONLINE.md](docs/T5DR_ONLINE.md).
 The old T5DR Online launcher remains available during the transition. Seven language catalogs
 are included; native-speaker and controller layout review remain release checks.

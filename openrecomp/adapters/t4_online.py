@@ -27,9 +27,11 @@ SHIPPED_SERVERS = os.path.join(VENDOR, "servers.json")
 SERVERS_FORMAT = "t5dr-servers/1"
 # Our own rank badges (tools/make_rank_badges.py: Tekken 7's rank names, our drawing), one SVG per T4 rank tier.
 RANK_BADGES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "assets", "ranks")
-# Rooms are not part of the T4 beta lobby: players, chat, quick match and challenges only.
-ROOM_ACTIONS = ("refresh_rooms", "create_room", "create_password_room", "create_code_room",
-                "join_room_code", "leave_room")
+# T5DR's lobby features that work for Tekken 4 as they are (docs/T4_ONLINE.md "What T4 Online has"): the server is
+# T5DR's lobby (1.2.0, t4-parity). Left out: spectating (the T4 game has no replay recorder yet) and the health
+# handicap / training rooms (t5_rules: the T4 game has no life rules yet); the T4 server never takes those caps.
+T4_FEATURE_MODULES = (".t5_tournaments", ".t5_profiles", ".t5_community", ".t5_accounts", ".t5_challenges",
+                      ".t5_moderation", ".t5_private_chat")
 
 
 def source_net_profile(config):
@@ -572,6 +574,7 @@ class T4Online(T4Direct, Online):
     online_match_flow = True
     online_legacy_config = False
     online_registration = True
+    online_feature_modules = T4_FEATURE_MODULES
 
     @property
     def online_ranked(self):
@@ -831,7 +834,7 @@ class T4Online(T4Direct, Online):
         server = bool(self._online_fields["online_server"].strip())
         if state["phase"] == "offline" and state["message"] == "@online.offline":
             state["message"] = "@t4.online_setup_hint" if server else "@t4.lobby_no_server"
-        state["capabilities"].update(t4_lobby=True, rooms=False, direct_available=True, server_set=server)
+        state["capabilities"].update(t4_lobby=True, direct_available=True, server_set=server)
         saved = self._online_saved() if state.get("saved_available") else None
         # One account for T5DR and T4: a T5DR remembered login offered here is named as such.
         state["saved_shared"] = bool(saved and saved.get("shared"))
@@ -844,18 +847,17 @@ class T4Online(T4Direct, Online):
             and callable(getattr(self._online_client, "leave_set", None)))
         return state
 
-    def _online_lobby_action(self, action, client):
-        if action in ROOM_ACTIONS or action.startswith("join_room:"):
-            self._online_message = "@online.social_unavailable"
-            return
-        super()._online_lobby_action(action, client)
-
     def _online_client_options(self):
         options = super()._online_client_options()
         # Ranked sets (best of 3, rated once): every game is a new connection and a new T4 game, started by itself
         # after the server's countdown (_online_match_found, origin "set").
-        options.update(relays=False, friends=False, private_rooms=False, tournaments=False,
-                       spectate=False, sets=True, match_rules=False)
+        # Friends, rooms (private, community, tables), tournaments, private chat, mentions and casual sets as in
+        # T5DR. Off until the T4 game has them: spectate, the life rules, the in-game rematch, the auto skips; the
+        # challenge delay stays 0..2 (T4's netplay takes 0..4, T5DR 1.2.0's picker offers 0..8).
+        options.update(relays=False, friends=True, private_rooms=True, tournaments=True, spectate=False, sets=True,
+                       match_rules=False, private_chat=True, badges=True, mentions=True, casual_sets=True,
+                       room_tables=True, input_delay8=False, ingame_rematch=False, auto_skip_after_round=False,
+                       auto_skip_intro=False)
         return options
 
     def _online_game_env(self, ticket):

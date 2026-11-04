@@ -254,14 +254,14 @@ class GameWatch:
 class GameSetup:
     """Where the T4 game is and how to start it.
 
-    exe_dir   the netplay build's folder (<T4 build>\\ps2xRuntime: ps2EntryRunner.exe and
+    exe_dir   the netplay build's folder (D:\\tekken4-fork-net\\out\\net\\ps2xRuntime: ps2EntryRunner.exe and
               t4net_build.txt, docs/rollback/net_build.cmd)
     elf       the player's game\\disc\\SLUS_203.28 (from his own disc)
     run_root  one run dir per match below it (its own memory card, net.log, rb_frames.log)
     command   instead of the game: another program started the same way (tests: tools/t4_stub_game.py)"""
 
     def __init__(self, exe_dir=None, elf=None, run_root=None, delay="auto", sound=True, pad=None, extra_env=None,
-                 command=None):
+                 command=None, plates=True):
         self.exe_dir = exe_dir
         self.elf = elf
         self.run_root = run_root or os.path.join(os.getcwd(), "t4online")
@@ -270,14 +270,15 @@ class GameSetup:
         self.pad = pad
         self.extra_env = dict(extra_env or {})
         self.command = list(command) if command else None
+        self.plates = plates            # the game's name plates (hud_env)
 
     def argv(self):
         if self.command:
             return list(self.command)
         return [os.path.join(self.exe_dir, GAME_EXE), self.elf]
 
-    def start(self, ticket, attempt=0):
-        """Start the game for `ticket` -> (Popen, run_dir, env)."""
+    def start(self, ticket, attempt=0, hud=None):
+        """Start the game for `ticket` -> (Popen, run_dir, env). hud: hud_env()'s name plates."""
         name = f"{proto.file_safe(ticket.match_id)}_{ticket.role}" + (f"_{attempt}" if attempt else "")
         run_dir = os.path.join(self.run_root, name)
         os.makedirs(run_dir, exist_ok=True)
@@ -285,6 +286,7 @@ class GameSetup:
         env.setdefault("TEKKEN4_SOUND", "1" if self.sound else "0")
         if self.pad is not None:
             env["TEKKEN4_NET_PAD"] = str(self.pad)
+        env.update(hud or {})
         env.update(self.extra_env)
         with open(os.path.join(run_dir, "lobby_env.json"), "w", encoding="utf-8") as f:
             json.dump({k: ("(secret)" if k == "TEKKEN4_NET_KEY" else v) for k, v in env.items()}, f, indent=1)
@@ -343,7 +345,9 @@ class T4Match:
         self.log(f"match {mid}: {ticket.opponent.get('name', '?')} -- {way}, ping {ticket.rtt_ms:.0f} ms; "
                  f"you are P{ticket.slot + 1} ({ticket.role})")
         attempt = 0
-        p, run_dir, env = self.setup.start(ticket, attempt)
+        you = ev.get("you") or {"name": getattr(self.c, "name", None) or "", "guest": True}
+        hud = hud_env(ticket.slot, you, ticket.opponent, getattr(self.setup, "plates", True))
+        p, run_dir, env = self.setup.start(ticket, attempt, hud)
         self.log(f"  game started (run dir {run_dir}): TEKKEN4_NET={env['TEKKEN4_NET']}")
         watch = GameWatch(run_dir)
         t0 = time.monotonic()
@@ -380,7 +384,7 @@ class T4Match:
                             stop(p)
                             ticket = nxt["ticket"]
                             attempt += 1
-                            p, run_dir, env = self.setup.start(ticket, attempt)
+                            p, run_dir, env = self.setup.start(ticket, attempt, hud)
                             watch = GameWatch(run_dir)
                             mid = ticket.match_id
                             self.log(f"  game restarted on the relay: TEKKEN4_NET={env['TEKKEN4_NET']}")

@@ -1,5 +1,6 @@
 """T5DR's optional installed-client features; snapshots never send requests."""
-import importlib
+from importlib import import_module as _import_feature   # (bound once: tests that patch importlib.import_module
+                                                       # to watch the lobby client's modules never see these)
 import inspect
 
 
@@ -7,15 +8,24 @@ MODULES = (".t5_spectating", ".t5_tournaments", ".t5_profiles", ".t5_community",
            ".t5_accounts", ".t5_rules", ".t5_challenges", ".t5_moderation", ".t5_private_chat")
 
 
+def _names(owner):
+    """The feature modules this adapter's lobby offers: T5DR's installed client all of them; another game's adapter
+    names its own subset (`online_feature_modules`, e.g. Tekken 4 without spectating and the handicap)."""
+    if not owner.online_lobby:
+        return ()
+    own = getattr(owner, "online_feature_modules", None)
+    if own is not None:
+        return tuple(own)
+    return MODULES if owner.online_package == "t5lobby" and owner.online_game != "t4" else ()
+
+
 def enabled(owner):
-    return (owner.online_package == "t5lobby" and owner.online_lobby
-            and owner.online_game != "t4")
+    return bool(_names(owner))
 
 
 def modules(owner):
-    if enabled(owner):
-        for name in MODULES:
-            yield importlib.import_module(name, __package__) if isinstance(name, str) else name
+    for name in _names(owner):
+        yield _import_feature(name, __package__) if isinstance(name, str) else name
 
 
 def init(owner):

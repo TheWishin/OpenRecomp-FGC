@@ -138,9 +138,15 @@ class T4OnlineTests(unittest.TestCase):
             state = self.a.online_state()
             self.a.online_poll()
         self.assertEqual(state["phase"], "offline")
-        self.assertEqual(state["capabilities"], dict(ranked=False, lobby=True, match_flow=True, registration=True,
-                                                     t4_lobby=True, rooms=False, direct_available=True,
-                                                     server_set=True, leave_set=False))
+        caps = state["capabilities"]
+        self.assertEqual({key: caps[key] for key in ("ranked", "lobby", "match_flow", "registration", "t4_lobby",
+                                                     "direct_available", "server_set", "leave_set")},
+                         dict(ranked=False, lobby=True, match_flow=True, registration=True, t4_lobby=True,
+                              direct_available=True, server_set=True, leave_set=False))
+        # T5DR's lobby features (t4-parity) show only what a logged-in server offers: nothing while offline.
+        for key in ("tournaments", "profiles", "community", "private_chat", "mutes", "challenge_preferences"):
+            self.assertFalse(caps[key], key)
+        self.assertNotIn("spectating", caps)
         self.assertEqual(self.a.starts, [])
         self.scan.assert_not_called()
 
@@ -172,8 +178,10 @@ class T4OnlineTests(unittest.TestCase):
         self.assertEqual(client.kwargs["build"], (os.path.join(self.directory.name, "bin"), "dev"))
         self.assertFalse(client.kwargs["auto_ready"])
         self.assertTrue(client.kwargs["sets"])          # T4 ranked sets (best of 3, rated once)
-        for key in ("relays", "friends", "private_rooms", "spectate", "tournaments", "match_rules"):
+        for key in ("relays", "spectate", "match_rules", "input_delay8", "ingame_rematch", "auto_skip_intro"):
             self.assertFalse(client.kwargs[key], key)
+        for key in ("friends", "private_rooms", "tournaments", "private_chat", "casual_sets", "room_tables"):
+            self.assertTrue(client.kwargs[key], key)
         self.a.online_action("search_ranked")
         self.assertFalse(any(call[0] == "ranked" for call in client.calls if isinstance(call, tuple)))
 
@@ -309,7 +317,7 @@ class T4OnlineTests(unittest.TestCase):
         # The game could not start: back to the lobby, still logged in, the match left.
         self.assertFalse(client.closed.is_set())
         self.assertEqual(self.a.online_state()["phase"], "logged_in")
-        self.assertNotIn("private", json.dumps(self.a.online_state()))
+        self.assertNotIn("private fake launch failure", json.dumps(self.a.online_state()))
 
     def test_disconnect_stops_owned_game_and_closes_client(self):
         client = self.playing()

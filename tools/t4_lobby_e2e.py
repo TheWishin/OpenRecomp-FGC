@@ -144,6 +144,8 @@ def parent(args):
                        "--iso", str(Path(args.iso).resolve())]
             if args.accounts:
                 command.append("--accounts")
+            if args.parity:
+                command.append("--parity")
             if args.stub:
                 command += ["--stub", str(Path(args.stub).resolve())]
             if args.real:
@@ -426,6 +428,113 @@ def child(args):
             wait(phase_is("logged_in"), 20, "the lobby")
             step("back_in_lobby")
 
+        def row(iid):
+            return next((item for item in nav.items() if item.get("id") == iid), None)
+
+        def do(iid, seconds=20):
+            """Activate the row `iid` the way a press on it does (its own run), once the page shows it."""
+            item = wait(lambda: row(iid) if row(iid) and row(iid).get("run") else None, seconds, "the row " + iid)
+            item["run"]()
+            spin()
+
+        def type_text(field, text):
+            # what the on-screen keyboard saves (type_into does it key by key; the result is this value)
+            adapter.set_text_value(field, text)
+            if adapter.text_value(field) != text:
+                raise AssertionError("the field %s did not take the text" % field)
+
+        def other_id():
+            return next(str(p["id"]) for p in state().get("players") or [] if p.get("name") == other)
+
+        def private_lines():
+            data = state().get("private_chat") or {}
+            return [(m.get("name"), m.get("text")) for t in data.get("threads") or [] for m in t.get("messages") or []]
+
+        def parity():
+            """T5DR 1.2.0's lobby features on T4 (docs/T4_ONLINE.md "What T4 Online has"): the chapters the page
+            shows, private chat, friends, a room match, profile / leaderboard / statistics."""
+            caps = state().get("capabilities") or {}
+            regions = sorted({item.get("region") for item in nav.items() if item.get("region")})
+            step("chapters", regions=regions, caps={k: caps.get(k) for k in (
+                "private_chat", "friends", "community", "room_tables", "profiles", "leaderboard",
+                "community_stats", "tournaments", "mutes", "challenge_preferences", "account_tools")})
+            for chapter in ("lobby", "rooms", "friends", "leaderboard", "stats", "profile", "tournaments",
+                            "account", "chat"):
+                if chapter not in regions:
+                    raise AssertionError("no %s chapter on the page: %s" % (chapter, regions))
+            if "spectating" in regions or caps.get("spectating"):
+                raise AssertionError("spectating is shown, but the T4 game cannot record a match yet")
+            if any((item.get("id") or "").startswith(("rules_life", "challenge_stage")) for item in nav.items()):
+                raise AssertionError("the handicap or a stage choice is offered, but the T4 game has none yet")
+            mark("chapters")
+            wait_other("chapters")
+
+            # Private chat both ways.
+            line = "psst from " + who
+            if who == "Alice":
+                do("private_open:" + other_id())
+                type_text("online_private_chat", line)
+                do("private_send")
+                wait(lambda: ("Bob", "psst from Bob") in private_lines(), 30, "the private answer")
+            else:
+                wait(lambda: ("Alice", "psst from Alice") in private_lines(), 30, "the private line")
+                do("private_open:" + other_id())
+                type_text("online_private_chat", line)
+                do("private_send")
+                wait(lambda: ("Bob", line) in private_lines(), 10, "my own private line")
+            step("private_chat", lines=private_lines())
+            mark("private")
+            wait_other("private")
+
+            # Friends: Alice asks, Bob accepts; both see the other as a friend.
+            if who == "Alice":
+                type_text("online_friend_name", "Bob")
+                do("add_friend")
+            else:
+                do("accept_friend:Alice", 30)
+            wait(lambda: any(f.get("name") == other for f in state().get("friends") or []), 30, "the friendship")
+            step("friends", friends=[(f.get("name"), f.get("status")) for f in state().get("friends") or []])
+            mark("friends")
+            wait_other("friends")
+
+            # A room: Alice makes one, Bob joins it from the list, the room's match is played (stand-in game).
+            if who == "Alice":
+                type_text("online_room_name", "T4 parity room")
+                do("create_room")
+                wait(lambda: (state().get("room") or {}).get("id"), 20, "my room")
+                (out / "room.id").write_text(str(state()["room"]["id"]), encoding="utf-8")
+                mark("room_made")
+            else:
+                wait_other("room_made")
+                rid = (out / "room.id").read_text(encoding="utf-8")
+                for _ in range(20):
+                    do("refresh_rooms")
+                    if row("join_room:" + rid):
+                        break
+                    spin(250)
+                do("join_room:" + rid)
+            wait(phase_is("matched"), 60, "the room's match")
+            step("room_match", room=(state().get("room") or {}).get("name"),
+                 opponent=state().get("match", {}).get("opponent"))
+            play_match("result_win" if who == "Alice" else "result_loss")
+            if (state().get("room") or {}).get("id"):
+                do("leave_room")
+                wait(lambda: not (state().get("room") or {}).get("id"), 20, "leaving the room")
+            mark("room_done")
+            wait_other("room_done", 300)
+
+            # Profile, leaderboard and statistics of this T4 server (the room match is in them).
+            do("profile_self")
+            wait(lambda: (state().get("profile") or {}).get("name") == who, 30, "my profile")
+            profile = state().get("profile") or {}
+            do("leaderboard_refresh")
+            wait(lambda: (state().get("leaderboard") or {}).get("rows"), 30, "the leaderboard")
+            do("stats_refresh")
+            step("profile", name=profile.get("name"), keys=sorted(profile)[:20],
+                 leaderboard=[r.get("name") for r in (state().get("leaderboard") or {}).get("rows") or []][:5])
+            mark("profile")
+            wait_other("profile")
+
         # Shelf -> T4 -> Online, by pad.
         backend._tick()
         spin()
@@ -479,6 +588,13 @@ def child(args):
         step("player_list", players=[p["name"] for p in state().get("players") or []])
         mark("players")
         wait_other("players")
+        if args.parity:
+            parity()
+            focus("logout", activate=True)
+            wait(phase_is("offline"), 15, "the logout")
+            step("logged_out")
+            report["ok"] = True
+            return
 
         # Lobby chat both ways (not in the --game-result run: it checks the result path only).
         line = "hi from " + who
@@ -624,6 +740,9 @@ def main():
                         help="log in with T5DR accounts through a T4 lobby that shares T5DR's (needs --t5dr-lobby)")
     parser.add_argument("--t5dr-lobby", help="T5DR's lobby folder (t5lobby inside), for --accounts")
     parser.add_argument("--game-result", help="the games report their own result (see above)")
+    parser.add_argument("--parity", action="store_true",
+                        help="T5DR 1.2.0's lobby features (needs --accounts and a t4-parity lobby): chapters, private "
+                             "chat, friends, a room match, profile / leaderboard / statistics")
     parser.add_argument("--child")
     args = parser.parse_args()
     if args.child:
@@ -632,6 +751,8 @@ def main():
         parser.error("give --lobby, --t4-root and exactly one of --stub / --real")
     if args.accounts and not args.t5dr_lobby:
         parser.error("--accounts needs --t5dr-lobby")
+    if args.parity and not args.accounts:
+        parser.error("--parity needs --accounts (friends are for accounts)")
     return parent(args)
 
 

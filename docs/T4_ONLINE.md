@@ -95,8 +95,18 @@ the launcher picks; nothing needs forwarding.
    report **I won**, **I lost** or **No result** after the game; the lobby's verdict appears,
    then **Back to lobby**. **Direct IP / VPN** on the login screen goes back.
 
-Not in the T4 beta lobby: rooms, friends, private chat, spectating, tournaments, replays and
-direct entry into a fight.
+### What T4 Online has (t4-parity)
+
+With a T4 server from the `t4-parity` branch (T5DR Online 1.2.0's lobby with T4's game rules) the T4 page
+shows the same Online chapters as T5DR: Lobby (players, lobby chat, private chat in the chat panel,
+challenges with **First to** 1-10 and **P1 / P2**), Rooms (classic, community, password / invite code,
+tables), Friends (requests, invites), Leaderboard, Statistics, Profile (history, per-fighter numbers),
+Tournaments, Account (password, recovery codes, blocks, mutes). An older T4 server only offers what it has.
+
+Not yet, because the T4 game needs them first: spectating and replays, training rooms and the health
+handicap, the in-game rematch question and automatic skips, choosing the stage in the lobby (pick it on
+T4's own stage select), direct entry into a fight. The T4 server switches them off
+(`T5L_GAME_CAPS_OFF`, `T5L_STAGE_CHOICE`), and the launcher does not offer them for T4.
 
 ### Ranked
 

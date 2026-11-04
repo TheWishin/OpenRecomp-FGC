@@ -142,6 +142,8 @@ def open_udp_socket(port=0):
 
 
 class GameSocket(asyncio.DatagramProtocol):
+    ANSWERED_MAX = 512                       # punches remembered as answered (the oldest go first)
+
     def __init__(self, server, port2, token, tag, side, block_direct=False, inbound=None):
         self.server = server                 # (ip, udp_port)
         self.server2 = (server[0], port2) if port2 else None
@@ -268,12 +270,13 @@ class GameSocket(asyncio.DatagramProtocol):
             now = time.monotonic()
             if addr not in self.heard:
                 self.heard[addr] = now
-            # One answer per punch: the answer carries the punch's seq, so answering answers again would keep
-            # one packet circling between the two sockets for as long as they live (relay bridges keep theirs
-            # through the match). An older peer that still answers everything gets one answer per seq here.
+            # One answer per punch: the answer carries the punch's seq, so answering answers again kept one packet
+            # circling between the two sockets for as long as they lived (a relay bridge keeps its socket through
+            # the match; review 1.2.0, the same fix as OpenRecomp's T4 client). An older peer that still answers
+            # everything gets one answer per seq here; the wire format is unchanged.
             if (addr, seq) not in self.answered:
                 self.answered[(addr, seq)] = None
-                while len(self.answered) > 512:
+                while len(self.answered) > self.ANSWERED_MAX:
                     self.answered.pop(next(iter(self.answered)))
                 self.send(proto.pk_punch(self.tag, self.side, proto.F_HEARD, seq), addr)
             if flags & proto.F_HEARD:

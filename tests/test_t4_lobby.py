@@ -242,17 +242,27 @@ class LobbyActions(unittest.TestCase):
         self.a.online_poll()
         self.client = self.a.clients[-1]
 
-    def test_rooms_are_not_part_of_the_t4_beta_lobby(self):
-        for action in ("create_room", "refresh_rooms", "join_room:room-1", "leave_room", "create_code_room"):
-            self.a.online_action(action)
-            self.assertEqual(self.a.online_state()["message"], "@online.social_unavailable")
-        self.assertFalse(any(isinstance(call, tuple) and "room" in call[0] for call in self.client.calls))
-        self.assertFalse(self.a.online_state()["capabilities"]["rooms"])
+    def test_rooms_are_part_of_the_t4_lobby(self):
+        """t4-parity: rooms as in T5DR (the T4 server is T5DR's lobby)."""
+        self.assertNotEqual(self.a.online_state()["capabilities"].get("rooms", True), False)
+        self.client.refresh = mock.Mock()
+        self.a.online_action("refresh_rooms")
+        self.assertNotEqual(self.a.online_state()["message"], "@online.social_unavailable")
+        self.client.refresh.assert_called()
 
-    def test_social_features_of_t5dr_stay_off(self):
-        self.assertTrue(self.client.kwargs["sets"])     # T4 ranked sets
-        for key in ("friends", "private_rooms", "tournaments", "spectate", "relays", "match_rules"):
+    def test_t5dr_features_that_need_the_t4_game_stay_off(self):
+        self.assertTrue(self.client.kwargs["sets"])     # T4 ranked and casual sets
+        for key in ("spectate", "relays", "match_rules", "input_delay8", "ingame_rematch", "auto_skip_after_round",
+                    "auto_skip_intro"):
             self.assertFalse(self.client.kwargs[key], key)
+        for key in ("friends", "private_rooms", "tournaments", "private_chat", "badges", "mentions", "casual_sets",
+                    "room_tables"):
+            self.assertTrue(self.client.kwargs[key], key)
+        from openrecomp.adapters import t5_features
+        names = [module.__name__.rsplit(".", 1)[-1] for module in t5_features.modules(self.a)]
+        self.assertNotIn("t5_spectating", names)
+        self.assertNotIn("t5_rules", names)
+        self.assertIn("t5_private_chat", names)
 
 
 class SharedLogin(unittest.TestCase):
@@ -360,8 +370,10 @@ class SharedLogin(unittest.TestCase):
         subject.online_action("login_saved")
         subject.online_poll()
         client = subject.clients[-1]
-        client.events.put(dict(t="lobby_state", players=[dict(id="p1", name="Dev", badge="dev"),
-                                                          dict(id="p2", name="Plain", badge="admin")]))
+        client.badges_ok = lambda: True     # (t4-parity: the T4 server negotiates T5DR 1.2.0's badges)
+        rows = [dict(id="p1", name="Dev", badge="dev"), dict(id="p2", name="Plain", badge="admin")]
+        client.players = rows               # (the real client keeps the lobby's rows)
+        client.events.put(dict(t="lobby_state", players=rows))
         client.events.put({"t": "chat", "from": dict(name="Dev", badge="dev"), "text": "hi"})
         subject.online_poll()
         state = subject.online_state()
