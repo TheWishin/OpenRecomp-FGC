@@ -148,7 +148,7 @@ class T4MatchFlowTests(unittest.TestCase):
         self.found()
         self.event(t="notice", code="nat_error", msg="private endpoint 192.0.2.1 failed")
         self.assertEqual(self.a.online_state()["message"], "@online.connection_failed")
-        self.assertEqual(self.a.online_state()["phase"], "offline")
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")      # the match ends, the login stays
         self.assertNotIn("192.0.2.1", json.dumps(self.a.online_state()))
 
     def test_server_cancel_reasons_are_explained_in_plain_catalog_messages(self):

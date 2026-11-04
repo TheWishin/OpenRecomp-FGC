@@ -99,6 +99,10 @@ class Online:
         self._online_results = queue.Queue()
         self._online_guard_at = 0.0
         self._online_lock = threading.RLock()
+        # A queue request and the request that leaves the queue again go out in the order they were made: a Cancel
+        # pressed while the search request is still on its way is sent after it (or the search is never sent).
+        self._online_queue_lock = threading.Lock()
+        self._online_relogin = None
         t5_features.init(self)
 
     def _online_nickname(self):
@@ -124,10 +128,19 @@ class Online:
     def _online_default_server(self):
         return "127.0.0.1:" + str(self.online_port)
 
+    # The lobby keeps a dropped player's session this long (server T5L_RESUME_WINDOW, 600 s); the client keeps trying
+    # to resume it a little less (a 60 s window gave up during a 90 s outage that the server would have survived).
+    RECONNECT_SECONDS = 540
+    UNQUEUE_TRIES, UNQUEUE_WAIT = 10, 1.0
+    # A connection the client could not resume (the server restarted, or forgot the session): log in again by
+    # itself, as the T5DR launcher does -- first after RELOGIN_FIRST s, then every RELOGIN_EVERY s for RELOGIN_FOR s.
+    # Never after a kick or a ban, a logout, or a login by hand; an expired saved login stops it.
+    RELOGIN_FIRST, RELOGIN_EVERY, RELOGIN_FOR = 3.0, 10.0, 600.0
+
     def _online_client_options(self):
         # reconnect: a dropped connection (Wi-Fi, a router) resumes the same session in the background, as in the
         # T5DR launcher; with 0 every short drop was a logout. A kick ("logged in from another place") never resumes.
-        return dict(auto_ready=False, reconnect=60, blind_ready=True, port_mapping=False)
+        return dict(auto_ready=False, reconnect=self.RECONNECT_SECONDS, blind_ready=True, port_mapping=False)
 
     def _online_config_paths(self, writable=False):
         path = self.online_cfg_path()
@@ -561,15 +574,16 @@ class Online:
             return
         if action == "logout":
             self.online_close()
+            self._online_auto_tried = True        # no automatic login after the player logged out
             self._online_message = "@online.logged_out"
             return
         if action == "acknowledge_recovery":
             self._online_recovery_codes = []
             return
-        if (action == "cancel" and self._online_phase == "searching" and self._online_client is not None
-                and (not self._online_busy or getattr(self, "_online_pending", "") == "guard")):
-            # The queue said yes: leave it and stay logged in (a closed connection here was a logout after every
-            # cancelled search). The unqueue request's failure still detaches (_online_to_lobby).
+        if action == "cancel" and self._online_phase == "searching" and self._online_client is not None:
+            # Leave the queue and stay logged in (a closed connection here was a logout after every cancelled
+            # search), also while the search request is still on its way: the queue lock sends the leave after it,
+            # or the search is never sent. Only a leave request the server never answers detaches (_online_to_lobby).
             self._online_to_lobby("@online.cancelled")
             return
         if action == "cancel" and self._online_phase in ("connecting", "searching"):
@@ -586,6 +600,8 @@ class Online:
             if action == "login_register" and not self._online_can_register():
                 return
             if self._online_client is None:
+                self._online_relogin = None       # the player logs in by hand
+                self._online_auto_tried = True
                 self._online_login(action)
             return
         client = self._online_client
@@ -602,25 +618,28 @@ class Online:
                 self._online_message = "@online.account_required"
                 return
             mode = "ranked" if action == "search_ranked" else "casual"
-            char = self.chosen_fighter()
             self._online_phase, self._online_queue = "searching", mode
             self._online_message = "@online.searching_ranked" if mode == "ranked" else "@online.searching_casual"
-            generation = self._online_generation
+            self._online_search_submit(mode)
+        elif self.online_lobby and self._online_phase == "logged_in":
+            if not t5_features.action(self, action, client):
+                self._online_lobby_action(action, client)
 
-            def work():
-                problem = self._online_game_check()
-                if problem:
-                    raise SearchRefused(problem)
+    def _online_search_submit(self, mode):
+        client, generation, char = self._online_client, self._online_generation, self.chosen_fighter()
+
+        def work():
+            problem = self._online_game_check()
+            if problem:
+                raise SearchRefused(problem)
+            with self._online_queue_lock:
                 self._online_check_request(generation, client)
                 if mode == "ranked":
                     client.ranked_match(char)
                 else:
                     client.quick_match(char)
-                return mode
-            self._online_submit(action, work)
-        elif self.online_lobby and self._online_phase == "logged_in":
-            if not t5_features.action(self, action, client):
-                self._online_lobby_action(action, client)
+            return mode
+        self._online_submit("search_ranked" if mode == "ranked" else "search_casual", work)
 
     def _online_check_request(self, generation, client):
         if generation != self._online_generation or client is not self._online_client:
@@ -941,6 +960,13 @@ class Online:
                     events.append(event)
             except queue.Empty:
                 break
+        if getattr(self, "_online_leaving", False):
+            # The player left the queue, but the server may have paired them before the leave arrived: say no to
+            # such an offer instead of showing a match after Cancel (the other player goes back to the queue).
+            late = [event for event in events if event.get("t") == "match_found"]
+            events = [event for event in events if event.get("t") != "match_found"]
+            for event in late:
+                self._online_decline_late(client, event.get("match"))
         retained = False
         priority = ("kicked", "disconnected") if self.online_match_flow else (
             "kicked", "match_found", "disconnected")
@@ -968,6 +994,7 @@ class Online:
                 self._online_message = "@online.matched"
             else:
                 self._online_message = "@online.disconnected"
+                self._online_relogin_start(name, account)
             return True, True
         changed = retained
         for event in events:
@@ -975,6 +1002,8 @@ class Online:
                 # The connection broke and the client resumes the same session by itself: still logged in.
                 self._online_message = "@online.reconnecting" if event["t"] == "reconnecting" else "@online.reconnected"
                 changed = True
+                if event["t"] == "reconnected":
+                    self._online_resumed()
             if t5_features.event(self, event):
                 changed = True
             elif self.online_match_flow and event.get("t") == "match_found":
@@ -1026,9 +1055,11 @@ class Online:
 
     def online_poll(self):
         self._online_init()
+        relogin = self._online_relogin_tick()
         changed, terminal = self._online_events()
         if terminal:
             return True
+        changed = changed or relogin
         while True:
             try:
                 generation, action, value, error = self._online_results.get_nowait()
@@ -1050,11 +1081,8 @@ class Online:
                 local = isinstance(error, SearchRefused) or (isinstance(error, RuntimeError) and str(error) in (
                     "@online.game_running", "@online.process_unknown", "@online.cancelled"))
                 if error and not local:
-                    # A lost acknowledgement may have reserved a match. Detach rather than
-                    # leaving an offer or room able to start after the UI reported failure.
-                    message = self._online_error(error)
-                    self.online_close()
-                    self._online_message = message
+                    # A lost acknowledgement may have reserved a match: leave the queue again, logged in.
+                    self._online_request_failed(action, error)
                     continue
             if self._online_completion(action, value, error):
                 continue
@@ -1069,6 +1097,8 @@ class Online:
                         and self._online_phase in ("matched", "starting", "playing", "result", "result_sent")):
                     # A match event confirms the request even when its acknowledgement was lost.
                     continue
+                if action.startswith("login_") and self._online_relogin_failed(error):
+                    continue
                 self._online_message = self._online_error(error, action == "login_saved")
                 if action.startswith("login_"):
                     self._online_client = None
@@ -1077,19 +1107,15 @@ class Online:
                     if isinstance(error, SearchRefused):
                         self._online_phase, self._online_queue = "logged_in", ""
                     else:
-                        # A lost acknowledgement can mean the server queued us. Disconnect to stop it.
-                        message = self._online_message
-                        self.online_close()
-                        self._online_message = message
+                        # A lost acknowledgement can mean the server queued us: leave the queue, logged in.
+                        self._online_request_failed(action, error)
                 elif action in ("cancel", "guard", "unqueue"):
-                    message = self._online_message
-                    self.online_close()
-                    self._online_message = message
+                    if action == "unqueue":
+                        self._online_leaving = False
+                    self._online_unqueue_failed(error)
                 elif match_request and not isinstance(error, SearchRefused):
                     # A timed-out reply may still have reserved a match or room on the server.
-                    message = self._online_message
-                    self.online_close()
-                    self._online_message = message
+                    self._online_request_failed(action, error)
             elif (self.online_match_flow and match_request
                   and self._online_phase in ("matched", "starting", "playing", "result", "result_sent")):
                 if action == "join_room_code" or action.startswith("join_room:"):
@@ -1115,17 +1141,28 @@ class Online:
                 self._online_name_prefill = False
                 self._online_fields["online_server"] = value["server"]
                 self._online_phase = "logged_in"
-                self._online_message = value["warning"] or "@online.logged_in"
+                self._online_message = value["warning"] or (
+                    "@online.reconnected" if self._online_relogin else "@online.logged_in")
+                self._online_relogin = None
             elif action.startswith("search_"):
                 if self._online_phase != "searching":
                     continue
                 self._online_phase, self._online_queue = "searching", value
                 self._online_message = "@online.searching_ranked" if value == "ranked" else "@online.searching_casual"
                 self._online_guard_at = time.monotonic() + 1
+            elif action == "unqueue":
+                self._online_unqueue_tries = 0
+                self._online_leaving = False
             elif action == "guard" and value:
-                message = value
-                self.online_close()
-                self._online_message = message
+                # A game started while searching: leave the queue, stay logged in. One failed process check
+                # (tasklist busy on a loaded PC) is not a reason; three in a row are.
+                unknown = getattr(self, "_online_guard_unknown", 0) + 1 if value == "@online.process_unknown" else 0
+                self._online_guard_unknown = unknown
+                if value != "@online.process_unknown" or unknown >= 3:
+                    self._online_guard_unknown = 0
+                    self._online_to_lobby(value)
+            elif action == "guard":
+                self._online_guard_unknown = 0
             elif action in ("refresh_players", "refresh_rooms"):
                 if isinstance(value, dict):
                     self._online_lobby_snapshot(value)
@@ -1188,11 +1225,12 @@ class Online:
     def _online_match_reset(self):
         """A match that ends before it started: forget it, keep the lobby connection (the adapters add theirs)."""
 
-    def _online_to_lobby(self, message, decline=None):
+    def _online_to_lobby(self, message, decline=None, leave=None, leave_room=False):
         """Back to the lobby, still logged in: after a cancelled search, a cancelled match or a declined ready check.
         The server is asked to take this player out of the queue (it re-queues the innocent side of a cancelled
-        queue match), and a ready check this player declines is answered with no. Only if those requests fail is
-        the connection closed, as it always was."""
+        queue match), a ready check this player declines is answered with no, and a match this player accepted
+        but that has not started is left (leave = its id: the server cancels it for both). Only if leaving the
+        queue fails for good is the connection closed, as it always was."""
         client = self._online_client
         if client is None:
             return
@@ -1203,16 +1241,211 @@ class Online:
         self._online_phase, self._online_queue = "logged_in", ""
         self._online_match = {}
         self._online_message = message
+        self._online_leaving = True               # until the server has taken the player out of the queue
+        if leave_room:
+            self._online_room = {}
+        requests = []
+        if decline is not None:
+            requests.append(lambda: client.ready(False, match_id=decline))
+        if leave:
+            requests.append(lambda: client.leave_match(leave))
+        if leave_room:
+            requests.append(client.leave_room)
 
-        def leave():
-            if decline is not None:
-                try:
-                    client.ready(False, match_id=decline)
-                except Exception:  # noqa: BLE001 -- the match may already be gone; leaving the queue is what counts
-                    pass
-            client.cancel_queue()
+        def work():
+            with self._online_queue_lock:
+                for request in requests:
+                    try:
+                        request()
+                    except Exception:  # noqa: BLE001 -- the match/room may be gone already; the queue is what counts
+                        pass
+                for attempt in range(self.UNQUEUE_TRIES):
+                    try:
+                        client.cancel_queue()
+                        break
+                    except Exception as error:  # noqa: BLE001 -- only "too many requests" is asked again
+                        # Fast search/cancel presses meet the lobby's request limit (2 a second): the search before
+                        # may still hold a place in the queue, so the leave is asked again shortly (offers that
+                        # arrive meanwhile are declined). Before, this left the player queued behind "Search stopped".
+                        if (getattr(error, "code", "") not in ("rate_limited", "busy")
+                                or attempt == self.UNQUEUE_TRIES - 1):
+                            raise
+                        time.sleep(self.UNQUEUE_WAIT)
             return message
-        self._online_submit("unqueue", leave)
+        self._online_submit("unqueue", work)
+
+    def _online_decline_late(self, client, mid):
+        if not mid:
+            return
+
+        def decline():
+            try:
+                with self._online_queue_lock:
+                    client.ready(False, match_id=mid)
+            except Exception:  # noqa: BLE001 -- the offer may be gone already
+                pass
+        threading.Thread(target=decline, name="openrecomp-lobby", daemon=True).start()
+
+    @staticmethod
+    def _online_transport_error(error):
+        """The connection broke under the request: the server took the player out of its queue and rooms itself."""
+        return getattr(error, "code", "") in ("not_connected", "disconnected", "connect_failed") or (
+            isinstance(error, (OSError, ConnectionError)) and not getattr(error, "code", ""))
+
+    def _online_reconnecting(self):
+        return bool(getattr(self._online_client, "_reconnecting", False))
+
+    def _online_request_failed(self, action, error):
+        """A search, challenge, room or invite request failed: the player stays logged in (closing here was a
+        logout after every refused or lost request). A refusal from the server (rate limited, busy, not allowed)
+        reserved nothing; a broken connection took the player out of every queue and room on the server, and the
+        client resumes it by itself; only a request whose answer never came may have queued or seated the player,
+        so the launcher leaves the queue (and the room it asked for) again."""
+        message = self._online_error(error)
+        if getattr(error, "code", "") == "timeout":
+            self._online_to_lobby(message, leave_room=action in (
+                "create_room", "create_password_room", "create_code_room", "join_room_code")
+                or action.startswith("join_room:"))
+            return
+        if self._online_transport_error(error):
+            message = "@online.reconnecting" if self._online_reconnecting() else "@online.unavailable"
+        if self._online_phase in ("searching", "logged_in"):
+            self._online_phase, self._online_queue = "logged_in", ""
+        self._online_message = message
+
+    def _online_unqueue_failed(self, error):
+        """Leaving the queue failed. A broken connection already took the player out of it (the client resumes);
+        a refusal means there was nothing to leave; an answer that never came is asked again, twice, before the
+        connection is closed as the last safety (a launcher that says "in the lobby" must not stay queued)."""
+        code = getattr(error, "code", "")
+        if code in ("rate_limited", "busy") and self._online_client is not None:
+            # Still refused after UNQUEUE_TRIES: the player may still be queued (the last safety, as below).
+            message = self._online_error(error)
+            self.online_close()
+            self._online_message = message
+            return
+        if code == "timeout" and self._online_client is not None:
+            tries = getattr(self, "_online_unqueue_tries", 0) + 1
+            self._online_unqueue_tries = tries
+            if tries <= 2:
+                self._online_to_lobby(self._online_message)
+                return
+            self._online_unqueue_tries = 0
+            message = self._online_error(error)
+            self.online_close()
+            self._online_message = message
+            return
+        self._online_unqueue_tries = 0
+        if self._online_transport_error(error) and self._online_reconnecting():
+            self._online_message = "@online.reconnecting"
+
+    def _online_match_started(self):
+        """Has the server started the current match (a game may run)? Adapters with a match flow say so."""
+        return False
+
+    def _online_resumed(self):
+        """The client resumed the session after a drop. While the connection was gone the server took the player
+        out of its queue and its room and cancelled a match that had not started: a search goes on (queued again);
+        a ready check or a room is over; a started match goes on (the server sends its start again)."""
+        phase = self._online_phase
+        if phase == "searching" and self._online_queue in ("casual", "ranked"):
+            with self._online_lock:
+                self._online_generation += 1      # a search or guard request from before the drop is not wanted
+            self._online_busy = False
+            self._online_search_submit(self._online_queue)
+            return
+        if phase == "matched" or (phase == "starting" and not self._online_match_started()):
+            self._online_to_lobby("@online.reconnected")
+        if self._online_phase == "logged_in":
+            self._online_room = {}
+
+    def _online_relogin_start(self, name, account):
+        """After online_close() for a connection the client could not resume: the account's remembered login, or
+        the same guest name, logs in again by itself (RELOGIN_*). -> True when it will."""
+        if not name or (account and self._online_saved() is None):
+            return False
+        now = time.monotonic()
+        self._online_relogin = dict(at=now + self.RELOGIN_FIRST, until=now + self.RELOGIN_FOR, name=name,
+                                    account=bool(account))
+        self._online_phase, self._online_message = "connecting", "@online.reconnecting"
+        return True
+
+    def _online_relogin_tick(self):
+        plan = self._online_relogin
+        if not plan or self._online_client is not None or self._online_busy:
+            return False
+        now = time.monotonic()
+        if now > plan["until"] or (plan["account"] and self._online_saved() is None):
+            self._online_relogin = None
+            self._online_phase, self._online_message = "offline", "@online.disconnected"
+            return True
+        if now < plan["at"]:
+            return False
+        plan["at"] = now + self.RELOGIN_EVERY
+        if not plan["account"]:
+            self._online_fields["online_name"] = plan["name"]
+        self._online_login("login_saved" if plan["account"] else "login_guest")
+        if self._online_phase == "connecting":
+            self._online_message = "@online.reconnecting"
+        return True
+
+    RELOGIN_FINAL = ("auth_failed", "version_mismatch", "proto_mismatch", "insecure", "bad_name")
+
+    def _online_relogin_failed(self, error):
+        """A login of the automatic relogin failed. -> True when it tries again later (the lobby is still away,
+        busy or full, the name not free yet); a refused login (expired saved login, old build, ban) ends it with
+        its message."""
+        if not self._online_relogin:
+            return False
+        code = getattr(error, "code", "")
+        if not isinstance(code, str):
+            code = ""
+        message = self._online_error(error, True)
+        retry = (message in ("@online.unavailable", "@online.busy_server", "@online.server_full",
+                             "@online.rate_limited", "@online.name_taken")
+                 or self._online_transport_error(error) or code == "timeout")
+        if code in self.RELOGIN_FINAL or not retry:
+            self._online_relogin = None
+            return False
+        self._online_client = None
+        self._online_phase, self._online_message = "connecting", "@online.reconnecting"
+        return True
+
+    def _online_saved_own(self):
+        """The remembered login this launcher saved itself for the selected server; never one borrowed from the
+        native launcher's file (coexistence) or from the sister game (that one is used only when chosen)."""
+        saved = self._online_saved()
+        if saved is None or saved.get("shared"):
+            return None
+        if not getattr(self.s, "coexistence", False):
+            return saved
+        key = self._online_fields["online_server"].strip().lower() or self._online_default_server()
+        try:
+            with open(self.online_cfg_path(), encoding="utf-8") as stream:
+                own = (json.load(stream).get("sessions") or {}).get(key)
+        except (OSError, ValueError, AttributeError):
+            return None
+        return saved if isinstance(own, dict) and own.get("token") == saved.get("token") else None
+
+    def online_shown(self):
+        """The Online section is on screen: once per launcher run, log in with the remembered login by itself, as
+        the T5DR launcher does when its Online tab is first shown. Only a saved session token is used, never a
+        password; never again after a logout, a kick or a login by hand."""
+        self._online_init()
+        if getattr(self, "_online_auto_tried", False):
+            return
+        self._online_auto_tried = True
+        if (self._online_client is not None or self._online_busy or self._online_phase != "offline"
+                or getattr(self, "online_direct_ip", False)):
+            return
+        if self._online_saved_own() is None:
+            return
+        try:
+            if not self.ready():
+                return
+        except Exception:  # noqa: BLE001 -- an unreadable install just shows the login rows
+            return
+        self.online_action("login_saved")
 
     def online_close(self):
         self._online_init()
@@ -1221,6 +1454,8 @@ class Online:
             t5_features.close(self)
             client, self._online_client = self._online_client, None
         self._online_busy = False
+        self._online_relogin = None
+        self._online_leaving = False
         self._online_phase, self._online_queue = "offline", ""
         self._online_account = False
         self._online_recovery_codes = []

@@ -176,7 +176,7 @@ class T5MatchTests(unittest.TestCase):
         client = self.match()
         client.events.put(dict(t="notice", code="nat_error", msg="private endpoint"))
         self.a.online_poll()
-        self.assertEqual(self.a.online_state()["phase"], "offline")
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")      # the match ends, the login stays
         self.assertEqual(self.a.online_state()["message"], "@online.connection_failed")
         self.assertNotIn("private endpoint", str(self.a.online_state()))
 
@@ -252,7 +252,7 @@ class T5MatchTests(unittest.TestCase):
         self.assertEqual(self.a.fake_driver.rematches, [("one", False)])
         self.assertEqual(self.a.online_state()["phase"], "logged_in")
 
-    def test_return_lobby_still_fails_on_other_refusals(self):
+    def test_return_lobby_refused_keeps_the_result_screen(self):
         client = self.match()
         self.start(client)
         client.leave_set.side_effect = type("Refused", (Exception,), {"code": "busy"})()
@@ -262,7 +262,9 @@ class T5MatchTests(unittest.TestCase):
         self.a.online_action("return_lobby")
         self.a.online_poll()
         self.assertEqual(self.a.fake_driver.rematches, [])
-        self.assertNotEqual(self.a.online_state()["phase"], "logged_in")
+        # The set was not left: the result screen stays (Return can be pressed again), logged in.
+        self.assertEqual(self.a.online_state()["phase"], "result_sent")
+        self.assertFalse(client.closed.is_set())
 
     def test_game_back_at_its_select_screen_keeps_the_result_message(self):
         client = self.match()

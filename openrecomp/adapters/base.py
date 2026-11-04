@@ -163,6 +163,10 @@ class Adapter:
     def online_close(self):
         pass
 
+    def online_shown(self):
+        """The Online section is on screen (called each time its rows are built). An adapter may log in with a
+        remembered session once per launcher run; it must never use a password or start a search."""
+
     def online_account_sessions(self):
         """Remembered account logins a sister game may offer ({host, name, token, saved}); none by default."""
         return []

@@ -867,9 +867,16 @@ class T4Online(T4Direct, Online):
         self._online_reap_owned()
         if (self._online_phase not in ("logged_in", "searching")
                 or getattr(self, "_online_owned_run", None) is not None):
-            # An unsolicited second offer must never discard an owned game or its result.
-            self.online_close()
-            self._online_message = "@online.cancelled"
+            # An unsolicited second offer must never discard an owned game or its result: say no to that offer
+            # only (closing the connection here logged the player out and stopped the game it protected).
+            mid, client = event.get("match"), self._online_client
+            if mid and client is not None and mid != getattr(self, "_online_match_id", None):
+                def decline():
+                    try:
+                        client.ready(False, match_id=mid)
+                    except Exception:  # noqa: BLE001 -- the offer may be gone already
+                        pass
+                threading.Thread(target=decline, name="openrecomp-lobby", daemon=True).start()
             return True
         self._online_ticket = None
         self._online_match_id = event.get("match")
@@ -890,8 +897,8 @@ class T4Online(T4Direct, Online):
             if self._online_phase in ("matched", "starting", "playing"):
                 message = ("@online.game_build_mismatch" if event["code"] == "version_mismatch"
                            else "@online.connection_failed")
-                self.online_close()
-                self._online_message = message
+                # This match cannot be played: leave it, stay in the lobby (closing here was a logout).
+                self._online_to_lobby(message, leave=getattr(self, "_online_match_id", None) or None)
             return True
         if kind in ("match_reveal", "match_cancel", "match_result", "nat_status", "nat_upgrade", "nat_fallback"):
             if self._online_phase not in ("matched", "starting", "playing", "result", "result_sent"):
@@ -988,9 +995,9 @@ class T4Online(T4Direct, Online):
             return True
         if kind == "match_result":
             if self._online_phase == "starting":
-                # The lobby can void a match while the launch worker is still pending.
-                self.online_close()
-                self._online_message = "@online.result_void"
+                # The lobby can void a match while the launch worker is still pending: back to the lobby (the match
+                # reset stops a game the worker started).
+                self._online_to_lobby("@online.result_void")
                 return True
             if self._online_phase in ("playing", "result", "result_sent"):
                 self._online_stop_owned()
@@ -1047,11 +1054,10 @@ class T4Online(T4Direct, Online):
             # Declined at the ready check: say no and stay in the lobby.
             self._online_to_lobby("@online.cancelled", decline=getattr(self, "_online_match_id", None) or "")
         elif action == "cancel_match" and phase in ("matched", "starting") and client:
+            # Cancelled after Start: leave the match (the server cancels it for both players, and the client drops
+            # its game socket on that cancel) and stay in the lobby; the match reset stops a game already started.
             self._online_authorized = False
-            self._online_stop_owned()
-            # Closing also cancels an in-flight ready request and the client's NAT/bridge.
-            self.online_close()
-            self._online_message = "@online.cancelled"
+            self._online_to_lobby("@online.cancelled", leave=getattr(self, "_online_match_id", None) or None)
         elif action == "stop_match" and phase == "playing":
             self._online_stop_owned()
         elif action in ("result_win", "result_loss", "result_none") and phase == "result" and client and not self._online_busy:
@@ -1088,10 +1094,15 @@ class T4Online(T4Direct, Online):
                           "result_win", "result_loss", "result_none"):
             return False
         if error:
-            self._online_stop_owned()
+            # The match could not go on: back to the lobby, logged in (closing here was a logout). A match that has
+            # not started is left; the match reset stops the owned game.
+            if action in ("game_started", "game_playing", "nat_fallback") and self._online_transport_error(error):
+                return True                     # the game plays on; the client resumes the lobby and tells it
             message = self._online_error(error)
-            self.online_close()
-            self._online_message = message
+            mid = getattr(self, "_online_match_id", None) or None
+            phase = self._online_phase
+            self._online_to_lobby(message, decline=mid if phase == "matched" else None,
+                                  leave=mid if phase in ("starting", "playing") else None)
         elif action == "start_game":
             self._online_phase, self._online_message = "playing", "@online.playing"
         elif (action == "start_match" and self._online_phase == "starting"
@@ -1103,6 +1114,10 @@ class T4Online(T4Direct, Online):
         elif action == "nat_fallback" and not value:
             self._online_fallback = True
         return True
+
+    def _online_match_started(self):
+        return (getattr(self, "_online_ticket", None) is not None
+                or getattr(self, "_online_owned_run", None) is not None)
 
     def _online_stop_submit(self, work):
         worker = threading.Thread(target=work, name="openrecomp-t4-stop", daemon=False)
