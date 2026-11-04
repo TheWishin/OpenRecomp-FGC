@@ -264,6 +264,11 @@ def verify_t5dr(folder, terms):
     game_releases.check_signature(src, o["version"], sums, (folder / "SHA256SUMS.sig").read_bytes(), keys=src.keys)
     if not o["zip"]["sha256"] or o["zip"]["sha256"] != digest(folder / o["zip"]["name"]):
         raise ReleaseFailed("T5DR SHA256SUMS does not match its zip")
+    # T5DR's zip is built by T5DR's own CI, not on this PC. Its Python's standard library credits people by name
+    # (pydoc.py: "Tommy Burnette"), so the bare Windows user name is no evidence there; the profile path, the
+    # computer name and the e-mail still are.
+    user = os.environ.get("USERNAME", "").casefold()
+    terms = [t for t in terms if t.casefold() != user]
     with zipfile.ZipFile(folder / o["zip"]["name"]) as archive:
         bundle.scan_private_terms(((i.filename, archive.read(i)) for i in archive.infolist() if not i.is_dir()), terms)
     return o["version"], o["zip"]["name"]
