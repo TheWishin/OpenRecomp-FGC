@@ -17,6 +17,7 @@ from .t5_match import T5Match
 from .t5_online import Online, SearchRefused, entry_tls, game_process_running
 from ..manifest import save_config, user_dir
 from .. import wine
+from ..vendor.t4lobby import ranks as t4_ranks
 
 
 # The T4 lobby client ships with the launcher (openrecomp/vendor/t4lobby); T4 installs have none.
@@ -25,7 +26,7 @@ SERVER_ENV = "OPENRECOMP_T4_SERVER"
 # The server the launcher ships with ("T4 Online"; a placeholder until tools/set_t4_server.py fills it in).
 SHIPPED_SERVERS = os.path.join(VENDOR, "servers.json")
 SERVERS_FORMAT = "t5dr-servers/1"
-# Our own rank badges (tools/make_rank_badges.py: Tekken 7's rank names, our drawing), one SVG per T4 rank tier.
+# Our own fallback rank badges (tools/make_rank_badges.py: T5DR's rank names), one SVG per T4 rank tier.
 RANK_BADGES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "assets", "ranks")
 # T5DR's lobby features that work for Tekken 4 as they are (docs/T4_ONLINE.md "What T4 Online has"): the server is
 # T5DR's lobby (1.2.0, t4-parity). Left out: spectating (the T4 game has no replay recorder yet) and the health
@@ -796,12 +797,17 @@ class T4Online(T4Direct, Online):
         return version[:40] if isinstance(version, str) and re.fullmatch(r"[0-9A-Za-z.+-]{1,40}", version) else "dev"
 
     def _online_player_rank(self, rating):
-        return ""                       # the T4 server's own rank (Tekken 7's names) comes with the player
+        return ""                       # the T4 server's tier comes with the player; never infer it from rating
 
     def rank_plate(self, tier):
-        """Our own badge for a T4 rank tier (an SVG of the launcher); "" = text only."""
-        if isinstance(tier, bool) or not isinstance(tier, int) or not 0 <= tier < 64:
+        """The known T5DR install's cached plate, or our drawn badge for the same tier."""
+        if isinstance(tier, bool) or not isinstance(tier, int) or not 0 <= tier < len(t4_ranks.NAMES):
             return ""
+        for peer in getattr(self, "account_peers", ()):
+            if peer.m.get("id") == "t5dr" and peer.found():
+                path = peer.rank_plate(tier)
+                if path:
+                    return path
         path = os.path.join(RANK_BADGES, "t4_rank_%02d.svg" % tier)
         return path if os.path.isfile(path) else ""
 
@@ -823,6 +829,8 @@ class T4Online(T4Direct, Online):
 
     def _online_player(self, player):
         out = super()._online_player(player)
+        if out:
+            out["rank"] = "" if out.get("guest") else t4_ranks.display_name(out)
         # The server sends the developer badge only for a marked account; a client cannot set it.
         if out and player.get("badge") == "dev":
             out["badge"] = "dev"
@@ -844,6 +852,8 @@ class T4Online(T4Direct, Online):
         # One account for T5DR and T4: a T5DR remembered login offered here is named as such.
         state["saved_shared"] = bool(saved and saved.get("shared"))
         me = state.get("me") or {}
+        if me:
+            me["rank"] = "" if me.get("guest") else t4_ranks.display_name(me)
         state["rank"] = str(me.get("rank") or "")[:40] if state["name"] and not me.get("guest") else ""
         info = getattr(self, "_online_set", {})
         state["set"] = dict(info, wins=list(info.get("wins", []))) if info else {}

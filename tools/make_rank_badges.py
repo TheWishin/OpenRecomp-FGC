@@ -1,9 +1,9 @@
 """Tekken 4 Online's rank badges: our own pictures, one per rank, made from nothing but this script.
 
-Tekken 4 ranked uses Tekken 7's rank NAMES (the T4 lobby's t4lobby/ranks.py, docs/T4_ONLINE.md "Ranked"). Namco's
-rank emblems are theirs and are never shipped or downloaded: these badges are drawn here from simple shapes --
-a plate in the rank group's colour (Tekken 7's colour groups), an emblem whose shape names the group, a pip per
-step inside the group, and the rank's name.
+Tekken 4 ranked uses Tekken 5 DR's rank names and order (the T4 lobby's t4lobby/ranks.py, docs/T4_RANKED.md).
+These fallback badges are drawn here from simple shapes: a plate in the rank group's colour, an emblem whose
+shape names the group, a pip per step inside the group, and the rank's name. The launcher prefers the player's
+own T5DR rank plates when available; those pictures are never shipped or downloaded by this tool.
 
     python tools/make_rank_badges.py                       openrecomp/ui/assets/ranks/t4_rank_NN.svg (the launcher's)
     python tools/make_rank_badges.py --png DIR [--height H]  PNG copies (needs PySide6; previews, posts)
@@ -18,36 +18,34 @@ The SVGs are committed (text, our own art); PNGs are not (.gitignore). The game 
 import argparse
 import math
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+from openrecomp.vendor.t4lobby.ranks import GROUPS as RANK_GROUPS, NAMES
+
 OUT = os.path.join(ROOT, "openrecomp", "ui", "assets", "ranks")
 W, H = 200, 100                     # 2:1 like the T5DR plates the online table already makes room for
 
-# Tekken 7's ranks, in order (= the T4 lobby's tiers). Index = tier.
-NAMES = ["Beginner", "9th Kyu", "8th Kyu", "7th Kyu", "6th Kyu", "5th Kyu", "4th Kyu", "3rd Kyu", "2nd Kyu", "1st Kyu",
-         "1st Dan", "2nd Dan", "3rd Dan", "Initiate", "Mentor", "Expert", "Grand Master", "Brawler", "Marauder",
-         "Fighter", "Vanguard", "Warrior", "Vindicator", "Juggernaut", "Usurper", "Vanquisher", "Destroyer", "Savior",
-         "Overlord", "Genbu", "Byakko", "Seiryu", "Suzaku", "Mighty Ruler", "Revered Ruler", "Divine Ruler",
-         "Eternal Ruler", "Fujin", "Raijin", "Yaksa", "Ryujin", "Emperor", "Tekken King", "Tekken God",
-         "True Tekken God", "Tekken God Prime", "Tekken God Omega"]
-
-# (first tier, last tier, key, plate, light, dark, emblem): emblem = ("poly", sides) or ("star", points); 0 sides = circle
-GROUPS = [
-    (0, 0, "beginner", "#7d838c", "#c9ccd1", "#3c4047", ("poly", 0)),
-    (1, 9, "kyu", "#8b5a2b", "#d29a5e", "#40260f", ("poly", 3)),
-    (10, 12, "dan", "#8f99a4", "#e6ebf0", "#4a525b", ("poly", 4)),
-    (13, 16, "lightblue", "#2f9ccc", "#a6e2f8", "#15506b", ("poly", 5)),
-    (17, 20, "green", "#2f9446", "#9ee0a8", "#164d22", ("poly", 6)),
-    (21, 24, "yellow", "#c9a514", "#f7e481", "#6b540a", ("star", 4)),
-    (25, 28, "orange", "#de7012", "#f8b673", "#733605", ("star", 5)),
-    (29, 32, "red", "#c22a26", "#f39a94", "#5e0f0d", ("star", 6)),
-    (33, 36, "ruler", "#8f2479", "#e895d8", "#440c39", ("star", 7)),
-    (37, 40, "blue", "#2449c4", "#98aef7", "#0f2063", ("star", 8)),
-    (41, 42, "purple", "#6526c4", "#bb98f7", "#2f0f63", ("star", 10)),
-    (43, 46, "gold", "#cf9a12", "#ffe58a", "#614606", ("star", 12)),
-]
-OMEGA = 46                          # the top rank: a black plate with a gold rim
+# (plate, light, dark, emblem): emblem = ("poly", sides) or ("star", points); 0 sides = circle
+PALETTE = {
+    "beginner": ("#7d838c", "#c9ccd1", "#3c4047", ("poly", 0)),
+    "kyu": ("#8b5a2b", "#d29a5e", "#40260f", ("poly", 3)),
+    "dan": ("#8f99a4", "#e6ebf0", "#4a525b", ("poly", 4)),
+    "lightblue": ("#2f9ccc", "#a6e2f8", "#15506b", ("poly", 5)),
+    "green": ("#2f9446", "#9ee0a8", "#164d22", ("poly", 6)),
+    "yellow": ("#c9a514", "#f7e481", "#6b540a", ("star", 4)),
+    "orange": ("#de7012", "#f8b673", "#733605", ("star", 5)),
+    "red": ("#c22a26", "#f39a94", "#5e0f0d", ("star", 6)),
+    "ruler": ("#8f2479", "#e895d8", "#440c39", ("star", 7)),
+    "blue": ("#2449c4", "#98aef7", "#0f2063", ("star", 8)),
+    "purple": ("#6526c4", "#bb98f7", "#2f0f63", ("star", 10)),
+    "gold": ("#cf9a12", "#ffe58a", "#614606", ("star", 12)),
+}
+GROUPS = [(lo, hi, key, *PALETTE[key]) for lo, hi, key in RANK_GROUPS]
+TOP = len(NAMES) - 1                # the top rank: a black plate with a gold rim
 
 
 def group(tier):
@@ -61,7 +59,7 @@ def spec(tier):
     """Everything the badge of `tier` is made of (also the C++ header's row)."""
     lo, hi, key, plate, light, dark, (kind, n) = group(tier)
     pips = tier - lo + 1 if hi > lo else 0
-    if tier == OMEGA:
+    if tier == TOP:
         plate, dark = "#16130c", "#000000"
     return dict(tier=tier, name=NAMES[tier], group=key, plate=plate, light=light, dark=dark, kind=kind, n=n,
                 pips=pips, of=hi - lo + 1)
@@ -154,11 +152,22 @@ def file_name(tier):
     return "t4_rank_%02d.svg" % tier
 
 
+def stale_svgs(folder):
+    expected = {file_name(tier) for tier in range(len(NAMES))}
+    try:
+        return sorted(name for name in os.listdir(folder)
+                      if re.fullmatch(r"t4_rank_\d{2,}\.svg", name) and name not in expected)
+    except FileNotFoundError:
+        return []
+
+
 def write_svgs(folder=OUT):
     os.makedirs(folder, exist_ok=True)
     for tier in range(len(NAMES)):
         with open(os.path.join(folder, file_name(tier)), "w", encoding="utf-8", newline="\n") as f:
             f.write(svg(tier))
+    for name in stale_svgs(folder):
+        os.remove(os.path.join(folder, name))
     return len(NAMES)
 
 
@@ -171,7 +180,7 @@ def check(folder=OUT):
                     bad.append(file_name(tier))
         except OSError:
             bad.append(file_name(tier))
-    return bad
+    return bad + stale_svgs(folder)
 
 
 def sheet(path):
@@ -221,7 +230,7 @@ def header(path):
             s["name"], _rgb(s["plate"]), _rgb(s["light"]), _rgb(s["dark"]), 1 if s["kind"] == "star" else 0, s["n"],
             s["pips"], s["of"]))
     text = f"""// GENERATED by OpenRecomp-FGC tools/make_rank_badges.py --header (do not edit by hand): Tekken 4 Online's rank
-// badges -- our own drawing, Tekken 7's rank NAMES (tier = index, the T4 lobby's t4lobby/ranks.py). The game's name
+// badges -- our own drawing, Tekken 5 DR's rank names (tier = index, the T4 lobby's t4lobby/ranks.py). The game's name
 // plates (tekken4_hud_overrides.cpp) draw the same elements as the launcher's SVG badges: a {W}x{H} plate, an emblem
 // (polygon with `n` sides, 0 = circle, or an n-pointed star), `pips` dots of `of`, the rank's name.
 #pragma once

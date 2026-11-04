@@ -72,6 +72,13 @@ class T4OnlineCatalogTests(unittest.TestCase):
             for key in keys:
                 self.assertNotIn("T5DR", i18n.catalog(language)["online." + key])
 
+    def test_name_plate_hint_names_the_shared_t5dr_ladder_in_all_catalogs(self):
+        for language in i18n.LANGUAGES:
+            with self.subTest(language=language):
+                text = i18n.catalog(language)["t4.name_plates_hint"]
+                self.assertIn("T5DR", text)
+                self.assertNotIn("Tekken 7", text)
+
 
 if __name__ == "__main__":
     unittest.main()

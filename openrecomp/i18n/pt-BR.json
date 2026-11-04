@@ -1401,7 +1401,7 @@
  "support.finding.wine_graphics.title": "Os gráficos do jogo não iniciaram no Wine ou no Proton",
  "support.finding.wine_graphics.fix": "Tente outra versão do Proton na Steam (Proton Experimental, GE-Proton ou proton-cachyos). Se não ajudar, instale o compilador de shaders da Microsoft no prefixo do jogo com protontricks d3dcompiler_47. Veja a ajuda de Linux e Steam Deck do jogo.",
  "t4.no_powershell": "A compilação e a verificação online do Tekken 4 são scripts do PowerShell, e o Wine ou o Proton não tem um PowerShell que funcione. Compile o jogo no Windows ou instale o PowerShell 7 neste prefixo (não testado). O jogo offline não é afetado.",
- "t4.name_plates_hint": "Online: o nome e o emblema de rank de cada jogador do seu lado, na seleção de personagem e na luta.",
+ "t4.name_plates_hint": "Online: o nome e o emblema de rank de cada jogador do seu lado, na seleção de personagem e na luta. Os nomes dos ranks seguem os do T5DR.",
  "t4.side_rank": "{name} · {rank}",
  "t4.result_unproven": "Os jogos não comprovaram este resultado, então ele não conta para o ranqueado.",
  "t4.name_plates": "Placas de nome no jogo",

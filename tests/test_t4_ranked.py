@@ -75,6 +75,22 @@ class RankedOpensTest(Base):
 
 
 class BadgesTest(Base):
+    def test_player_rank_uses_the_canonical_tier_name(self):
+        self.login()
+        player = self.a._online_player(dict(name="Other", tier=13, rank="Old server label", rating=1640))
+        self.assertEqual(player["rank"], vranks.NAMES[13])
+        self.a._online_me = dict(name="FakePlayer", tier=13, rank="Old server label")
+        state = self.a.online_state()
+        self.assertEqual(state["rank"], vranks.NAMES[13])
+        self.assertEqual(state["me"]["rank"], vranks.NAMES[13])
+
+    def test_match_sides_use_the_canonical_tier_names(self):
+        client = self.login()
+        self.found(client, you=dict(name="FakePlayer", tier=13, rank="Old server label"),
+                   opponent=dict(name="Other", tier=10, rank="Old server label"))
+        self.assertEqual([side["rank"] for side in self.a.online_state()["match"]["sides"]],
+                         [vranks.NAMES[10], vranks.NAMES[13]])
+
     def test_every_tier_has_our_own_badge(self):
         names = sorted(p.name for p in BADGES.iterdir())
         self.assertEqual(names, ["t4_rank_%02d.svg" % t for t in range(47)])

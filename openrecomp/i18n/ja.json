@@ -1401,7 +1401,7 @@
  "support.finding.wine_graphics.title": "WineまたはProtonでゲームのグラフィックが起動しませんでした",
  "support.finding.wine_graphics.fix": "Steamで別のProtonを試してください（Proton Experimental、GE-Proton、proton-cachyos）。それでも直らない場合は、protontricks d3dcompiler_47でMicrosoftのシェーダーコンパイラーをゲームのPrefixに入れてください。ゲームのLinux・Steam Deckのヘルプを参照してください。",
  "t4.no_powershell": "Tekken 4のビルドとオンライン確認はPowerShellスクリプトですが、WineやProtonには動作するPowerShellがありません。Windowsでゲームをビルドするか、このPrefixにPowerShell 7を入れてください（未検証）。オフラインプレイには影響しません。",
- "t4.name_plates_hint": "オンライン：キャラクター選択と対戦中に、各プレイヤーの名前とランクバッジをそれぞれの側に表示します。",
+ "t4.name_plates_hint": "オンライン：キャラクター選択と対戦中に、各プレイヤーの名前とランクバッジをそれぞれの側に表示します。ランク名はT5DRと同じです。",
  "t4.side_rank": "{name}・{rank}",
  "t4.result_unproven": "ゲームがこの結果を確認できなかったため、ランクマッチには数えられません。",
  "t4.name_plates": "ゲーム内のネームプレート",

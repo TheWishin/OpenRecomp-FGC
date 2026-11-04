@@ -54,6 +54,18 @@ class T4BetaDocsTests(unittest.TestCase):
     def test_packaging_guide_documents_source_only_scan(self):
         self.assertIn("tools\\package_release.py --scan-only", self.read("docs/PACKAGING.md"))
 
+    def test_ranked_docs_describe_t5dr_ladder_runtime_plates_and_game_handoff(self):
+        text = self.read("docs/T4_ONLINE.md")
+        self.assertIn("same rank names in the same order as T5DR", text)
+        self.assertIn("player's own game data", text)
+        self.assertNotIn("Tekken 7", text)
+        assets = self.read("docs/T4_RANKED.md")
+        for phrase in ("T5DR's rank names in T5DR's order", "T5DR adapter", "own drawn SVG badge",
+                       "build/out_badges/tekken4_rank_badges.h", "runtime/tekken4_rank_badges.h",
+                       "coordinator must copy", "handled separately"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, assets)
+
 
 if __name__ == "__main__":
     unittest.main()
