@@ -225,7 +225,7 @@ class T4MatchFlowTests(unittest.TestCase):
         make_env.assert_called_once_with(self.a._online_ticket)
         # The client's endpoint wins; both PCs run the same direct-IP compatibility switches.
         self.assertEqual(self.a.starts, [dict(TEKKEN4_NET="fake-client-env", TEKKEN4_NET_STRICT_HELLO="0",
-                                              TEKKEN4_NET_DELAY_MATCH="0")])
+                                              TEKKEN4_NET_DELAY_MATCH="0", TEKKEN4_NET_AUTO_VS="1")])
 
     def test_ranked_ticket_is_refused_before_installed_environment_helper(self):
         helper = mock.Mock()

@@ -38,6 +38,7 @@ class SecondAuditNavigation(unittest.TestCase):
     def test_failed_direct_disconnect_keeps_session_screen_visible(self):
         adapter = Lobby()
         adapter.m["adapter"] = "t4"
+        adapter.snapshot["capabilities"] = dict(direct_ip=True)
         nav = Nav([Game(adapter.m, adapter)], language="en")
         nav.screen = "hub"
         nav.sec["lobby"] = "online"

@@ -32,6 +32,15 @@ class SettingsPage:
     def _settings_groups(self, g, out):
         """Settings rows -> group headings + rows in group order, plus Controls and Updates rows of the launcher."""
         extra = []
+        state = g.a.online_state()
+        capabilities = state.get("capabilities") or {}
+        if capabilities.get("direct_available"):
+            busy = bool(state.get("busy")) or state.get("phase") not in ("offline", "error", "kicked")
+            extra.append(dict(kind="action", id="mode_direct", label="@t4.direct_advanced", group="advanced",
+                              verb="" if busy else "@open", disabled=busy, hint="@t4.direct_mode_hint",
+                              detail=dict(kicker="@settings_ui.group.advanced", title="@t4.direct_advanced",
+                                          lead="@t4.direct_mode_hint", rows=[]),
+                              run=None if busy else lambda: self._open_direct_online(g)))
         if "controls" in self.sections(g):
             extra.append(dict(kind="action", id="pad_bindings", label="@settings_ui.pad_bindings", verb="@open",
                               hint="@settings_ui.pad_bindings_hint",

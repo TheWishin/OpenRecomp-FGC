@@ -14,24 +14,31 @@ used last.
 
 ## Status
 
-T4 beta release candidate. Its scope is T4 offline play and online through a T4
-lobby server (guest or account login, player list, lobby chat, quick match, challenges)
-or by direct IP or VPN; no ranked. Release depends on the owner's two-PC test and the
+T4 beta release candidate. Online opens the same login and lobby screens as T5DR:
+guest or account login, player list, rooms, chat, quick match and challenges through a T4
+lobby server. Ranked is available when the server enables it and requires an account;
+T4 keeps separate ratings and the server's rank labels; the T5DR ladder migration
+is separate, and the bundled legacy rank fallback remains. Direct IP or VPN is under
+Settings > Advanced > **Direct connection (LAN / no server)**.
+Release depends on the owner's two-PC test and the
 clean-PC checks below; a Sunday release is a target, not a completed acceptance result.
 
 | Game | How it connects | Sections |
 |---|---|---|
 | Tekken 5: Dark Resurrection | an installed [T5DR Online](https://github.com/TheWishin/T5DROnline) | Play, Online, Build, Replays, Settings |
-| Tekken 4 (USA, SLUS-20328) | a portable T4 release, or the sibling T4 source in the test bundle | Play, Online (lobby or direct IP/VPN), Build, Settings |
+| Tekken 4 (USA, SLUS-20328) | a portable T4 release, or the sibling T4 source in the test bundle | Play, Online (lobby), Build, Settings (advanced direct IP/VPN) |
 | Free slots | a manifest (below) | what the manifest says |
 
-T4 Online offers Host or Join, an on-screen keyboard for the host's IP address,
-checks for matching build, compiler/MSVC, ISO hash and two-way UDP reachability,
-then a separate Start game action. Collect logs saves local diagnostic zip files.
-T4 Online opens on the lobby (the launcher ships the **T4 Online** server): guest
-login, or your T5DR Online account (one account for both games, ranks per game), the
-player list, lobby chat, quick match and challenges, then the same explicit Start game
-and a result report. Direct IP / VPN stays one press away.
+T4 Online always opens on login or the lobby, including when the shipped **T4 Online**
+server entry is an empty placeholder: enter the server address on the login screen.
+Use a guest name or your T5DR Online account (one account for both games, ratings per game).
+Incoming challenges open an accept/decline pop-up showing ping and connection path.
+The lobby negotiates NAT punching with relay fallback and shows a match-found card.
+Supported T4 builds report results automatically; the result screen offers a rematch or
+return to the lobby, and ranked sets advance through the server's countdown.
+The launcher requests `TEKKEN4_NET_AUTO_VS=1`; direct entry into a fight and the game's
+fighter/stage selection contract are not verified against a real T4 build.
+The advanced direct IP screen retains Host/Join, checks and local log collection.
 See [T4 Online and release checks](docs/T4_ONLINE.md). With a T4 server from the t4-parity branch,
 T4 has T5DR's lobby: private chat, friends and invites, rooms, casual sets, tournaments, ranked,
 profile, leaderboard and statistics; spectating and replays need the T4 game first. T5DR's Online section uses its installed
@@ -86,9 +93,10 @@ and the [hand check](docs/HAND_CHECK.md) for the two-PC walk through both games.
 
 Follow the German [test-bundle walk](docs/T4_FIRST_RUN.md). The launcher finds
 `T4/`, checks build tools by itself and installs missing ones with winget after one confirmation, verifies the
-player's ISO and shows build progress. Compare Build-ID and compiler/MSVC before
-Host/Join. Firewall, UDP 7400, port-forwarding and Tailscale steps are in the
-[German network guide](docs/T4_ONLINE.md). After play, Collect logs displays the
+player's ISO and shows build progress. Then open Online and log in to the T4 lobby.
+For the optional advanced direct IP route, compare Build-ID and compiler/MSVC before
+Host/Join. Firewall, UDP 7400, port-forwarding and Tailscale steps for that route are in the
+[German network guide](docs/T4_ONLINE.md). Its Collect logs action displays the
 local ZIP path. No typed PowerShell build or netplay commands are required.
 This source test bundle needs a real clean-PC build and two-PC acceptance.
 
@@ -177,6 +185,7 @@ Tournament 2 has a placeholder in the small known-games catalog until its reposi
 | `tools/make_logo.py` | Draws the logo files in `openrecomp/ui/assets` |
 | `tools/make_ui_sounds.py` | Synthesizes the menu sounds in `openrecomp/ui/sounds` |
 | `tools/shots.py` | Manual screenshot helper using the real backend and installed artwork; not an isolated test |
+| `tools/t4_flow_shots.py` | Synthetic T4 login, lobby, challenge, match-found and result screens; no game discovery or artwork |
 
 ## Licences
 

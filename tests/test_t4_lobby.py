@@ -108,18 +108,25 @@ class ServerAndMode(unittest.TestCase):
         subject.config.update(config or {})
         return subject
 
-    def test_without_a_server_the_beta_opens_on_direct_ip_and_offers_the_lobby(self):
+    def test_without_a_server_online_opens_on_lobby_and_advanced_direct_is_explicit(self):
         subject = self.subject()
         state = subject.online_state()
-        self.assertTrue(state["capabilities"]["direct_ip"])
-        self.assertTrue(state["capabilities"]["lobby_available"])
+        self.assertTrue(state["capabilities"]["t4_lobby"])
+        subject.online_action("mode_direct")
+        self.assertTrue(subject.online_state()["capabilities"]["direct_ip"])
         subject.online_action("mode_lobby")
         state = subject.online_state()
         self.assertFalse(state["capabilities"].get("direct_ip", False))
         self.assertEqual(state["message"], "@t4.lobby_no_server")
         self.assertFalse(state["capabilities"]["server_set"])
-        self.assertEqual(subject.config["t4_online_mode"], "lobby")
-        self.saved.assert_called_once()
+        self.assertNotIn("t4_online_mode", subject.config)
+        self.saved.assert_not_called()
+
+    def test_old_saved_direct_mode_cannot_replace_the_lobby_entry(self):
+        for mode in ("direct", "lobby", "invalid", [], None):
+            with self.subTest(mode=mode):
+                subject = self.subject(dict(t4_online_mode=mode))
+                self.assertTrue(subject.online_state()["capabilities"]["t4_lobby"])
 
     def test_blank_server_never_connects(self):
         subject = self.subject(dict(t4_online_mode="lobby"))
@@ -166,7 +173,7 @@ class ServerAndMode(unittest.TestCase):
         subject._online_busy = False
         subject.online_action("mode_direct")
         self.assertTrue(subject.online_state()["capabilities"]["direct_ip"])
-        self.assertEqual(subject.config["t4_online_mode"], "direct")
+        self.assertEqual(subject.config["t4_online_mode"], "lobby")
 
 
 class ShippedServer(unittest.TestCase):
@@ -194,7 +201,7 @@ class ShippedServer(unittest.TestCase):
         self.run_tool("--clear")
         subject = DirectSubject(self.temp.name)
         self.assertEqual(subject._online_default_server(), "")
-        self.assertTrue(subject.online_state()["capabilities"]["direct_ip"])
+        self.assertTrue(subject.online_state()["capabilities"]["t4_lobby"])
 
     def test_the_filled_entry_is_the_default_lobby_with_the_shared_t5dr_login(self):
         self.run_tool("--host", "46.224.146.6", "--fingerprint", ":".join(["AB"] * 32))
@@ -252,10 +259,10 @@ class LobbyActions(unittest.TestCase):
 
     def test_t5dr_features_that_need_the_t4_game_stay_off(self):
         self.assertTrue(self.client.kwargs["sets"])     # T4 ranked and casual sets
-        for key in ("spectate", "relays", "match_rules", "input_delay8", "ingame_rematch", "auto_skip_after_round",
+        for key in ("spectate", "match_rules", "input_delay8", "ingame_rematch", "auto_skip_after_round",
                     "auto_skip_intro"):
             self.assertFalse(self.client.kwargs[key], key)
-        for key in ("friends", "private_rooms", "tournaments", "private_chat", "badges", "mentions", "casual_sets",
+        for key in ("relays", "friends", "private_rooms", "tournaments", "private_chat", "badges", "mentions", "casual_sets",
                     "room_tables"):
             self.assertTrue(self.client.kwargs[key], key)
         from openrecomp.adapters import t5_features
@@ -474,13 +481,12 @@ class T4LobbyRows(unittest.TestCase):
             items = self.nav.items()
         self.nav.act("confirm", device="xbox")
 
-    def test_login_screen_offers_guest_account_and_direct_ip(self):
+    def test_login_screen_offers_guest_account_without_direct_ip(self):
         ids = self.ids()
-        for iid in ("online_name", "online_password", "online_server", "login_guest", "login_account", "mode_direct"):
+        for iid in ("online_name", "online_password", "online_server", "login_guest", "login_account"):
             self.assertIn(iid, ids)
         self.assertNotIn("host", ids)
-        self.press("mode_direct")
-        self.assertIn(("online", "mode_direct"), self.a.calls)
+        self.assertNotIn("mode_direct", ids)
 
     def test_lobby_shows_players_chat_and_quick_match_but_no_rooms(self):
         self.press("login_guest")

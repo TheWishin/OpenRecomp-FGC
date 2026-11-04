@@ -178,9 +178,9 @@ class T4OnlineTests(unittest.TestCase):
         self.assertEqual(client.kwargs["build"], (os.path.join(self.directory.name, "bin"), "dev"))
         self.assertFalse(client.kwargs["auto_ready"])
         self.assertTrue(client.kwargs["sets"])          # T4 ranked sets (best of 3, rated once)
-        for key in ("relays", "spectate", "match_rules", "input_delay8", "ingame_rematch", "auto_skip_intro"):
+        for key in ("spectate", "match_rules", "input_delay8", "ingame_rematch", "auto_skip_intro"):
             self.assertFalse(client.kwargs[key], key)
-        for key in ("friends", "private_rooms", "tournaments", "private_chat", "casual_sets", "room_tables"):
+        for key in ("relays", "friends", "private_rooms", "tournaments", "private_chat", "casual_sets", "room_tables"):
             self.assertTrue(client.kwargs[key], key)
         self.a.online_action("search_ranked")
         self.assertFalse(any(call[0] == "ranked" for call in client.calls if isinstance(call, tuple)))
@@ -233,8 +233,133 @@ class T4OnlineTests(unittest.TestCase):
         self.assertEqual(join["TEKKEN4_NET_PORT"], "31001")
         self.assertEqual(join["TEKKEN4_NET_DELAY"], "2")
         self.assertFalse(any(key.startswith("T5_") for key in join))
-        # T4 ranked (the game writes its own proven result): a ranked ticket gets the same documented environment.
+        # A ranked ticket gets the same documented network environment.
         self.assertEqual(ticket_env(ticket(ranked=True))["TEKKEN4_NET"], host["TEKKEN4_NET"])
+
+    def test_lobby_auto_vs_overrides_source_profile_and_applies_to_native_core(self):
+        for source in (False, True):
+            with self.subTest(source=source):
+                self.a.core.source_only = source
+                self.assertEqual(self.a._online_game_env(ticket())["TEKKEN4_NET_AUTO_VS"], "1")
+
+    def test_casual_rematch_is_offered_by_server_and_authorized_once_by_player(self):
+        client = self.playing()
+        client.rematch = mock.Mock()
+        client.events.put(dict(t="match_result", match="fake-match", status="confirmed", rematch_window=True))
+        self.a.online_poll()
+        self.assertTrue(self.a.online_state()["capabilities"]["rematch"])
+        self.a.online_action("rematch")
+        self.a.online_poll()
+        client.rematch.assert_called_once_with(match_id="fake-match", accept=True)
+        self.assertFalse(self.a.online_state()["capabilities"]["rematch"])
+        client.events.put(dict(t="match_found", match="next-match", origin="rematch", ready_check=False))
+        client.events.put(dict(t="match_start", ticket=ticket(match_id="next-match")))
+        self.a.online_poll()
+        self.a.online_poll()
+        self.assertEqual(self.a.online_state()["phase"], "playing")
+        self.assertEqual(len(self.a.starts), 2)
+
+    def test_return_lobby_declines_outstanding_rematch_and_ignores_stale_expiry(self):
+        client = self.playing()
+        client.rematch = mock.Mock()
+        client.events.put(dict(t="match_result", match="fake-match", status="confirmed", rematch_window=True))
+        self.a.online_poll()
+        client.events.put(dict(t="rematch", match="other-match", state="expired"))
+        self.a.online_poll()
+        self.assertTrue(self.a.online_state()["capabilities"]["rematch"])
+        self.a.online_action("return_lobby")
+        self.a.online_poll()
+        client.rematch.assert_called_once_with(match_id="fake-match", accept=False)
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+        self.assertFalse(self.a.online_state()["capabilities"]["rematch"])
+
+    def test_rematch_expiry_close_and_failed_vote_clear_pending_state(self):
+        client = self.playing()
+        client.rematch = mock.Mock(side_effect=OSError("fake unavailable"))
+        client.events.put(dict(t="match_result", match="fake-match", status="confirmed", rematch_window=True))
+        self.a.online_poll()
+        self.a.online_action("rematch")
+        self.a.online_poll()
+        self.assertEqual(self.a.online_state()["phase"], "result_sent")
+        self.assertTrue(self.a.online_state()["capabilities"]["rematch"])
+        client.events.put(dict(t="rematch", match="fake-match", state="expired"))
+        self.a.online_poll()
+        self.assertFalse(self.a.online_state()["capabilities"]["rematch"])
+        self.a._online_rematch = True
+        self.a.online_close()
+        self.assertFalse(self.a.online_state()["capabilities"]["rematch"])
+
+    def test_duplicate_result_does_not_revoke_inflight_rematch_authorization(self):
+        from openrecomp.adapters.t5_online import Online
+        client = self.playing()
+        verdict = dict(t="match_result", match="fake-match", status="confirmed", rematch_window=True)
+        client.events.put(verdict)
+        self.a.online_poll()
+        entered, release = threading.Event(), threading.Event()
+        self.addCleanup(release.set)
+
+        def rematch(**kwargs):
+            entered.set()
+            if not release.wait(2):
+                raise RuntimeError("fake request did not finish")
+        client.rematch = mock.Mock(side_effect=rematch)
+        self.a._online_submit = lambda action, work: Online._online_submit(self.a, action, work)
+        self.a.online_action("rematch")
+        self.assertTrue(entered.wait(1))
+        self.a.online_action("return_lobby")
+        self.assertEqual(self.a.online_state()["phase"], "result_sent")  # request still pending
+        client.events.put(verdict)
+        self.a.online_poll()
+        self.assertTrue(self.a._online_rematch_pending)
+        client.events.put(dict(t="match_found", match="next-match", origin="rematch", ready_check=False))
+        client.events.put(dict(t="match_start", ticket=ticket(match_id="next-match")))
+        self.a.online_poll()
+        self.assertEqual(self.a.online_state()["phase"], "starting")
+        release.set()
+        for _ in range(200):
+            self.a.online_poll()
+            if self.a.online_state()["phase"] == "playing":
+                break
+            threading.Event().wait(0.005)
+        self.assertEqual(self.a.online_state()["phase"], "playing")
+        self.assertEqual(len(self.a.starts), 2)
+
+    def test_expired_vote_cannot_be_reopened_by_duplicate_verdict(self):
+        client = self.playing()
+        client.rematch = mock.Mock()
+        verdict = dict(t="match_result", match="fake-match", status="confirmed", rematch_window=True)
+        client.events.put(verdict)
+        client.events.put(dict(t="rematch", match="fake-match", state="expired"))
+        client.events.put(verdict)
+        self.a.online_poll()
+        self.assertFalse(self.a.online_state()["capabilities"]["rematch"])
+
+    def test_late_rematch_after_lobby_return_is_left_without_new_card_or_game(self):
+        client = self.playing()
+        client.rematch = mock.Mock()
+        client.leave_match = mock.Mock()
+        client.events.put(dict(t="match_result", match="fake-match", status="confirmed", rematch_window=True))
+        self.a.online_poll()
+        self.a.online_action("rematch")
+        self.a.online_poll()
+        self.a.online_action("return_lobby")
+        self.a.online_poll()
+        client.events.put(dict(t="match_found", match="next-match", origin="rematch", ready_check=False))
+        client.events.put(dict(t="match_start", ticket=ticket(match_id="next-match")))
+        self.a.online_poll()
+        for _ in range(100):
+            if client.leave_match.called:
+                break
+            threading.Event().wait(0.005)
+        client.leave_match.assert_called_once_with("next-match")
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+        self.assertEqual(len(self.a.starts), 1)
+
+    def test_late_rematch_request_error_cannot_replace_next_match_status(self):
+        self.playing()
+        self.a._online_phase, self.a._online_message = "starting", "@online.starting"
+        self.a._online_completion("rematch", None, OSError("fake lost acknowledgement"))
+        self.assertEqual(self.a.online_state()["message"], "@online.starting")
 
     def test_game_evidence_notifies_started_and_playing_once(self):
         client = self.playing()

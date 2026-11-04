@@ -6,14 +6,22 @@ from .nav_keyboard import ONLINE_PASSWORDS
 class Online:
     @staticmethod
     def _direct_online(g):
-        """T4 shows its direct-IP screen unless its adapter reports the T4 lobby screen."""
+        """Direct connection is an explicit adapter mode opened from Advanced settings."""
         capabilities = g.a.online_state().get("capabilities") or {}
-        if capabilities.get("direct_ip"):
-            return True
-        return g.m.get("adapter") == "t4" and not capabilities.get("t4_lobby")
+        return bool(capabilities.get("direct_ip"))
+
+    def _open_direct_online(self, g):
+        if self._online_action(g, "mode_direct") and self._direct_online(g):
+            self.__dict__.setdefault("direct_from_settings", set()).add(g.id)
+            self._go(g, "online")
 
     def _direct_online_back(self, g):
         if not self._online_action(g, "disconnect"):
+            return
+        if g.id in self.__dict__.get("direct_from_settings", set()):
+            if self._online_action(g, "mode_lobby") and not self._direct_online(g):
+                self.direct_from_settings.discard(g.id)
+                self._go(g, "settings")
             return
         self.screen = "start"
         self.start_focus = self.games.index(g)
@@ -160,6 +168,16 @@ class Online:
                 rows.append(dict(k="@online.challenge_p1" if index == 0 else "@online.challenge_p2", v=value,
                                  accent=bool(side.get("you")),
                                  plate=uri(g.a.rank_plate(tier)) if isinstance(tier, int) else ""))
+        result = state.get("result") or {}
+        if phase in ("result", "result_sent") and "winner" in result:
+            winner, slot = result.get("winner"), result.get("slot")
+            if winner is None:
+                rows.append(dict(k="@online.result", v="@online.result_draw"))
+            elif type(winner) is int and winner in (0, 1) and type(slot) is int and slot in (0, 1):
+                rows.append(dict(k="@online.result", v="@online.result_won" if winner == slot else "@online.result_lost"))
+            score = result.get("score")
+            if isinstance(score, (list, tuple)) and len(score) == 2:
+                rows.append(dict(k="@online.score", v=str(score[0]) + "–" + str(score[1])))
         set_state = state.get("set") or {}
         if set_state:
             wins = set_state.get("wins") or []
@@ -217,8 +235,6 @@ class Online:
                 out.append(action("login_register", "@online.register"))
             from . import nav_accounts
             out.extend(nav_accounts.rows(self, g, state, action))
-            if capabilities.get("direct_available", False):
-                out.append(action("mode_direct", "@t4.direct_mode", "@t4.direct_mode_hint"))
         elif phase == "logged_in":
             fighters = g.a.fighters()
             if fighters:
@@ -458,7 +474,80 @@ class Online:
             except Exception:  # noqa: BLE001 -- keep the timer alive without exposing login details
                 self.say("@online.failure", 12)
                 changed = True
-        return changed
+        try:
+            return self._poll_online_challenge() or changed
+        except Exception:  # noqa: BLE001 -- invitation state must not stop the timer or reveal server details
+            self.say("@online.failure", 12)
+            return True
+
+    def _poll_online_challenge(self):
+        """One shared, controller-operated invitation dialog for both games."""
+        pending = getattr(self, "online_challenge", None)
+        if pending and self.overlay == "dialog" and self.confirm_kind == "online_challenge":
+            g, challenge_id = pending
+            state = g.a.online_state()
+            if (g is not self.game or self.screen != "hub" or self.section() != "online"
+                    or state.get("phase") != "logged_in"
+                    or (state.get("challenge") or {}).get("id") != challenge_id):
+                self.overlay = None
+                self.online_challenge = None
+                return True
+            return False
+        if self.overlay or self.screen != "hub" or self.section() != "online":
+            return False
+        g = self.game
+        state = g.a.online_state()
+        challenge_id = (state.get("challenge") or {}).get("id")
+        seen = self.__dict__.setdefault("online_challenge_seen", {})
+        if state.get("phase") in ("offline", "connecting", "kicked", "error"):
+            seen.pop(g.id, None)
+        if state.get("phase") != "logged_in" or not challenge_id or seen.get(g.id) == challenge_id:
+            return False
+        seen[g.id] = challenge_id
+        self.online_challenge = (g, challenge_id)
+        self._ask("online_challenge")
+        self.note_sound(ui_sound.NOTIFY)
+        return True
+
+    def _online_challenge_dialog(self, action):
+        if action in ("left", "right", "up", "down"):
+            self.exit_focus = 1 - self.exit_focus
+        elif action in ("back", "confirm"):
+            g, challenge_id = self.online_challenge
+            state = g.a.online_state()
+            if state.get("phase") == "logged_in" and (state.get("challenge") or {}).get("id") == challenge_id:
+                if state.get("busy"):
+                    self.say("@online.busy")
+                    return
+                if not self._online_action(g, "accept_challenge" if action == "confirm" and self.exit_focus == 1
+                                           else "decline_challenge"):
+                    return
+            self.overlay = None
+            self.online_challenge = None
+
+    def _view_online_challenge(self, v):
+        from .nav_online_layout import connection
+        from .nav_challenges import _details
+
+        g, challenge_id = self.online_challenge
+        state = g.a.online_state()
+        challenge = state.get("challenge") or {}
+        conn = connection(challenge)
+        terms = (state.get("challenge_preferences") or {}).get("incoming") or {}
+        lines = [i18n.localize(conn["text"], self.language)]
+        if conn["path"]:
+            lines.append(i18n.localize(conn["path"], self.language))
+        if terms.get("id") == challenge_id:
+            lines += [str(i18n.localize(row["k"], self.language)) + ": " + str(i18n.localize(row["v"], self.language))
+                      for row in _details(terms)]
+        text = "\n".join(str(line) for line in lines)
+        v["dialog"] = dict(title=i18n.message("online_ui.incoming", name=i18n.literal(challenge.get("name") or "")),
+                           text=i18n.literal(text), options=[
+                               dict(label="@online.decline_challenge", index=0, focused=self.exit_focus == 0),
+                               dict(label="@online.accept_challenge", index=1, focused=self.exit_focus == 1)])
+        v["hint"] = "@online.challenge_hint"
+        v["prompts"] = [self.prompt("confirm", "@confirm"), self.prompt("right", "@switch"),
+                        self.prompt("back", "@online.decline_challenge")]
 
     def close_online(self, only=None):
         """Log out of the lobbies (the window closes), or only one game's (only=its id: its install is replaced)."""

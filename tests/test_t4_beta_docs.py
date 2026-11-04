@@ -11,22 +11,33 @@ class T4BetaDocsTests(unittest.TestCase):
     def read(self, name):
         return " ".join((ROOT / name).read_text(encoding="utf-8").split())
 
-    def test_player_entry_points_describe_lobby_and_direct_ip_beta(self):
+    def test_player_entry_points_describe_default_lobby_and_advanced_direct_connection(self):
         for name in ("README.md", "docs/T4_FIRST_RUN.md", "docs/T4_ONLINE.md", "docs/INSTALLING.md"):
             with self.subTest(name=name):
                 text = self.read(name)
-                self.assertIn("direct IP", text)
+                self.assertIn("direct ip", text.lower())
                 self.assertIn("VPN", text)
                 self.assertIn("lobby server", text.lower())
+                self.assertIn("Settings > Advanced", text)
+                self.assertIn("account", text.lower())
+                self.assertIn("ranked", text.lower())
                 self.assertNotIn("no lobby", text.lower())
+                self.assertNotIn("no ranked", text.lower())
                 if name == "docs/T4_ONLINE.md":
                     # T4 ranked: only where the T4 server opens it, on results the games proved
                     self.assertIn("ranked on a t4 server that opens it", text.lower())
                     self.assertIn("only results the two games proved count", text.lower())
-                else:
-                    self.assertIn("no ranked", text.lower())
                 self.assertNotIn("casual quick match", text.lower())
-                self.assertNotIn("shared login", text.lower())
+                self.assertIn("T5DR", text)
+
+    def test_lobby_walk_documents_result_rematch_and_game_handoff_limits(self):
+        text = self.read("docs/T4_ONLINE.md")
+        self.assertIn("challenge pop-up", text)
+        self.assertIn("ping", text)
+        self.assertIn("TEKKEN4_NET_AUTO_VS=1", text)
+        self.assertIn("not verified", text)
+        self.assertIn("rematch", text.lower())
+        self.assertNotIn("The choice between lobby and direct IP is remembered", text)
 
     def test_online_walk_has_checks_and_two_pc_release_gate(self):
         text = self.read("docs/T4_ONLINE.md")
@@ -57,6 +68,8 @@ class T4BetaDocsTests(unittest.TestCase):
     def test_ranked_docs_describe_t5dr_ladder_runtime_plates_and_game_handoff(self):
         text = self.read("docs/T4_ONLINE.md")
         self.assertIn("same rank names in the same order as T5DR", text)
+        self.assertIn("bundled legacy fallback", text)
+        self.assertIn("does not migrate the server's ladder", text)
         self.assertIn("player's own game data", text)
         self.assertNotIn("Tekken 7", text)
         assets = self.read("docs/T4_RANKED.md")

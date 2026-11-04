@@ -63,15 +63,16 @@ class T4BetaNavigation(unittest.TestCase):
         self.assertEqual(self.nav.screen, "start")
         self.assertEqual(self.a.calls[-1], ("online", "disconnect"))
 
-    def test_actual_t4_never_shows_lobby_even_with_stale_capabilities(self):
+    def test_explicit_direct_mode_stays_direct_but_missing_capabilities_use_lobby(self):
         forbidden = {"login_guest", "login_account", "login_saved", "search_ranked", "search_casual",
                      "refresh_players", "refresh_rooms", "online_chat", "native", "return_lobby"}
         for phase in ("offline", "error", "logged_in", "matched", "result", "result_sent", "playing"):
             self.a.snapshot["phase"] = phase
             self.assertFalse(forbidden.intersection(self.ids()), phase)
         self.a.snapshot["capabilities"] = dict(lobby=True, ranked=True)
-        self.assertIn("host", self.ids())
-        self.assertNotIn("search_ranked", self.ids())
+        self.a.snapshot["phase"] = "offline"
+        self.assertNotIn("host", self.ids())
+        self.assertIn("login_guest", self.ids())
 
     def test_start_requires_successful_checks_and_stop_is_controller_action(self):
         self.a.snapshot.update(phase="checked", checks=[])

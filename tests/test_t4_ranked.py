@@ -75,21 +75,21 @@ class RankedOpensTest(Base):
 
 
 class BadgesTest(Base):
-    def test_player_rank_uses_the_canonical_tier_name(self):
+    def test_player_rank_preserves_the_shared_ladders_server_label(self):
         self.login()
-        player = self.a._online_player(dict(name="Other", tier=13, rank="Old server label", rating=1640))
-        self.assertEqual(player["rank"], vranks.NAMES[13])
-        self.a._online_me = dict(name="FakePlayer", tier=13, rank="Old server label")
+        player = self.a._online_player(dict(name="Other", tier=13, rank="4th Dan", rating=1640))
+        self.assertEqual(player["rank"], "4th Dan")
+        self.a._online_me = dict(name="FakePlayer", tier=13, rank="4th Dan")
         state = self.a.online_state()
-        self.assertEqual(state["rank"], vranks.NAMES[13])
-        self.assertEqual(state["me"]["rank"], vranks.NAMES[13])
+        self.assertEqual(state["rank"], "4th Dan")
+        self.assertEqual(state["me"]["rank"], "4th Dan")
 
-    def test_match_sides_use_the_canonical_tier_names(self):
+    def test_match_sides_preserve_the_shared_ladders_server_labels(self):
         client = self.login()
-        self.found(client, you=dict(name="FakePlayer", tier=13, rank="Old server label"),
-                   opponent=dict(name="Other", tier=10, rank="Old server label"))
+        self.found(client, you=dict(name="FakePlayer", tier=13, rank="4th Dan"),
+                   opponent=dict(name="Other", tier=10, rank="1st Dan"))
         self.assertEqual([side["rank"] for side in self.a.online_state()["match"]["sides"]],
-                         [vranks.NAMES[10], vranks.NAMES[13]])
+                         ["1st Dan", "4th Dan"])
 
     def test_every_tier_has_our_own_badge(self):
         names = sorted(p.name for p in BADGES.iterdir())
@@ -113,9 +113,12 @@ class BadgesTest(Base):
         self.assertTrue(self.a.rank_plate(46).endswith("t4_rank_46.svg"))
         for bad in (None, -1, 64, True, "3"):
             self.assertEqual(self.a.rank_plate(bad), "")
-        self.enterContext(mock.patch.dict(sys.modules, {"t4lobby.ranks": vranks}))
-        self.assertEqual(self.a.rank_progress(1640), (1630.0, 1660.0, "Mentor"))
-        self.assertIsNone(self.a.rank_progress(2800))         # Tekken God Omega: no next rank
+        self.assertIsNone(self.a.rank_progress(1640))  # no shared ladder table available
+        peer = mock.Mock(m=dict(id="t5dr"))
+        peer.rank_progress.return_value = (1600.0, 1700.0, "Mentor")
+        self.a.account_peers = (peer,)
+        self.assertEqual(self.a.rank_progress(1640), peer.rank_progress.return_value)
+        peer.rank_progress.assert_called_once_with(1640)
 
 
 class FoundMatchTest(Base):

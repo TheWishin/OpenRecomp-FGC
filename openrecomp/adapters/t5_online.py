@@ -443,7 +443,7 @@ class Online:
         if self._online_phase == "searching" and others:
             # Somebody is searching too, but the server pairs only the same build: say it instead of searching silently.
             message = i18n.message("online.searching_other_build", count=others)
-        snapshot = dict(phase=self._online_phase, message=message, other_builds=others,
+        snapshot = dict(phase=self._online_phase, message=message, other_builds=others, busy=bool(self._online_busy),
                     name=self._online_name, account=self._online_account,
                     recovery_codes=list(self._online_recovery_codes),
                     queue=self._online_queue, match=dict(self._online_match),

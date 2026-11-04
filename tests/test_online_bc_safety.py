@@ -112,10 +112,11 @@ class OnlineBCSafetyTests(unittest.TestCase):
         adapter.snapshot["phase"] = "result_sent"
         self.assertNotIn("rematch", {item.get("id") for item in nav.items()})
 
-    def test_t4_manifest_keeps_direct_beta_despite_stale_lobby_state(self):
+    def test_explicit_advanced_direct_mode_ignores_stale_lobby_state(self):
         adapter, nav = self.navigation()
         adapter.m["adapter"] = "t4"
         adapter.snapshot.update(self.social_snapshot())
+        adapter.snapshot["capabilities"]["direct_ip"] = True
         adapter.snapshot["capabilities"]["rematch"] = True
         unsupported = {"login_guest", "login_account", "login_saved", "search_casual", "search_ranked",
                        "challenge:other", "create_room", "join_room:public", "send_chat", "online_chat",

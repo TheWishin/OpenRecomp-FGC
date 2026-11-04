@@ -1,8 +1,13 @@
 # T4 beta first run and release acceptance
 
-This beta offers T4 offline play and online through a T4 lobby server or by direct
-IP or VPN; no ranked. The launcher ships the **T4 Online** lobby server (T5DR Online
-accounts work there); see [T4_ONLINE.md](T4_ONLINE.md). T5DR's
+This beta offers T4 offline play and online through a T4 lobby server using T5DR's
+shared login and lobby screens. Online always opens login or the lobby; the shipped
+**T4 Online** entry may be a placeholder, in which case enter a server address.
+Use a guest name or a T5DR account on a server sharing those accounts. Ranked requires
+an account and a server that enables it. Direct IP or VPN is available under
+Settings > Advanced > **Direct connection (LAN / no server)** for this launcher session;
+old saved direct-mode choices do not change the normal Online entry.
+See [T4_ONLINE.md](T4_ONLINE.md). T5DR's
 installed-client Online screens have their own [acceptance scope](T5DR_ONLINE.md);
 the old T5DR Online launcher remains available during the transition.
 
@@ -56,14 +61,18 @@ ganze Zwei-PC-Ablauf mit beiden Spielen steht in [HAND_CHECK.md](HAND_CHECK.md).
    Erst nach erfolgreichem Build fortfahren. Beide vergleichen vor dem Spiel
    die sichtbare **Build-ID** und die genaue **Compiler/MSVC-Version**;
    derselbe Name "VS 2022" reicht nicht.
-5. Mit Pad oder Maus **Online**, dann **Host** beziehungsweise **Join** waehlen.
-   IP mit der Bildschirmtastatur eingeben, beide **Check connection** und erst
-   nach allen erfolgreichen Pruefungen **Start game** waehlen. Netzwerkaufbau,
-   Firewall und Tailscale sind in [T4_ONLINE.md](T4_ONLINE.md) erklaert.
-6. Nach Spielende zum Launcher zurueckkehren und **Collect logs** waehlen.
-   Der angezeigte Dateipfad nennt das lokale Diagnose-ZIP. Inhalt privat pruefen,
-   bevor er an den Maintainer weitergegeben wird. Logs bleiben ausserhalb des
-   oeffentlichen Repositorys.
+5. Mit Pad oder Maus **Online** waehlen. Namen und gegebenenfalls Lobby-Adresse mit
+   der Bildschirmtastatur eingeben, als Gast oder mit dem T5DR-Konto anmelden.
+   Die Lobby zeigt Spieler, Raeume und Chat. Spieler herausfordern oder eine schnelle
+   Partie suchen; Ranglistenspiele brauchen ein Konto und Serverunterstuetzung.
+   Eine eingehende Herausforderung oeffnet ein Fenster mit Ping, Verbindungsweg,
+   Annehmen und Ablehnen. Bei gefundenem Match **Start match** waehlen.
+6. Unterstuetzte T4-Builds melden das Spielergebnis automatisch. Danach Revanche
+   anfordern oder zur Lobby zurueckkehren; Ranglistensaetze gehen nach dem Countdown
+   des Servers weiter. Die Verbindung ohne Server steht unter Einstellungen > Erweitert.
+   Nur dort gelten Host/Join, **Check connection**, **Collect logs** und die
+   [Netzwerkhinweise](T4_ONLINE.md). Der angezeigte Dateipfad nennt das lokale Diagnose-ZIP;
+   Inhalt vor privater Weitergabe pruefen. Logs bleiben ausserhalb des oeffentlichen Repositorys.
 
 Alle Launcher-Schritte muessen mit Richtungen, Confirm und Back auf einem Pad
 sowie per Maus funktionieren. Werkzeuginstallation und Router-/VPN-Einrichtung
@@ -111,14 +120,17 @@ zu Dateien und Lizenzen stehen in [PACKAGING.md](PACKAGING.md).
    tests. Experimental run-ahead and transport/harness controls are hidden.
    Existing graphics and sound defaults remain unchanged. Quick access offers
    launcher language, fullscreen and motion preferences.
-7. For online, select **Host** or **Join**. Enter the host's IPv4 address with
-   the on-screen keyboard, using its VPN address for a VPN connection. Both
-   players select **Check connection**. Matching build, compiler/MSVC and ISO
-   hash plus two-way UDP reachability are required before the separate
-   **Start game** action becomes available. After closing T4, **Collect logs**
-   saves local diagnostic zip files through T4's installed collector; Back
-   cancels checks or leaves the screen. See
-   [T4_ONLINE.md](T4_ONLINE.md) for the complete flow and network limits.
+7. For online, open **Online** and log in as a guest or with your T5DR account.
+   Enter the lobby server address with the on-screen keyboard if needed.
+   The shared lobby has players, rooms and chat; challenge a player or search a
+   quick match. An incoming challenge opens an accept/decline pop-up with ping and
+   connection path. Ranked requires a supported server and an account. Ready the
+   match-found card to launch. Supported games report results automatically; request
+   a rematch, continue the set or return to the lobby. The launcher requests automatic
+   VS entry, but direct-to-fight behavior and fighter/stage selection remain unverified.
+   For LAN without a server, use Settings > Advanced > **Direct connection (LAN / no server)**;
+   matching build, compiler/MSVC and ISO hash plus two-way UDP checks precede Start game.
+   See [T4_ONLINE.md](T4_ONLINE.md) for the complete flow and network limits.
 8. Back returns to the shelf and then the quit dialog. An import or ISO check
    must finish before exit; an active build offers its cancellation row.
    Quick access also offers launcher update checks. Updates remain disabled
@@ -156,6 +168,6 @@ the complete portable T4 release separately; neither is created by this review.
 
 Before handover run `.venv\Scripts\python.exe -m unittest discover -s tests`
 and `.venv\Scripts\python.exe tools\package_release.py --scan-only`, then record
-the actual results. The launcher window, games, builds, screenshots and real
-network checks were not started for this source review. Passing automated tests
+the actual results. Games, builds and real network checks were not started for this
+source review; screenshot checks use synthetic data without installed game art. Passing automated tests
 does not replace the owner checks above.

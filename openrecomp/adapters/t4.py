@@ -152,7 +152,7 @@ class T4(T4Support, T4Online, Adapter):
         if not problems and last.get("ok") is False:
             detail = self.message("t4.play_failed", error=last.get("note") or str(last.get("exit", "?")))
         return dict(status="@ready" if not problems else "@not_built", version="SLUS-20328",
-                    players="@t4.direct_title", last=friendly_time(last.get("time", "")),
+                    players="@t4.lobby_mode", last=friendly_time(last.get("time", "")),
                     detail=detail)
 
     def hero(self):

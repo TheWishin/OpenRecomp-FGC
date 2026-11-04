@@ -121,6 +121,10 @@ class AdapterGameResultTests(unittest.TestCase):
                                   "desync": 0, "hash": "00ff00ff00ff00ff", "frames": 9000, "chars": [14, 0],
                                   "stage": 3})
         self.assertEqual(self.a.online_state()["phase"], "result_sent")
+        result = self.a.online_state()["result"]
+        self.assertEqual(result, dict(winner=1, score=[1, 2], slot=1, source="game"))
+        result["score"][0] = 9
+        self.assertEqual(self.a.online_state()["result"]["score"], [1, 2])
         self.assertEqual(self.a.stops, [])                                  # the opponent may still need our game
         with mock.patch("openrecomp.adapters.t4_online.time.monotonic", return_value=self.a._t4_result_stop_at + 1):
             self.a.online_poll()
