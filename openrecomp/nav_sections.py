@@ -138,7 +138,15 @@ class Sections:
 
     def _items_build_rows(self, g):
         if getattr(g.a, "coexistence_state", lambda: dict(active=False))()["active"]:
-            return [dict(it, card="game") for it in self._coexistence_items(g, choose=True)] + [dict(
+            shared = [dict(it, card="game") for it in self._coexistence_items(g, choose=True)]
+            if g.a.ready():
+                # Built by its own launcher and ready (QA: the page said "Not yet / Build game" while the top bar said
+                # Ready): the big button plays; building stays with that launcher.
+                return shared + [dict(
+                    kind="action", id="build", label="@start_game", verb="@play", card="main", primary=True,
+                    first_play=True, run=lambda: self.start_game(g), hint="@t5.coexist.build_match",
+                    detail=dict(kicker="@ready", title="@start_game", lead="@t5.coexist.build_match", rows=[]))]
+            return shared + [dict(
                 kind="action", id="build", label="@build_game", disabled=True, card="main", primary=True,
                 hint="@t5.coexist.build_blocked",
                 detail=dict(kicker="@section.build", title="@build_game",
