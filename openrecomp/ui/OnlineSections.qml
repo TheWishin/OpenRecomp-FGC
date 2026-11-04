@@ -77,7 +77,7 @@ Flickable {
                                 onSelected: i => view.root.backend.focusOnlineRow(i)
                             }
                             OnlineStyle.FieldRow {
-                                id: field; visible: row.l.kind === "row"; width: parent.width; b: row.l
+                                id: field; root: view.root; visible: row.l.kind === "row"; width: parent.width; b: row.l
                                 onActivated: i => view.root.backend.clickRow(i)
                             }
                         }

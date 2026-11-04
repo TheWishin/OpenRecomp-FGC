@@ -119,7 +119,7 @@ class Library:
             if yes:
                 self._open_picker("library_folder", "@library.local", [], [], "folder")
             else:
-                self._open_osk("library_repository")
+                self._edit_field("library_repository")
         elif kind == "library_manage":
             if yes:
                 self._ask("library_remove")

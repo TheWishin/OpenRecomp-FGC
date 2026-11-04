@@ -31,8 +31,9 @@ class SessionPresentation(unittest.TestCase):
         self.assertEqual(len(page["replayColumns"]), 5)
         self.assertTrue(all(not row["heading"] for row in page["rows"]))
         self.assertTrue(all(row["cells"][3] == i18n.text("en", "hidden") for row in page["rows"]))
-        self.assertEqual(page["rows"][0]["index"], 1)
+        self.assertEqual(page["rows"][0]["index"], 3)
         self.assertEqual(page["rows"][0]["cells"][4], "—")
+        self.nav.focus[self.nav.key()] = page["rows"][0]["index"]
         self.nav.act("x")
         self.assertEqual(self.page("replays")["rows"][0]["cells"][3], "Sieg 3:1")
         self.nav.act("confirm")
@@ -40,7 +41,7 @@ class SessionPresentation(unittest.TestCase):
 
     def test_replay_window_tracks_focus_without_group_rows(self):
         self.page("replays")
-        for _ in range(11):
+        for _ in range(13):
             self.nav.act("down")
         page = self.page("replays")
         self.assertEqual(len(page["rows"]), 10)

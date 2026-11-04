@@ -98,16 +98,67 @@ class FeedbackNavigation(unittest.TestCase):
         self.nav._online_action(self.nav.game, "challenge:p1")
         self.assertEqual(self.a.calls, before)
 
-    def test_confirm_on_waiting_row_cancels_the_current_server_offer(self):
+    def test_waiting_row_ignores_duplicate_confirm_and_named_cancel_cancels_offer(self):
         self.waiting(seconds=30)
+        before = list(self.a.calls)
         self.nav.act("confirm", device="xbox")
+        self.assertEqual(self.a.calls, before)
+        self.choose("cancel_challenge:offer-1")
         self.assertEqual(self.a.calls[-1], ("online", "cancel_challenge:offer-1"))
 
     def test_cancel_failure_is_shown_on_the_challenged_row(self):
         self.waiting(seconds=30)
-        self.nav.act("confirm", device="xbox")
+        self.choose("cancel_challenge:offer-1")
         self.reply(message="@online.failure")
         self.assertEqual(self.receipt()["kind"], "error")
+
+    def test_cancel_is_once_only_and_disabled_until_server_reply(self):
+        for local_receipt in (True, False):
+            with self.subTest(local_receipt=local_receipt):
+                self.setUp()
+                if local_receipt:
+                    self.waiting()
+                else:
+                    self.a.snapshot["open_challenges"] = [dict(id="offer-1", player="p1", name="Rival")]
+                action = "cancel_challenge:offer-1"
+                self.nav._online_action(self.nav.game, action)
+                self.nav._online_action(self.nav.game, action)
+                self.assertEqual(self.a.calls.count(("online", action)), 1)
+                outgoing = self.nav.view()["online"]["find"]["outgoing"]
+                self.assertEqual(outgoing["status"], i18n.text("en", "feedback.cancelling"))
+                self.assertTrue(outgoing["buttons"][0]["disabled"])
+                self.reply(open_challenges=[], message="@online.challenge_cancelled")
+                receipt = self.receipt("challenge:p1" if local_receipt else action)
+                self.assertEqual(receipt["kind"], "success")
+
+    def test_incoming_answer_guards_both_choices_by_server_identity(self):
+        self.a.snapshot["challenge"] = dict(id="incoming-1", name="Rival")
+        for action in ("accept_challenge", "accept_challenge", "decline_challenge"):
+            self.nav._online_action(self.nav.game, action)
+        answers = [call for call in self.a.calls if call[1] in ("accept_challenge", "decline_challenge")]
+        self.assertEqual(answers, [("online", "accept_challenge")])
+        incoming = self.nav.view()["online"]["find"]["incoming"]
+        self.assertTrue(all(button["disabled"] for button in incoming["buttons"]))
+        self.reply(message="@online.failure")
+        incoming = self.nav.view()["online"]["find"]["incoming"]
+        self.assertTrue(all(not button["disabled"] for button in incoming["buttons"]))
+        self.nav._online_action(self.nav.game, "decline_challenge")
+        self.assertEqual(self.a.calls[-1], ("online", "decline_challenge"))
+        self.reply(challenge={}, message="@online.challenge_answered")
+        self.assertEqual(self.receipt("decline_challenge")["kind"], "success")
+
+    def test_incoming_disappearance_does_not_invent_result_and_new_identity_releases_guard(self):
+        self.a.snapshot["challenge"] = dict(id="incoming-1", name="Rival")
+        self.nav._online_action(self.nav.game, "accept_challenge")
+        self.reply(challenge={})
+        self.assertEqual(self.receipt("accept_challenge")["kind"], "pending")
+        self.reply(challenge=dict(id="incoming-2", name="Another rival"))
+        incoming = self.nav.view()["online"]["find"]["incoming"]
+        self.assertTrue(all(not button["disabled"] for button in incoming["buttons"]))
+        self.nav._online_action(self.nav.game, "accept_challenge")
+        self.assertEqual(self.a.calls.count(("online", "accept_challenge")), 2)
+        self.reply(phase="matched", challenge={}, match=dict(opponent="Another rival"))
+        self.assertEqual(self.receipt("accept_challenge")["kind"], "success")
 
     def test_room_friend_invite_results_and_failure_reason_are_in_place(self):
         for action, result in (("create_room", "@online.room_joined"), ("join_room:r1", "@online.room_joined"),

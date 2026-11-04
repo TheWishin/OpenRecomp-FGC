@@ -76,7 +76,8 @@ class MainMenuTests(unittest.TestCase):
         nav.sec[nav.game.id] = "settings"
         page = nav.view()["settingsPage"]
         self.assertEqual(page["activeTab"], "video")
-        self.assertTrue(any(line.get("hint") and line.get("value") for line in page["tabLines"]))
+        self.assertTrue(any(line.get("value") for line in page["tabLines"]))
+        self.assertTrue(all(line.get("focused") for line in page["tabLines"] if line.get("hint")))
         for tab in page["tabs"]:
             nav.select_settings_tab(tab["id"])
             item = nav.items()[nav.focus_index(nav.items())]
@@ -196,9 +197,9 @@ class MenuScene(unittest.TestCase):
                 self.assertGreater(action.height(), 30)
                 self.assertLess(bottom.y(), self.win.height() - 60)
             elif chapter == "settings":
-                value = self.named("settingsCurrentValue")[0]
-                text = next(item for item in value.childItems() if item.property("text") is not None)
-                self.assertLessEqual(text.property("contentHeight"), text.height())
+                detail = self.named("settingsDetail")[0]
+                self.assertLessEqual(detail.x() + detail.width(), 1920)
+                self.assertTrue(all(line.get("focused") for line in self.nav.view()["settingsPage"]["tabLines"] if line.get("hint")))
             else:
                 status = self.named("mainMenuStatus")[0]
                 self.assertTrue(status.isVisible())

@@ -158,12 +158,15 @@ class OnlineLogin:
             out = dict(index=n, label=it.get("label", ""), value=it.get("value") or "", focused=n == fi,
                        verb=it.get("verb", "") if n == fi else "", disabled=bool(it.get("disabled")),
                        error=message if field_of == iid else "")
+            out.update(self.field_metadata(iid))
             out.update(more)
             return out
 
         password = one("online_password")
         if password and shown:
+            password["secret"] = False
             password["value"] = i18n.literal(g.a.text_value("online_password"))
+            password["draft"] = i18n.literal(g.a.text_value("online_password"))
         footer = [one(i) for i in FOOTER_IDS if i in by_id]
         known = set(("online_status", "login_saved", "online_name", "login_guest", "login_back") + ACCOUNT_IDS
                     + RECOVER_IDS + FOOTER_IDS + OTHER_IDS)

@@ -84,6 +84,13 @@ class ScenePolish(unittest.TestCase):
                 focused = next(c for c in self.named("shelfContent") if c.parentItem().width() > 900)
                 action = next(c for c in self.named("shelfAction") if c.parentItem() == focused.parentItem())
                 self.assertLessEqual(focused.y() + focused.height(), action.y() + 1)
+                self.assertGreater(focused.property("contentHeight"), focused.height())
+                self.nav.act("down", device="xbox")
+                self.publish()
+                self.assertGreater(focused.property("contentY"), 0)
+                self.nav.act("up", device="xbox")
+                self.publish()
+                self.assertEqual(focused.property("contentY"), 0)
                 for prompt in self.named("promptItem"):
                     self.assertGreater(prompt.width(), 0)
                     self.assertLessEqual(prompt.x() + prompt.width(), 1825)
@@ -145,6 +152,8 @@ class ScenePolish(unittest.TestCase):
     def test_long_replay_detail_stays_above_primary_action(self):
         self.nav.screen = "hub"
         self.nav.sec[self.nav.game.id] = "replays"
+        rows = self.nav.items()
+        self.nav.focus[self.nav.key()] = next(n for n, row in enumerate(rows) if row.get("kind") == "action")
         self.publish()
         detail = self.backend._v["detail"]
         detail["images"] = [QUrl.fromLocalFile(str(Path(UI_DIR) / "assets" / "icon.svg")).toString()] * 2
@@ -156,9 +165,12 @@ class ScenePolish(unittest.TestCase):
                 detail["lead"] = longest
                 self.backend.viewChanged.emit()
                 spin(160)
-                content = self.named("detailContent")[0]
-                primary = self.named("primaryAction")[0]
+                content = next(item for item in self.named("detailContent") if item.isVisible())
+                primary = next(item for item in self.named("primaryAction") if item.isVisible())
                 self.assertLessEqual(content.y() + content.height(), primary.y() - 8)
+                self.assertGreater(content.property("contentHeight"), content.height())
+                for title in self.named("sessionDetailTitle"):
+                    self.assertFalse(title.property("truncated"))
                 self.assertEqual(primary.property("color"), self.win.property("bone"))
 
     def test_stage_preserves_geometry_at_1080p_and_150_percent_logical_size(self):

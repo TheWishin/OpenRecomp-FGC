@@ -8,7 +8,7 @@ Item {
     property var columns: []
     signal selected(int index)
     signal activated(int index)
-    height: line.kind === "thead" ? heading.implicitHeight + 16 : body.implicitHeight + 20
+    height: line.kind === "thead" ? heading.implicitHeight + 16 : Math.max(44, body.implicitHeight + 20)
     Rectangle {
         anchors.fill: parent; radius: 4
         color: table.line.focused || !!(table.line.feedback || {}).text ? Theme.raised : "#1B1E23"

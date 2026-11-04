@@ -16,6 +16,7 @@ class MainMenu:
         g = g or self.game
         self.screen = "hub"
         self.main_menu_game = g.id
+        self.main_menu_chat = False
         self.ranked_page = ""
         self.__dict__.setdefault("main_menu_visited", set()).add(g.id)
 
@@ -47,6 +48,9 @@ class MainMenu:
         add("controls", "controls")
         add("support", "support")
         add("games", "games")
+        for entry in entries:
+            entry["group"] = "@section.online" if entry["id"] in ("ranked", "quick", "lobby", "rooms", "friend") else (
+                "@section.play" if entry["id"] in ("practice", "offline", "replays", "leaderboard") else "@arcade.more")
         return entries
 
     def _open_main_entry(self, entry):
@@ -74,6 +78,29 @@ class MainMenu:
                                            if it.get("id") == "practice"), 0)
 
     def _main_menu(self, action):
+        from .nav_lobby_chat import available
+        if available(self.game.a.online_state()):
+            items = self.items()
+            i = self.focus_index(items)
+            if action in ("x", "right") and not getattr(self, "main_menu_chat", False):
+                self.main_menu_chat = True
+                if not self.__dict__.get("chat_open", {}).get(self.game.id, True):
+                    self._chat_set_open(self.game, True)
+                    items = self.items()
+                self.focus[self.key()] = next((n for n, it in enumerate(items)
+                    if it.get("id") in ("online_private_chat", "online_chat")), i)
+                return
+            if getattr(self, "main_menu_chat", False):
+                if action in ("back", "left", "x"):
+                    self.main_menu_chat = False
+                elif action in ("up", "down"):
+                    visible = self._visible_chat_rows(items, i)
+                    pos = visible.index(i) if i in visible else 0
+                    if visible:
+                        self.focus[self.key()] = visible[max(0, min(len(visible) - 1, pos + (-1 if action == "up" else 1)))]
+                elif action == "confirm" and items:
+                    self._activate(items[i])
+                return
         entries = self._main_entries(self.game)
         index = min(getattr(self, "main_menu_focus", 0), len(entries) - 1)
         if action in ("up", "prev", "down", "next"):
@@ -103,6 +130,7 @@ class MainMenu:
         selected = min(getattr(self, "main_menu_focus", 0), len(entries) - 1)
         for index, entry in enumerate(entries):
             entry.update(index=index, focused=index == selected)
+            entry["groupStart"] = index == 0 or entries[index - 1]["group"] != entry["group"]
         connected = state.get("phase") not in (None, "", "offline", "error", "kicked")
         friends = sum(friend.get("status") == "online" for friend in state.get("friends") or [])
         notifications = len(state.get("friend_incoming") or []) + len(state.get("open_challenges") or [])
@@ -114,5 +142,12 @@ class MainMenu:
                                   friends=friends, notifications=notifications),
             hint="@main_menu.hint")
         v["hint"] = "@main_menu.hint"
+        from .nav_lobby_chat import available
+        if available(state):
+            items = self.items()
+            v["online"].update(chatDocked=True, chat=self._view_chat(g, state, items,
+                self.focus_index(items) if getattr(self, "main_menu_chat", False) else -1))
         v["prompts"] = [self.prompt("confirm", "@open"), self.prompt("back", "@games"),
                         self.prompt("social", "@quick_access"), self.prompt("switchGame", "@switch_game")]
+        if available(state):
+            v["prompts"].insert(2, self.prompt("x", "@community_ui.chat_short"))

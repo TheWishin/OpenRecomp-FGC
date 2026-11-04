@@ -6,6 +6,6 @@ Text {
     font.family: "IBM Plex Sans"
     wrapMode: Text.Wrap
     objectName: "onlineFieldLabel"
-    font.weight: Font.Medium; font.pixelSize: Theme.px(Theme.labelSize)
+    font.weight: Font.Medium; font.pixelSize: Theme.onlinePx(16)
 
 }

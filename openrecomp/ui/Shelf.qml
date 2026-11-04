@@ -30,6 +30,8 @@ Item {
                     border.width: 1; border.color: tile.t.focused ? (Theme.readableAccent(tile.t.accent) || shelf.root.line) : shelf.root.line
                     clip: true
                     Text {
+                        objectName: "shelfDecoration"
+                        Accessible.ignored: true
                         textFormat: Text.PlainText; text: tile.t.num || ""
                         anchors.right: parent.right; anchors.rightMargin: 24; y: tile.t.focused ? 36 : 220
                         color: "#22252B"; font.family: shelf.root.display; font.weight: Font.Black
@@ -53,10 +55,16 @@ Item {
                         }
                     }
                 }
-                Column {
+                Flickable {
                     objectName: "shelfContent"
                     x: tile.t.focused ? 52 : 24; y: 46
                     width: tile.t.focused ? Math.min(560, tile.width - 104) : tile.width - 48
+                    height: Math.min(shelfDescription.implicitHeight, tile.t.focused ? tileAction.y - y - 16 : tile.height - y - 24)
+                    contentWidth: width; contentHeight: shelfDescription.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
+                    contentY: Math.min(Math.max(0, contentHeight - height), (tile.t.scrollStep || 0) * 96)
+                    Accessible.name: [tile.t.name || "", tile.t.subtitle || ""].join(". ")
+                Column {
+                    id: shelfDescription; width: parent.width
                     spacing: 0
                     Rectangle { width: 40; height: 4; color: Theme.readableAccent(tile.t.accent) || shelf.root.textC }
                     Item { width: 1; height: 16 }
@@ -68,31 +76,32 @@ Item {
                     }
                     Item { width: 1; height: 12 }
                     Text {
+                        objectName: "shelfTileTitle"
                         textFormat: Text.PlainText; width: parent.width; text: tile.t.name || ""
-                        wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; lineHeight: 0.95
+                        wrapMode: Text.WrapAnywhere; lineHeight: 0.95
                         color: tile.t.focused ? shelf.root.textC : shelf.root.muted
                         font.family: shelf.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase
-                        font.pixelSize: Theme.px(tile.t.focused ? 64 : 36)
+                        font.pixelSize: Theme.px(tile.t.focused ? 64 : 28)
                     }
                     Text {
                         textFormat: Text.PlainText; width: parent.width; topPadding: 8; text: tile.t.subtitle || ""
-                        wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight
+                        wrapMode: Text.Wrap
                         color: shelf.root.muted; font.family: shelf.root.sans; font.pixelSize: Theme.px(tile.t.focused ? 23 : 19)
                     }
                     Item { width: 1; height: tile.t.focused ? 18 : 12 }
                     Rectangle {
                         objectName: "shelfStatus"
                         visible: !!tile.t.status
-                        width: Math.min(statusText.implicitWidth + 24, parent.width); height: visible ? 32 : 0
+                        width: Math.min(statusText.implicitWidth + 24, parent.width); height: visible ? statusText.implicitHeight + 12 : 0
                         radius: 4; color: tile.t.statusKind === "ready" ? "#20342D" : "#382E20"
-                        Text { id: statusText; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 24); textFormat: Text.PlainText; text: tile.t.status || ""; elide: Text.ElideRight; color: tile.t.statusKind === "ready" ? Theme.success : "#F5C77D"; font.family: shelf.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(18)}
+                        Text { id: statusText; objectName: "shelfStatusText"; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 24); wrapMode: Text.Wrap; textFormat: Text.PlainText; text: tile.t.status || ""; color: tile.t.statusKind === "ready" ? Theme.success : "#F5C77D"; font.family: shelf.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(18)}
                     }
                     Rectangle {
                         objectName: "shelfUpdate"
                         visible: !!tile.t.update && !tile.t.status
-                        width: Math.min(updateText.implicitWidth + 24, parent.width); height: visible ? 32 : 0
+                        width: Math.min(updateText.implicitWidth + 24, parent.width); height: visible ? updateText.implicitHeight + 12 : 0
                         radius: 4; color: "#382E20"
-                        Text { textFormat: Text.PlainText; id: updateText; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 24); elide: Text.ElideRight; text: tile.t.update || ""; color: "#F5C77D"; font.family: shelf.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(18)}
+                        Text { textFormat: Text.PlainText; id: updateText; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 24); wrapMode: Text.Wrap; text: tile.t.update || ""; color: "#F5C77D"; font.family: shelf.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(18)}
                     }
                     Item { width: 1; height: tile.t.focused ? 18 : 0 }
                     Repeater {
@@ -121,7 +130,9 @@ Item {
                         color: Theme.muted; font.family: shelf.root.sans; font.pixelSize: Theme.px(19)
                     }
                 }
+                }
                 Rectangle {
+                    id: tileAction
                     objectName: "shelfAction"
                     visible: !!tile.t.focused
                     x: 52; anchors.bottom: parent.bottom; anchors.bottomMargin: 44

@@ -48,9 +48,51 @@ class BetaLayout(unittest.TestCase):
             self.assertIn("height:", item)
             self.assertNotIn("elide:", item)
         hint = named_text((UI / "Main.qml").read_text(encoding="utf-8"), "focusHint")
-        self.assertIn("fontSizeMode: Text.Fit", hint)
         self.assertIn("wrapMode: Text.Wrap", hint)
         self.assertNotIn("elide:", hint)
+
+        # Measure real wrapped hints at the output floor, rather than requiring shrink-to-fit typography.
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QFontDatabase, QGuiApplication
+        from PySide6.QtQml import QQmlApplicationEngine
+        from openrecomp import i18n
+        from test_ui_loads import FakeBackend, spin, wait_pages
+        from test_ui_polish import items
+        from tools import online_shots
+        app = QGuiApplication.instance() or QGuiApplication([])
+        for font in (UI / "fonts").glob("*.ttf"):
+            QFontDatabase.addApplicationFont(str(font))
+        nav = online_shots.scene("t4", "arcade_floor", "en")
+        backend = FakeBackend(nav)
+        engine = QQmlApplicationEngine()
+        warnings = []
+        engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
+        engine.setInitialProperties(dict(backend=backend, wantFull=False))
+        engine.load(QUrl.fromLocalFile(str(UI / "Main.qml")))
+        self.assertTrue(engine.rootObjects(), warnings)
+        window = engine.rootObjects()[0]
+        window.show()
+        wait_pages(window)
+        try:
+            for width, height in online_shots.SIZES:
+                window.setWidth(width)
+                window.setHeight(height)
+                for language in i18n.LANGUAGES:
+                    nav.language, nav.text_size = language, 130
+                    backend._v = online_shots.snapshot(nav)
+                    backend._v["hint"] = i18n.text(language, "t4.account_both_hint")
+                    backend.viewChanged.emit()
+                    spin(10)
+                    label = next(item for item in items(window.contentItem()) if item.objectName() == "focusHint")
+                    self.assertLessEqual(label.property("contentHeight"), label.height() + 1)
+                    self.assertLessEqual(label.property("contentWidth"), label.width() + 1)
+                    self.assertFalse(label.property("truncated"), (language, width))
+                    self.assertGreaterEqual(window.property("hintHeight"), label.property("contentHeight") + 8 - 1)
+                    self.assertGreaterEqual(label.property("font").pixelSize() * width / 1920, 14 * 1.3 - .5)
+            self.assertEqual(warnings, [])
+        finally:
+            window.setProperty("allowClose", True)
+            window.close()
 
     def test_long_controller_row_names_have_two_lines(self):
         item = named_text((UI / "Hub.qml").read_text(encoding="utf-8"), "hubRowLabel")

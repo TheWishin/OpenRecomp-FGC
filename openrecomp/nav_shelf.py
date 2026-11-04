@@ -109,6 +109,10 @@ class Shelf:
             self.start_focus = max(0, self.start_focus - 1)
         elif a == "right":
             self.start_focus = min(len(ids) - 1, self.start_focus + 1)
+        elif a in ("up", "down"):
+            scroll = self.__dict__.setdefault("shelf_scroll", {})
+            tid = ids[self.start_focus]
+            scroll[tid] = max(0, min(1000, scroll.get(tid, 0) + (1 if a == "down" else -1)))
         elif a == "switchGame":
             if self.games:
                 self._select_game(self.games[(self.start_focus + 1) % len(self.games)])
@@ -163,7 +167,8 @@ class Shelf:
         for j, tid in enumerate(ids):
             g = self.game_by_id(tid)
             foc = j == focus
-            t = dict(id=tid, focused=foc, w=wide if foc else widths[j], free=g is None)
+            t = dict(id=tid, focused=foc, w=wide if foc else widths[j], free=g is None,
+                     scrollStep=self.__dict__.get("shelf_scroll", {}).get(tid, 0) if foc else 0)
             if g:
                 st = g.a.status()
                 ready = g.a.ready()

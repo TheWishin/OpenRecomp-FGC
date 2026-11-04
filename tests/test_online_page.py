@@ -56,16 +56,18 @@ class LobbyPage(unittest.TestCase):
         self.assertEqual([line["text"] for line in page["chat"]["lines"]], ["hi", "hello"])
         self.assertTrue(page["chat"]["lines"][1]["own"])
 
-    def test_pad_moves_across_player_cards_and_the_selected_card_has_actions(self):
-        # The first player row contains our own card followed by the two peers.
-        self.nav.act("right", device="xbox")
+    def test_pad_moves_down_players_and_across_to_chat(self):
+        self.nav.focus[self.nav.key()] = next(n for n, it in enumerate(self.items()) if it.get("id") == "online_status")
+        self.nav.act("down", device="xbox")
         self.assertEqual(self.focused()["id"], "challenge:p1")
         row = next(line for line in self.page()["body"]["lines"] if line.get("focused"))
         self.assertGreaterEqual(len(row["buttons"]), 1)
         self.nav.act("right", device="xbox")
-        self.assertEqual(self.focused()["id"], "challenge:p2")
+        self.assertEqual(self.focused()["id"], "online_chat")
         self.nav.act("left", device="xbox")
         self.assertEqual(self.focused()["id"], "challenge:p1")
+        self.nav.act("down", device="xbox")
+        self.assertEqual(self.focused()["id"], "challenge:p2")
 
     def test_chapter_buttons_switch_and_remember(self):
         self.nav.act("chapterNext", device="xbox")
@@ -89,19 +91,15 @@ class LobbyPage(unittest.TestCase):
         self.nav.act("x", device="xbox")
         self.assertEqual(self.focused()["id"], before)
 
-    def test_hidden_chat_counts_new_messages(self):
-        items = self.items()
-        self.nav.focus[self.nav.key()] = next(i for i, it in enumerate(items) if it.get("id") == "chat_toggle")
-        self.nav.act("confirm", device="xbox")
-        page = self.page()
-        self.assertFalse(page["chatOpen"])
+    def test_lobby_chat_collapse_keeps_unread_and_reopens_received_history(self):
+        self.nav._chat_set_open(self.nav.game, False)
+        self.assertFalse(self.page()["chatOpen"])
         self.assertNotIn("online_chat", [it.get("id") for it in self.items()])
-        self.a.snapshot["chat"] = self.a.snapshot["chat"] + [dict(name="Rival", text="new"), dict(name="Rival", text="two")]
-        self.assertEqual(self.page()["chat"]["unread"], 2)
-        self.nav.act("x", device="xbox")                         # X opens it again, into the text field
-        self.assertTrue(self.page()["chatOpen"])
-        self.assertEqual(self.focused()["id"], "online_chat")
-        self.assertEqual(self.page()["chat"]["unread"], 0)
+        self.a.snapshot["chat"].append(dict(name="Rival", text="new @Me"))
+        self.assertEqual(self.page()["chat"]["mentions"], 1)
+        self.assertEqual(self.page()["chat"]["unread"], 1)
+        self.nav._chat_set_open(self.nav.game, True)
+        self.assertEqual(self.page()["chat"]["lines"][-1]["text"], "new @Me")
 
     def test_moved_row_keeps_focus_and_vanished_row_resets(self):
         items = self.items()
@@ -188,7 +186,10 @@ class LoginCard(unittest.TestCase):
 
     def test_show_password_and_remember_me(self):
         self.a.texts["online_password"] = "secret"
-        self.assertNotIn("secret", str(self.nav.view()["online"]["password"]))
+        password = self.nav.view()["online"]["password"]
+        self.assertTrue(password["secret"])
+        self.assertNotIn("secret", password["value"])
+        self.assertNotIn("secret", password["draft"])
         self.go("login_show_password")
         self.nav.act("confirm", device="xbox")
         self.assertEqual(self.nav.view()["online"]["password"]["value"], "secret")

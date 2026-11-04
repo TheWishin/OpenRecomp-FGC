@@ -23,9 +23,13 @@ class Hub:
         return self.sec[g.id]
 
     def key(self):
+        if getattr(self, "main_menu_game", "") == self.game.id:
+            return self.game.id + ":main_chat"
         return f"{self.game.id}:{self.section()}"
 
     def items(self):
+        if getattr(self, "main_menu_game", "") == self.game.id:
+            return self._items_online(self.game)
         return getattr(self, "_items_" + self.section())(self.game)
 
     def focus_index(self, items):
@@ -72,6 +76,8 @@ class Hub:
             pos = secs.index(self.section())
             self.sec[self.game.id] = secs[(pos + (-1 if a == "prev" else 1)) % len(secs)]
         elif a == "back":
+            if self.close_room_advanced() or self.close_ranked_options():
+                return
             if self.game.id in getattr(self, "main_menu_visited", set()):
                 self.open_main_menu()
             elif self.section() == "online" and self._direct_online(self.game):
@@ -167,7 +173,8 @@ class Hub:
                            images=[uri(p) for p in d.get("images", []) if p], image=uri(d.get("image", "")), progress=d.get("progress", -1))
         v["hint"] = it.get("hint", "")
         prompts = []
-        page = sec == "online" and it.get("region") is not None
+        page = sec == "online" and it.get("region") is not None and (
+            it.get("region") == "login" or self._online_layout_on(g.a.online_state()))
         if sec == "settings" and items:
             self._view_settings_page(v, items, fi)
         if sec in ("play", "replays", "controls", "support"):
@@ -195,11 +202,12 @@ class Hub:
             prompts.append(self.prompt("confirm", "@arcade.profile"))
         if page:
             prompts.append(dict(action="chapterNext", label="@online_ui.chapters", g=self.glyph("chapters")))
-            prompts.append(self.prompt("x", "@arcade.watch" if arcade_watch else "@online_ui.chat_back" if it.get("region") == "chat" else "@online.chat"))
+            prompts.append(self.prompt("x", "@arcade.watch" if arcade_watch else "@online_ui.chat_back" if it.get("region") == "chat" else "@community_ui.chat_short"))
         if it.get("replay") is not None:
             prompts.append(self.prompt("x", "@hide_result" if self.show_results else "@show_result"))
         arcade_drawer = any(arcade.get(name) for name in ("optionsOpen", "moreOpen", "helpOpen"))
-        prompts.append(self.prompt("back", "@arcade.close" if arcade_drawer else "@main_menu.title" if g.id in getattr(self, "main_menu_visited", set()) else "@games"))
+        room_flow = sec == "online" and self.__dict__.get("room_flow", {}).get(g.id)
+        prompts.append(self.prompt("back", "@cancel" if room_flow else "@arcade.close" if arcade_drawer else "@main_menu.title" if g.id in getattr(self, "main_menu_visited", set()) else "@games"))
         if g.a.ready() and not (sec == "online" and (g.m.get("adapter") in ("t4", "t5dr")
                 or getattr(g.a, "online_supported", lambda: False)())):
             prompts.append(self.prompt("play", "@play"))
@@ -211,11 +219,17 @@ class Hub:
         v["prompts"] = prompts
         if sec == "build":
             self._view_build_page(v, g, items, fi)
+        if sec == "online":
+            from .nav_lobby_chat import available
+            state = g.a.online_state()
+            if available(state):
+                v["online"]["chat"] = self._view_chat(g, state, items, fi)
+                v["online"]["chatDocked"] = True
 
     def _view_session_page(self, v, g, section, items, focus):
         """Compact page snapshots reuse the same action indices and focused details."""
         indexed = [(i, it) for i, it in enumerate(items)
-                   if section != "replays" or it.get("kind") != "heading"]
+                   if section != "replays" or it.get("kind") not in ("heading", "cycler")]
         selected = next((j for j, (i, _) in enumerate(indexed) if i == focus), 0)
         start = window(len(indexed), selected, 10)
         primary = "start" if section == "play" else (
@@ -223,12 +237,14 @@ class Hub:
         rows = [dict(index=i, id=it.get("id", ""), heading=it.get("kind") == "heading",
                      label=it.get("label") or ("@support.not_checked" if section == "support" else ""), value=it.get("value") or "", verb=it.get("verb", ""),
                      focused=i == focus, disabled=bool(it.get("disabled")), primary=it.get("id") == primary,
-                     hint=it.get("hint", ""), cells=it.get("cells", []))
+                     hint=it.get("hint", ""), cells=it.get("cells", []), **self.field_metadata(it.get("id", "")))
                 for i, it in indexed[start:start + 10]]
         state = g.a.support_state() if section == "support" else {}
         leads = dict(play="@ui.play.lead", replays="@ui.replays.lead", controls="@ui.controls.lead", support="@ui.support.lead")
         v["sessionPage"] = dict(show=True, section=section, title="@" + SECTION_TITLES[section],
                                 lead=leads[section], rows=rows,
+                                  controls=[self._btn(items, n, focus) for n, it in enumerate(items)
+                                            if section == "replays" and it.get("kind") == "cycler"],
                                 replayColumns=["@date", "@opponent", "@ui.replays.fighters", "@result", "@ui.replays.length"],
                                 up=start > 0, down=start + 10 < len(indexed),
                                 empty=len(items) == 1 and items[0].get("id") == "none",
@@ -246,6 +262,8 @@ class Hub:
                 index >= len(previous) or index >= len(current) or previous[index] != current[index]):
             return
         if 0 <= index < len(items) and items[index].get("kind") != "heading":
+            if getattr(self, "main_menu_game", "") == self.game.id:
+                self.main_menu_chat = True
             already = self.focus_index(items) == index
             self.focus[self.key()] = index
             if already or items[index].get("kind") != "hold":

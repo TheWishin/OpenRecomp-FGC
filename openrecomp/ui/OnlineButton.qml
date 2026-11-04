@@ -6,7 +6,7 @@ Rectangle {
     property var b: ({})
     property color accent: "#BE7449"
     property int maxW: 420
-    property int fontSize: Theme.labelSize
+    property int fontSize: 16
     property bool strong: false
     property bool primary: false
     readonly property real captionHeight: caption.implicitHeight
@@ -14,7 +14,7 @@ Rectangle {
     readonly property bool failed: (b.feedback || {}).kind === "error"
     signal activated(int index)
     width: Math.min(maxW, Math.max(100, caption.implicitWidth + 32))
-    height: Math.max(44, caption.implicitHeight + 20) + feedbackHeight
+    height: Math.max(Theme.target(44), caption.implicitHeight + 20) + feedbackHeight
     radius: 5
     color: failed ? "#321B22" : b.focused ? Theme.selected : primary ? Theme.readableAccent(accent) : strong ? "#272B31" : "#1C1F24"
     border.width: 1; border.color: b.focused ? accent : Theme.border
@@ -23,7 +23,7 @@ Rectangle {
         id: caption
         x: (button.width - width) / 2; y: 10; width: Math.min(implicitWidth, button.width - 28)
         horizontalAlignment: Text.AlignHCenter
-        font.pixelSize: Theme.px(button.fontSize)
+        font.pixelSize: Theme.onlinePx(button.fontSize)
         text: (button.b.label || "") + (button.b.value ? ": " + button.b.value : "")
         color: button.failed ? Theme.text : button.b.focused || button.primary ? Theme.ground : Theme.text
     }

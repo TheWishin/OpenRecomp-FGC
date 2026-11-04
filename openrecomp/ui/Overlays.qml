@@ -5,9 +5,35 @@ Item {
     id: ov
     required property var root
     readonly property var v: root.v
+    readonly property real drawerRowHeight: Theme.target(64)
     visible: v.overlay !== ""
 
-    Rectangle { objectName: "overlayMask"; x: 0; y: 0; width: 1920; height: 1080 - 60 - ov.root.hintHeight; color: "#C2000000"; TapHandler {} }
+    Rectangle { objectName: "overlayMask"; x: 0; y: 0; width: 1920; height: 1080 - ov.root.promptHeight - ov.root.hintHeight; color: "#C2000000"; TapHandler {} }
+
+    Rectangle {
+        objectName: "nativeTextDialog"
+        visible: ov.v.overlay === "native"
+        width: 1000; height: nativeContent.height + 48
+        x: (1920 - width) / 2; y: (972 - height) / 2
+        color: Theme.card; border.width: 1; border.color: Theme.focus
+        Column {
+            id: nativeContent; x: 24; y: 24; width: parent.width - 48; spacing: 24
+            EditableField { root: ov.root; field: ov.v.nativeField || ({}); width: parent.width }
+            Row {
+                width: parent.width; spacing: 16
+                OnlineStyle.SecondaryButton {
+                    width: (parent.width - 16) / 2; maxW: width
+                    b: ({index: 0, label: ov.v.nativeCancel || ""})
+                    onActivated: { ov.root.backend.finishEdit(ov.v.nativeEdit, false); ov.root.focusStage() }
+                }
+                OnlineStyle.PrimaryButton {
+                    width: (parent.width - 16) / 2; maxW: width
+                    b: ({index: 1, label: ov.v.nativeDone || ""})
+                    onActivated: { ov.root.backend.finishEdit(ov.v.nativeEdit, true); ov.root.focusStage() }
+                }
+            }
+        }
+    }
 
     // ---------------------------------------------------------------- dialog: the safe answer has the focus
     Rectangle {
@@ -31,7 +57,7 @@ Item {
                         readonly property var o: ov.root.ok(ov.v.dialog.options, index)
                         // Answers share one line; the safe answer keeps the controller focus.
                         objectName: "dialogOption"
-                        width: (dialogColumn.width - 12 * (ov.v.dialog.options.length - 1)) / Math.max(1, ov.v.dialog.options.length); height: 64
+                        width: (dialogColumn.width - 12 * (ov.v.dialog.options.length - 1)) / Math.max(1, ov.v.dialog.options.length); height: Theme.target(64)
                         border.width: 1; border.color: o.focused ? Theme.readableAccent(ov.v.accent) : ov.root.line
                         color: o.focused ? ov.root.bone : "#24272C"
                         Text { textFormat: Text.PlainText; anchors.centerIn: parent; width: parent.width - 24; horizontalAlignment: Text.AlignHCenter; text: parent.o.label || ""; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: Theme.px(19); color: parent.o.focused ? Theme.ground : ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(30)}
@@ -57,14 +83,14 @@ Item {
                 x: 20; y: 76; width: parent.width - 40; height: parent.height - y - 20; clip: true
                 Column {
                     width: parent.width
-                    y: -Math.max(0, ov.v.drawer.rows.findIndex(r => r.focused) - Math.floor(parent.height / 64) + 1) * 64
+                    y: -Math.max(0, ov.v.drawer.rows.findIndex(r => r.focused) - Math.floor(parent.height / ov.drawerRowHeight) + 1) * ov.drawerRowHeight
                     Repeater {
                         model: ov.v.drawer.rows.length
                         Rectangle {
                             objectName: "drawerRow"
                             required property int index
                             readonly property var r: ov.root.ok(ov.v.drawer.rows, index)
-                            width: parent.width; height: 64
+                            width: parent.width; height: ov.drawerRowHeight
                             border.width: 1; border.color: r.focused ? Theme.readableAccent(ov.v.accent) : "transparent"
                             color: r.focused ? ov.root.bone : "transparent"
                             Text { textFormat: Text.PlainText; x: 18; width: parent.r.value ? parent.width * 0.50 - 26 : parent.width - 36; height: parent.height - 12; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: Theme.px(19); verticalAlignment: Text.AlignVCenter; anchors.verticalCenter: parent.verticalCenter; text: parent.r.label || ""; color: parent.r.focused ? Theme.ground : ov.root.textC; font.family: ov.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(28)}
@@ -176,7 +202,7 @@ Item {
                             Rectangle {
                                 required property string modelData
                                 objectName: "oskMenu_" + modelData
-                                width: oskMenuColumn.width; height: 64
+                                width: oskMenuColumn.width; height: Theme.target(64)
                                 color: menuHover.hovered ? ov.root.bone : "transparent"
                                 Text { x: 24; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: parent.modelData === "paste" ? ov.v.osk.paste : ov.v.osk.copy; color: menuHover.hovered ? Theme.ground : ov.root.textC; font.family: ov.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(30)}
                                 HoverHandler { id: menuHover }
@@ -219,21 +245,46 @@ Item {
         x: 260; y: 20; width: 1400; height: 904
         color: Theme.card; border.width: 1; border.color: ov.root.line
         Column {
+            id: pickerHeader
             x: 48; y: 32; width: 1304
             Text { textFormat: Text.PlainText; width: parent.width; elide: Text.ElideRight; text: ov.v.picker.title; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(64)}
             Text { textFormat: Text.PlainText; width: parent.width; bottomPadding: 16; text: ov.v.picker.path; elide: Text.ElideMiddle; color: ov.root.muted; font.family: ov.root.mono; font.pixelSize: Theme.px(24)}
             Text { textFormat: Text.PlainText; objectName: "pickerMessage"; width: parent.width; height: 64; text: ov.v.picker.message || ""; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; color: ov.root.textC; font.family: ov.root.sans; font.pixelSize: Theme.px(26)}
-            Repeater {
-                model: ov.v.picker.rows.length
-                Rectangle {
-                    required property int index
-                    readonly property var r: ov.root.ok(ov.v.picker.rows, index)
-                    width: 1304; height: 60
-                    color: r.focused ? ov.root.bone : "transparent"
-                    Text { textFormat: Text.PlainText; x: 20; width: 160; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: parent.r.kind === "dir" ? ov.v.folder : (parent.r.kind === "pick" ? ov.v.pick : ov.v.file); color: parent.r.focused ? Theme.ground : ov.root.muted; font.family: ov.root.mono; font.pixelSize: Theme.px(22)}
-                    Text { textFormat: Text.PlainText; x: 200; width: 1080; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideMiddle; text: parent.r.name || ""; color: parent.r.focused ? Theme.ground : ov.root.textC; font.family: ov.root.sans; font.weight: parent.r.kind === "file" ? Font.DemiBold : Font.Normal; font.pixelSize: Theme.px(30)}
-                    TapHandler { id: uiTap5; onTapped: ov.root.backend.clickEntry(parent.r.index) }
-                    Interaction { handler: uiTap5; selected: !!parent.r.focused; onActivated: ov.root.backend.clickEntry(parent.r.index) }
+        }
+        Flickable {
+            id: pickerScroll
+            objectName: "pickerViewport"
+            x: 48; y: pickerHeader.y + pickerHeader.height + 12; width: 1304; height: parent.height - y - 20
+            contentHeight: pickerRows.height; clip: true; boundsBehavior: Flickable.StopAtBounds
+            function reveal() {
+                for (var n = 0; n < pickerRepeater.count; ++n) {
+                    var row = pickerRepeater.itemAt(n)
+                    if (!row || !row.r.focused) continue
+                    if (row.y < contentY) contentY = row.y
+                    else if (row.y + row.height > contentY + height) contentY = row.y + row.height - height
+                    contentY = Math.max(0, Math.min(contentY, Math.max(0, contentHeight - height)))
+                }
+            }
+            onHeightChanged: Qt.callLater(reveal)
+            onContentHeightChanged: Qt.callLater(reveal)
+            Connections { target: ov.root.backend; function onViewChanged() { Qt.callLater(pickerScroll.reveal) } }
+            Column {
+                id: pickerRows; width: parent.width
+                onPositioningComplete: Qt.callLater(pickerScroll.reveal)
+                Repeater {
+                    id: pickerRepeater
+                    model: ov.v.picker.rows.length
+                    Rectangle {
+                        objectName: "pickerRow"
+                        required property int index
+                        readonly property var r: ov.root.ok(ov.v.picker.rows, index)
+                        width: pickerRows.width; height: Theme.target(60)
+                        color: r.focused ? ov.root.bone : "transparent"
+                        Text { textFormat: Text.PlainText; x: 20; width: 160; elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter; text: parent.r.kind === "dir" ? ov.v.folder : (parent.r.kind === "pick" ? ov.v.pick : ov.v.file); color: parent.r.focused ? Theme.ground : ov.root.muted; font.family: ov.root.mono; font.pixelSize: Theme.px(22)}
+                        Text { textFormat: Text.PlainText; x: 200; width: 1080; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideMiddle; text: parent.r.name || ""; color: parent.r.focused ? Theme.ground : ov.root.textC; font.family: ov.root.sans; font.weight: parent.r.kind === "file" ? Font.DemiBold : Font.Normal; font.pixelSize: Theme.px(30)}
+                        TapHandler { id: uiTap5; onTapped: ov.root.backend.clickEntry(parent.r.index) }
+                        Interaction { handler: uiTap5; selected: !!parent.r.focused; onActivated: ov.root.backend.clickEntry(parent.r.index) }
+                    }
                 }
             }
         }

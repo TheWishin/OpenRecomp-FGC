@@ -8,16 +8,57 @@ LABELS = {key: "@arcade." + key for key in (
     "options", "more", "help", "you", "idle", "searching", "in_room", "challenge", "watch",
     "profile", "join", "empty", "empty_note", "close", "score", "actions", "options_note",
     "no_matches", "no_rooms")}
+LABELS.update(lobbyTitle="@online_ui.chapter.lobby", subtitle="@community_ui.lobby_subtitle",
+              needsAccount="@online_density.needs_account")
 TOGGLES = {"arcade_options", "arcade_more", "arcade_help"}
+SORTS = (("recommended", "@community_ui.recommended"), ("name", "@community_ui.name"),
+         ("rank", "@online.rank"), ("rating", "@rating"), ("ping", "@community_ui.ping"),
+         ("status", "@community_ui.status"), ("main", "@online_ui.col.main"))
+
+
+def player_order(nav, g, state, players):
+    mode = memory(nav, "sort").get(g.id, "recommended")
+    friends = {str(p.get("id") or p.get("name") or "").casefold() for p in state.get("friends") or []}
+    def key(pair):
+        p, own = pair
+        name = str(p.get("name") or "").casefold()
+        ping = p.get("ping") if isinstance(p.get("ping"), (int, float)) else float("inf")
+        if mode == "name": value = (name,)
+        elif mode == "rank": value = (-(p.get("tier") if isinstance(p.get("tier"), (int, float)) else -1), name)
+        elif mode == "rating": value = (-(p.get("rating") if isinstance(p.get("rating"), (int, float)) else -1), name)
+        elif mode == "ping": value = (ping, name)
+        elif mode == "status": value = (str(p.get("status") or ""), ping, name)
+        elif mode == "main": value = (str(p.get("main") or ""), name)
+        else:
+            friend = p.get("friend") or str(p.get("id") or "").casefold() in friends or name in friends
+            available = p.get("status") in (None, "idle", "online", "available")
+            value = (not friend, not available, ping, name)
+        return (not own,) + value
+    ordered = sorted(players, key=key)
+    if memory(nav, "sort_reverse").get(g.id, False):
+        ordered = [pair for pair in ordered if pair[1]] + list(reversed([pair for pair in ordered if not pair[1]]))
+    return ordered
 
 
 def memory(nav, name):
     return nav.__dict__.setdefault("arcade_" + name, {})
 
 
+def sort_by(nav, g, mode, toggle=False):
+    if mode not in dict(SORTS):
+        return
+    reverse = toggle and memory(nav, "sort").get(g.id, "recommended") == mode and not memory(nav, "sort_reverse").get(g.id, False)
+    memory(nav, "sort")[g.id] = mode
+    memory(nav, "sort_reverse")[g.id] = reverse
+
+
 def toggle(nav, name):
     gid = nav.game.id
-    memory(nav, name)[gid] = not memory(nav, name).get(gid, False)
+    opening = not memory(nav, name).get(gid, False)
+    if opening:
+        items = nav.items()
+        memory(nav, "opener").setdefault(gid, {})[name] = items[nav.focus_index(items)].get("id")
+    memory(nav, name)[gid] = opening
     if name in ("options", "more") and memory(nav, name)[gid]:
         memory(nav, "more" if name == "options" else "options")[gid] = False
     nav.hint_sound(ui_sound.OPEN if memory(nav, name)[gid] else ui_sound.CLOSE)
@@ -31,6 +72,20 @@ def option(item):
 def add_rows(nav, g, page):
     from .nav_online_layout import CHAPTERS, CHAPTER_LABELS
 
+    page.append(dict(kind="action", id="chat_latest", region="chat", label="@community_ui.latest", hint="",
+                     run=lambda: memory(nav, "latest").__setitem__(g.id, memory(nav, "latest").get(g.id, 0) + 1)))
+    current = memory(nav, "sort").get(g.id, "recommended")
+    page.append(dict(kind="cycler", id="arcade_sort", region="lobby", label="@community_ui.sort",
+                     value=dict(SORTS)[current], options=list(SORTS), current=current, hint="",
+                     set=lambda value: sort_by(nav, g, value)))
+    for mode, label in SORTS[1:]:
+        page.append(dict(kind="action", id="arcade_sort:" + mode, region="lobby", label=label, hint="",
+                         run=lambda mode=mode: sort_by(nav, g, mode, toggle=True)))
+    data = g.a.online_state().get("private_chat") or {}
+    for thread in data.get("threads") or []:
+        tid = str(thread["id"])
+        page.append(dict(kind="action", id="chat_close:" + tid, region="chat", label="@online_chat.private_close",
+                         run=lambda tid=tid: nav.close_chat_tab(tid)))
     for name in ("options", "more", "help"):
         page.append(dict(kind="action", id="arcade_" + name, region="find" if name == "options" else "lobby",
                          label="@arcade." + name, verb="@open", hint="",
@@ -84,7 +139,7 @@ def view(nav, g, state, items, fi):
     own_id = str(me.get("id") or "self")
     raw_players = [(me, True)] + [(p, False) for p in state.get("players") or []
                                 if str(p.get("id")) != own_id]
-    for p, own in raw_players:
+    for p, own in player_order(nav, g, state, raw_players):
         pid = own_id if own else str(p.get("id") or "")
         ids = (["profile_self"] if own else ["challenge:" + pid, "profile_player:" + pid])
         watch = next(("arcade_watch:" + t["id"] for t in targets
@@ -96,9 +151,18 @@ def view(nav, g, state, items, fi):
                        "@arcade.profile" if iid.startswith("profile_") else "@arcade.watch" if iid.startswith("arcade_watch:")
                        else "@arcade.challenge" if iid.startswith("challenge:") else "") for iid in ids]
         primary = [b for b in primary if b]
+        for button in primary:
+            if button.get("feedback", {}).get("kind") in ("pending", "waiting") and button["id"].startswith("challenge:"):
+                button["disabled"] = True
+        for b in primary:
+            b["semantic"] = "challenge" if b["id"].startswith("challenge:") else "watch" if b["id"].startswith("arcade_watch:") else "profile"
         index = by_id.get("online_status", 0) if own else by_id.get("challenge:" + pid, -1)
         extra = [_btn(nav, items, by_id, prefix + pid, fi) for prefix in (
             "private_open:", "mention:", "moderation_mute:", "moderation_block:")]
+        message = next((b for b in extra if b.get("id", "").startswith("private_open:")), None)
+        if message:
+            message["label"] = "@online_density.message"
+            primary.append(message)
         if own:
             extra.append(_btn(nav, items, by_id, "logout", fi))
         extra = [b for b in extra if b]
@@ -109,13 +173,13 @@ def view(nav, g, state, items, fi):
         status = {"idle": "@arcade.idle", "queue": "@arcade.searching", "searching": "@arcade.searching",
                   "room": "@arcade.in_room", "in_room": "@arcade.in_room"}.get(p.get("status"), "@arcade.idle")
         if p.get("status") in ("match", "playing", "in_match"):
-            opponent = p.get("opponent") or p.get("opponent_name")
-            status = i18n.message("arcade.playing", name=i18n.literal(opponent)) if opponent else "@online_ui.status.playing"
+            status = "@online_ui.status.playing"
         players.append(dict(id=pid, index=index, name=i18n.literal(p.get("name") or ""),
                             face=_face(g, p)["face"], plate=uri(g.a.rank_plate(p.get("tier"))) if "tier" in p else "",
-                            rank=nav._rank_label(p), main=i18n.literal(g.a.fighter_label(p.get("main"))) if p.get("main") else "",
+                            rank=nav._rank_label(p), rating=str(p["rating"]) if p.get("rating") is not None else "",
+                            main=i18n.literal(g.a.fighter_label(p.get("main"))) if p.get("main") else "",
                             status=status, connection=connection(p), areaLanguage=where(p), own=own, focused=focused,
-                            buttons=primary[:3], more=extra, moreOpen=more_open and selected == pid))
+                            buttons=primary[:4], more=extra, moreOpen=more_open and selected == pid))
     cabinets = []
     room_data = {str(r.get("id")): r for r in state.get("rooms") or []}
     current_room = (state.get("community") or {}).get("room") or {}
@@ -161,8 +225,31 @@ def view(nav, g, state, items, fi):
                           mode={"line": "@online.room_line_mode", "tables": "@online.room_tables_mode"}.get(r.get("mode"), ""),
                           join=_btn(nav, items, by_id, iid, fi, "@arcade.join"),
                           watch=_btn(nav, items, by_id, "arcade_room:room_watch:" + rid, fi, "@arcade.watch"), focused=fi == by_id[iid]))
+    if not any(p["id"] == selected for p in players):
+        selected = next((p["id"] for p in players if not p["own"]), own_id)
+        memory(nav, "selected")[g.id] = selected
     selected_card = next((p for p in players if p["id"] == selected), {})
+    cancel = _btn(nav, items, by_id, "cancel", fi)
+    phase = state.get("phase")
+    search = None
+    if phase in ("searching", "cancelling"):
+        from . import nav_feedback
+        receipt = next((r for action, r in nav_feedback.records(nav, g.id).items()
+                        if action.startswith("search_") and r.get("kind") in ("pending", "waiting")), {})
+        ranked = receipt.get("action") == "search_ranked" or state.get("message") == "@online.searching_ranked"
+        seconds = int(max(0, receipt.get("age", 0)))
+        search = dict(text="@online_density.search_ranked" if ranked else "@online_density.search_casual",
+                      ranked=ranked, elapsed=f"{seconds // 60}:{seconds % 60:02}", buttons=[cancel] if cancel else [])
+    result = nav.__dict__.get("last_action_result", {}).get(g.id)
     return dict(players=players, cabinets=cabinets, rooms=rooms, selected=selected,
+                createRoom=_btn(nav, items, by_id, "arcade_create_room", fi),
+                joinCode=_btn(nav, items, by_id, "arcade_join_code", fi),
+                sort=nav._btn(items, by_id["arcade_sort"], fi),
+                headers=[dict(_btn(nav, items, by_id, "arcade_sort:" + mode, fi), key=mode,
+                              descending=(mode in ("rank", "rating")) != bool(memory(nav, "sort_reverse").get(g.id, False)),
+                              active=memory(nav, "sort").get(g.id, "recommended") == mode)
+                         for mode in ("name", "rank", "rating", "main", "status", "ping")],
+                search=search, result=result,
                 optionsOpen=options_open, moreOpen=more_open,
                 helpOpen=bool(memory(nav, "help").get(g.id, False)),
                 help=memory(nav, "help_context").get(g.id, dict(title="@arcade.help", text="@arcade.options_note")),
@@ -178,7 +265,7 @@ def view(nav, g, state, items, fi):
                               if (it.get("id") or "").startswith("arcade_chapter:")],
                 controls={name: _btn(nav, items, by_id, "arcade_" + name, fi) for name in ("options", "more", "help")},
                 glyphs={key: nav.glyph(action) for key, action in (("a", "confirm"), ("b", "back"), ("x", "x"), ("y", "social"), ("more", "play"))},
-                columns=2 if options_open or more_open or items[fi].get("region") == "chat" else 3,
+                columns=1,
                 labels=dict(LABELS))
 
 
@@ -189,63 +276,75 @@ def active(nav, items, i):
         return False
     if not any(it.get("id") == "arcade_options" for it in items):
         return False
-    return nav._chapter_of_focus(items, i) == "lobby" and items[i].get("region") != "chat"
+    return nav._chapter_of_focus(items, i) == "lobby"
 
 
 def routes(nav, items, i):
     state = nav.game.a.online_state()
     floor = view(nav, nav.game, state, items, i)
     by_id = {it.get("id"): n for n, it in enumerate(items)}
+    controls = floor["controls"]
     if floor["helpOpen"]:
-        return [[floor["controls"]["help"]["index"]]], floor
-    routes = [[by_id[iid] for iid in ("search_casual", "search_ranked", "arcade_options") if iid in by_id]]
-    if floor["optionsOpen"]:
-        routes += [[b["index"]] for b in floor["options"]]
-    for kind in ("incoming", "outgoing", "notice"):
-        # Pending requests stay reachable even while the options drawer is closed.
-        prefixes = {"incoming": ("accept_challenge", "decline_challenge"), "outgoing": ("cancel_challenge:",),
-                    "notice": ("other_here", "other_keep")}[kind]
-        row = [n for n, it in enumerate(items) if (it.get("id") or "").startswith(prefixes)]
-        if row:
-            routes.append(row)
-    for cards in (floor["players"],):
-        indexes = [c["index"] for c in cards if c["index"] >= 0]
-        routes += [indexes[n:n + floor["columns"]] for n in range(0, len(indexes), floor["columns"])]
-    if not floor["optionsOpen"] and not floor["moreOpen"]:
-        routes += [[c["index"]] for c in floor["cabinets"] + floor["rooms"] if c["index"] >= 0]
-    selected = memory(nav, "selected").get(nav.game.id)
-    card = next((p for p in floor["players"] if p["id"] == selected), None)
-    if card:
-        actions = [b["index"] for b in card["buttons"] if b["index"] != card["index"]]
-        if actions:
-            routes.append(actions)
-    routes.append([floor["controls"]["more"]["index"]])
-    if floor["moreOpen"]:
-        indexes = [b["index"] for b in floor["more"] + floor["secondary"] + floor["destinations"]]
-        routes += [[index] for index in dict.fromkeys(indexes)]
+        return [[controls["help"]["index"]]], floor
     if floor["optionsOpen"] or floor["moreOpen"]:
-        routes.append([floor["controls"]["help"]["index"]])
+        fields = floor["options"] if floor["optionsOpen"] else floor["more"] + floor["secondary"] + floor["destinations"]
+        rows = [[controls["options" if floor["optionsOpen"] else "more"]["index"]]]
+        rows += [[b["index"]] for b in fields]
+        rows += [[controls["help"]["index"]]]
+    else:
+        rows = [[by_id[iid] for iid in ("profile_self", "logout", "search_ranked", "search_casual", "arcade_options", "arcade_more") if iid in by_id]]
+        for prefixes in (("accept_challenge", "decline_challenge"), ("cancel_challenge:",), ("other_here", "other_keep"), ("cancel",)):
+            row = [n for n, it in enumerate(items) if ((it.get("id") or "").startswith("cancel_challenge:") if prefixes == ("cancel_challenge:",) else it.get("id") in prefixes)]
+            if row: rows.append(row)
+        rows += [[b["index"]] for b in floor["options"][:2]]
+        rows.append([floor["sort"]["index"]])
+        rows.append([b["index"] for b in floor["headers"]])
+        rows += [[p["index"]] for p in floor["players"] if p["index"] >= 0]
+        selected = next((p for p in floor["players"] if p["id"] == floor["selected"]), None)
+        if selected: rows.append([b["index"] for b in selected["buttons"]])
+        for ids in (("arcade_create_room", "arcade_join_code"),):
+            row = [by_id[iid] for iid in ids if iid in by_id]
+            if row: rows.append(row)
+        rows += [[c["watch"]["index"]] for c in floor["cabinets"] if c.get("watch")]
+        rows += [[b["index"] for b in (r.get("join"), r.get("watch")) if b] for r in floor["rooms"]]
+        chat = nav._view_chat(nav.game, state, items, i)
+        rows += [[b["index"] for b in chat["tabs"]] + [b["closeIndex"] for b in chat["tabs"] if b.get("closeIndex") is not None]]
+        rows += [[line["index"]] for line in chat["lines"]]
+        rows += [[b["index"]] for b in chat["other"]]
+        rows += [[b["index"] for b in (chat.get("latest"), chat.get("compose"), chat.get("send")) if b]]
     seen, unique = set(), []
-    for row in routes:
-        distinct = [index for index in row if index not in seen]
+    for row in rows:
+        distinct = [index for index in row if index >= 0 and index not in seen]
         seen.update(distinct)
-        if distinct:
-            unique.append(distinct)
+        if distinct: unique.append(distinct)
     return unique, floor
 
 
 def move(nav, items, i, step, horizontal=False):
     rows, floor = routes(nav, items, i)
+    selected = next((p for p in floor["players"] if p["id"] == floor["selected"]), None)
+    if selected and not horizontal and step < 0 and i != selected["index"] and any(b["index"] == i for b in selected["buttons"]):
+        return selected["index"]
+    if horizontal and not (floor["optionsOpen"] or floor["moreOpen"] or floor["helpOpen"]):
+        region = items[i].get("region")
+        if region == "chat" and step < 0:
+            target = memory(nav, "pane_back").get(nav.game.id)
+            return next((n for n, it in enumerate(items) if it.get("id") == target), floor["players"][0]["index"])
+        if step < 0 and any(p["index"] == i for p in floor["players"]):
+            return next((b["index"] for b in selected["buttons"] if b["index"] != i), i) if selected else i
+        if any(p["index"] == i for p in floor["players"]) and step > 0:
+            memory(nav, "pane_back")[nav.game.id] = items[i]["id"]
+            return next((n for n, it in enumerate(items) if it.get("id") in ("online_private_chat", "online_chat")), i)
     location = next(((r, row.index(i)) for r, row in enumerate(rows) if i in row), None)
-    if location is None:
-        card = next((c for c in floor["players"] if c["focused"]), None)
-        if card:
-            return move(nav, items, card["index"], step, horizontal)
-        return rows[0][0]
+    if location is None: return rows[0][0]
     row, column = location
-    if horizontal:
-        return rows[row][max(0, min(len(rows[row]) - 1, column + step))]
-    target = max(0, min(len(rows) - 1, row + step))
+    if horizontal: return rows[row][max(0, min(len(rows[row]) - 1, column + step))]
+    # Players and chat are independent vertical panes.
+    region = items[i].get("region")
+    candidates = [r for r, indexes in enumerate(rows) if region != "chat" or any(items[n].get("region") == "chat" for n in indexes)]
+    if region != "chat": candidates = [r for r in candidates if not all(items[n].get("region") == "chat" for n in rows[r])]
+    position = candidates.index(row) if row in candidates else 0
+    target = candidates[max(0, min(len(candidates) - 1, position + step))]
     return rows[target][min(column, len(rows[target]) - 1)]
 
 
@@ -263,10 +362,14 @@ def action(nav, action):
             if memory(nav, name).get(nav.game.id):
                 memory(nav, name)[nav.game.id] = False
                 nav.hint_sound(ui_sound.BACK)
-                nav.focus[nav.key()] = next(n for n, it in enumerate(items) if it.get("id") == "arcade_" + name)
+                opener = memory(nav, "opener").get(nav.game.id, {}).get(name, "arcade_" + name)
+                nav.focus[nav.key()] = next((n for n, it in enumerate(items) if it.get("id") == opener),
+                                          next(n for n, it in enumerate(items) if it.get("id") == "arcade_" + name))
                 return True
     floor = view(nav, nav.game, nav.game.a.online_state(), items, i)
     card = next((p for p in floor["players"] if p["focused"]), None)
+    if (floor["helpOpen"] or floor["moreOpen"] or floor["optionsOpen"]) and action in ("x", "social", "play"):
+        return True
     if card and action == "play":
         toggle(nav, "more")
         nav.focus[nav.key()] = floor["controls"]["more"]["index"]
@@ -278,6 +381,9 @@ def action(nav, action):
         button = next((b for b in card["buttons"] if b["id"].startswith(prefix)), None)
         if button:
             nav.focus[nav.key()] = button["index"]
-            nav._activate(items[button["index"]])
+            if action == "confirm" and not card["own"]:
+                nav.challenge_player(card["id"])
+            else:
+                nav._activate(items[button["index"]])
             return True
     return False

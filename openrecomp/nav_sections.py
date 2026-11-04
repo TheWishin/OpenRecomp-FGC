@@ -1,5 +1,6 @@
 """The game sections and their adapter actions."""
 import os
+from datetime import datetime
 
 from . import i18n
 
@@ -104,7 +105,7 @@ class Sections:
             if opens == "fighters":
                 it["run"] = self._open_fighters
             elif opens and opens.startswith("text:"):
-                it["run"] = lambda tid=opens[5:]: self._open_osk(tid)
+                it["run"] = lambda tid=opens[5:]: self._edit_field(tid)
             elif it.get("kind") == "action":
                 it["run"] = lambda iid=it["id"], label=it["label"]: self._dry(i18n.message("dry_start", name=label)) or self.say(g.a.run_online(iid))
             out.append(it)
@@ -112,11 +113,38 @@ class Sections:
 
     # ---- replays
     def _items_replays(self, g):
-        replays = g.a.replays()
+        replays = list(g.a.replays())
         if not replays:
             return [dict(kind="action", id="none", label="@no_replays", verb="", hint="@replays_hint",
                          detail=dict(kicker="@section.replays", title="@no_replays", lead="@replays_lead", rows=[]))]
-        out, last = [], None
+        prefs = self.__dict__.setdefault("replay_filters", {}).setdefault(g.id, dict(sort="newest", opponent=""))
+        def replay_date(row):
+            if isinstance(row.get("time"), (int, float)):
+                return row["time"]
+            for fmt in ("%d.%m.%Y, %H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+                try:
+                    return datetime.strptime(str(row.get("date") or ""), fmt).timestamp()
+                except (ValueError, OverflowError, OSError):
+                    pass
+            return None
+        # The adapter's stable order is retained when no comparable date is supplied.
+        dated = [(replay_date(row), n, row) for n, row in enumerate(replays)]
+        dated.sort(key=lambda entry: (entry[0] is None, (-entry[0] if prefs["sort"] == "newest" else entry[0])
+                                      if entry[0] is not None else entry[1]))
+        opponents = sorted({str(row.get("opponent") or "") for row in replays} - {""})
+        options = [("", "@community_ui.all_replays")] + [(name, i18n.literal(name)) for name in opponents]
+        if prefs["opponent"] not in [value for value, _ in options]:
+            prefs["opponent"] = ""
+        out = []
+        for field, label, choices in (("sort", "@community_ui.sort", [("newest", "@community_ui.newest"), ("oldest", "@community_ui.oldest")]),
+                                       ("opponent", "@opponent", options)):
+            current = prefs[field]
+            out.append(dict(kind="cycler", id="replay_" + field, label=label, current=current, options=choices,
+                            value=next(text for value, text in choices if value == current), hint="@replay_hint",
+                            set=lambda value, field=field: prefs.__setitem__(field, value),
+                            detail=dict(kicker="@section.replays", title=label, lead="@replay_hint", rows=[])))
+        replays = [row for _, _, row in dated if not prefs["opponent"] or row.get("opponent") == prefs["opponent"]]
+        last = None
         for r in replays:
             if r["group"] != last:
                 out.append(dict(kind="heading", label=r["group"]))

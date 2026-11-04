@@ -119,7 +119,7 @@ Item {
         x: 1112; y: 24; width: 760; height: parent.height - 48
         color: page.root.panel
         clip: true
-        Text { textFormat: Text.PlainText; x: parent.width - implicitWidth + 40; y: -120; text: page.v.numeral || ""; color: "#17191C"; font.family: page.root.display; font.weight: Font.Black; font.pixelSize: Theme.px(900)}
+        Text { objectName: "buildDecoration"; Accessible.ignored: true; textFormat: Text.PlainText; x: parent.width - implicitWidth + 40; y: -120; text: page.v.numeral || ""; color: "#17191C"; font.family: page.root.display; font.weight: Font.Black; font.pixelSize: Theme.px(900)}
         Image {
             visible: !!page.v.hero
             source: page.v.hero || ""

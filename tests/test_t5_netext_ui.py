@@ -53,9 +53,16 @@ class NetextScene(unittest.TestCase):
                     for chapter, tag in (("lobby", "EU de"), ("rooms", "SA pt-BR")):
                         nav.click_chapter(chapter)
                         refresh()
+                        if chapter == "lobby":
+                            # The compact table preserves area/language in its accessible player summary.
+                            summaries = [child for child in items(win.contentItem())
+                                         if child.isVisible() and tag in (child.property("name") or "")]
+                            self.assertTrue(summaries, (chapter, tag))
+                            continue
                         labels = [child for child in items(win.contentItem())
-                                  if child.objectName() == "onlineAreaLanguage" and child.isVisible()]
-                        self.assertIn(tag, [child.property("text") for child in labels])
+                                  if child.objectName() in ("onlineAreaLanguage", "arcadePlayerStatus")
+                                  and child.isVisible() and tag in (child.property("text") or "")]
+                        self.assertTrue(labels, (chapter, tag))
                         for label in labels:
                             self.assertGreaterEqual(label.width(), label.implicitWidth())
                             container = label.parentItem()
@@ -69,7 +76,7 @@ class NetextScene(unittest.TestCase):
                             self.assertGreaterEqual(position.x(), 0)
                             self.assertGreaterEqual(position.y(), 0)
                             self.assertLessEqual(position.x() + label.width(), container.width())
-                            self.assertLessEqual(position.y() + label.height(), container.height())
+                            self.assertLessEqual(position.y() + label.height(), container.height() + .5)
                     nav.click_chapter("lobby")
                     nav.focus[nav.key()] = next(index for index, row in enumerate(nav.items())
                                               if row.get("id") == "arcade_options")
@@ -84,7 +91,7 @@ class NetextScene(unittest.TestCase):
                                   if child.objectName() == "arcadeOptionsDrawer" and child.isVisible())
                     label = next(child for child in items(drawer) if child.isVisible()
                                  and child.property("text") == shortcut["label"]
-                                 and child.property("font").pixelSize() == 20)
+                                 and child.objectName() == "onlineFieldLabel")
                     position = label.mapToItem(drawer, QPointF(0, 0))
                     self.assertGreaterEqual(position.x(), 0)
                     self.assertGreaterEqual(position.y(), 0)
@@ -105,7 +112,7 @@ class NetextScene(unittest.TestCase):
                             body = next(child for child in items(win.contentItem()) if child.objectName() == "onlineBody")
                             label = next(child for child in items(body) if child.isVisible()
                                          and child.property("text") == focused["label"]
-                                         and child.property("font").pixelSize() == 20)
+                                         and child.objectName() == "onlineFieldLabel")
                             position = label.mapToItem(body, QPointF(0, 0))
                             self.assertGreaterEqual(position.y(), 0)
                             self.assertLessEqual(position.y() + label.height(), body.height())

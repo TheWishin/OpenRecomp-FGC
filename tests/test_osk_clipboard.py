@@ -165,6 +165,26 @@ class Fields(unittest.TestCase):
         self.key(Qt.Key_Q, "@", CTRL | ALT, 0x10)
         self.assertEqual(self.nav.osk["text"], "@")
 
+    def test_return_and_keypad_enter_finish_every_single_line_osk_field(self):
+        from openrecomp.nav_keyboard import TEXT_FIELDS
+        for tid in TEXT_FIELDS:
+            if tid == "library_repository":
+                continue
+            for key in (Qt.Key_Return, Qt.Key_Enter):
+                with self.subTest(field=tid, key=key):
+                    self.field(tid, "typed value")
+                    self.key(key, "Enter")
+                    self.assertIsNone(self.nav.overlay)
+                    self.assertIsNone(self.nav.osk)
+                    self.assertEqual(self.a.calls[-1], ("text", tid, "typed value"))
+                    self.key(key, "Enter", repeat=True)
+                    self.assertIsNone(self.nav.osk)
+
+    def test_direct_keyboard_text_never_adds_a_line_break(self):
+        self.field("online_name")
+        self.nav.type_text("one\r\ntwo\tthree")
+        self.assertEqual(self.nav.osk["text"], "onetwothree")
+
     def test_held_ctrl_c_copies_once_but_held_ctrl_v_repeats(self):
         self.field("online_name", "a")
         self.clipboard.value = "b"
@@ -219,7 +239,7 @@ class Scene(unittest.TestCase):
         from PySide6.QtGui import QGuiApplication
         from PySide6.QtQml import QQmlApplicationEngine
         from PySide6.QtTest import QTest
-        from test_ui_loads import FakeBackend, spin
+        from test_ui_loads import FakeBackend, spin, wait_pages
 
         qt = QGuiApplication.instance() or QGuiApplication(sys.argv[:1])
         a = Fake(manifest())
@@ -247,7 +267,8 @@ class Scene(unittest.TestCase):
         engine.load(app.QUrl.fromLocalFile(os.path.join(app.UI_DIR, "Main.qml")))
         window = engine.rootObjects()[0]
         window.show()
-        spin(80)
+        wait_pages(window)
+        spin(40)
         def item(name, under=None):
             """Repeater delegates have no QObject parent: walk the visual tree."""
             for child in (under or window.contentItem()).childItems():
@@ -260,6 +281,8 @@ class Scene(unittest.TestCase):
 
         field = item("oskField")
         menu = item("oskMenu")
+        self.assertIsNotNone(field, "The pad keyboard must finish loading before pointer interaction")
+        self.assertIsNotNone(menu)
         self.assertFalse(menu.isVisible())
         centre = field.mapToScene(QPointF(field.width() / 2, field.height() / 2)).toPoint()
         QTest.mouseClick(window, Qt.RightButton, Qt.NoModifier, centre)

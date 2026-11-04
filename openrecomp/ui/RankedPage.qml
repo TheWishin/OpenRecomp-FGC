@@ -70,6 +70,10 @@ Item {
                         id: searchContent; x: 20; y: 20; width: parent.width - 40; spacing: 12
                         OnlineStyle.PrimaryButton { width: parent.width; maxW: width; b: page.find.ranked || ({}); accent: Theme.readableAccent(page.root.v.accent); onActivated: i => page.root.backend.clickRow(i) }
                         OnlineStyle.HelpText { width: parent.width; text: page.find.ranked && page.find.ranked.disabled ? page.find.ranked.value || "" : page.find.rankedNote || "" }
+                        OnlineStyle.SecondaryButton {
+                            b: page.find.optionsToggle || ({}); maxW: parent.width
+                            onActivated: i => page.root.backend.clickRow(i)
+                        }
                         Repeater {
                             model: page.find.groups || []
                             Column {

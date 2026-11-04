@@ -8,6 +8,10 @@ QtObject {
     readonly property int dataSize: 22
     readonly property int helpSize: 16
     property real textScale: 1
+    property real viewportScale: 1
+    readonly property int space: 8
+    readonly property int inset: 24
+    readonly property int gap: 16
     property bool highContrast: false
     readonly property color ground: highContrast ? "#000000" : "#0E0F11"
     readonly property color card: highContrast ? "#080808" : "#16181C"
@@ -23,7 +27,16 @@ QtObject {
     readonly property color error: highContrast ? "#FFB8BC" : "#FF858C"
     readonly property color success: highContrast ? "#C1FFD2" : "#9AD8B9"
     readonly property int focusWidth: highContrast ? 5 : 3
-    function px(size) { return Math.round(Math.max(14, size) * textScale) }
+    // Values are stage units. Floors are output pixels, including at 720p/540p.
+    function px(size) {
+        var floor = size >= 40 ? 28 : size >= 28 ? 22 : size >= 18 ? 18 : 16
+        return Math.round(Math.max(size, floor / Math.max(0.5, viewportScale)) * textScale)
+    }
+    readonly property real listRowHeight: Math.max(88, px(22) * 1.3 + px(16) * 1.3 + 22)
+    // Online tables have their own density; the game shelf keeps its existing scale.
+    function onlinePx(size) { return Math.round(Math.max(size, 14 / Math.max(0.5, viewportScale)) * textScale) }
+    readonly property real playerRowHeight: Math.max(34, onlinePx(14) * 1.25 + 8)
+    function target(size) { return Math.max(size || 44, 44 / Math.max(0.5, viewportScale)) }
     function luminance(colour) {
         function linear(channel) { return channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4) }
         return 0.2126 * linear(colour.r) + 0.7152 * linear(colour.g) + 0.0722 * linear(colour.b)

@@ -167,7 +167,7 @@ def snapshot(nav, name):
     def no_art(value):
         if isinstance(value, dict):
             for key, child in value.items():
-                if key in ("hero", "image", "art", "wordmark"):
+                if key in ("hero", "image", "art", "wordmark", "face", "plate", "portrait", "background"):
                     value[key] = ""
                 elif key in ("images", "mosaic"):
                     value[key] = []
@@ -187,19 +187,9 @@ def descendants(item):
 
 
 def geometry(window):
-    """Record visible text overflow; intentional elision and bounded wrapping are allowed."""
-    problems = []
-    for item in descendants(window.contentItem()):
-        if not item.isVisible() or item.opacity() <= 0 or item.width() <= 0 or item.height() <= 0:
-            continue
-        if item.property("text") is None or item.property("contentHeight") is None:
-            continue
-        if item.property("truncated") or item.property("maximumLineCount") not in (None, 2147483647):
-            continue
-        if item.property("contentHeight") > item.height() + 3:
-            problems.append(dict(name=item.objectName(), text=str(item.property("text"))[:100],
-                                 height=round(item.height(), 1), content=round(item.property("contentHeight"), 1)))
-    return problems
+    """Use the same clipping and dense-row audit as the expanded Online fixtures."""
+    from tools.online_shots import geometry as online_geometry
+    return online_geometry(window)[0]
 
 
 def font_coverage():
@@ -211,7 +201,7 @@ def font_coverage():
 def main(argv=None):
     configure_environment()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("before", "after"))
+    parser.add_argument("phase", choices=("before", "after", "probe"))
     parser.add_argument("--ui-dir", type=Path, default=ROOT / "openrecomp" / "ui")
     parser.add_argument("--languages", nargs="+", default=list(i18n.LANGUAGES))
     parser.add_argument("--scenes", nargs="+", choices=SCENES, default=list(SCENES))
@@ -246,15 +236,21 @@ def main(argv=None):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 if not window.grabWindow().save(str(path)):
                     raise RuntimeError("Capture failed: " + str(path))
+                from tools.online_shots import geometry as online_geometry, layout_geometry, layout_problems
+                overflow, elided = online_geometry(window)
+                layout = layout_geometry(window)
                 records.append(dict(language=language, scene=name, size=f"{width}x{height}",
-                                    path=path.relative_to(ROOT).as_posix(), overflow=geometry(window)))
+                                    path=path.relative_to(ROOT).as_posix(), overflow=overflow, elided=elided,
+                                    layout=layout, collisions=layout_problems(layout)))
         print(f"{args.phase}: {language}: {len(args.scenes) * 2} synthetic captures", flush=True)
     out = ROOT / "build" / "shots" / args.phase
     coverage = font_coverage()
     limitations = [f"{language}: no available CJK glyph coverage in the offscreen font database; glyph layout is unverified"
                    for language, covered in coverage.items() if not covered]
+    from tools.online_shots import DECORATIVE_CLIPPING
     (out / "report.json").write_text(json.dumps(dict(captures=records, qml_warnings=warnings,
-                                                    font_coverage=coverage, limitations=limitations),
+                                                    font_coverage=coverage, limitations=limitations,
+                                                    geometry_exclusions=dict(art_free_background_numerals=DECORATIVE_CLIPPING)),
                                               ensure_ascii=False, indent=2), encoding="utf-8")
     # Small contact sheets make it practical to inspect every page, language and size.
     for language in args.languages:

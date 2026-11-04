@@ -17,7 +17,8 @@ def records(nav, game):
 
 def tracked(action):
     return (action in ("create_room", "create_password_room", "create_code_room", "community_create",
-                       "join_room_code", "add_friend", "search_ranked", "search_casual")
+                       "join_room_code", "add_friend", "search_ranked", "search_casual",
+                       "accept_challenge", "decline_challenge")
             or action.startswith(("challenge:", "cancel_challenge:", "join_room:", "invite_friend:", "invite_room:")))
 
 
@@ -25,12 +26,32 @@ def begin(nav, g, action, state):
     if not tracked(action):
         return False
     rows = records(nav, g.id)
+    if action in ("accept_challenge", "decline_challenge"):
+        challenge = state.get("challenge") or {}
+        cid = str(challenge.get("id") or "")
+        if not cid or any(row.get("incoming") == cid and row.get("kind") in ("pending", "waiting")
+                          for row in rows.values()):
+            return None
+        rows[action] = dict(kind="pending", text="@feedback.sending", age=0, incoming=cid,
+                            name=str(challenge.get("name") or ""), before=state.get("message"),
+                            action=action, challenge="", observed=False)
+        return True
     if action.startswith("cancel_challenge:"):
         cid = action.partition(":")[2]
+        if any(row.get("challenge") == cid and row.get("cancelling") and row.get("kind") in ("pending", "waiting")
+               for row in rows.values()):
+            return None
+        matched = False
         for row in rows.values():
             if row.get("challenge") == cid:
+                matched = True
                 row.update(cancelling=True, kind="pending", text="@feedback.cancelling", age=0,
                            before=state.get("message"))
+        if not matched:
+            offer = next((offer for offer in state.get("open_challenges") or [] if str(offer.get("id")) == cid), {})
+            rows[action] = dict(cancelling=True, kind="pending", text="@feedback.cancelling", age=0,
+                                before=state.get("message"), name=str(offer.get("name") or cid),
+                                action=action, challenge=cid, observed=False)
         return True
     old = rows.get(action)
     if old and old["kind"] in ("pending", "waiting"):
@@ -47,6 +68,7 @@ def finish(nav, row, kind, text):
     row.update(kind=kind, text=text, left=5.0)
     toast = i18n.message("feedback.result_for", name=i18n.literal(row["name"]), result=text) \
         if row.get("action", "").startswith("challenge:") else text
+    nav.__dict__.setdefault("last_action_result", {})[nav.game.id] = dict(text=toast, error=kind in ("error", "declined", "expired"), buttons=[])
     nav.say(toast, 3)
 
 
@@ -68,6 +90,22 @@ def observe(nav, g, state):
     message = state.get("message")
     for action, row in list(rows.items()):
         if row["kind"] not in ("pending", "waiting"):
+            continue
+        if row.get("incoming"):
+            current = str((state.get("challenge") or {}).get("id") or "")
+            phase = state.get("phase")
+            if current and current != row["incoming"]:
+                finish(nav, row, "success", "@feedback.ended")
+            elif phase in ("matched", "starting", "playing"):
+                finish(nav, row, "success", "@feedback.accepted" if action == "accept_challenge" else "@feedback.ended")
+            elif phase in ("offline", "error", "kicked"):
+                finish(nav, row, "error", message or "@online.failure")
+            elif state.get("busy"):
+                row["saw_busy"] = True
+            elif message == "@online.challenge_answered" and (message != row.get("before") or row.get("saw_busy")):
+                finish(nav, row, "success", message)
+            elif message and message != row.get("before") and message not in ("@online.connecting", "@online.logged_in"):
+                finish(nav, row, "error", message)
             continue
         if action.startswith("challenge:"):
             terminal = updates.get(row.get("challenge"))

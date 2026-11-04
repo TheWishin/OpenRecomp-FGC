@@ -9,10 +9,11 @@ Item {
     function sections() {
         var out = []
         for (var line of o.lines || []) {
+            if (o.primary && line.index === o.primary.index) continue
             if (line.kind === "heading") out.push({title: line.label, lines: []})
             else {
-                if (!out.length) out.push({title: o.title || "", lines: []})
-                var row = Object.assign({}, line, {kind: "row"})
+                if (!out.length) out.push({title: "", lines: []})
+                var row = Object.assign({}, line, {kind: "row", hint: line.focused && line.hint !== o.message ? line.hint || "" : ""})
                 out[out.length - 1].lines.push(row)
             }
         }
@@ -21,33 +22,40 @@ Item {
     OnlineStyle.SectionCard {
         id: card
         objectName: "onlineCard"
-        x: 24; y: 18; width: 1100; height: parent.height - y - 16
+        x: 24; y: 18; width: (parent.width - 68) * 0.62; height: parent.height - y - 16
         border.color: page.o.statusFocused ? Theme.readableAccent(page.root.v.accent) : page.root.line
         Column {
             id: header
             x: 28; y: 20; width: parent.width - 56; spacing: 8
             OnlineStyle.PageTitle { objectName: "onlineCardTitle"; width: parent.width; text: page.o.title || "" }
-            OnlineStyle.HelpText { width: parent.width; text: page.o.message || ""; color: page.o.error ? Theme.readableAccent(page.root.v.accent) : page.root.muted }
+            OnlineStyle.HelpText { visible: !!text && text !== page.o.title; width: parent.width; text: page.o.message || ""; color: page.o.error ? Theme.error : page.root.muted }
             PeerPing { visible: !!page.o.connection; connection: page.o.connection || ({}); ink: page.root.textC; dim: page.root.muted }
-            TapHandler { id: uiTap0; onTapped: if (page.o.statusIndex >= 0) page.root.backend.clickRow(page.o.statusIndex) }
-            Interaction { handler: uiTap0; selected: !!page.o.statusFocused; onActivated: if (page.o.statusIndex >= 0) page.root.backend.clickRow(page.o.statusIndex) }
         }
         OnlineSections {
             objectName: "onlineCardRows"
             root: page.root; x: 12; y: header.y + header.height + 16
-            width: parent.width - 24; height: parent.height - y - 12
+            width: parent.width - 24; height: (primary.visible ? primary.y - 16 : parent.height - 12) - y
             sections: page.sections()
+        }
+        OnlineStyle.PrimaryButton {
+            id: primary
+            objectName: "onlinePhasePrimary"
+            visible: !!page.o.primary
+            x: 28; y: parent.height - height - 24; width: parent.width - 56; maxW: width
+            b: page.o.primary || ({})
+            accent: Theme.readableAccent(page.root.v.accent)
+            onActivated: i => page.root.backend.clickRow(i)
         }
     }
     OnlineStyle.SectionCard {
         objectName: "onlineCardDetail"
-        x: card.x + card.width + 20; y: card.y; width: 1920 - 24 - x; height: card.height
+        x: card.x + card.width + 20; y: card.y; width: page.width - 24 - x; height: card.height
         Flickable {
             anchors.fill: parent; anchors.margins: 28; clip: true; contentHeight: detail.height
             Column {
                 id: detail; width: parent.width; spacing: 12
-                OnlineStyle.SectionHeader { width: parent.width; text: page.d.title || "" }
-                OnlineStyle.HelpText { width: parent.width; text: page.d.lead || ""; visible: !!text }
+                OnlineStyle.SectionHeader { visible: !!text && text !== page.o.title; width: parent.width; text: page.d.title || "" }
+                OnlineStyle.HelpText { width: parent.width; text: page.d.lead || ""; visible: !!text && text !== page.o.message && text !== page.o.title }
                 Repeater {
                     model: page.d.rows || []
                     Column {

@@ -53,7 +53,12 @@ class ShelfSettingsPolish(unittest.TestCase):
                                    if c.parentItem().property("t").toVariant()["focused"])
                     tile = focused.parentItem()
                     card = next(c for c in self.named("shelfCard") if c.parentItem() == tile)
-                    status = next(c for c in self.named("shelfStatus") if c.parentItem() == focused)
+                    def belongs(item):
+                        parent = item.parentItem()
+                        while parent is not None and parent != focused:
+                            parent = parent.parentItem()
+                        return parent == focused
+                    status = next(c for c in self.named("shelfStatus") if belongs(c))
                     action = next(c for c in self.named("shelfAction") if c.parentItem() == tile)
                     self.assertGreater(card.x(), 0)
                     self.assertGreater(card.y(), 0)
@@ -61,18 +66,32 @@ class ShelfSettingsPolish(unittest.TestCase):
                     self.assertLessEqual(focused.y() + focused.height(), action.y() - 16)
                     self.assertLessEqual(action.x() + action.width(), card.x() + card.width())
 
-    def test_settings_exposes_current_value_and_keeps_detail_inside_card(self):
+    def test_collapsed_shelf_titles_and_statuses_wrap_without_elision(self):
+        for language in ("de", "es", "fr", "pt-BR"):
+            self.nav.language = language
+            self.publish()
+            for width, height in ((1920, 1080), (1280, 720)):
+                self.win.setWidth(width)
+                self.win.setHeight(height)
+                spin()
+                for label in self.named("shelfTileTitle") + self.named("shelfStatusText"):
+                    if not label.isVisible():
+                        continue
+                    with self.subTest(language=language, size=(width, height), text=label.property("text")):
+                        self.assertFalse(label.property("truncated"))
+                        self.assertLessEqual(label.property("contentWidth"), label.width() + 1)
+                        self.assertLessEqual(label.property("contentHeight"), label.height() + 1)
+
+    def test_settings_avoids_duplicate_value_and_keeps_detail_inside_card(self):
         self.nav.screen = "hub"
         self.nav.sec[self.nav.game.id] = "settings"
         for language in i18n.LANGUAGES:
             self.nav.language = language
             self.publish()
             with self.subTest(language=language):
-                value = self.named("settingsCurrentValue")[0]
-                self.assertTrue(value.isVisible())
-                self.assertEqual(value.height(), 52)
-                label = next(c for c in value.childItems() if c.property("text") is not None)
-                self.assertLessEqual(label.property("contentHeight"), label.height())
+                self.assertFalse([item for item in test_ui_polish.items(self.win.contentItem()) if item.objectName() == "settingsCurrentValue"])
+                lines = self.nav.view()["settingsPage"]["tabLines"]
+                self.assertTrue(all(row.get("focused") for row in lines if row.get("hint")))
                 detail = self.named("settingsDetailContent")[0]
                 card = self.named("settingsDetail")[0]
                 self.assertLessEqual(detail.y() + detail.height() * detail.scale(), card.height() - 24 + 1)

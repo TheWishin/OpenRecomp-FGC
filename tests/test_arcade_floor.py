@@ -28,7 +28,7 @@ class ArcadeFloor(unittest.TestCase):
             self.assertFalse(floor["moreOpen"])
             self.assertEqual(sum(p["own"] for p in floor["players"]), 1)
             self.assertEqual(floor["players"][0]["name"], "Me")
-            self.assertTrue(all(len(p["buttons"]) <= 3 for p in floor["players"]))
+            self.assertTrue(all(len(p["buttons"]) <= 4 for p in floor["players"]))
             self.assertEqual(nav.game.a.calls, [])
 
     def test_runtime_portraits_and_rank_plates_use_only_the_adapter_interface(self):
@@ -42,24 +42,25 @@ class ArcadeFloor(unittest.TestCase):
             portrait.assert_any_call("sample")
             plate.assert_any_call(3)
 
-    def test_grid_dpad_moves_across_columns_and_down_rows(self):
+    def test_dpad_follows_player_pane_and_restores_from_chat(self):
         nav = scene("t5", "arcade_selected", "en")
-        floor = self.floor(nav)
-        own, first, second, third = floor["players"][:4]
+        players = self.floor(nav)["players"]
         self.focus(nav, "online_status")
-        nav.act("right", device="xbox")
-        self.assertEqual(self.focused(nav), "challenge:p1")
-        nav.act("right", device="xbox")
-        self.assertEqual(self.focused(nav), "challenge:p2")
-        nav.act("left", device="xbox")
         nav.act("down", device="xbox")
-        self.assertEqual(self.focused(nav), "challenge:p4")
-        nav.act("up", device="xbox")
-        self.assertEqual(self.focused(nav), "challenge:p1")
+        self.assertEqual(nav.items()[nav.focus_index(nav.items())]["id"], "challenge:" + players[1]["id"])
+        before = self.focused(nav)
+        nav.act("right", device="xbox")
+        self.assertEqual(self.focused(nav), "online_chat")
+        nav.act("left", device="xbox")
+        self.assertEqual(self.focused(nav), before)
+        nav.act("down", device="xbox")
+        self.assertEqual(self.focused(nav), "challenge:" + players[2]["id"])
 
     def test_options_toggle_is_local_reachable_and_back_closes_it(self):
         nav = scene("t5", "arcade_floor", "en")
         self.focus(nav, "search_ranked")
+        nav.act("right", device="xbox")
+        self.assertEqual(self.focused(nav), "search_casual")
         nav.act("right", device="xbox")
         self.assertEqual(self.focused(nav), "arcade_options")
         nav.act("confirm", device="xbox")
@@ -100,12 +101,13 @@ class ArcadeFloor(unittest.TestCase):
             nav.act("x", device="xbox")
         self.assertEqual(activate.call_args.args[0]["id"], "arcade_watch:spec_watch_friend:p1")
 
-    def test_hidden_options_never_receive_grid_focus_while_collapsed(self):
+    def test_top_option_chips_are_reachable_and_advanced_options_stay_hidden(self):
         nav = scene("t5", "arcade_floor", "en")
         items = nav.items()
         rows, floor = nav_arcade.routes(nav, items, nav.focus_index(items))
         visible = {n for row in rows for n in row}
-        self.assertFalse(visible.intersection(b["index"] for b in floor["options"]))
+        self.assertTrue(set(b["index"] for b in floor["options"][:2]).issubset(visible))
+        self.assertFalse(visible.intersection(b["index"] for b in floor["options"][2:]))
 
     def test_drawer_sounds_and_pointer_card_selection_use_existing_cues(self):
         nav = scene("t5", "arcade_floor", "en")

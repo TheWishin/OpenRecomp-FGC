@@ -25,7 +25,7 @@ SOURCE_GROUPS = {
                    "nav_build.py", "nav_dialog.py", "nav_drawer.py", "nav_grid.py", "nav_hub.py", "nav_keyboard.py",
                    "nav_online.py", "nav_online_layout.py", "nav_arcade.py", "nav_online_login.py", "nav_settings_page.py", "nav_picker.py", "nav_sections.py", "nav_shelf.py", "nav_tools.py",
                    "nav_accounts.py", "nav_challenges.py", "nav_community.py", "nav_moderation.py", "nav_netext.py",
-                   "nav_private_chat.py", "nav_profiles.py", "nav_ranked.py",
+                   "nav_private_chat.py", "nav_profiles.py", "nav_ranked.py", "nav_list_sort.py", "nav_lobby_chat.py",
                    "nav_rules.py", "nav_spectating.py", "nav_tournaments.py",
                    "pad.py", "ranks.py", "stall.py", "updater.py", "update_service.py", "file_dialog.py",
                    "game_library.py", "game_updates.py", "nav_library.py",
@@ -47,7 +47,7 @@ SOURCE_GROUPS = {
                                   "i18n_known.py", "nat.py", "portmap.py", "proto.py", "servers.py", "spectate.py",
                                   "t4game.py", "tour_client.py"),
     "openrecomp/i18n": ("__init__.py", "de.json", "en.json", "es.json", "fr.json", "ja.json", "ko.json", "pt-BR.json"),
-    "openrecomp/ui": ("BuildAction.qml", "BuildPage.qml", "Glyph.qml", "Hub.qml", "Main.qml", "OnlineBody.qml", "OnlineCard.qml", "OnlineHub.qml", "OnlineLogin.qml", "OnlineSections.qml", "OnlineStyle.qml", "OnlineTable.qml", "OnlineLabel.qml", "OnlineHelp.qml", "OnlineButton.qml", "ActionReceipt.qml", "RankedPage.qml", "LeaderboardPage.qml", "Overlays.qml", "PageLoader.qml", "PeerPing.qml", "ResultCell.qml", "SessionPage.qml", "SettingsHub.qml", "Shelf.qml", "Theme.qml", "Interaction.qml", "MainMenu.qml", "ArcadeFloor.qml", "ArcadePlayer.qml", "ArcadeAction.qml", "ArcadeIcon.qml", "qmldir"),
+    "openrecomp/ui": ("BuildAction.qml", "BuildPage.qml", "Glyph.qml", "Hub.qml", "Main.qml", "OnlineBody.qml", "OnlineCard.qml", "OnlineHub.qml", "OnlineLogin.qml", "OnlineSections.qml", "OnlineStyle.qml", "OnlineTable.qml", "OnlineLabel.qml", "OnlineHelp.qml", "OnlineButton.qml", "ActionReceipt.qml", "RankedPage.qml", "LeaderboardPage.qml", "Overlays.qml", "PageLoader.qml", "PeerPing.qml", "ResultCell.qml", "SessionPage.qml", "SettingsHub.qml", "Shelf.qml", "Theme.qml", "Interaction.qml", "MainMenu.qml", "ArcadeFloor.qml", "ArcadePlayer.qml", "ArcadeAction.qml", "ArcadeIcon.qml", "LobbyChat.qml", "EditableField.qml", "qmldir"),
     "openrecomp/ui/assets": ("icon.ico", "icon.svg", "logo-mark-light.svg", "logo-mark.svg", "logo-wordmark-light.svg", "logo-wordmark.svg"),
     # The menu sounds, made by tools/make_ui_sounds.py (synthesized: nothing from a game or a sound pack)
     "openrecomp/ui/sounds": ("back.wav", "close.wav", "confirm.wav", "error.wav", "move.wav", "notify.wav",

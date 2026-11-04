@@ -44,7 +44,7 @@ class NavigationPolish(unittest.TestCase):
     def test_mouse_selects_keyboard_prompts_for_click_targets(self):
         backend = SimpleNamespace(nav=mock.Mock(), refresh=mock.Mock())
         for name, args in (("clickRow", (0,)), ("clickTile", (0,)), ("clickTab", ("play",)),
-                           ("clickPrimary", ()), ("clickCell", (0,)), ("clickEntry", (0,)), ("clickKey", (0, 0))):
+                           ("clickPrimary", ()), ("challengePlayer", ("peer",)), ("clickCell", (0,)), ("clickEntry", (0,)), ("clickKey", (0, 0))):
             with self.subTest(slot=name):
                 backend.nav.device = "ps"
                 getattr(Backend, name)(backend, *args)

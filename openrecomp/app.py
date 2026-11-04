@@ -8,7 +8,7 @@ import sys
 import threading
 
 from PySide6.QtCore import QObject, QTimer, Property, Qt, QUrl, Signal, Slot
-from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QIcon, QWindow
+from PySide6.QtGui import QAccessible, QAccessibleAnnouncementEvent, QFont, QFontDatabase, QGuiApplication, QIcon, QWindow
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401 -- so the scene's root comes back as a QQuickWindow
 
@@ -558,6 +558,31 @@ class Backend(QObject, GameSetupBackend):
         self._view["wordmark"] = self._wordmark
         if self._view != previous:
             self.viewChanged.emit()
+            Backend._announce_view(self, previous)
+
+    def _announce_view(self, previous):
+        """One polite announcement for a result or phase; elapsed clocks and selection never speak."""
+        window = getattr(self, "window", None)
+        if window is None or not QAccessible.isActive():
+            return
+        before = previous or {}
+        current = self._view
+        message = current.get("toast") if current.get("toast") != before.get("toast") else ""
+        online, old_online = current.get("online") or {}, before.get("online") or {}
+        if not message and before and online.get("phase") and online.get("phase") != old_online.get("phase"):
+            message = online.get("message") or (online.get("find") or {}).get("message") or online.get("title")
+        if not message and online.get("phase") in ("error", "kicked", "result", "result_sent") and online.get("message") != old_online.get("message"):
+            message = online.get("message")
+        if not message:
+            incoming = (online.get("find") or {}).get("incoming") or {}
+            old_incoming = (old_online.get("find") or {}).get("incoming") or {}
+            if incoming.get("text") != old_incoming.get("text"):
+                message = incoming.get("text")
+        if not isinstance(message, str) or not message.strip():
+            return
+        event = QAccessibleAnnouncementEvent(window, message)
+        event.setPoliteness(QAccessible.AnnouncementPoliteness.Polite)
+        QAccessible.updateAccessibility(event)
 
     def _open_pending(self):
         """nav.pending_url (the OpenRecomp-FGC Discord) in the default browser."""
@@ -714,7 +739,14 @@ class Backend(QObject, GameSetupBackend):
         """A key of a real keyboard. modifiers/scan (the key's position) find Ctrl+V & co. on any layout."""
         action = KEYS.get(key)
         nav = self.nav
+        if getattr(nav, "native_edit", ""):
+            return                    # QML TextInput owns every physical key while focused, including IME preedit.
         if nav.overlay == "osk":
+            if key in (Qt.Key_Return, Qt.Key_Enter):
+                if not repeat:
+                    nav.act("play", device="kb")
+                    self.refresh()
+                return
             edit = edit_shortcut(key, text, modifiers, scan)
             if edit:
                 if not repeat or edit == "paste":
@@ -735,6 +767,28 @@ class Backend(QObject, GameSetupBackend):
         if repeat and action not in ("up", "down", "left", "right"):
             return
         nav.act(action, device="kb")
+        self.refresh()
+
+    @Slot(str)
+    def beginEdit(self, tid):
+        self.nav.begin_edit(tid)
+        self.refresh()
+
+    @Slot(str, str)
+    def editText(self, tid, text):
+        self.nav.edit_text(tid, text)
+        self.refresh()
+
+    @Slot(str, bool)
+    def finishEdit(self, tid, submit):
+        self.nav.finish_edit(tid, submit)
+        self.refresh()
+
+    @Slot(str)
+    def challengePlayer(self, player_id):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
+        self.nav.device = "kb"
+        self.nav.challenge_player(player_id)
         self.refresh()
 
     @Slot(str)
@@ -771,12 +825,14 @@ class Backend(QObject, GameSetupBackend):
 
     @Slot(int)
     def clickRow(self, i):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
         self.nav.device = "kb"
         click(self.nav, "confirm", "click_row", i)
         self.refresh()
 
     @Slot(int)
     def clickMainEntry(self, i):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
         self.nav.device = "kb"
         click(self.nav, "confirm", "click_main_entry", i)
         self.refresh()
@@ -789,6 +845,7 @@ class Backend(QObject, GameSetupBackend):
 
     @Slot(int)
     def focusOnlineRow(self, i):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
         self.nav.device = "kb"
         self.nav.focus_online_row(i)
         self.refresh()
@@ -807,12 +864,14 @@ class Backend(QObject, GameSetupBackend):
 
     @Slot(str)
     def clickTab(self, s):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
         self.nav.device = "kb"
         click(self.nav, ui_sound.CLICK_TAB, "click_tab", s)
         self.refresh()
 
     @Slot(str)
     def clickChapter(self, chapter):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
         self.nav.device = "kb"
         click(self.nav, ui_sound.CLICK_TAB, "click_chapter", chapter)
         self.refresh()

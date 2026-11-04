@@ -29,7 +29,8 @@ class SyntheticScreenshots(unittest.TestCase):
             view = original_view()
             view["hero"] = "private-game-art.png"
             view["detail"] = dict(image="private.png", images=["private2.png"])
-            view["nested"] = [dict(art="private.png", mosaic=["private3.png"], wordmark="private.png")]
+            view["nested"] = [dict(art="private.png", mosaic=["private3.png"], wordmark="private.png",
+                                   face="private.png", plate="private.png", portrait="private.png", background="private.png")]
             return view
 
         nav.view = with_art

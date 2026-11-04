@@ -161,7 +161,7 @@ class SettingsPage:
                 focus_line = len(lines)
             cycler = it.get("kind") == "cycler"
             lines.append(dict(kind="setting", index=n, label=it.get("label", ""), value=it.get("value") or "",
-                              hint=it.get("hint", ""), focused=n == fi, cycler=cycler,
+                              hint=it.get("hint", "") if n == fi else "", focused=n == fi, cycler=cycler,
                               disabled=bool(it.get("disabled")), verb=it.get("verb", "") if n == fi and not cycler else "",
                               group=it.get("settingsGroup", "")))
         start = 0
@@ -188,7 +188,7 @@ class SettingsPage:
                                              options=options[:12], rows=[dict(k=r["k"], v=r["v"]) for r in d.get("rows") or []
                                                                      if r.get("k") != "@current"][:6]))
         active_tab = TAB_OF.get(it.get("settingsGroup"), "video")
-        v["settingsPage"].update(activeTab=active_tab,
+        v["settingsPage"].update(activeTab=active_tab, optionLabel="@settings_ui.available_options",
             tabs=[dict(id=tab, label=TAB_LABELS[tab], active=tab == active_tab)
                   for tab in SETTINGS_TABS if any(TAB_OF.get(line.get("group")) == tab for line in lines)],
             tabLines=[line for line in lines if TAB_OF.get(line.get("group")) == active_tab])

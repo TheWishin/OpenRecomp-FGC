@@ -42,6 +42,37 @@ class FakeBackend(QObject):
     def keyPress(self, key, text, repeat, modifiers, scan):
         pass
 
+    def refresh(self):
+        self._v = self.nav.view()
+        self.viewChanged.emit()
+
+    @Slot(str)
+    def beginEdit(self, tid):
+        self.nav.begin_edit(tid)
+        self.refresh()
+
+    @Slot(str, str)
+    def editText(self, tid, text):
+        self.nav.edit_text(tid, text)
+        self.refresh()
+
+    @Slot(str, bool)
+    def finishEdit(self, tid, submit):
+        self.nav.finish_edit(tid, submit)
+        self.refresh()
+
+    @Slot(int)
+    def focusOnlineRow(self, index):
+        self.nav.focus_online_row(index)
+        self.refresh()
+
+    @Slot(str)
+    def challengePlayer(self, player_id):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
+        self.nav.device = "kb"
+        self.nav.challenge_player(player_id)
+        self.refresh()
+
     @Slot(str)
     def oskEdit(self, what):
         pass

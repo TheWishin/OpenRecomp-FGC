@@ -12,7 +12,23 @@ Item {
     readonly property bool officialPage: o.chapter === "ranked" || o.chapter === "leaderboard"
     PageLoader { anchors.fill: parent; active: body.o.chapter === "ranked"; page: "RankedPage.qml"; root: body.root }
     PageLoader { anchors.fill: parent; active: body.o.chapter === "leaderboard"; page: "LeaderboardPage.qml"; root: body.root }
-    OnlineStyle.PageTitle { id: title; visible: !body.officialPage; x: 0; y: 2; width: parent.width; text: body.b.title || "" }
+    OnlineStyle.PageTitle { id: title; visible: !body.officialPage; x: 0; y: 2; width: parent.width - (roomHeaderActions.visible ? roomHeaderActions.width + 16 : 0); text: body.rooms.createOpen ? body.labels.create_room || "" : body.b.title || "" }
+    Row {
+        id: roomHeaderActions
+        visible: body.roomPage && !body.rooms.joined
+        x: parent.width - width; spacing: 8
+        OnlineStyle.PrimaryButton {
+            objectName: "roomsCreateOpen"; b: body.rooms.openCreate || ({}); maxW: 240
+            primary: !body.rooms.createOpen
+            accent: Theme.readableAccent(body.root.v.accent)
+            onActivated: i => body.root.backend.clickRow(i)
+        }
+        OnlineStyle.SecondaryButton {
+            objectName: "roomsJoinCodeOpen"; visible: b.index !== undefined
+            b: body.rooms.openJoin || ({}); maxW: 240
+            onActivated: i => body.root.backend.clickRow(i)
+        }
+    }
     OnlineSections {
         visible: !body.roomPage && !body.officialPage
         x: 0; y: title.height + 16; width: parent.width - (body.b.detail ? 350 : 0); height: parent.height - y
@@ -39,32 +55,139 @@ Item {
         }
     }
     Item {
-        visible: body.roomPage
+        id: joinedRoom
+        visible: body.roomPage && !!body.rooms.joined
+        readonly property var room: body.rooms.joined || ({})
+        x: 0; y: title.height + 16; width: parent.width; height: parent.height - y
+        OnlineStyle.SectionCard {
+            width: (parent.width - 16) * 0.55; height: parent.height
+            Flickable {
+                id: roomPeople
+                objectName: "communityRoomViewport"
+                anchors.fill: parent; anchors.margins: 20; contentHeight: roomSummary.height
+                clip: true; boundsBehavior: Flickable.StopAtBounds
+                function revealFocus() {
+                    for (var repeater of [queueRows, memberRows, tableRows]) {
+                        for (var n = 0; n < repeater.count; ++n) {
+                            var row = repeater.itemAt(n)
+                            if (row && row.b.focused) {
+                                var top = row.mapToItem(roomSummary, 0, 0).y
+                                if (top < contentY) contentY = top
+                                else if (top + row.height > contentY + height) contentY = top + row.height - height
+                                return
+                            }
+                        }
+                    }
+                }
+                Connections { target: body.root.backend; function onViewChanged() { Qt.callLater(roomPeople.revealFocus) } }
+                Column {
+                    id: roomSummary; width: roomPeople.width; spacing: 12
+                    OnlineStyle.SectionHeader { objectName: "communityRoomName"; width: parent.width; text: joinedRoom.room.name || "" }
+                    OnlineStyle.HelpText { objectName: "communityRoomMode"; width: parent.width; text: [joinedRoom.room.mode || "", joinedRoom.room.rotation || ""].filter(s => s).join(" \u00b7 ") }
+                    OnlineStyle.SectionHeader { objectName: "communityQueueHeader"; width: parent.width; text: (joinedRoom.room.labels || {}).queue || "" }
+                    OnlineStyle.HelpText { visible: !(joinedRoom.room.queue || []).length; width: parent.width; text: (joinedRoom.room.labels || {}).empty || "" }
+                    Repeater {
+                        id: queueRows; model: joinedRoom.room.queue || []
+                        OnlineStyle.FieldRow {
+                            objectName: "communityQueueRow"
+                            required property var modelData; b: modelData; root: body.root; width: roomSummary.width
+                            onActivated: i => body.root.backend.clickRow(i)
+                        }
+                    }
+                    OnlineStyle.SectionHeader { visible: (joinedRoom.room.members || []).length > 0; width: parent.width; text: (joinedRoom.room.labels || {}).members || "" }
+                    Repeater {
+                        id: memberRows; model: joinedRoom.room.members || []
+                        OnlineStyle.FieldRow {
+                            required property var modelData; b: modelData; root: body.root; width: roomSummary.width
+                            onActivated: i => body.root.backend.clickRow(i)
+                        }
+                    }
+                    Repeater {
+                        id: tableRows; model: joinedRoom.room.tables || []
+                        OnlineStyle.FieldRow {
+                            required property var modelData; b: modelData; root: body.root; width: roomSummary.width
+                            onActivated: i => body.root.backend.clickRow(i)
+                        }
+                    }
+                }
+            }
+        }
+        OnlineStyle.SectionCard {
+            x: (parent.width - 16) * 0.55 + 16; width: parent.width - x; height: parent.height
+            OnlineStyle.SectionHeader { id: roomControlsTitle; x: 20; y: 16; width: parent.width - 40; text: (joinedRoom.room.labels || {}).controls || "" }
+            Flickable {
+                id: roomControls
+                objectName: "communityControlsViewport"
+                x: 16; y: roomControlsTitle.y + roomControlsTitle.height + 12; width: parent.width - 32; height: joinedPrimary.y - y - 12
+                contentHeight: roomControlRows.height; clip: true; boundsBehavior: Flickable.StopAtBounds
+                function revealFocus() {
+                    for (var n = 0; n < roomControlFields.count; ++n) {
+                        var row = roomControlFields.itemAt(n)
+                        if (row && row.b.focused) {
+                            if (row.y < contentY) contentY = row.y
+                            else if (row.y + row.height > contentY + height) contentY = row.y + row.height - height
+                            return
+                        }
+                    }
+                }
+                Connections { target: body.root.backend; function onViewChanged() { Qt.callLater(roomControls.revealFocus) } }
+                Column {
+                    id: roomControlRows; width: roomControls.width; spacing: 8
+                    Repeater {
+                        id: roomControlFields; model: joinedRoom.room.controls || []
+                        OnlineStyle.FieldRow {
+                            required property var modelData; b: modelData; root: body.root; width: roomControlRows.width
+                            onActivated: i => body.root.backend.clickRow(i)
+                        }
+                    }
+                }
+            }
+            OnlineStyle.PrimaryButton {
+                id: joinedPrimary
+                x: 16; y: parent.height - height - 16; width: parent.width - 32; maxW: width
+                b: joinedRoom.room.primary || ({}); accent: Theme.readableAccent(body.root.v.accent)
+                onActivated: i => body.root.backend.clickRow(i)
+            }
+        }
+    }
+    Item {
+        visible: body.roomPage && !body.rooms.joined
         x: 0; y: title.height + 16; width: parent.width; height: parent.height - y
         OnlineStyle.SectionCard {
             id: browser
+            visible: !body.rooms.createOpen
             width: (parent.width - 16) * 0.52; height: parent.height
             OnlineStyle.SectionHeader { id: browserTitle; x: 20; y: 16; width: parent.width - 40; text: body.labels.open_rooms || "" }
-            OnlineStyle.SecondaryButton {
-                id: refresh; x: 20; y: browserTitle.y + browserTitle.height + 12; maxW: parent.width - 40
-                b: body.rooms.refresh || ({}); onActivated: i => body.root.backend.clickRow(i)
+            Flow {
+                id: browserActions
+                objectName: "roomBrowserActions"
+                x: 20; y: browserTitle.y + browserTitle.height + 12; width: parent.width - 40; spacing: 12
+                OnlineStyle.SecondaryButton {
+                    id: refresh; maxW: browserActions.width
+                    b: body.rooms.refresh || ({}); onActivated: i => body.root.backend.clickRow(i)
+                }
+                OnlineStyle.SecondaryButton {
+                    id: roomSort; maxW: browserActions.width; b: body.rooms.sort || ({})
+                    onActivated: i => body.root.backend.clickRow(i)
+                }
             }
             OnlineSections {
-                x: 4; y: refresh.y + refresh.height + 8; width: parent.width - 8; height: parent.height - y - 4
+                objectName: "roomBrowserRows"
+                x: 4; y: browserActions.y + browserActions.height + 8; width: parent.width - 8; height: parent.height - y - 4
                 root: body.root
                 sections: [{title: "", lines: body.rooms.browser || []}]
                 visible: (body.rooms.browser || []).length > 0
             }
-            OnlineStyle.FieldRow {
+            OnlineStyle.FieldRow { root: body.root;
                 visible: !(body.rooms.browser || []).length
-                x: 20; y: refresh.y + refresh.height + 32; width: parent.width - 40
+                x: 20; y: browserActions.y + browserActions.height + 32; width: parent.width - 40
                 b: body.rooms.empty || ({}); onActivated: i => body.root.backend.clickRow(i)
             }
         }
         Flickable {
             id: draftScroll
             objectName: "roomDraftViewport"
-            x: browser.width + 16; width: parent.width - x; height: parent.height - (inviteCard.visible ? inviteCard.height + 14 : 0) - createButton.height - 14
+            x: body.rooms.createOpen ? 0 : browser.width + 16; width: parent.width - x; height: parent.height - (inviteCard.visible ? inviteCard.height + 14 : 0) - createButton.height - 14
             contentHeight: draftCards.height; clip: true; boundsBehavior: Flickable.StopAtBounds
             function revealFocus() {
                 var target = null
@@ -89,17 +212,25 @@ Item {
             Column {
                 id: draftCards; width: parent.width; spacing: 14
                 OnlineStyle.SectionCard {
-                    width: parent.width; height: draftContent.height + 36
+                    width: parent.width; height: draftContent.height + (body.rooms.createOpen ? 24 : 36)
                     Column {
-                        id: draftContent; x: 18; y: 18; width: parent.width - 36; spacing: 8
-                        OnlineStyle.SectionHeader { width: parent.width; text: body.labels.create_room || "" }
-                        OnlineStyle.HelpText { width: parent.width; visible: !!text; text: body.rooms.hint || "" }
-                        Repeater {
+                        id: draftContent; x: body.rooms.createOpen ? 12 : 18; y: x; width: parent.width - 2 * x; spacing: 8
+                        OnlineStyle.SectionHeader { visible: !body.rooms.createOpen; width: parent.width; text: body.labels.create_room || "" }
+                        OnlineStyle.HelpText { width: parent.width; visible: !body.rooms.createOpen && !!text; text: body.rooms.hint || "" }
+                        Flow {
+                            id: draftRows; width: parent.width; spacing: 8
+                            Repeater {
                             id: draftFields; model: body.rooms.draft || []
                             Item {
                                 id: draftField; required property var modelData; readonly property var b: modelData
-                                width: draftContent.width; height: b.segments ? segmentColumn.height : draftRow.height
-                                OnlineStyle.FieldRow { id: draftRow; visible: !draftField.b.segments; b: draftField.b; width: parent.width; onActivated: i => body.root.backend.clickRow(i) }
+                                readonly property bool inlineNative: body.rooms.createOpen && !!b.fieldId
+                                width: body.rooms.createOpen ? (draftRows.width - 8) / 2 : draftRows.width; height: inlineNative ? inlineField.height : b.segments ? segmentColumn.height : draftRow.height
+                                OnlineStyle.FieldRow { root: body.root; id: draftRow; visible: !draftField.inlineNative && !draftField.b.segments; b: draftField.b; width: parent.width; onActivated: i => body.root.backend.clickRow(i) }
+                                Item {
+                                    id: inlineField; visible: draftField.inlineNative; width: parent.width; height: inlineEditor.height
+                                    OnlineStyle.FieldLabel { x: 4; width: parent.width * 0.28 - 8; anchors.verticalCenter: parent.verticalCenter; text: draftField.b.label || "" }
+                                    EditableField { id: inlineEditor; root: body.root; field: draftField.b; showLabel: false; x: parent.width * 0.28; width: parent.width - x }
+                                }
                                 Column {
                                     id: segmentColumn; visible: !!draftField.b.segments; width: parent.width; spacing: 8
                                     OnlineStyle.FieldLabel { width: parent.width; text: draftField.b.label || "" }
@@ -118,6 +249,7 @@ Item {
                                     }
                                     OnlineStyle.HelpText { objectName: "roomAccessHelp"; width: parent.width; visible: !!text; text: draftField.b.hint || "" }
                                 }
+                            }
                             }
                         }
                         Flow {
@@ -142,7 +274,7 @@ Item {
                         OnlineStyle.SectionHeader { width: parent.width; text: body.labels.advanced_options || "" }
                         Repeater {
                             id: hostFields; model: body.rooms.other || []
-                            OnlineStyle.FieldRow { required property var modelData; b: modelData; width: hostContent.width; onActivated: i => body.root.backend.clickRow(i) }
+                            OnlineStyle.FieldRow { root: body.root; required property var modelData; b: modelData; width: hostContent.width; onActivated: i => body.root.backend.clickRow(i) }
                         }
                     }
                 }
@@ -163,7 +295,7 @@ Item {
         }
         OnlineStyle.SectionCard {
             id: inviteCard
-            visible: (body.rooms.invite || []).length > 0
+            visible: !body.rooms.createOpen && (body.rooms.invite || []).length > 0
             x: draftScroll.x; y: parent.height - height; width: draftScroll.width; height: visible ? inviteContent.height + 32 : 0
             Column {
                 id: inviteContent; x: 16; y: 16; width: parent.width - 32; spacing: 8
@@ -174,7 +306,7 @@ Item {
                         id: inviteField
                         required property var modelData
                         width: inviteContent.width; height: modelData.id === "join_room_code" ? joinButton.height : codeField.height
-                        OnlineStyle.FieldRow { id: codeField; visible: inviteField.modelData.id !== "join_room_code"; b: inviteField.modelData; width: parent.width; onActivated: i => body.root.backend.clickRow(i) }
+                        OnlineStyle.FieldRow { root: body.root; id: codeField; visible: inviteField.modelData.id !== "join_room_code"; b: inviteField.modelData; width: parent.width; onActivated: i => body.root.backend.clickRow(i) }
                         OnlineStyle.SecondaryButton { id: joinButton; visible: inviteField.modelData.id === "join_room_code"; b: inviteField.modelData; width: parent.width; maxW: width; onActivated: i => body.root.backend.clickRow(i) }
                     }
                 }

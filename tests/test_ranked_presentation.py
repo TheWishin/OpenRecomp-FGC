@@ -51,7 +51,7 @@ class RoomDraftHelp(unittest.TestCase):
     def test_browser_status_does_not_take_space_in_the_creation_form(self):
         adapter, nav = hierarchy_nav()
         nav.click_chapter("rooms")
-        self.assertEqual(nav.items()[nav.focus_index(nav.items())]["id"], "refresh_rooms")
+        self.assertEqual(nav.items()[nav.focus_index(nav.items())]["id"], "room_create_open")
         self.assertEqual(nav.view()["online"]["rooms"]["hint"], "")
         rows = nav.items()
         field = next(n for n, item in enumerate(rows) if item.get("id") == "online_room_name")
@@ -92,10 +92,22 @@ class RankedPresentation(unittest.TestCase):
             nav.act("down")
             item = nav.items()[nav.focus_index(nav.items())]
             self.assertTrue(item.get("region") == "chat" or item.get("id") in
-                            {"search_ranked", "online_fighter", "rules_life", "ranked_strict", "screen_side", "always_left", "netext_options"})
+                            {"search_ranked", "ranked_options", "online_fighter", "rules_life", "ranked_strict", "screen_side", "always_left", "netext_options"})
         nav.open_ranked(nav.game)
         nav.act("right")
         self.assertEqual(nav.items()[nav.focus_index(nav.items())]["id"], "search_ranked")
+
+    def test_match_options_are_hidden_until_opened_and_back_restores_toggle(self):
+        adapter, nav = hierarchy_nav()
+        nav.open_ranked(nav.game)
+        self.assertNotIn("online_fighter", [row.get("id") for row in nav.items()])
+        next(row for row in nav.items() if row.get("id") == "ranked_options")["run"]()
+        self.assertIn("online_fighter", [row.get("id") for row in nav.items()])
+        nav.act("back")
+        rows = nav.items()
+        self.assertEqual(rows[nav.focus_index(rows)]["id"], "ranked_options")
+        self.assertNotIn("online_fighter", [row.get("id") for row in rows])
+        self.assertEqual(adapter.calls, [])
 
     def test_placement_uses_placement_progress(self):
         adapter, nav = hierarchy_nav()

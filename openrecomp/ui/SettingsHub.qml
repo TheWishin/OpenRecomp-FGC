@@ -23,7 +23,7 @@ Item {
     Flickable {
         id: list
         objectName: "settingsList"
-        x: 28; y: groupStrip.y + groupStrip.height + 20; width: 1230; height: page.height - y - 24
+        x: 28; y: groupStrip.y + groupStrip.height + 20; width: (page.width - 80) * 0.64; height: page.height - y - 24
         contentHeight: lines.height; clip: true; boundsBehavior: Flickable.StopAtBounds
         function reveal() {
             for (var n = 0; n < rows.count; ++n) {
@@ -46,7 +46,7 @@ Item {
                     required property var modelData
                     readonly property var l: modelData
                     width: lines.width
-                    height: l.kind === "group" ? heading.height + 24 : Math.max(label.implicitHeight + subtitle.implicitHeight + 30, value.implicitHeight + 28)
+                    height: l.kind === "group" ? heading.height + 24 : Math.max(Theme.listRowHeight, label.implicitHeight + subtitle.implicitHeight + 30, value.implicitHeight + 28)
                     OnlineStyle.SectionHeader { id: heading; visible: line.l.kind === "group"; x: 12; y: 12; width: parent.width - 24; text: line.l.label || "" }
                     Rectangle {
                         visible: line.l.kind === "setting"
@@ -90,23 +90,19 @@ Item {
                 width: parent.width; spacing: 18
                 OnlineStyle.HelpText { width: parent.width; text: page.d.kicker || ""; color: Theme.value }
                 OnlineStyle.PageTitle { width: parent.width; text: page.d.title || "" }
-                Rectangle {
-                    objectName: "settingsCurrentValue"
-                    visible: !!page.d.value; width: parent.width; height: Math.max(52, currentValue.implicitHeight + 20); radius: 4; color: Theme.raised
-                    Text { id: currentValue; anchors.fill: parent; anchors.margins: 10; text: page.d.value || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; verticalAlignment: Text.AlignVCenter; color: Theme.value; font.family: page.root.sans; font.pixelSize: Theme.px(22) }
-                }
                 OnlineStyle.HelpText { width: parent.width; text: page.d.lead || "" }
                 OnlineStyle.HelpText { width: parent.width; visible: !!page.s.adapterEmptyHint; text: page.s.adapterEmptyHint || "" }
-                Flow {
-                    width: parent.width; spacing: 10
+                Column {
+                    width: parent.width; spacing: 8
+                    visible: (page.d.options || []).length > 0
+                    OnlineStyle.HelpText { width: parent.width; text: page.root.v.settingsPage.optionLabel || ""; color: Theme.value }
                     Repeater {
                         model: page.d.options || []
-                        Rectangle {
+                        OnlineStyle.HelpText {
                             required property var modelData
-                            width: Math.min(choice.implicitWidth + 28, parent.width); height: choice.implicitHeight + 18
-                            radius: 6; color: modelData.current ? Theme.selected : Theme.raised
-                            border.width: modelData.current ? 2 : 1; border.color: Theme.border
-                            OnlineStyle.HelpText { id: choice; x: 14; y: 9; width: Math.min(implicitWidth, parent.width - 28); text: parent.modelData.label || ""; color: parent.modelData.current ? Theme.ground : Theme.text }
+                            width: parent.width
+                            text: (modelData.current ? "\u2713  " : "\u2022  ") + (modelData.label || "")
+                            color: modelData.current ? Theme.text : Theme.muted
                         }
                     }
                 }

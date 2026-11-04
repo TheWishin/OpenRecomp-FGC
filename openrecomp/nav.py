@@ -199,6 +199,8 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
         self.say("@community.opening")
 
     def _handle(self, a):
+        if getattr(self, "native_edit", ""):
+            return self._native_action(a)
         if self.library_busy:
             if (self.overlay == "dialog" and self.confirm_kind.startswith("library_")
                     and (a == "back" or a == "confirm" and self.confirm_kind == "library_loading")):
@@ -331,6 +333,7 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
     def view(self):
         v = dict(screen=self.screen, overlay=self.overlay or "", toast=self.toast, fullscreen=self.fullscreen, reducedMotion=self.reduced_motion,
                  textScale=self.text_size / 100, highContrast=self.high_contrast,
+                 inputMode=self.device, nativeEdit=getattr(self, "native_edit", ""), nativeField={},
                  device="@" + DEVICE_LABEL["kb" if self.device == "kb" else self.pad_kind],
                  trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True),
                  shelf=dict(tiles=[], x=0, w=SCREEN_W), tabs=[], rows=[], detail=dict(rows=[], results=[], images=[]), hint="", prompts=[], accent="#ECE9E1", badge="", gameShort="", numeral="",
@@ -343,6 +346,7 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
         over = getattr(self, "_view_" + self.overlay, None) if self.overlay else None
         if over:
             over(v)
+        v["nativeEdit"] = getattr(self, "native_edit", "")
         return i18n.localize(v, self.language)
 
     def _trail(self):

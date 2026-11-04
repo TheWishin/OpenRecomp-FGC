@@ -131,6 +131,8 @@ class PrivateChatNavigationTests(unittest.TestCase):
 
     def test_dry_private_actions_and_keyboard_never_write_or_send(self):
         self.a.snapshot["private_chat"]["selected"] = "peer"
+        # Dry actions do not select evidence; the fixture supplies an already selected received line.
+        self.a.snapshot["private_chat"]["threads"][0]["messages"][0]["selected"] = True
         self.nav.dry = True
         for iid in ("private_open:peer", "private_select:line", "private_send", "private_report", "private_close"):
             self.choose(iid)

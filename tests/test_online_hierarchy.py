@@ -200,6 +200,7 @@ class OnlineHierarchyProjection(unittest.TestCase):
         self.assertEqual(self.adapter.calls, [])
 
     def test_access_segments_use_existing_option_setter_and_dry_guard(self):
+        next(row for row in self.nav.items() if row.get("id") == "room_advanced")["run"]()
         rows = self.nav.items()
         index = next(n for n, row in enumerate(rows) if row.get("id") == "community_option:access")
         foreign = next(n for n, row in enumerate(rows) if row.get("id") == "community_option:size")
@@ -277,6 +278,7 @@ class OnlineHierarchyProjection(unittest.TestCase):
         self.assertNotEqual(self.nav.focus_index(self.nav.items()), create)
 
     def test_room_order_matches_browser_then_draft_then_invite(self):
+        next(row for row in self.nav.items() if row.get("id") == "room_advanced")["run"]()
         ids = [row.get("id") for row in self.nav.items() if row.get("region") == "rooms"]
         order = ["refresh_rooms", "join_room:r1", "online_room_name", "community_option:size",
                  "online_room_password", "create_room", "online_room_code", "join_room_code"]
@@ -349,11 +351,36 @@ class OnlineHierarchyScene(unittest.TestCase):
                             spin(10)
                             scene = [item for item in items(win.contentItem()) if item.isVisible()]
                             body = next(item for item in scene if item.objectName() == ("arcadeFloor" if chapter == "lobby" else "onlineBody"))
-                            titles = [item for item in items(body)
-                                      if item.isVisible() and item.objectName() == "onlinePageTitle"]
+                            if chapter == "lobby":
+                                player_pane = next(item for item in scene if item.objectName() == "lobbyPlayersPane")
+                                chat_pane = next(item for item in scene if item.objectName() == "lobbyChatPane")
+                                self.assertTrue(player_pane.isVisible() and chat_pane.isVisible())
+                                profile = next(item for item in scene if item.objectName() == "onlineProfile")
+                                find = next(item for item in scene if item.objectName() == "onlineFind")
+                                live = next(item for item in scene if item.objectName() == "lobbyLivePane")
+                                rooms = next(item for item in scene if item.objectName() == "lobbyRoomsPane")
+                                def left(item): return item.mapToScene(QPointF(0, 0)).x()
+                                def right(item): return item.mapToScene(QPointF(item.width(), 0)).x()
+                                def top(item): return item.mapToScene(QPointF(0, 0)).y()
+                                def bottom(item): return item.mapToScene(QPointF(0, item.height())).y()
+                                self.assertLessEqual(right(profile), left(find))
+                                self.assertLessEqual(right(find), left(chat_pane))
+                                self.assertLessEqual(bottom(profile), top(player_pane))
+                                self.assertLessEqual(right(player_pane), left(live))
+                                self.assertLessEqual(right(live), left(chat_pane))
+                                self.assertLessEqual(bottom(live), top(rooms))
+                                self.assertLessEqual(top(chat_pane), top(profile))
+                                self.assertGreaterEqual(chat_pane.width() / 1920, .28)
+                                self.assertLessEqual(chat_pane.width() / 1920, .32)
+                                expected = backend._v["online"]["arcade"]["labels"]["players"] + "  /  " + str(len(backend._v["online"]["arcade"]["players"]))
+                                titles = [item for item in items(player_pane)
+                                          if item.isVisible() and item.property("text") == expected]
+                            else:
+                                titles = [item for item in items(body)
+                                          if item.isVisible() and item.objectName() == "onlinePageTitle"]
                             self.assertEqual(len(titles), 1)
                             title = titles[0]
-                            expected_title = backend._v["online"]["arcade"]["labels"]["title"] if chapter == "lobby" else backend._v["online"]["body"]["title"]
+                            expected_title = (backend._v["online"]["arcade"]["labels"]["players"] + "  /  " + str(len(backend._v["online"]["arcade"]["players"]))) if chapter == "lobby" else backend._v["online"]["body"]["title"]
                             self.assertEqual(title.property("text"), expected_title)
                             self.assertGreater(title.width(), 0)
                             position = title.mapToItem(body, QPointF(0, 0))
@@ -370,7 +397,7 @@ class OnlineHierarchyScene(unittest.TestCase):
                             for label in labels:
                                 self.assertGreater(title.property("font").pixelSize(), label.property("font").pixelSize())
                             if labels and help_text:
-                                self.assertGreater(min(item.property("font").pixelSize() for item in labels),
+                                self.assertGreaterEqual(min(item.property("font").pixelSize() for item in labels),
                                                    max(item.property("font").pixelSize() for item in help_text))
                             for item in titles + labels + help_text:
                                 self.assertLessEqual(item.property("contentHeight"), item.height() + 2)

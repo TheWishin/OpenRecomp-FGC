@@ -8,6 +8,8 @@ Column {
     readonly property var d: v.detail
     readonly property bool hasImages: (d.images || []).length > 0 || !!d.image
     property string lastSection: ""
+    readonly property bool communityLobby: v.online.layout === "lobby" && v.online.chapter === "lobby"
+    readonly property real navHeight: communityLobby || (v.mainMenu.available && root.chatDocked) ? 0 : Math.max(64, Theme.target(44) + 14)
     Connections {
         target: hub.root.backend
         function onViewChanged() {
@@ -31,8 +33,8 @@ Column {
 
     Rectangle {
         objectName: "sectionTabs"
-        visible: !hub.v.mainMenu.available
-        width: 1920; height: 64; color: hub.root.bar
+        visible: !hub.v.mainMenu.available && !hub.communityLobby
+        width: hub.width; height: hub.navHeight; color: hub.root.bar
         Rectangle { width: parent.width; height: 1; color: hub.root.line }
         Row {
             anchors.fill: parent
@@ -47,11 +49,11 @@ Column {
                 Rectangle {
                     required property int index
                     readonly property var t: hub.root.ok(hub.v.tabs, index)
-                    width: (1920 - 240) / Math.max(1, hub.v.tabs.length); height: 64
+                    width: (hub.width - 240) / Math.max(1, hub.v.tabs.length); height: 64
                     color: t.active ? hub.root.panel : "transparent"
                     Behavior on color { enabled: !hub.root.reducedMotion; ColorAnimation { duration: 100 } }
                     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 4; color: Theme.readableAccent(hub.v.accent); visible: !!parent.t.active }
-                    Text { objectName: "sectionTabLabel"; textFormat: Text.PlainText; anchors.centerIn: parent; width: parent.width - 28; height: 48; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; text: parent.t.label || ""; color: parent.t.active ? hub.root.textC : hub.root.muted; font.family: hub.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(28); minimumPixelSize: Theme.px(16); fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2 }
+                    Text { objectName: "sectionTabLabel"; textFormat: Text.PlainText; anchors.centerIn: parent; width: parent.width - 28; height: 60; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; text: parent.t.label || ""; color: parent.t.active ? hub.root.textC : hub.root.muted; font.family: hub.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(28); minimumPixelSize: Theme.px(16); fontSizeMode: Text.Fit; wrapMode: Text.Wrap; maximumLineCount: 2 }
                     TapHandler { id: uiTap1; onTapped: hub.root.backend.clickTab(parent.t.id) }
                     Interaction { handler: uiTap1; selected: !!parent.t.active; onActivated: hub.root.backend.clickTab(parent.t.id) }
                 }
@@ -66,8 +68,8 @@ Column {
     }
 
     Rectangle {
-        visible: !!hub.v.mainMenu.available
-        width: 1920; height: 64; color: hub.root.bar
+        visible: !!hub.v.mainMenu.available && !hub.communityLobby && !hub.root.chatDocked
+        width: hub.width; height: hub.navHeight; color: hub.root.bar
         Row {
             x: 24; y: 7; spacing: 24
             OnlineStyle.SecondaryButton {
@@ -82,48 +84,48 @@ Column {
     PageLoader {
         page: "OnlineHub.qml"; pageName: "onlineHub"
         active: hub.v.online.layout === "lobby"
-        width: 1920; height: parent.height - 64
+        width: hub.width; height: parent.height - hub.navHeight
         root: hub.root
     }
 
     PageLoader {
         page: "OnlineCard.qml"; pageName: "onlineCardPage"
         active: hub.v.online.layout === "card"
-        width: 1920; height: parent.height - 64
+        width: hub.width; height: parent.height - hub.navHeight
         root: hub.root
     }
 
     PageLoader {
         page: "OnlineLogin.qml"; pageName: "onlineLoginPage"
         active: hub.v.online.layout === "login"
-        width: 1920; height: parent.height - 64
+        width: hub.width; height: parent.height - hub.navHeight
         root: hub.root
     }
 
     PageLoader {
         page: "SettingsHub.qml"; pageName: "settingsHub"
         active: hub.v.settingsPage.layout === "groups"
-        width: 1920; height: parent.height - 64
+        width: hub.width; height: parent.height - hub.navHeight
         root: hub.root
     }
 
     PageLoader {
         page: "BuildPage.qml"; pageName: "buildPage"
         active: !!(hub.v.build && hub.v.build.show)
-        width: 1920; height: parent.height - 64
+        width: hub.width; height: parent.height - hub.navHeight
         root: hub.root
     }
 
     PageLoader {
         page: "SessionPage.qml"; pageName: "sessionPage"
         active: !!(hub.v.sessionPage && hub.v.sessionPage.show)
-        width: 1920; height: parent.height - 64
+        width: hub.width; height: parent.height - hub.navHeight
         root: hub.root
     }
 
     Row {
         visible: !(hub.v.sessionPage && hub.v.sessionPage.show) && !(hub.v.build && hub.v.build.show) && ["lobby", "card", "login"].indexOf(hub.v.online.layout) < 0 && hub.v.settingsPage.layout !== "groups"
-        width: 1920; height: parent.height - 64
+        width: hub.width; height: parent.height - hub.navHeight
         // ---------------------------------------------------------------- the list
         Item {
             id: listArea

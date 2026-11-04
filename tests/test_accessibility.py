@@ -95,10 +95,9 @@ class ReadableTheme(unittest.TestCase):
     def test_all_text_sizes_use_the_shared_scale_and_floor(self):
         for path in (ROOT / "openrecomp/ui").glob("*.qml"):
             source = path.read_text(encoding="utf-8")
-            for expression in re.findall(r"\bfont\.pixelSize:\s*([^;\n}]+)", source):
-                self.assertIn("Theme.px(", expression, (path.name, expression))
-        source = (ROOT / "openrecomp/ui/Theme.qml").read_text(encoding="utf-8")
-        self.assertIn("Math.max(14, size) * textScale", source)
+            for line in source.splitlines():
+                for expression in re.findall(r"\bfont\.pixelSize:\s*([^;\n}]+)", line):
+                    self.assertRegex(expression, r"Theme\.(px|onlinePx)\(", (path.name, expression))
 
     def test_shared_interaction_exposes_names_roles_and_noncolour_focus(self):
         source = (ROOT / "openrecomp/ui/Interaction.qml").read_text(encoding="utf-8")
@@ -120,6 +119,35 @@ class DisplayScene(unittest.TestCase):
     named = ScenePolish.named
     wait_pages = ScenePolish.wait_pages
     publish = ScenePolish.publish
+
+    def test_shared_type_and_target_floors_are_measured_in_output_pixels(self):
+        from PySide6.QtQml import QQmlExpression, qmlContext
+        from test_ui_loads import spin
+        for width, height in ((1920, 1080), (1280, 720), (960, 540)):
+            self.win.setWidth(width)
+            self.win.setHeight(height)
+            spin()
+            for percent in (100, 115, 130):
+                self.nav.text_size = percent
+                self.publish()
+                for size, floor in ((16, 16), (18, 18), (22, 18), (28, 22), (40, 28)):
+                    expression = QQmlExpression(qmlContext(self.win), self.win,
+                                               f"Theme.px({size}) * Theme.viewportScale")
+                    result, undefined = expression.evaluate()
+                    self.assertFalse(undefined, expression.error().toString())
+                    self.assertGreaterEqual(result, floor * percent / 100 - .5)
+                for size in (14, 18, 22, 28):
+                    expression = QQmlExpression(qmlContext(self.win), self.win,
+                                               f"Theme.onlinePx({size}) * Theme.viewportScale")
+                    result, undefined = expression.evaluate()
+                    self.assertFalse(undefined, expression.error().toString())
+                    expected = max(size * width / 1920, 14) * percent / 100
+                    self.assertAlmostEqual(result, expected, delta=.5)
+                expression = QQmlExpression(qmlContext(self.win), self.win,
+                                           "Theme.target(44) * Theme.viewportScale")
+                result, undefined = expression.evaluate()
+                self.assertFalse(undefined)
+                self.assertGreaterEqual(result, 44)
 
     def test_game_and_custom_accents_remain_readable_on_raised_surfaces(self):
         import json

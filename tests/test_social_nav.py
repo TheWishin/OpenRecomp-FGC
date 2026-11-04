@@ -85,6 +85,8 @@ class SocialNavigation(unittest.TestCase):
                     self.nav.act("play", device="xbox")
                 elif self.nav.overlay == "fighters":
                     self.nav.act("confirm", device="xbox")
+                if self.nav.__dict__.get("room_flow", {}).get(self.nav.game.id):
+                    self.nav.act("back", device="xbox")
                 self.assertIsNone(self.nav.overlay, iid)
         self.nav.tick(.016)
         self.assertEqual(self.a.calls, [])

@@ -121,6 +121,9 @@ def untranslated_literals(source):
 
     # These are filenames, environment variables, technical units, and protocol identifiers.
     technical = {
+        "sort_reverse", "arcade_sort:", "arcade_create_room", "arcade_join_code", ":main_chat",
+        "room_create_open", "room_join_code_open", "community_option:size", "community_option:rotation",
+        "community_option:access", "community_option:hidden", "community_option:first_to",
         "room_watch:", "room_create", "room:",
         "netext_options", "online_feel", "net_line", "netext_forget_confirm", "netext_forget_preview",
         "netext_forget_cancel", "max_ping", "no_wifi", "steady", "responsive", "balanced", "smooth",
@@ -348,6 +351,8 @@ def untranslated_literals(source):
     })
     technical.update({
         # Arcade presentation routes, remembered context, catalog suffixes and glyph-map keys.
+        "recommended", "inf", "pane_back", "latest", "ranked_options", "newest", "opener",
+        "%d.%m.%Y, %H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d",
         "arcade_options", "arcade_more", "arcade_help", "arcade_", "arcade_watch:",
         "arcade_room:join_room:", "arcade_room:room_watch:", "arcade_chapter:",
         "help_context", "cabinets", "quick_note", "ranked_note", "in_room", "empty",
@@ -601,6 +606,15 @@ class Catalogs(unittest.TestCase):
         for path in paths:
             self.assertEqual(untranslated_literals(path.read_text(encoding="utf-8")), [], path.name)
 
+    def test_community_protocol_tokens_still_reject_display_literals(self):
+        for value in ("recommended", "inf", "pane_back", "latest", "ranked_options", "newest", "opener",
+                      "%d.%m.%Y, %H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+            self.assertEqual(untranslated_literals(f'token = {value!r}'), [], value)
+            self.assertTrue(untranslated_literals(f'dict(label={value!r})'), value)
+            self.assertTrue(untranslated_literals(f'self.say({value!r})'), value)
+        for value in ("Recommended players", "Latest messages", "Sort your games", "newest_user_message"):
+            self.assertTrue(untranslated_literals(f'token = {value!r}'), value)
+
     def test_python_scan_accepts_setting_ids_and_protocol_defaults(self):
         source = ('def quick_settings(self):\n'
                   '    return ["resolution", "fullscreen", "display", "internal_res"]\n'
@@ -634,6 +648,9 @@ class Catalogs(unittest.TestCase):
 
     def test_python_scan_accepts_arcade_routes_but_checks_visible_text(self):
         values = (
+            "sort_reverse", "arcade_sort:", "arcade_create_room", "arcade_join_code", ":main_chat",
+            "room_create_open", "room_join_code_open", "community_option:size", "community_option:rotation",
+            "community_option:access", "community_option:hidden", "community_option:first_to",
             "arcade_options", "arcade_more", "arcade_help", "arcade_", "arcade_watch:",
             "arcade_room:join_room:", "arcade_room:room_watch:", "arcade_chapter:",
             "help_context", "cabinets", "quick_note", "ranked_note", "in_room", "empty",

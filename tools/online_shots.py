@@ -3,8 +3,14 @@
     python tools/online_shots.py before --ui-dir build/tmp-home/online-before/ui
     python tools/online_shots.py after
     python tools/online_shots.py after --batch arcade --languages en
+    python tools/online_shots.py after --batch community
+    python tools/online_shots.py after --batch final --languages en de
 
-All captures, contact sheets and geometry reports stay under build/shots/online.
+The default after batch includes every state. Community selects the expanded input,
+chat, challenge and match phase fixtures. Final selects the owner's review screens
+under build/shots/final; other captures stay under build/shots/online. Every batch
+renders both reference sizes and writes a report, overview sheets and six-scene
+contact pages named contact-{language}-{game}-{size}-pageNN.png.
 """
 import argparse
 import importlib.util
@@ -27,10 +33,19 @@ from test_online_page import lobby_snapshot  # noqa: E402
 CHAPTERS = ("lobby", "rooms", "friends", "leaderboard", "stats", "profile", "tournaments", "spectating", "account")
 BASELINE_SCENES = CHAPTERS + ("rooms_empty",)
 ARCADE_SCENES = ("arcade_floor", "arcade_selected", "arcade_cabinet", "arcade_options")
-SCENES = BASELINE_SCENES + ("home", "ranked", "settings", "feedback") + ARCADE_SCENES
+COMMUNITY_SCENES = ("lobby_dense", "lobby_guest", "lobby_long_names", "player_busy", "player_self", "private_chat",
+                    "mentions", "chat_history", "native_composer", "pad_composer", "pad_osk",
+                    "challenge_incoming", "challenge_sent", "challenge_waiting", "challenge_cancelled",
+                    "challenge_declined", "challenge_expired", "searching", "cancelling", "matched",
+                    "starting", "playing", "result", "reporting", "disconnect_retry", "rooms_create",
+                    "community_room", "controls")
+FINAL_SCENES = ("home", "mentions", "private_chat", "rooms", "rooms_create", "community_room",
+                "matched", "searching", "leaderboard", "profile", "settings", "controls")
+SCENES = BASELINE_SCENES + ("home", "ranked", "settings", "feedback") + ARCADE_SCENES + COMMUNITY_SCENES
 SIZES = ((1920, 1080), (1280, 720))
 ART_FIELDS = {"hero", "image", "art", "wordmark", "face", "plate", "portrait", "background"}
 ART_LISTS = {"images", "mosaic"}
+DECORATIVE_CLIPPING = ("shelfDecoration", "buildDecoration")
 BASELINE = ROOT / "build" / "tmp-home" / "online-before"
 
 
@@ -50,7 +65,8 @@ class SyntheticOnline(Lobby):
     def __init__(self, game):
         super().__init__()
         self.m.update(id=game, adapter="t4" if game == "t4" else "t5dr",
-                      title="Sample Arena", short="Sample Arena", accent="#BE7449")
+                      title="Tekken 4" if game == "t4" else "Tekken 5: Dark Resurrection",
+                      short="T4" if game == "t4" else "T5DR", accent="#BE7449")
         # Deliberately share the presentation capabilities, as T4 does at runtime.
         self.snapshot.update(lobby_snapshot())
         self.snapshot["capabilities"].update(
@@ -92,6 +108,7 @@ class SyntheticOnline(Lobby):
         self.texts.update(online_room_name="Evening practice", online_room_password="",
                           online_room_code="", online_friend_name="", online_profile_name="",
                           online_tour_name="Weekend bracket", online_tour_clock="", online_block_name="")
+        self.empty_controls = False
 
     def settings(self):
         from tools.ui_shots import Synthetic
@@ -100,13 +117,18 @@ class SyntheticOnline(Lobby):
     def controls_supported(self):
         return True
 
+    def controls(self):
+        from tools.ui_shots import Synthetic
+        return Synthetic.controls(self)
+
     def support_available(self):
         return True
 
 
 def scene(game, chapter, language, nav_type=Nav, text_size=100, high_contrast=False):
     adapter = SyntheticOnline(game)
-    arcade_scene = chapter if chapter in ARCADE_SCENES else ""
+    requested = chapter
+    arcade_scene = chapter if chapter in ARCADE_SCENES or chapter in COMMUNITY_SCENES else ""
     if arcade_scene:
         adapter.snapshot["me"]["main"] = "f3"
         adapter.snapshot["players"] = [
@@ -125,7 +147,49 @@ def scene(game, chapter, language, nav_type=Nav, text_size=100, high_contrast=Fa
         adapter.snapshot["spectating"]["targets"][0].update(
             players=[dict(id="p2", name="Busy", main="f2"),
                      dict(id="p3", name="Player 3", main="f4")], score=[2, 1])
+        if requested == "lobby_dense":
+            adapter.snapshot["players"] += [dict(id=f"p{n}", name=f"Player {n:02}", rank="2nd Dan",
+                rating=1500 + n, main="f1", status="idle", ping=40 + n, ping_measured=True)
+                for n in range(7, 31)]
         chapter = "lobby"
+    adapter.snapshot["capabilities"].update(private_chat=True, mentions=True, challenge_preferences=True)
+    if requested == "lobby_guest":
+        adapter.snapshot["account"] = False
+        adapter.snapshot["me"]["guest"] = True
+    adapter.snapshot["challenge_preferences"] = dict(first_to=2)
+    adapter.texts.update(online_private_chat="", online_private_report_reason="")
+    if requested in ("private_chat", "mentions", "chat_history", "native_composer", "pad_composer", "pad_osk"):
+        adapter.snapshot["private_chat"] = dict(selected="p1" if requested == "private_chat" else "", unread=2,
+            threads=[dict(id="p1", name="Rival", unread=0 if requested == "private_chat" else 2,
+                messages=[dict(id="private-1", name="Rival", text="Ready for a practice set?"),
+                          dict(id="private-2", name="Me", text="Yes, after this match.")]),
+                     dict(id="p6", name="Player 6", unread=1, messages=[])])
+        adapter.snapshot["chat"] = [dict(name="Rival", text="Hello @Me, ready for a set?", mentioned=True),
+                                     dict(name="Me", text="Welcome!"),
+                                     dict(name="Player 6", text="<b>Plain text</b> & a friendly lobby.")]
+    if requested == "chat_history":
+        adapter.snapshot["chat"] = [dict(name="Rival", text=f"Practice message {n + 1}") for n in range(48)]
+    if requested == "lobby_long_names":
+        adapter.snapshot["players"][0]["name"] = "A very long community player name"
+        adapter.snapshot["players"][0].update(area="Central Europe", language="Deutsch / Français")
+    if requested in ("rooms_create", "community_room"):
+        chapter = "rooms"
+    if requested == "community_room":
+        adapter.snapshot["community"]["room"] = dict(id="r1", name="Evening practice", size=4, mode="line",
+            lock="none", rotation="queue", in_line=True, host=False, line=["p1", "me", "p6"],
+            members=[dict(id="p1", name="Rival"), dict(id="me", name="Me"), dict(id="p6", name="Player 6")],
+            tables=[dict(id="1", players=["p1", "me"], wins=[1, 0], playing=True)])
+    phase = {"searching": "searching", "cancelling": "cancelling", "matched": "matched", "starting": "starting",
+             "playing": "playing", "result": "result", "reporting": "result_sent", "disconnect_retry": "error"}.get(requested)
+    if phase:
+        adapter.snapshot.update(phase=phase, message={"searching": "@online.searching_casual",
+            "cancelling": "@feedback.cancelling", "matched": "@online.match_found", "starting": "@online.start_match",
+            "playing": "@online.match_active", "result": "@online.result", "result_sent": "@online.result",
+            "error": "@online.disconnected"}[phase],
+            match=dict(opponent="Rival", ping=42, ping_measured=True, ranked=False))
+    if requested == "challenge_incoming":
+        adapter.snapshot["challenge"] = dict(id="sample-incoming", name="Rival", player="p1", ping=42, ping_measured=True)
+        adapter.snapshot["challenge_preferences"]["incoming"] = dict(id="sample-incoming", first_to=2, delay=dict(auto=True))
     if chapter == "rooms_empty":
         adapter.snapshot["rooms"] = []
     chapter = chapter.removesuffix("_empty")
@@ -138,13 +202,45 @@ def scene(game, chapter, language, nav_type=Nav, text_size=100, high_contrast=Fa
     nav.sec[game] = "online"
     nav.main_menu_visited = {game}
     if arcade_scene:
-        nav.click_chapter("lobby")
+        if phase:
+            return nav
+        if requested == "controls":
+            nav.sec[game] = "controls"
+            return nav
+        nav.click_chapter(chapter)
+        if requested == "rooms_create":
+            adapter.snapshot["community"]["first_to"] = True
+            adapter.snapshot["community"]["preferences"]["first_to"] = 2
+            nav.open_room_flow(nav.game, "create", "arcade_create_room")
         if arcade_scene == "arcade_options":
             nav.arcade_options = {game: True}
-        selected = {"arcade_selected": "challenge:p1", "arcade_cabinet": "arcade_watch:spec_watch_room:r1"}.get(
+        elif arcade_scene == "arcade_cabinet":
+            nav.arcade_more = {game: True}
+        if requested.startswith("challenge_") and requested != "challenge_incoming":
+            from openrecomp import nav_feedback
+            terminal = requested.removeprefix("challenge_")
+            kind = "pending" if terminal == "sent" else "waiting" if terminal == "waiting" else terminal
+            receipt = dict(kind=kind, text="@feedback.sending" if kind == "pending" else
+                "@online.challenge_sent" if kind == "waiting" else "@feedback." + terminal,
+                age=12, name="Rival", action="challenge:p1", challenge="sample-offer", left=5)
+            nav_feedback.records(nav, game)["challenge:p1"] = receipt
+            if terminal in ("cancelled", "declined", "expired"):
+                nav_feedback.finish(nav, receipt, kind, receipt["text"])
+            if terminal == "waiting":
+                adapter.snapshot["open_challenges"] = [dict(id="sample-offer", player="p1", name="Rival",
+                    first_to=2, ping=42, ping_measured=True)]
+        selected = {"arcade_selected": "challenge:p1", "arcade_cabinet": "arcade_watch:spec_watch_room:r1",
+                    "player_busy": "challenge:p2", "player_self": "online_status", "private_chat": "online_private_chat",
+                    "native_composer": "online_chat", "pad_composer": "online_chat", "pad_osk": "online_chat",
+                    "rooms_create": "online_room_name", "community_room": "refresh_rooms"}.get(
             arcade_scene, "search_casual")
         items = nav.items()
-        nav.focus[nav.key()] = next(n for n, item in enumerate(items) if item.get("id") == selected)
+        nav.focus[nav.key()] = next((n for n, item in enumerate(items) if item.get("id") == selected), 0)
+        if requested == "native_composer":
+            adapter.texts["online_chat"] = "Hello @Rival"
+            nav.begin_edit("online_chat")
+        elif requested == "pad_osk":
+            nav._open_osk("online_chat")
         return nav
     if chapter == "home":
         nav.open_main_menu()
@@ -205,6 +301,8 @@ def geometry(window):
     for item in descendants(window.contentItem()):
         if not item.isVisible() or item.opacity() <= 0 or item.width() <= 0 or item.height() <= 0:
             continue
+        if item.objectName() in DECORATIVE_CLIPPING:
+            continue  # Intentionally cropped, non-interactive artwork-free background numerals.
         if item.property("text") is None or item.property("contentHeight") is None:
             continue
         record = dict(name=item.objectName(), text=str(item.property("text"))[:100])
@@ -219,7 +317,14 @@ def geometry(window):
                                  content=round(item.property("contentWidth"), 1)))
         parent = item.parentItem()
         vertical_scroll = False
+        horizontal_scroll = False
         while parent:
+            if parent.objectName() == "arcadePlayer":
+                top = item.mapToItem(parent, QPointF(0, 0))
+                bottom = item.mapToItem(parent, QPointF(item.width(), item.height()))
+                if clip_reason(top.x(), top.y(), bottom.x(), bottom.y(), parent.width(), parent.height()):
+                    problems.append(dict(record, reason="player-row-overflow", ancestor=parent.objectName()))
+                    break
             if parent.clip():
                 vertical_scroll = vertical_scroll or (
                     parent.property("contentHeight") is not None and
@@ -227,8 +332,17 @@ def geometry(window):
                     parent.property("contentHeight") > parent.height())
                 top = item.mapToItem(parent, QPointF(0, 0))
                 bottom = item.mapToItem(parent, QPointF(item.width(), item.height()))
+                if (parent.objectName() in ("rankingCompactControls", "onlineChapters", "chatTabsViewport") and
+                        parent.property("contentX") is not None and
+                        parent.property("contentWidth") is not None and
+                        parent.property("contentWidth") > parent.width()):
+                    offset = parent.property("contentX")
+                    if top.x() + offset < -2 or bottom.x() + offset > parent.property("contentWidth") + 2:
+                        problems.append(dict(record, reason="scroll-content-overflow", ancestor=parent.objectName()))
+                        break
+                    horizontal_scroll = True
                 reason = clip_reason(top.x(), top.y(), bottom.x(), bottom.y(),
-                                     parent.width(), parent.height(), vertical_scroll)
+                                     parent.width(), parent.height(), vertical_scroll, horizontal_scroll)
                 if reason:
                     problems.append(dict(record, reason=reason, ancestor=parent.objectName()))
                     break
@@ -236,8 +350,8 @@ def geometry(window):
     return problems, elided
 
 
-def clip_reason(left, top, right, bottom, width, height, vertical_scroll=False):
-    if left < -2 or right > width + 2:
+def clip_reason(left, top, right, bottom, width, height, vertical_scroll=False, horizontal_scroll=False):
+    if not horizontal_scroll and (left < -2 or right > width + 2):
         return "horizontal-clip"
     if not vertical_scroll and (top < -2 or bottom > height + 2):
         return "vertical-clip"
@@ -263,13 +377,28 @@ def contact_sheets(out, languages, games, scenes):
                     painter.drawText(x + 8, y + 20, f"{language} / {game} / {chapter} / {width}x{height}")
                 painter.end()
                 sheet.save(str(out / f"contact-{language}-{game}-{width}x{height}.png"))
+                # Six scenes per page preserve readable review scale in ordinary image viewers.
+                for start in range(0, len(scenes), 6):
+                    selected = scenes[start:start + 6]
+                    page = QImage(columns * tw, ((len(selected) + 1) // columns) * (th + 28), QImage.Format_RGB32)
+                    page.fill(QColor("#08090A"))
+                    painter = QPainter(page)
+                    painter.setPen(QColor("#ECE9E1"))
+                    for index, chapter in enumerate(selected):
+                        x, y = index % columns * tw, index // columns * (th + 28)
+                        capture = QImage(str(out / language / game / f"{width}x{height}" / f"{chapter}.png"))
+                        painter.drawImage(x, y + 28, capture.scaled(tw, th))
+                        painter.drawText(x + 8, y + 20, f"{language} / {game} / {chapter} / {width}x{height}")
+                    painter.end()
+                    page.save(str(out / f"contact-{language}-{game}-{width}x{height}-page{start // 6 + 1:02}.png"))
+
+
+def capture_home(phase, text_size, high_contrast=False, batch=None, platform="offscreen"):
+    profile = "-".join((phase, text_size, "contrast" if high_contrast else "standard", batch or "default", platform))
+    return ROOT / "build" / "tmp-home" / "uipolish5" / ("online-" + profile)
 
 
 def main(argv=None):
-    home = ROOT / "build" / "tmp-home" / "online"
-    home.mkdir(parents=True, exist_ok=True)
-    for name in ("OPENRECOMP_HOME", "APPDATA", "LOCALAPPDATA", "TMP", "TEMP"):
-        os.environ[name] = str(home)
     os.environ["QML_DISABLE_DISK_CACHE"] = "1"
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=("before", "after"))
@@ -279,11 +408,17 @@ def main(argv=None):
     parser.add_argument("--scenes", nargs="+", choices=SCENES)
     parser.add_argument("--text-size", choices=("normal", "large", "larger"), default="normal")
     parser.add_argument("--high-contrast", action="store_true")
-    parser.add_argument("--batch", choices=("presentation", "arcade"))
+    parser.add_argument("--batch", choices=("presentation", "arcade", "community", "final"))
     parser.add_argument("--platform", choices=("offscreen", "windows"), default="offscreen")
     args = parser.parse_args(argv)
+    home = capture_home(args.phase, args.text_size, args.high_contrast, args.batch, args.platform)
+    home.mkdir(parents=True, exist_ok=True)
+    for name in ("OPENRECOMP_HOME", "APPDATA", "LOCALAPPDATA", "TMP", "TEMP"):
+        os.environ[name] = str(home)
     if args.scenes is None:
         args.scenes = list(ARCADE_SCENES if args.batch == "arcade" else
+                           COMMUNITY_SCENES if args.batch == "community" else
+                           FINAL_SCENES if args.batch == "final" else
                            BASELINE_SCENES if args.phase == "before" else SCENES)
     if args.phase == "before" and any(scene not in BASELINE_SCENES for scene in args.scenes):
         parser.error("The preserved baseline supports only the original Online scenes.")
@@ -321,6 +456,8 @@ def main(argv=None):
         suffix += "-" + args.platform
     phase = args.phase + suffix
     out = ROOT / "build" / "shots" / "online" / phase
+    if args.batch == "final":
+        out = ROOT / "build" / "shots" / "final" / phase
     records = []
     for language in args.languages:
         for game in args.games:
@@ -340,22 +477,62 @@ def main(argv=None):
                     if not window.grabWindow().save(str(path)):
                         raise RuntimeError("Capture failed: " + str(path))
                     overflow, elided = geometry(window)
+                    layout = layout_geometry(window)
                     records.append(dict(language=language, game=game, scene=chapter, size=f"{width}x{height}",
-                                        path=path.relative_to(ROOT).as_posix(), overflow=overflow, elided=elided))
+                                        path=path.relative_to(ROOT).as_posix(), overflow=overflow, elided=elided,
+                                        layout=layout, collisions=layout_problems(layout)))
             print(f"{args.phase}: {language} / {game}: {len(args.scenes) * 2} synthetic captures", flush=True)
     coverage = font_coverage()
     limitations = [f"{lang}: CJK glyph coverage unavailable; actual glyph layout remains unverified"
                    for lang, covered in coverage.items() if not covered]
     (out / "report.json").write_text(json.dumps(dict(captures=records, qml_warnings=warnings,
-        font_coverage=coverage, limitations=limitations), ensure_ascii=False, indent=2), encoding="utf-8")
+        font_coverage=coverage, limitations=limitations,
+        geometry_exclusions=dict(art_free_background_numerals=DECORATIVE_CLIPPING)), ensure_ascii=False, indent=2), encoding="utf-8")
     contact_sheets(out, args.languages, args.games, args.scenes)
     window.setProperty("allowClose", True)
     window.close()
-    print(f"Saved {len(records)} synthetic captures to build/shots/online/{phase}")
+    print(f"Saved {len(records)} synthetic captures to {out.relative_to(ROOT).as_posix()}")
     if warnings:
         print("QML warnings:\n" + "\n".join(sorted(set(warnings))), file=sys.stderr)
         return 1
     return 0
+
+
+def layout_geometry(window):
+    """Record actual rendered bounds for the community panes and fixed-height rows."""
+    from PySide6.QtCore import QPointF
+
+    records = []
+    def visit(item):
+        for child in item.childItems():
+            if child.isVisible() and child.opacity() > 0 and child.width() > 0 and child.height() > 0:
+                name = child.objectName()
+                if name in ("lobbyPlayersPane", "lobbyChatPane", "lobbyNotice", "arcadePlayer", "editableField",
+                            "lobbyLivePane", "lobbyRoomsPane", "onlineProfile", "onlineFind", "onlineChapters",
+                            "onlineRankedAction", "onlineCasualAction", "arcadePlayerPortrait", "playerInlineActions"):
+                    top = child.mapToScene(QPointF(0, 0))
+                    bottom = child.mapToScene(QPointF(child.width(), child.height()))
+                    records.append(dict(name=name, x=round(top.x(), 2), y=round(top.y(), 2),
+                        width=round(bottom.x() - top.x(), 2), height=round(bottom.y() - top.y(), 2)))
+                visit(child)
+    visit(window.contentItem())
+    return records
+
+
+def layout_problems(records):
+    """A notice and either permanent pane must never occupy the same output pixels."""
+    names = ("lobbyPlayersPane", "lobbyChatPane", "lobbyNotice", "lobbyLivePane", "lobbyRoomsPane",
+             "onlineProfile", "onlineFind", "onlineChapters")
+    panes = [row for row in records if row["name"] in names]
+    problems = []
+    for index, first in enumerate(panes):
+        for second in panes[index + 1:]:
+            width = min(first["x"] + first["width"], second["x"] + second["width"]) - max(first["x"], second["x"])
+            height = min(first["y"] + first["height"], second["y"] + second["height"]) - max(first["y"], second["y"])
+            if width > 1 and height > 1:
+                problems.append(dict(reason="pane-overlap", first=first["name"], second=second["name"],
+                                     width=round(width, 2), height=round(height, 2)))
+    return problems
 
 
 if __name__ == "__main__":

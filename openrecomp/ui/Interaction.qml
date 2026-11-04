@@ -9,6 +9,7 @@ Item {
     property var handler: null
     property bool selected: false
     property bool disabled: false
+    property string disabledReason: parent.b ? (parent.b.disabledReason || parent.b.hint || parent.b.value || "") : ""
     property string name: labels(parent)
     property int role: Accessible.Button
     signal activated()
@@ -31,8 +32,11 @@ Item {
         width: interaction.parent.width; height: interaction.parent.height
         Accessible.role: interaction.role
         Accessible.name: interaction.name
+        Accessible.description: interaction.disabled ? interaction.disabledReason : ""
         Accessible.focused: interaction.selected
-        Accessible.ignored: interaction.disabled || !visible
+        // Disabled controls remain discoverable with their reason; the enabled state blocks activation.
+        enabled: !interaction.disabled
+        Accessible.ignored: !visible
         Accessible.onPressAction: if (!interaction.disabled) interaction.activated()
         HoverHandler { id: hover; enabled: !interaction.disabled }
         Rectangle {

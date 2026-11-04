@@ -12,7 +12,15 @@ Canvas {
         var c = getContext("2d")
         c.reset(); c.scale(width / 32, height / 32)
         c.strokeStyle = ink; c.lineWidth = 2; c.lineJoin = "round"; c.lineCap = "round"
-        if (kind === "quick") {
+        if (kind === "profile") {
+            c.beginPath(); c.arc(16, 9, 5, 0, Math.PI * 2); c.stroke()
+            c.beginPath(); c.moveTo(5, 28); c.quadraticCurveTo(5, 17, 16, 17); c.quadraticCurveTo(27, 17, 27, 28); c.stroke()
+        } else if (kind === "message") {
+            c.strokeRect(4, 5, 24, 17); c.beginPath(); c.moveTo(9, 22); c.lineTo(9, 28); c.lineTo(16, 22); c.stroke()
+        } else if (kind === "challenge") {
+            c.beginPath(); c.moveTo(6, 4); c.lineTo(26, 26); c.moveTo(26, 4); c.lineTo(6, 26)
+            c.moveTo(3, 19); c.lineTo(13, 29); c.moveTo(19, 29); c.lineTo(29, 19); c.stroke()
+        } else if (kind === "quick") {
             c.beginPath(); c.moveTo(19, 3); c.lineTo(7, 18); c.lineTo(15, 18)
             c.lineTo(12, 29); c.lineTo(26, 13); c.lineTo(18, 13); c.closePath(); c.stroke()
         } else if (kind === "ranked") {

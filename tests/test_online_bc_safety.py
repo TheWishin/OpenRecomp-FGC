@@ -24,11 +24,70 @@ class OnlineBCSafetyTests(unittest.TestCase):
         return adapter, nav
 
     def choose(self, nav, action):
-        items = nav.items()
-        target = next(i for i, item in enumerate(items) if item.get("id") == action)
-        while nav.focus_index(items) != target:
+        trace = []
+        for _ in range(len(nav.items()) * 4):
+            items = nav.items()
+            target = next(i for i, item in enumerate(items) if item.get("id") == action)
+            if nav.focus_index(items) == target:
+                break
+            trace.append(items[nav.focus_index(items)].get("id"))
             pad_step(nav, target)
+        else:
+            self.fail("Controller did not reach " + action + ": " + str(trace[-12:]))
         nav.act("confirm", device="xbox")
+
+    def test_pad_helper_crosses_visible_panes_and_leaves_drawers_before_chat(self):
+        from openrecomp import nav_arcade
+        adapter, nav = self.navigation()
+        nav.dry = True
+        adapter.snapshot.update(self.social_snapshot())
+        for opener in ("challenge:other", "search_casual", "arcade_more", "arcade_options"):
+            items = nav.items()
+            nav.focus[nav.key()] = next(n for n, row in enumerate(items) if row.get("id") == opener)
+            if opener.startswith("arcade_"):
+                nav.act("confirm", device="xbox")
+            for _ in range(12):
+                items = nav.items()
+                target = next(n for n, row in enumerate(items) if row.get("id") == "send_chat")
+                if nav.focus_index(items) == target:
+                    break
+                pad_step(nav, target)
+            else:
+                self.fail("Chat not reachable from " + opener)
+            self.assertFalse(nav_arcade.memory(nav, "more").get(nav.game.id))
+            self.assertFalse(nav_arcade.memory(nav, "options").get(nav.game.id))
+            target = next(n for n, row in enumerate(items) if row.get("id") == "challenge:other")
+            pad_step(nav, target)
+            self.assertNotEqual(nav.items()[nav.focus_index(nav.items())].get("region"), "chat")
+        self.assertEqual(adapter.calls, [])
+
+    def test_lobby_routes_do_not_include_friend_cancel_actions(self):
+        from openrecomp import nav_arcade
+        adapter, nav = self.navigation()
+        nav.dry = True
+        adapter.snapshot.update(self.social_snapshot())
+        items = nav.items()
+        routes, _ = nav_arcade.routes(nav, items, nav.focus_index(items))
+        visible = {items[index].get("id") for row in routes for index in row}
+        self.assertNotIn("cancel_friend:Pending", visible)
+        self.assertNotIn("cancel_invite", visible)
+
+    def test_pad_helper_enters_chat_without_invoking_watch_shortcut(self):
+        adapter, nav = self.navigation()
+        adapter.snapshot.update(self.social_snapshot())
+        adapter.snapshot["capabilities"]["spectating"] = True
+        adapter.snapshot["spectating"] = dict(targets=[dict(kind="friend", id="spec_watch_friend:other", name="Other")])
+        items = nav.items()
+        nav.focus[nav.key()] = next(n for n, row in enumerate(items) if row.get("id") == "challenge:other")
+        for _ in range(12):
+            items = nav.items()
+            target = next(n for n, row in enumerate(items) if row.get("id") == "send_chat")
+            if nav.focus_index(items) == target:
+                break
+            pad_step(nav, target)
+        else:
+            self.fail("Chat not reachable while Watch is supported")
+        self.assertEqual(adapter.calls, [])
 
     def social_snapshot(self):
         return dict(phase="logged_in", capabilities=dict(lobby=True, match_flow=True, ranked=True,
