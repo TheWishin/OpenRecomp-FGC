@@ -2,11 +2,14 @@
 
     python tools\\make_release.py --version v0.1.0 --t4-tag v0.1.0 ^
         --t4-repo <Tekken4Recomp checkout> --t4-ref <T4 commit> ^
+        --matrix-report <scratch>\\player-matrix-report.json ^
         --launcher-key <keys>\\openrecomp-release\\openrecomp-fgc-release.key ^
         --t4-key <keys>\\tekken4-release\\tekken4-release.key
 
 From a clean checkout whose HEAD carries the tag `--version` (`--rehearsal` allows an untagged HEAD and marks
-the notes). Nothing is uploaded, pushed or tagged; the output folder (default dist\\release-<version> in
+the notes). A complete passing player matrix for exactly this launcher source and portable runtime is required
+before any packaging; --skip-matrix is restricted to rehearsal tests with OPENRECOMP_RELEASE_TESTS=1.
+Nothing is uploaded, pushed or tagged; the output folder (default dist\\release-<version> in
 this checkout, ignored by git) gets
 
     launcher\\  OpenRecomp-<version>.zip, OpenRecomp-FGC-Setup-<X.Y.Z>.exe, SHA256SUMS, SHA256SUMS.sig, NOTES.md
@@ -86,6 +89,24 @@ START_HIER = (
 
 class ReleaseFailed(Exception):
     pass
+
+
+def check_player_matrix(args, commit, runtime):
+    """A player report is required before creating any release output."""
+    if getattr(args, "skip_matrix", False):
+        if not args.rehearsal or os.environ.get("OPENRECOMP_RELEASE_TESTS") != "1":
+            raise ReleaseFailed("--skip-matrix is only for tests: needs --rehearsal and OPENRECOMP_RELEASE_TESTS=1")
+        return dict(status="skipped-for-tests")
+    report = getattr(args, "matrix_report", None)
+    if not report:
+        raise ReleaseFailed("a passing player matrix is required: run tools/player_matrix.py and pass --matrix-report")
+    from tools import player_matrix
+    try:
+        checked = player_matrix.check_matrix_report(Path(report), commit=commit, source_root=ROOT,
+                                                   runtime_root=runtime)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise ReleaseFailed(f"player matrix refused this release: {error}") from error
+    return dict(status="passed", report_sha256=digest(report), evidence=checked)
 
 
 def git(*args, cwd=ROOT, binary=False):
@@ -415,6 +436,7 @@ def make(args):
     if not (runtime / "pythonw.exe").is_file():
         raise ReleaseFailed(f"no portable runtime in {runtime}: run tools\\fetch_portable_runtime.ps1 first "
                             "(or pass --runtime/--runtime-cache of a verified one)")
+    matrix = check_player_matrix(args, commit, runtime)
     plain = version[1:]
     launcher_dir, t4_dir = out / "launcher", out / "t4"
     launcher_dir.mkdir(parents=True)
@@ -489,7 +511,8 @@ def make(args):
                       t4_commit=t4_commit, t4_prerelease=not args.t4_stable,
                       launcher={n: dict(sha256=launcher_sums[n], bytes=(launcher_dir / n).stat().st_size) for n in launcher_files},
                       t4={n: dict(sha256=t4_all[n], bytes=(t4_dir / n).stat().st_size) for n in t4_assets},
-                      launcher_key_id=launcher_key, t4_key_id=t4_key, full_setup=full_name, full_games=full_games)
+                      launcher_key_id=launcher_key, t4_key_id=t4_key, full_setup=full_name, full_games=full_games,
+                      player_matrix=matrix)
         (out / "release-facts.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         print(f"OK: {out}", flush=True)
         return result
@@ -514,6 +537,9 @@ def main(argv=None):
     parser.add_argument("--out", help=r"default dist\release-<version> in this checkout")
     parser.add_argument("--runtime", help="verified portable runtime (default dist\\portable-runtime)")
     parser.add_argument("--runtime-cache", help="its pinned archive cache (default dist\\portable-cache)")
+    parser.add_argument("--matrix-report", type=Path, help="passing player_matrix.py JSON report for this source and runtime")
+    parser.add_argument("--skip-matrix", action="store_true",
+                        help="tests only: requires --rehearsal and OPENRECOMP_RELEASE_TESTS=1; recorded in release facts")
     parser.add_argument("--forbid", action="append", default=[], help="one more private word no file may contain")
     parser.add_argument("--rehearsal", action="store_true", help="allow an untagged HEAD (notes say: do not publish)")
     parser.add_argument("--full", action="store_true",
