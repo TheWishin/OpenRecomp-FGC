@@ -115,6 +115,13 @@ class GameSetupBackend:
             if self._setup_clock >= FIRST_CHECK_SECONDS:
                 self._setup_started = True
                 self._setup_check_all()
+                for game in getattr(self.nav, "games", ()):      # manifest games: their release check, once
+                    check = getattr(game.a, "check_updates", None)
+                    if callable(check):
+                        try:
+                            check()
+                        except Exception:  # noqa: BLE001 -- a manifest game's check never stops the launcher
+                            pass
                 auto = getattr(self, "_auto_check_updates", None)    # the launcher's own release, same moment
                 if callable(auto):
                     auto()

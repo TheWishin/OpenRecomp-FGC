@@ -228,10 +228,21 @@ def art_dir(game_id):
     return os.path.join(user_dir(), "art", game_id)
 
 
-def validate(m):
-    """The manifest with its defaults, ManifestError when something a screen needs is missing."""
+def validate(m, builtin=False, warnings=None):
+    """The manifest with its defaults, ManifestError when something a screen needs is missing. Version 2
+    (openrecomp/game_manifest.py) may name launcher code only when it comes with the launcher (builtin); its
+    notes about unknown fields go to warnings."""
     if not isinstance(m, dict):
         raise ManifestError("The manifest is not a JSON object.")
+    if m.get("schema_version") == 2:
+        from . import game_manifest
+        try:
+            out, notes = game_manifest.validate(m, builtin)
+        except game_manifest.ManifestError as e:
+            raise ManifestError(str(e)) from e
+        if warnings is not None:
+            warnings.extend(notes)
+        return out
     if "schema_version" in m:
         return validate_external(m)
     for key in ("id", "title", "numeral", "accent", "adapter"):
@@ -267,45 +278,75 @@ def _pairs(pairs):
     return out
 
 
-def parse_bytes(data):
-    """Parse a bounded JSON document without duplicate fields or non-JSON numbers."""
+def decode_bytes(data):
+    """A bounded JSON document without duplicate fields or non-JSON numbers, not yet validated."""
     if not isinstance(data, bytes) or len(data) > MAX_MANIFEST_BYTES:
         raise ManifestError("The manifest exceeds the size limit.")
     try:
-        value = json.loads(data.decode("utf-8"), object_pairs_hook=_pairs,
-                           parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("Invalid JSON number")))
-        return validate(value)
+        return json.loads(data.decode("utf-8"), object_pairs_hook=_pairs,
+                          parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("Invalid JSON number")))
     except (UnicodeError, ValueError, RecursionError, TypeError) as e:
         raise ManifestError("The manifest is not valid JSON.") from e
 
 
-def load_file(path):
+def parse_bytes(data, builtin=False, warnings=None):
+    """Parse a bounded JSON document without duplicate fields or non-JSON numbers."""
+    value = decode_bytes(data)
+    try:
+        return validate(value, builtin, warnings)
+    except (ValueError, RecursionError, TypeError) as e:
+        raise ManifestError("The manifest is not valid JSON.") from e
+
+
+def load_file(path, builtin=False, warnings=None):
     try:
         with open(path, "rb") as f:
-            return parse_bytes(f.read(MAX_MANIFEST_BYTES + 1))
+            return parse_bytes(f.read(MAX_MANIFEST_BYTES + 1), builtin, warnings)
     except OSError as e:
         raise ManifestError(f"Cannot read the file: {e}") from e
 
 
+def _raw_v2(path):
+    """The JSON object of a file when it is a version 2 manifest (for its broken tile), else None."""
+    try:
+        with open(path, "rb") as f:
+            data = decode_bytes(f.read(MAX_MANIFEST_BYTES + 1))
+    except (OSError, ManifestError):
+        return None
+    return data if isinstance(data, dict) and data.get("schema_version") == 2 else None
+
+
 def load_all(dirs=None):
-    """-> (manifests, problems). Public user files cannot select trusted adapters."""
+    """-> (manifests, problems). Public user files cannot select trusted adapters.
+
+    A version 2 manifest that cannot be used stays on the shelf as a "broken" entry with the reason (its
+    unknown fields are problems too, but ignored); a broken one never replaces a working game of the same id."""
+    from . import game_manifest
     found, problems = {}, []
     for d in dirs or (BUILTIN_DIR, user_games_dir()):
         try:
             names = sorted(os.listdir(d))
         except OSError:
             continue
+        user = os.path.normcase(os.path.abspath(d)) == os.path.normcase(os.path.abspath(user_games_dir()))
         for name in names:
             if not name.lower().endswith(".json"):
                 continue
             path = os.path.join(d, name)
+            warnings = []
             try:
-                m = load_file(path)
-                if os.path.normcase(os.path.abspath(d)) == os.path.normcase(os.path.abspath(user_games_dir())):
+                m = load_file(path, builtin=not user, warnings=warnings)
+                if user and m.get("schema_version") != 2:
                     m = validate_external(m)
             except ManifestError as e:
                 problems.append(f"{name}: {e}")
+                data = _raw_v2(path)
+                if data is not None:
+                    m = game_manifest.broken(path, data, e)
+                    if m["id"] not in found:
+                        found[m["id"]] = m
                 continue
+            problems.extend(f"{name}: {w}" for w in warnings)
             found[m["id"]] = m
     return sorted(found.values(), key=lambda m: (m.get("order", 100), m["title"])), problems
 

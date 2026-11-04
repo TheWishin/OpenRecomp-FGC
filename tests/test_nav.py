@@ -428,7 +428,7 @@ class Badge(unittest.TestCase):
     def test_each_game_says_what_kind_of_recomp_it_is(self):
         manifests, _problems = mf.load_all([mf.BUILTIN_DIR])
         kinds = {m["id"]: m["platform"] for m in manifests}
-        self.assertEqual(kinds, {"t5dr": "PS3", "t4": "PS2"})
+        self.assertEqual(kinds, {"t5dr": "PS3", "t4": "PS2", "tag2": "Xbox 360"})
 
     def test_the_shelf_and_the_hub_show_it(self):
         m = manifest("a", platform="PS3")
@@ -447,7 +447,7 @@ class Manifests(unittest.TestCase):
     def test_the_shipped_games_are_valid(self):
         manifests, problems = mf.load_all([mf.BUILTIN_DIR])
         self.assertEqual(problems, [])
-        self.assertEqual([m["id"] for m in manifests], ["t4", "t5dr"])
+        self.assertEqual([m["id"] for m in manifests], ["t4", "t5dr", "tag2"])
         self.assertIn("online", manifests[0]["sections"])
         self.assertIn("online", manifests[1]["sections"])
 
@@ -455,7 +455,7 @@ class Manifests(unittest.TestCase):
         entries = {"a.json": manifest("a", title="A", order=20),
                    "z.json": manifest("z", title="Z", order=10)}
         with mock.patch.object(mf.os, "listdir", return_value=["a.json", "z.json"]), mock.patch.object(
-                mf, "load_file", side_effect=lambda path: entries[os.path.basename(path)]):
+                mf, "load_file", side_effect=lambda path, **_kw: entries[os.path.basename(path)]):
             manifests, problems = mf.load_all(["games"])
         self.assertEqual(problems, [])
         self.assertEqual([m["id"] for m in manifests], ["z", "a"])

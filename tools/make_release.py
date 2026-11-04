@@ -16,6 +16,10 @@ this checkout, ignored by git) gets
     COMMANDS.txt  the exact gh commands for both releases
     release-facts.json
 
+--full --t5dr-release <folder> [--t4-release <folder>] adds launcher\\OpenRecomp-FGC-Full-Setup-<X.Y.Z>.exe (also in
+the launcher's signed SHA256SUMS): the same Setup with T5DR Online's and T4's signed release files inside, which the
+installed launcher installs with its own release checks (openrecomp/bundled_games.py, docs/INSTALLER.md).
+
 The launcher zip is the `OpenRecomp-FGC/` folder (launcher source, its portable Python + Qt from the pinned
 runtime, release.json) plus START_HERE/START_HIER; Setup.exe is built from exactly that zip
 (tools/make_installer.py). The T4 zip is the both-games bundle (the same launcher + `T4/`, the T4 source made with

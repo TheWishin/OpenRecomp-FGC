@@ -1360,8 +1360,8 @@ static LRESULT CALLBACK wnd_proc(HWND h, UINT m, WPARAM w, LPARAM l) {
         SendMessageW(g.start, BM_SETCHECK, g.opt.start ? BST_CHECKED : BST_UNCHECKED, 0);
         int y = 248;                // a full Setup: one checkbox per game it carries (both on)
         if (payload_has_game(*g.payload, L"t5dr") || payload_has_game(*g.payload, L"t4")) {
-            control(L"STATIC", T(T_GAMES), 0, 16, y - 4, 520, 20, ID_GAMES, g.font);
-            y += 18;
+            control(L"STATIC", T(T_GAMES), 0, 16, y - 4, 520, 34, ID_GAMES, g.font);     // two lines
+            y += 32;
             for (int i = 0; i < 2; i++) {
                 std::wstring v = bundle_version(*g.payload, GAME_IDS[i]);
                 if (v.empty()) continue;
@@ -1462,7 +1462,7 @@ static int run_window(const Payload &payload, Options opt, bool locked) {
     g.dpi = GetDeviceCaps(dc, LOGPIXELSY);
     ReleaseDC(nullptr, dc);
     int games = (payload_has_game(payload, L"t5dr") ? 1 : 0) + (payload_has_game(payload, L"t4") ? 1 : 0);
-    RECT r = {0, 0, S(552), S(354 + (games ? 26 + 24 * games : 0))};
+    RECT r = {0, 0, S(552), S(354 + (games ? 40 + 24 * games : 0))};
     DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
     AdjustWindowRect(&r, style, FALSE);
     int w = r.right - r.left, hgt = r.bottom - r.top;

@@ -229,9 +229,9 @@ def parse_release(src, data, channel="stable"):
             asset, z = found[0], assets[found[0]]
     sums = next((assets[n.format(asset=asset)] for n in src.sums if n.format(asset=asset) in assets), None)
     sig = assets.get(src.signature) if src.signature else None
-    if not z or not sums:
+    if not z or (src.sums and not sums):
         raise ReleaseError("@setup.err_release", f"{tag} has no {asset} with a checksum")
-    for a in (z, sums) + ((sig,) if sig else ()):
+    for a in (z,) + ((sums,) if sums else ()) + ((sig,) if sig else ()):
         expected = f"{files_root()}/{src.repository}/releases/download/{tag}/{a['name']}"
         if a.get("browser_download_url") != expected or not url_allowed(src, expected, "download"):
             raise ReleaseError("@setup.err_release", f"{a['name']} is not this project's release file")
@@ -248,7 +248,8 @@ def parse_release(src, data, channel="stable"):
                 code_id=code.group(1) if code else None,
                 zip=dict(name=asset, url=z["browser_download_url"], size=size,
                          sha256=digest.group(1).lower() if digest else None),
-                sums=dict(name=sums["name"], url=sums["browser_download_url"]),
+                # sums None: a manifest game whose releases carry none (its check needs GitHub's digest only)
+                sums=dict(name=sums["name"], url=sums["browser_download_url"]) if sums else None,
                 sig=dict(url=sig["browser_download_url"]) if sig else None)
 
 

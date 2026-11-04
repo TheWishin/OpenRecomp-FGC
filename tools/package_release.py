@@ -30,13 +30,13 @@ SOURCE_GROUPS = {
                    "pad.py", "ranks.py", "stall.py", "updater.py", "update_service.py", "file_dialog.py",
                    "game_library.py", "game_updates.py", "nav_library.py",
                    "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py", "t4_art.py",
-                   "bundled_games.py"),
+                   "bundled_games.py", "game_manifest.py"),
     "openrecomp/adapters": ("__init__.py", "base.py", "launch_guard.py", "support.py", "t4.py", "t4_install.py",
                            "t4_online.py", "t4_source.py", "t4_prerequisites.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py",
                            "t5_coexist.py", "t5_compatibility.py", "t4_region.py",
                            "t5_accounts.py", "t5_challenges.py", "t5_community.py", "t5_features.py",
                            "t5_moderation.py", "t5_private_chat.py", "t5_profiles.py", "t5_rules.py",
-                           "t5_spectating.py", "t5_tournaments.py"),
+                           "t5_spectating.py", "t5_tournaments.py", "manifest_game.py"),
     "openrecomp/data": ("t4_ranks.json", "known_games.json"),
     # The T4 lobby server the launcher ships with: one "T4 Online" entry, a placeholder (no server) until the
     # beta server is deployed and tools/set_t4_server.py fills in its address and certificate fingerprint.
@@ -52,10 +52,10 @@ SOURCE_GROUPS = {
                             "IBMPlexMono-500.ttf", "IBMPlexMono-600.ttf", "IBMPlexSans-400.ttf",
                             "IBMPlexSans-500.ttf", "IBMPlexSans-600.ttf", "OFL-BigShoulders.txt",
                             "OFL-IBMPlexMono.txt", "OFL-IBMPlexSans.txt"),
-    "games": ("t4.json", "t5dr.json"),
+    "games": ("t4.json", "t5dr.json", "tag2.json"),
     "docs": ("PACKAGING.md", "INSTALLING.md", "UPDATES.md", "T4_FIRST_RUN.md", "T4_ONLINE.md", "T5DR_ONLINE.md",
              "T5DR_COEXISTENCE.md", "HAND_CHECK.md", "ADD_YOUR_GAME.md", "GAME_SETUP.md", "INSTALLER.md",
-             "RELEASING.md", "RELEASE_KEYS.md"),
+             "RELEASING.md", "RELEASE_KEYS.md", "ADD_A_GAME.md"),
 }
 SOURCE_FILES = {folder + "/" + name for folder, names in SOURCE_GROUPS.items() for name in names}
 SOURCE_FILES.update(("LICENSE", "README.md"))

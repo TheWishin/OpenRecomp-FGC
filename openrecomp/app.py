@@ -70,6 +70,8 @@ def picker_dirs(config):
 def load_games(config):
     manifests, problems = mf.load_all()
     games = [Game(m, adapters.make(m, config)) for m in manifests]
+    # A manifest game with "shelf": "found" shows only on a PC that has it (games/tag2.json: no tile for everyone)
+    games = [g for g in games if g.m.get("shelf") != "found" or g.a.found()]
     for game in games:
         # T4 Online may offer a T5DR remembered login (one account for both); each adapter decides what it reads.
         game.a.account_peers = tuple(other.a for other in games if other is not game)

@@ -221,7 +221,7 @@ class GenericManifestTests(unittest.TestCase):
             legacy.pop("schema_version")
             (games / "evil.json").write_text(json.dumps(legacy), encoding="utf-8")
             loaded, problems = mf.load_all()
-            self.assertEqual([m["id"] for m in loaded], ["t4", "t5dr"])
+            self.assertEqual([m["id"] for m in loaded], ["t4", "t5dr", "tag2"])
             self.assertEqual(len(problems), 1)
 
 

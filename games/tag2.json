@@ -1,0 +1,46 @@
+{
+ "schema_version": 2,
+ "id": "tag2",
+ "order": 30,
+ "title": "Tekken Tag Tournament 2",
+ "subtitle": "TAG2 PC",
+ "short": "TAG2",
+ "platform": "Xbox 360",
+ "numeral": "TT2",
+ "accent": "#F2A33A",
+ "author": "frameperfectlab.com",
+ "source": "Xbox 360 disc ISO + Title Update",
+ "code_adapter": "tag2",
+ "shelf": "found",
+ "sections": ["play", "online", "build"],
+ "install": {
+  "detect": ["Tag2Launcher.exe"],
+  "search": ["{beside}/TAG2*", "%USERPROFILE%/Downloads/TAG2*", "%USERPROFILE%/Desktop/TAG2*"]
+ },
+ "start": {"exe": "Tag2Launcher.exe"},
+ "stop": {"close_window_seconds": 5},
+ "art": {"cache": "hero.png"},
+ "updates": {
+  "repository": "adageshi/tag2-pc",
+  "repository_id": "1428232403",
+  "asset": "TAG2-PC-Launcher-{version}.zip",
+  "channel": "stable",
+  "verification": {"method": "github-sha256"},
+  "installed_version": [
+   {"file": "state.json", "json_key": "highest_version"},
+   {"file": "README.txt", "prefix": "TAG2 PC "}
+  ]
+ },
+ "online": {
+  "mode": "external",
+  "note": {
+   "en": "TAG2's own launcher signs you in and finds matches; rooms are made in the game's Online menu.",
+   "de": "Anmelden und Gegnersuche macht der eigene TAG2-Launcher; Räume erstellst du im Online-Menü des Spiels.",
+   "es": "El propio lanzador de TAG2 inicia tu sesión y busca partidas; las salas se crean en el menú en línea del juego.",
+   "fr": "Le lanceur de TAG2 te connecte et trouve les matchs ; les salons se créent dans le menu En ligne du jeu.",
+   "ja": "サインインと対戦相手探しは TAG2 自身のランチャーが行います。ルームはゲームのオンラインメニューで作成します。",
+   "ko": "로그인과 매치 찾기는 TAG2 자체 런처가 합니다. 방은 게임의 온라인 메뉴에서 만듭니다.",
+   "pt-BR": "O próprio launcher do TAG2 faz o login e encontra partidas; as salas são criadas no menu online do jogo."
+  }
+ }
+}
