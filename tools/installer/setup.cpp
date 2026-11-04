@@ -9,7 +9,9 @@
 //
 // Command line (Setup):     /S  /D=<folder>  /desktop  /nodesktop  /nostart  /lang=<en|de|es|fr|ja|ko|pt>  /log=<file>
 // Command line (Uninstall): /S  /removesettings  /keepsettings  /lang=..  /log=<file>
-// Exit codes: 0 done, 1 cancelled, 2 failed, 3 OpenRecomp-FGC still running (silent mode).
+// A full Setup (bundled games) also takes  /games=t5dr,t4  /nogames  (default: every game it carries).
+// Exit codes: 0 done, 1 cancelled, 2 failed, 3 OpenRecomp-FGC still running (silent mode),
+//             4 the launcher is installed but a bundled game is not (silent mode; the log says why).
 #ifndef UNICODE
 #define UNICODE
 #endif
@@ -59,7 +61,8 @@ enum Text {
     T_SETUP_TITLE, T_INTRO, T_UPDATE_INTRO, T_FOLDER, T_CHANGE, T_DESKTOP, T_START_AFTER, T_INSTALL, T_UPDATE,
     T_CANCEL, T_CLOSE, T_SPACE, T_NO_SPACE, T_NOT_WRITABLE, T_BAD_FOLDER, T_RUNNING, T_EXTRACTING, T_COPYING,
     T_SHORTCUTS, T_DONE, T_UPDATED, T_FAILED, T_DAMAGED, T_ALREADY_HERE, T_PICK_TITLE, T_UNINSTALL_TITLE,
-    T_UNINSTALL_ASK, T_SETTINGS_ASK, T_REMOVED, T_KEPT, T_NOT_INSTALLED, T_CANCEL_ASK, T_COUNT
+    T_UNINSTALL_ASK, T_SETTINGS_ASK, T_REMOVED, T_KEPT, T_NOT_INSTALLED, T_CANCEL_ASK,
+    T_GAMES, T_GAME_T5DR, T_GAME_T4, T_GAME_INSTALLING, T_GAMES_NOT_RUN, T_COUNT
 };
 
 struct Language { const wchar_t *code; const wchar_t *text[T_COUNT]; };
@@ -99,6 +102,11 @@ static const Language LANGUAGES[] = {
         L"These stay in %1 (your games or files that were not installed by Setup):",
         L"OpenRecomp-FGC is not installed in this folder (no OpenRecomp-install.txt).",
         L"Stop the setup?",
+        L"Also install these games (their signed releases are inside this Setup and are checked first):",
+        L"Tekken 5 Dark Resurrection Online %1 (you build it from your own package + license)",
+        L"Tekken 4 %1, beta (you build it from your own disc image)",
+        L"Installing %1... %2 %",
+        L"The games could not be installed. Start the launcher and install them there (Install or choose folder).",
     }},
     {L"de", {
         L"OpenRecomp-FGC %1 Setup",
@@ -133,6 +141,11 @@ static const Language LANGUAGES[] = {
         L"Das bleibt in %1 (deine Spiele oder Dateien, die Setup nicht installiert hat):",
         L"OpenRecomp-FGC ist in diesem Ordner nicht installiert (keine OpenRecomp-install.txt).",
         L"Setup abbrechen?",
+        L"Diese Spiele auch installieren (ihre signierten Releases sind in diesem Setup und werden vorher geprüft):",
+        L"Tekken 5 Dark Resurrection Online %1 (du baust es aus deinem eigenen Paket + Lizenz)",
+        L"Tekken 4 %1, Beta (du baust es aus deinem eigenen Disc-Image)",
+        L"%1 wird installiert... %2 %",
+        L"Die Spiele konnten nicht installiert werden. Starte den Launcher und installiere sie dort (Installieren oder Ordner wählen).",
     }},
     {L"es", {
         L"Instalación de OpenRecomp-FGC %1",
@@ -167,6 +180,11 @@ static const Language LANGUAGES[] = {
         L"Esto se queda en %1 (tus juegos o archivos que no instaló la instalación):",
         L"OpenRecomp-FGC no está instalado en esta carpeta (falta OpenRecomp-install.txt).",
         L"¿Detener la instalación?",
+        L"Instalar también estos juegos (sus versiones firmadas vienen en este instalador y se comprueban antes):",
+        L"Tekken 5 Dark Resurrection Online %1 (lo compilas con tu propio paquete + licencia)",
+        L"Tekken 4 %1, beta (lo compilas con tu propia imagen de disco)",
+        L"Instalando %1... %2 %",
+        L"No se pudieron instalar los juegos. Abre el lanzador e instálalos allí (Instalar o elegir carpeta).",
     }},
     {L"fr", {
         L"Installation d'OpenRecomp-FGC %1",
@@ -201,6 +219,11 @@ static const Language LANGUAGES[] = {
         L"Ceci reste dans %1 (tes jeux ou des fichiers non installés par l'installation) :",
         L"OpenRecomp-FGC n'est pas installé dans ce dossier (pas de OpenRecomp-install.txt).",
         L"Arrêter l'installation ?",
+        L"Installer aussi ces jeux (leurs versions signées sont dans ce programme d'installation et vérifiées d'abord) :",
+        L"Tekken 5 Dark Resurrection Online %1 (tu le compiles avec ton propre paquet + licence)",
+        L"Tekken 4 %1, bêta (tu le compiles avec ta propre image disque)",
+        L"Installation de %1... %2 %",
+        L"Les jeux n'ont pas pu être installés. Lance le lanceur et installe-les là (Installer ou choisir un dossier).",
     }},
     {L"ja", {
         L"OpenRecomp-FGC %1 セットアップ",
@@ -235,6 +258,11 @@ static const Language LANGUAGES[] = {
         L"%1 に残るもの（ゲーム、またはセットアップがインストールしていないファイル）:",
         L"このフォルダーには OpenRecomp-FGC がインストールされていません（OpenRecomp-install.txt がありません）。",
         L"セットアップを中止しますか？",
+        L"次のゲームも一緒にインストールする (署名付きリリースがこのセットアップに含まれ、先に確認されます):",
+        L"Tekken 5 Dark Resurrection Online %1 (自分のパッケージ + ライセンスからビルド)",
+        L"Tekken 4 %1、ベータ (自分のディスクイメージからビルド)",
+        L"%1 をインストールしています... %2 %",
+        L"ゲームをインストールできませんでした。ランチャーを起動してそこでインストールしてください (インストールまたはフォルダーを選択)。",
     }},
     {L"ko", {
         L"OpenRecomp-FGC %1 설치",
@@ -269,6 +297,11 @@ static const Language LANGUAGES[] = {
         L"%1에 남는 항목 (게임 또는 설치 프로그램이 설치하지 않은 파일):",
         L"이 폴더에는 OpenRecomp-FGC가 설치되어 있지 않습니다 (OpenRecomp-install.txt 없음).",
         L"설치를 중단할까요?",
+        L"이 게임도 함께 설치 (서명된 릴리스가 이 설치 프로그램에 들어 있고 먼저 확인합니다):",
+        L"Tekken 5 Dark Resurrection Online %1 (자신의 패키지 + 라이선스로 빌드)",
+        L"Tekken 4 %1, 베타 (자신의 디스크 이미지로 빌드)",
+        L"%1 설치 중... %2 %",
+        L"게임을 설치하지 못했습니다. 런처를 시작해 거기서 설치하세요 (설치 또는 폴더 선택).",
     }},
     {L"pt", {
         L"Instalação do OpenRecomp-FGC %1",
@@ -303,6 +336,11 @@ static const Language LANGUAGES[] = {
         L"Isto fica em %1 (seus jogos ou arquivos que a instalação não colocou):",
         L"O OpenRecomp-FGC não está instalado nesta pasta (falta OpenRecomp-install.txt).",
         L"Parar a instalação?",
+        L"Instalar também estes jogos (as versões assinadas estão neste instalador e são verificadas antes):",
+        L"Tekken 5 Dark Resurrection Online %1 (você compila com seu próprio pacote + licença)",
+        L"Tekken 4 %1, beta (você compila com sua própria imagem de disco)",
+        L"Instalando %1... %2 %",
+        L"Não foi possível instalar os jogos. Abra o launcher e instale-os lá (Instalar ou escolher pasta).",
     }},
 };
 
@@ -727,13 +765,74 @@ static std::wstring get_string(HKEY root, const wchar_t *key, const wchar_t *nam
 struct Options {
     std::wstring folder;     // the install folder (contains OpenRecomp-FGC\)
     bool desktop = false, start = true;
+    std::vector<std::wstring> games;   // bundled games to install ("t5dr", "t4"), see install_games()
 };
+
+// ------------------------------------------------------------------------------------------------ bundled games
+// A full Setup also carries the signed GitHub release files of T5DR Online and T4, untouched:
+// bundled-games\<game>\<release zip>, SHA256SUMS, SHA256SUMS.sig (tools/make_installer.py --games). They are
+// unpacked into the staging folder like every file (SHA-256 checked), never placed in the install. Once the
+// launcher is in place, its own Python installs each chosen game with the launcher's release checks
+// (openrecomp/bundled_games.py: signature with the launcher's built-in keys, SHA256SUMS, unpack rules, marker).
+static const wchar_t *GAMES_DIR = L"bundled-games";
+static const wchar_t *GAME_IDS[] = {L"t5dr", L"t4"};
+
+static bool is_bundle_entry(const std::wstring &rel) { return lower(rel).rfind(std::wstring(GAMES_DIR) + L"\\", 0) == 0; }
+
+static std::wstring bundle_game(const std::wstring &rel) {      // "t5dr" for bundled-games\t5dr\<file>
+    size_t a = rel.find(L'\\');
+    size_t b = a == std::wstring::npos ? a : rel.find(L'\\', a + 1);
+    return b == std::wstring::npos ? L"" : lower(rel.substr(a + 1, b - a - 1));
+}
+
+// The version in the game's release zip name (T5DR-Online-1.2.0.zip, OpenRecomp-Tekken4-v0.1.0.zip), "" when absent.
+static std::wstring bundle_version(const Payload &p, const std::wstring &game) {
+    for (auto &e : p.entries) {
+        if (!is_bundle_entry(e.path) || bundle_game(e.path) != game) continue;
+        std::wstring name = e.path.substr(e.path.find_last_of(L'\\') + 1);
+        if (lower(name).size() < 5 || lower(name).substr(name.size() - 4) != L".zip") continue;
+        std::wstring stem = name.substr(0, name.size() - 4);
+        size_t dash = stem.find_last_of(L'-');
+        // T5DR-Online-1.2.0 / OpenRecomp-Tekken4-v0.1.0 (a test suffix like -beta.1 keeps its own dash)
+        for (const wchar_t *head : {L"T5DR-Online-", L"OpenRecomp-Tekken4-"})
+            if (stem.rfind(head, 0) == 0) return stem.substr(wcslen(head));
+        return dash == std::wstring::npos ? L"" : stem.substr(dash + 1);
+    }
+    return L"";
+}
+
+static bool payload_has_game(const Payload &p, const std::wstring &game) { return !bundle_version(p, game).empty(); }
+
+static bool wanted(const Options &o, const std::wstring &game) {
+    return std::find(o.games.begin(), o.games.end(), game) != o.games.end();
+}
+
+static std::wstring read_text_file(const std::wstring &path) {
+    HANDLE f = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                           OPEN_EXISTING, 0, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return L"";
+    std::string text(64 * 1024, 0);
+    DWORD got = 0;
+    if (!ReadFile(f, &text[0], (DWORD)text.size(), &got, nullptr)) got = 0;
+    CloseHandle(f);
+    text.resize(got);
+    if (text.rfind("\xEF\xBB\xBF", 0) == 0) text.erase(0, 3);
+    return utf8_to_wide(text);
+}
+
+static std::wstring g_games_summary;    // the launcher's own words about the bundled games (its 7 languages)
+static bool g_games_failed = false;
 
 struct Progress {
     HWND window = nullptr;
     volatile LONG cancel = 0;
     void step(Text what, int percent) {
         if (window) PostMessageW(window, WM_APP + 1, (WPARAM)what, (LPARAM)percent);
+    }
+    void say(const std::wstring &text, int percent) {      // a status line made here (the window frees it)
+        if (!window) return;
+        auto *copy = new std::wstring(text);
+        if (!PostMessageW(window, WM_APP + 3, (WPARAM)copy, (LPARAM)percent)) delete copy;
     }
 };
 
@@ -748,6 +847,54 @@ static std::wstring icon_path(const std::wstring &folder) {
 static bool is_game_entry(const std::wstring &rel) {
     std::wstring l = lower(rel);
     return l.rfind(L"t4\\", 0) == 0;
+}
+
+static std::wstring game_title(const std::wstring &game) { return game == L"t5dr" ? L"Tekken 5 DR Online" : L"Tekken 4"; }
+
+// Runs the launcher's openrecomp.bundled_games on the release files unpacked into stage\bundled-games and waits.
+// The launcher's Python checks every game like an update from GitHub and writes its result in the player's language.
+static void install_games(const std::wstring &folder, const std::wstring &stage, const Options &o, Progress &pr) {
+    std::wstring list;
+    for (auto &g : o.games) list += (list.empty() ? L"" : L",") + g;
+    std::wstring status = join(stage, L"games-status.txt"), summary = join(stage, L"games-summary.txt");
+    std::wstring py = python_exe(folder);
+    std::wstring cmd = L"\"" + py + L"\" -B -m openrecomp.bundled_games --from \"" + join(stage, GAMES_DIR) +
+                       L"\" --parent \"" + folder + L"\" --games " + list + L" --lang " + g_lang->code +
+                       L" --summary \"" + summary + L"\" --status \"" + status + L"\"";
+    logf(L"games: %s", cmd.c_str());
+    STARTUPINFOW si = {sizeof(si)};
+    PROCESS_INFORMATION pi = {};
+    if (!CreateProcessW(py.c_str(), &cmd[0], nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, launcher_dir(folder).c_str(), &si, &pi)) {
+        logf(L"games: could not start the launcher's Python: %s", last_error_text(GetLastError()).c_str());
+        g_games_summary = T(T_GAMES_NOT_RUN);
+        g_games_failed = true;
+        return;
+    }
+    CloseHandle(pi.hThread);
+    pr.say(T(T_GAME_INSTALLING, game_title(o.games[0]), L"0"), 96);
+    std::wstring shown;
+    for (int waited = 0; WaitForSingleObject(pi.hProcess, 250) == WAIT_TIMEOUT; waited += 250) {
+        if (waited > 30 * 60 * 1000) {             // never hang Setup for ever: half an hour is far beyond any PC
+            TerminateProcess(pi.hProcess, 9);
+            WaitForSingleObject(pi.hProcess, 5000);
+            break;
+        }
+        std::wstring line = read_text_file(status);           // "<game> <percent>"
+        size_t space = line.find(L' ');
+        if (space != std::wstring::npos && line != shown) {
+            shown = line;
+            std::wstring game = line.substr(0, space), pct = line.substr(space + 1);
+            while (!pct.empty() && (pct.back() == L'\n' || pct.back() == L'\r')) pct.pop_back();
+            if (game == L"t5dr" || game == L"t4") pr.say(T(T_GAME_INSTALLING, game_title(game), pct), 96);
+        }
+    }
+    DWORD code = 2;
+    GetExitCodeProcess(pi.hProcess, &code);
+    CloseHandle(pi.hProcess);
+    g_games_summary = read_text_file(summary);
+    logf(L"games: exit %lu: %s", code, g_games_summary.c_str());
+    if (g_games_summary.empty()) g_games_summary = T(T_GAMES_NOT_RUN);
+    g_games_failed = code != 0;
 }
 
 static void remove_empty_parents(const std::wstring &folder, std::wstring rel) {
@@ -800,8 +947,13 @@ static std::wstring install(const Payload &payload, const Options &o, Progress &
     SetFileAttributesW(stage.c_str(), FILE_ATTRIBUTE_HIDDEN);
     bool place_games = !is_dir(join(folder, L"T4"));       // the T4 source only once: later the launcher updates it
     std::vector<const Entry *> todo;
-    for (auto &e : payload.entries)
-        if (!is_game_entry(e.path) || place_games) todo.push_back(&e);
+    for (auto &e : payload.entries) {
+        if (is_bundle_entry(e.path)) {
+            if (wanted(o, bundle_game(e.path))) todo.push_back(&e);    // to the staging folder only
+        } else if (!is_game_entry(e.path) || place_games) {
+            todo.push_back(&e);
+        }
+    }
     // 1. Every file unpacked and checked in the staging folder before anything in the install changes.
     uint64_t done = 0, total = 0;
     for (auto *e : todo) total += e->size;
@@ -852,6 +1004,7 @@ static std::wstring install(const Payload &payload, const Options &o, Progress &
     };
     int fail_at = _wtoi(env(L"OPENRECOMP_SETUP_TEST_FAIL_AT").c_str());   // tests: the n-th placement fails
     for (auto *e : todo) {
+        if (is_bundle_entry(e->path)) continue;            // the games' release files stay in the staging folder
         std::wstring target = join(folder, e->path);
         size_t slash = target.find_last_of(L'\\');
         bool had_old = exists(target);
@@ -883,7 +1036,7 @@ static std::wstring install(const Payload &payload, const Options &o, Progress &
         roll_back();
         return T(T_FAILED, last_error_text(err));
     }
-    remove_tree(stage);              // the new version is recorded: the backup of the old files goes
+    remove_tree(backup);             // the new version is recorded: the backup of the old files goes
     // 3. Launcher files of the old version that the new one no longer has.
     for (auto &f : old.files) {
         if (now.count(lower(f))) continue;
@@ -926,6 +1079,12 @@ static std::wstring install(const Payload &payload, const Options &o, Progress &
         RegCloseKey(k);
     }
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+    // 5. The bundled games, now that the launcher that checks them is in place. A game that fails leaves the
+    // launcher installed: the summary says so, and the launcher can install that game later.
+    g_games_summary.clear();
+    g_games_failed = false;
+    if (!o.games.empty() && is_dir(join(stage, GAMES_DIR))) install_games(folder, stage, o, pr);
+    remove_tree(stage);
     pr.step(updated ? T_UPDATED : T_DONE, 100);
     logf(L"done: %zu files", rec.files.size());
     return L"";
@@ -1067,11 +1226,13 @@ static int uninstall(const std::wstring &folder, int settings_choice /* -1 ask, 
 }
 
 // ------------------------------------------------------------------------------------------------ the window
-enum { ID_FOLDER = 101, ID_CHANGE, ID_DESKTOP, ID_START, ID_INSTALL, ID_CANCEL, ID_SPACE, ID_STATUS, ID_PROGRESS, ID_INTRO };
+enum { ID_FOLDER = 101, ID_CHANGE, ID_DESKTOP, ID_START, ID_INSTALL, ID_CANCEL, ID_SPACE, ID_STATUS, ID_PROGRESS, ID_INTRO,
+       ID_GAMES, ID_GAME_FIRST };
 
 struct Ui {
     HWND wnd = nullptr, folder = nullptr, change = nullptr, desktop = nullptr, start = nullptr, install = nullptr,
          cancel = nullptr, space = nullptr, status = nullptr, progress = nullptr, intro = nullptr;
+    HWND game[2] = {nullptr, nullptr};     // one checkbox per bundled game (GAME_IDS order), when the payload has it
     HFONT font = nullptr, bold = nullptr;
     const Payload *payload = nullptr;
     Options opt;
@@ -1157,8 +1318,11 @@ static void begin_install() {
     g.opt.folder = folder;
     g.opt.desktop = SendMessageW(g.desktop, BM_GETCHECK, 0, 0) == BST_CHECKED;
     g.opt.start = SendMessageW(g.start, BM_GETCHECK, 0, 0) == BST_CHECKED;
+    g.opt.games.clear();
+    for (int i = 0; i < 2; i++)
+        if (g.game[i] && SendMessageW(g.game[i], BM_GETCHECK, 0, 0) == BST_CHECKED) g.opt.games.push_back(GAME_IDS[i]);
     g.busy = true;
-    for (HWND h : {g.folder, g.change, g.desktop, g.start, g.install}) EnableWindow(h, FALSE);
+    for (HWND h : {g.folder, g.change, g.desktop, g.start, g.install, g.game[0], g.game[1]}) if (h) EnableWindow(h, FALSE);
     g.worker = CreateThread(nullptr, 0, worker_main, nullptr, 0, nullptr);
     if (!g.worker) { g.busy = false; message(MB_ICONERROR, T(T_FAILED, last_error_text(GetLastError())), g.wnd); }
 }
@@ -1194,11 +1358,25 @@ static LRESULT CALLBACK wnd_proc(HWND h, UINT m, WPARAM w, LPARAM l) {
         g.start = control(L"BUTTON", T(T_START_AFTER), BS_AUTOCHECKBOX | WS_TABSTOP, 16, 216, 520, 22, ID_START, g.font);
         SendMessageW(g.desktop, BM_SETCHECK, (update ? r.desktop : g.opt.desktop) ? BST_CHECKED : BST_UNCHECKED, 0);
         SendMessageW(g.start, BM_SETCHECK, g.opt.start ? BST_CHECKED : BST_UNCHECKED, 0);
-        g.progress = control(PROGRESS_CLASSW, L"", 0, 16, 248, 520, 16, ID_PROGRESS, g.font);
+        int y = 248;                // a full Setup: one checkbox per game it carries (both on)
+        if (payload_has_game(*g.payload, L"t5dr") || payload_has_game(*g.payload, L"t4")) {
+            control(L"STATIC", T(T_GAMES), 0, 16, y - 4, 520, 20, ID_GAMES, g.font);
+            y += 18;
+            for (int i = 0; i < 2; i++) {
+                std::wstring v = bundle_version(*g.payload, GAME_IDS[i]);
+                if (v.empty()) continue;
+                g.game[i] = control(L"BUTTON", T(i == 0 ? T_GAME_T5DR : T_GAME_T4, v), BS_AUTOCHECKBOX | WS_TABSTOP,
+                                    28, y, 508, 22, ID_GAME_FIRST + i, g.font);
+                SendMessageW(g.game[i], BM_SETCHECK, wanted(g.opt, GAME_IDS[i]) ? BST_CHECKED : BST_UNCHECKED, 0);
+                y += 24;
+            }
+            y += 8;
+        }
+        g.progress = control(PROGRESS_CLASSW, L"", 0, 16, y, 520, 16, ID_PROGRESS, g.font);
         SendMessageW(g.progress, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
-        g.status = control(L"STATIC", L"", 0, 16, 270, 520, 36, ID_STATUS, g.font);
-        g.install = control(L"BUTTON", update ? T(T_UPDATE) : T(T_INSTALL), BS_DEFPUSHBUTTON | WS_TABSTOP, 320, 312, 104, 28, ID_INSTALL, g.font);
-        g.cancel = control(L"BUTTON", T(T_CANCEL), BS_PUSHBUTTON | WS_TABSTOP, 432, 312, 104, 28, ID_CANCEL, g.font);
+        g.status = control(L"STATIC", L"", 0, 16, y + 22, 520, 36, ID_STATUS, g.font);
+        g.install = control(L"BUTTON", update ? T(T_UPDATE) : T(T_INSTALL), BS_DEFPUSHBUTTON | WS_TABSTOP, 320, y + 64, 104, 28, ID_INSTALL, g.font);
+        g.cancel = control(L"BUTTON", T(T_CANCEL), BS_PUSHBUTTON | WS_TABSTOP, 432, y + 64, 104, 28, ID_CANCEL, g.font);
         refresh_space();
         SetFocus(g.install);
         return 0;
@@ -1219,6 +1397,13 @@ static LRESULT CALLBACK wnd_proc(HWND h, UINT m, WPARAM w, LPARAM l) {
         SetWindowTextW(g.status, T((Text)w, g.payload->version).c_str());
         SendMessageW(g.progress, PBM_SETPOS, (WPARAM)l, 0);
         return 0;
+    case WM_APP + 3: {          // Progress::say: a text made by the worker
+        std::wstring *text = (std::wstring *)w;
+        SetWindowTextW(g.status, text->c_str());
+        SendMessageW(g.progress, PBM_SETPOS, (WPARAM)l, 0);
+        delete text;
+        return 0;
+    }
     case WM_APP + 2:
         WaitForSingleObject(g.worker, INFINITE);
         CloseHandle(g.worker);
@@ -1227,7 +1412,8 @@ static LRESULT CALLBACK wnd_proc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (g.result == L"cancel") { DestroyWindow(h); return 0; }
         if (!g.result.empty()) {
             message(MB_ICONERROR, g.result, h);
-            for (HWND c : {g.folder, g.change, g.desktop, g.start, g.install}) EnableWindow(c, !g.locked || (c != g.folder && c != g.change));
+            for (HWND c : {g.folder, g.change, g.desktop, g.start, g.install, g.game[0], g.game[1]})
+                if (c) EnableWindow(c, !g.locked || (c != g.folder && c != g.change));
             g.exit_code = 2;
             return 0;
         }
@@ -1235,7 +1421,12 @@ static LRESULT CALLBACK wnd_proc(HWND h, UINT m, WPARAM w, LPARAM l) {
         g.exit_code = 0;
         SetWindowTextW(g.cancel, T(T_CLOSE).c_str());
         ShowWindow(g.install, SW_HIDE);
-        if (g.opt.start) { start_launcher(g.opt.folder); DestroyWindow(h); }
+        if (!g_games_summary.empty()) SetWindowTextW(g.status, g_games_summary.c_str());
+        if (g.opt.start) {
+            if (g_games_failed) message(MB_ICONWARNING, g_games_summary, h);    // before the launcher covers it
+            start_launcher(g.opt.folder);
+            DestroyWindow(h);
+        }
         return 0;
     case WM_CLOSE:
         if (g.busy) {
@@ -1270,7 +1461,8 @@ static int run_window(const Payload &payload, Options opt, bool locked) {
     HDC dc = GetDC(nullptr);
     g.dpi = GetDeviceCaps(dc, LOGPIXELSY);
     ReleaseDC(nullptr, dc);
-    RECT r = {0, 0, S(552), S(354)};
+    int games = (payload_has_game(payload, L"t5dr") ? 1 : 0) + (payload_has_game(payload, L"t4") ? 1 : 0);
+    RECT r = {0, 0, S(552), S(354 + (games ? 26 + 24 * games : 0))};
     DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
     AdjustWindowRect(&r, style, FALSE);
     int w = r.right - r.left, hgt = r.bottom - r.top;
@@ -1286,7 +1478,9 @@ static int run_window(const Payload &payload, Options opt, bool locked) {
             DispatchMessageW(&msg);
         }
     }
-    if (g.finished && !g.opt.start) message(MB_ICONINFORMATION, T(g.updated ? T_UPDATED : T_DONE, payload.version));
+    if (g.finished && !g.opt.start)
+        message(g_games_failed ? MB_ICONWARNING : MB_ICONINFORMATION, T(g.updated ? T_UPDATED : T_DONE, payload.version)
+                + (g_games_summary.empty() ? std::wstring() : L"\n\n" + g_games_summary));
     return g.exit_code;
 }
 
@@ -1332,6 +1526,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
             if (flag(args, L"/desktop")) o.desktop = true;
             if (flag(args, L"/nodesktop")) o.desktop = false;
             o.start = !flag(args, L"/nostart");
+            std::wstring pick = lower(value(args, L"/games="));
+            for (const wchar_t *id : GAME_IDS) {
+                bool asked_for = pick.empty() || (L"," + pick + L",").find(std::wstring(L",") + id + L",") != std::wstring::npos;
+                if (payload_has_game(payload, id) && asked_for && !flag(args, L"/nogames")) o.games.push_back(id);
+            }
             bool locked = !registered.empty() && lower(registered) == lower(o.folder);
             if (g_silent) {
                 if (!registered.empty() && lower(registered) != lower(o.folder)) {
@@ -1346,7 +1545,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
                         bool updated = false;
                         std::wstring result = install(payload, o, pr, updated);
                         if (!result.empty()) { message(MB_ICONERROR, result); code = 2; }
-                        else { code = 0; if (o.start) start_launcher(o.folder); }
+                        else { code = g_games_failed ? 4 : 0; if (o.start) start_launcher(o.folder); }
                     }
                 }
             } else {

@@ -242,13 +242,110 @@ def verify_t4(folder, tag, zip_name, work):
     return sum(len(files) for _d, _s, files in os.walk(root))
 
 
+GITHUB_ASSET_LIMIT = 2_000_000_000      # GitHub refuses release assets of 2 GiB and more: stay clearly below
+
+
+def bundled_version(game, folder):
+    from openrecomp import bundled_games
+    return bundled_games.offer(game, str(folder))["version"]
+
+
+def full_setup_name(plain):
+    return f"OpenRecomp-FGC-Full-Setup-{plain}.exe"
+
+
+def verify_t5dr(folder, terms):
+    """T5DR's release files the way a player's launcher checks them (built-in key, SHA256SUMS, zip layout, no
+    private words). Returns (version, zip name)."""
+    src = game_releases.SOURCES["t5dr"]
+    from openrecomp import bundled_games
+    o = bundled_games.offer("t5dr", str(folder))
+    sums = (folder / "SHA256SUMS").read_bytes()
+    game_releases.check_signature(src, o["version"], sums, (folder / "SHA256SUMS.sig").read_bytes(), keys=src.keys)
+    if not o["zip"]["sha256"] or o["zip"]["sha256"] != digest(folder / o["zip"]["name"]):
+        raise ReleaseFailed("T5DR SHA256SUMS does not match its zip")
+    with zipfile.ZipFile(folder / o["zip"]["name"]) as archive:
+        bundle.scan_private_terms(((i.filename, archive.read(i)) for i in archive.infolist() if not i.is_dir()), terms)
+    return o["version"], o["zip"]["name"]
+
+
+def make_full_setup(args, work, launcher_zip, launcher_dir, t4_dir, t4_zip, plain, terms):
+    """OpenRecomp-FGC-Full-Setup-<X.Y.Z>.exe: the launcher Setup + the T5DR and T4 release files, unchanged.
+    Before it is kept, both games are installed from exactly these files with the launcher's own code and keys."""
+    t5dr_dir = Path(args.t5dr_release)
+    t5dr_version, t5dr_zip = verify_t5dr(t5dr_dir, terms)
+    print(f"T5DR release {t5dr_version}: {t5dr_zip}, signature + checksum verified, privacy scan clean", flush=True)
+    if args.t4_release:                     # an already published T4 release instead of the one made in this run
+        t4_dir = Path(args.t4_release)
+        from openrecomp import bundled_games
+        o = bundled_games.offer("t4", str(t4_dir))
+        t4_zip = o["zip"]["name"]
+        files = verify_t4(t4_dir, o["tag"], t4_zip, work / "t4-release-check")
+        print(f"T4 release {o['tag']} ({t4_zip}): signature, checksum and T4 tree ({files} files) verified", flush=True)
+    games = work / "bundled-games"
+    for game, source, names in (("t5dr", t5dr_dir, (t5dr_zip,)), ("t4", t4_dir, (t4_zip,))):
+        (games / game).mkdir(parents=True)
+        for name in (*names, "SHA256SUMS", "SHA256SUMS.sig"):
+            shutil.copy2(source / name, games / game / name)
+    from openrecomp import bundled_games
+    player = work / "player"
+    player.mkdir()
+    results = bundled_games.install(str(games), str(player))
+    if set(results) != {"t5dr", "t4"} or any(r["state"] != "installed" for r in results.values()):
+        raise ReleaseFailed(f"installing the bundled games like a player failed: {results}")
+    from openrecomp.adapters.t5dr import install_root
+    from openrecomp.adapters.t4_install import source_root
+    if not install_root(results["t5dr"]["root"]) or not source_root(results["t4"]["root"]):
+        raise ReleaseFailed("the bundled games were installed but the launcher does not find them")
+    for game in ("t5dr", "t4"):
+        if not game_releases.managed(game, results[game]["root"]):
+            raise ReleaseFailed(f"the bundled {game} install has no OpenRecomp-FGC marker")
+    shutil.rmtree(player, ignore_errors=True)
+    print(f"bundled games installed like a player: T5DR {results['t5dr']['version']}, T4 {results['t4']['version']}",
+          flush=True)
+    name = full_setup_name(plain)
+    facts = make_installer.make(launcher_zip, work / "full", version=plain, log=lambda line: None,
+                                games={"t5dr": games / "t5dr", "t4": games / "t4"}, name=name)
+    if facts["setup_bytes"] >= GITHUB_ASSET_LIMIT:
+        raise ReleaseFailed(f"{name} is {facts['setup_bytes']:,} bytes: over GitHub's asset limit")
+    shutil.move(facts["setup"], launcher_dir / name)
+    print(f"full setup: {name}, {facts['setup_bytes']:,} bytes, games {facts['games']}", flush=True)
+    return name
+
+
+def verify_full_setup(folder, zip_name, full_name, games):
+    """The full Setup carries exactly the launcher zip's program folder, the uninstaller and the games' release files."""
+    header, files = make_installer.parse_payload(_setup_payload(folder / full_name))
+    with zipfile.ZipFile(folder / zip_name) as archive:
+        wanted = {n: archive.read(n) for n in archive.namelist() if n.startswith(updater.ARCHIVE_TOP + "/")}
+    got = {p: d for p, d in files if p.startswith(updater.ARCHIVE_TOP + "/")}
+    if wanted != got:
+        raise ReleaseFailed("the full Setup does not carry exactly the launcher zip's OpenRecomp-FGC folder")
+    bundled = {p: d for p, d in files if p.startswith(make_installer.BUNDLE_DIR + "/")}
+    expected = {}
+    for game, source in zip(("t5dr", "t4"), games):
+        for path in source.iterdir():
+            if path.name.endswith(".zip") or path.name in ("SHA256SUMS", "SHA256SUMS.sig"):
+                expected[f"{make_installer.BUNDLE_DIR}/{game}/{path.name}"] = path.read_bytes()
+    if bundled != expected:
+        raise ReleaseFailed("the full Setup's game files are not exactly the signed release files")
+    other = set(p for p, _ in files) - set(got) - set(bundled) - {make_installer.UNINSTALL_EXE}
+    if other:
+        raise ReleaseFailed(f"the full Setup carries unexpected files: {sorted(other)[:5]}")
+    return header
+
+
 def notes(kind, **facts):
     if kind == "launcher":
         return (f"OpenRecomp-FGC {facts['version']}\n\n"
                 "Launcher for Tekken 4 and Tekken 5 Dark Resurrection Online. No game data is included.\n\n"
                 f"- Install: `OpenRecomp-FGC-Setup-{facts['plain']}.exe` (per user, no administrator), or unpack "
                 f"`OpenRecomp-{facts['version']}.zip` and run `OpenRecomp-FGC\\run.cmd`.\n"
-                "- The launcher updates itself from this repository's signed releases and installs/updates the games "
+                + (f"- With the games: `{facts['full']}` installs the launcher together with Tekken 5 DR Online "
+                   f"{facts['full_games']['t5dr']} and Tekken 4 {facts['full_games']['t4']} (their own signed release files, "
+                   "checked by the launcher before they are unpacked). You still build each game once from your own "
+                   "package / disc image.\n" if facts.get("full") else "")
+                + "- The launcher updates itself from this repository's signed releases and installs/updates the games "
                 "from their own releases.\n\n---\n\n"
                 f"| | |\n|---|---|\n| Launcher commit | `{facts['commit'][:12]}` |\n"
                 f"| Release key | `{facts['key_id']}` (Ed25519, `SHA256SUMS.sig`) |\n"
@@ -330,15 +427,12 @@ def make(args):
                                               runtime_cache=cache, dist=launcher_dir, note=note, terms=terms,
                                               release=release, start=start)
         print(f"launcher zip: {archive.name}, {count} files, {archive.stat().st_size:,} bytes", flush=True)
+        launcher_zip = archive
         facts = make_installer.make(archive, work / "setup", version=plain, log=lambda line: None)
         setup_name = Path(facts["setup"]).name
         shutil.move(facts["setup"], launcher_dir / setup_name)
         print(f"setup: {setup_name}, {facts['setup_bytes']:,} bytes, {facts['files']} files"
               + (f", {len(facts['warnings'])} compiler warnings" if facts["warnings"] else ""), flush=True)
-        sums = write_sums(launcher_dir, [zip_name, setup_name])
-        sign_launcher(launcher_dir, version, channel, args.launcher_key, sums)
-        verify_launcher(launcher_dir, version, channel, zip_name, setup_name)
-        print("launcher release: signature, checksums, program folder and Setup payload verified", flush=True)
 
         # 2. the T4 zip (the same launcher + T4/)
         t4_zip = f"OpenRecomp-Tekken4-{t4_tag}.zip"
@@ -351,16 +445,34 @@ def make(args):
         t4_files = verify_t4(t4_dir, t4_tag, t4_zip, work / "t4-check")
         print(f"T4 release: signature, checksum and T4 source tree ({t4_files} files) verified", flush=True)
 
+        # 3. (--full) the full Setup: the launcher Setup + T5DR's and T4's signed release files, installed by the
+        # launcher's own checks (openrecomp/bundled_games.py). Then the launcher's SHA256SUMS covers all its files.
+        full_name = None
+        launcher_names = [zip_name, setup_name]
+        if args.full:
+            full_name = make_full_setup(args, work, launcher_zip, launcher_dir, t4_dir, t4_zip, plain, terms)
+            launcher_names.append(full_name)
+        sums = write_sums(launcher_dir, launcher_names)
+        sign_launcher(launcher_dir, version, channel, args.launcher_key, sums)
+        verify_launcher(launcher_dir, version, channel, zip_name, setup_name)
+        if full_name:
+            verify_full_setup(launcher_dir, zip_name, full_name,
+                              games=(Path(args.t5dr_release), Path(args.t4_release) if args.t4_release else t4_dir))
+        print("launcher release: signature, checksums, program folder and Setup payload verified", flush=True)
+
         launcher_key = hashlib.sha256(bytes.fromhex(channel.public_keys[0])).hexdigest()[:16]
         t4_key = hashlib.sha256(bytes.fromhex(game_releases.SOURCES["t4"].keys[0])).hexdigest()[:16]
-        launcher_sums = {n: digest(launcher_dir / n) for n in (zip_name, setup_name, "SHA256SUMS", "SHA256SUMS.sig")}
+        launcher_sums = {n: digest(launcher_dir / n) for n in (*launcher_names, "SHA256SUMS", "SHA256SUMS.sig")}
         t4_all = {n: digest(t4_dir / n) for n in (t4_zip, "SHA256SUMS", "SHA256SUMS.sig")}
+        full_games = (dict(t5dr=bundled_version("t5dr", Path(args.t5dr_release)),
+                           t4=bundled_version("t4", Path(args.t4_release) if args.t4_release else t4_dir)) if full_name else None)
         (launcher_dir / "NOTES.md").write_text(notes("launcher", version=version, plain=plain, commit=commit,
-                                                     key_id=launcher_key, sums=launcher_sums, rehearsal=args.rehearsal),
+                                                     key_id=launcher_key, sums=launcher_sums, rehearsal=args.rehearsal,
+                                                     full=full_name, full_games=full_games),
                                                encoding="utf-8")
         (t4_dir / "NOTES.md").write_text(notes("t4", tag=t4_tag, commit=commit, t4_commit=t4_commit, key_id=t4_key,
                                                sums=t4_all, rehearsal=args.rehearsal), encoding="utf-8")
-        launcher_files = [zip_name, setup_name, "SHA256SUMS", "SHA256SUMS.sig"]
+        launcher_files = [*launcher_names, "SHA256SUMS", "SHA256SUMS.sig"]
         t4_assets = [t4_zip, "SHA256SUMS", "SHA256SUMS.sig"]
         (out / "COMMANDS.txt").write_text(commands(out, version, t4_tag, launcher_files, t4_assets, commit, t4_commit,
                                                    not args.t4_stable), encoding="utf-8")
@@ -368,7 +480,7 @@ def make(args):
                       t4_commit=t4_commit, t4_prerelease=not args.t4_stable,
                       launcher={n: dict(sha256=launcher_sums[n], bytes=(launcher_dir / n).stat().st_size) for n in launcher_files},
                       t4={n: dict(sha256=t4_all[n], bytes=(t4_dir / n).stat().st_size) for n in t4_assets},
-                      launcher_key_id=launcher_key, t4_key_id=t4_key)
+                      launcher_key_id=launcher_key, t4_key_id=t4_key, full_setup=full_name, full_games=full_games)
         (out / "release-facts.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         print(f"OK: {out}", flush=True)
         return result
@@ -395,7 +507,15 @@ def main(argv=None):
     parser.add_argument("--runtime-cache", help="its pinned archive cache (default dist\\portable-cache)")
     parser.add_argument("--forbid", action="append", default=[], help="one more private word no file may contain")
     parser.add_argument("--rehearsal", action="store_true", help="allow an untagged HEAD (notes say: do not publish)")
+    parser.add_argument("--full", action="store_true",
+                        help="also OpenRecomp-FGC-Full-Setup-<X.Y.Z>.exe with T5DR Online and T4 inside (needs --t5dr-release)")
+    parser.add_argument("--t5dr-release", type=Path,
+                        help="folder with T5DR's published release files: T5DR-Online-<v>.zip, SHA256SUMS, SHA256SUMS.sig")
+    parser.add_argument("--t4-release", type=Path,
+                        help="with --full: carry exactly this T4 release (zip, SHA256SUMS, .sig) instead of this run's")
     args = parser.parse_args(argv)
+    if args.full and not args.t5dr_release:
+        parser.error("--full needs --t5dr-release")
     try:
         make(args)
     except (ReleaseFailed, ValueError, OSError, updater.UpdateError, game_releases.ReleaseError,

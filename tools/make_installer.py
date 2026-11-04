@@ -8,6 +8,11 @@ and checked against its SHA-256 before Setup places anything. The same program w
 uninstaller Setup writes into the install folder.
 
     python tools\\make_installer.py --bundle dist\\openrecomp-fgc-test-....zip [--out dist] [--version 0.1.0]
+        [--game t5dr=<folder> --game t4=<folder> --name <Setup file name>]
+
+A full Setup (--game) also carries each game's GitHub release files untouched (its zip, SHA256SUMS,
+SHA256SUMS.sig) under bundled-games/<game>/; Setup unpacks them into its staging folder only and lets the
+installed launcher install the chosen games with its own release checks (openrecomp/bundled_games.py).
 
 The bundle's own scans (make_test_bundle) stay the gate for its content; this tool refuses the obvious game
 file types again and never adds anything but the bundle's files and the uninstaller.
@@ -40,6 +45,10 @@ REFUSED_SUFFIXES = (".iso", ".pkg", ".rap", ".elf", ".self", ".sprx", ".bin", ".
 REFUSED_NAMES = ("eboot.bin", "param.sfo", "slus_203.28")
 REQUIRED = (f"{LAUNCHER}/portable/pythonw.exe", f"{LAUNCHER}/portable/python312._pth", f"{LAUNCHER}/openrecomp/app.py")
 VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?\Z")
+BUNDLE_DIR = "bundled-games"             # setup.cpp GAMES_DIR
+BUNDLE_GAMES = ("t5dr", "t4")            # setup.cpp GAME_IDS
+BUNDLE_ZIPS = {"t5dr": re.compile(r"T5DR-Online-\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?\.zip\Z"),
+               "t4": re.compile(r"OpenRecomp-Tekken4-v\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?\.zip\Z")}
 
 
 class InstallerError(Exception):
@@ -145,6 +154,22 @@ def bundle_files(bundle):
     return sorted(files, key=lambda item: item[0].casefold())
 
 
+def game_files(games):
+    """[(bundled-games/<game>/<name>, bytes)] for {game: folder with exactly its release zip, SHA256SUMS, .sig}."""
+    files = []
+    for game, folder in sorted((games or {}).items()):
+        if game not in BUNDLE_GAMES:
+            raise InstallerError(f"Unknown bundled game {game!r} (expected one of {', '.join(BUNDLE_GAMES)}).")
+        names = sorted(p.name for p in Path(folder).iterdir())
+        zips = [n for n in names if BUNDLE_ZIPS[game].fullmatch(n)]
+        if len(zips) != 1 or set(names) != {zips[0], "SHA256SUMS", "SHA256SUMS.sig"}:
+            raise InstallerError(f"{folder}: expected exactly the {game} release zip, SHA256SUMS and SHA256SUMS.sig, "
+                                 f"found {names}")
+        for name in names:
+            files.append((f"{BUNDLE_DIR}/{game}/{name}", (Path(folder) / name).read_bytes()))
+    return files
+
+
 def build_payload(files, version, name="OpenRecomp-FGC", progress=None):
     header = f"name={name}\nversion={version}\nfiles={len(files)}\n".encode("utf-8")
     out = io.BytesIO()
@@ -153,7 +178,8 @@ def build_payload(files, version, name="OpenRecomp-FGC", progress=None):
     out.write(header)
     unpacked = 0
     for index, (path, data) in enumerate(files):
-        method, stored = pack(data)
+        # a bundled release zip is already compressed: stored as it is (LZMS over 100 MB would only cost time)
+        method, stored = (STORED, data) if path.startswith(BUNDLE_DIR + "/") else pack(data)
         raw = path.encode("utf-8")
         out.write(struct.pack("<I", len(raw)) + raw)
         out.write(struct.pack("<QQI", len(data), len(stored), method))
@@ -275,14 +301,15 @@ def bundle_version(files):
     return match.group(1) if match else "0.0.0"
 
 
-def make(bundle, out_dir, version=None, log=print):
-    files = bundle_files(bundle)
+def make(bundle, out_dir, version=None, log=print, games=None, name=None):
+    """games: {game: release folder} for a full Setup; name: the Setup's file name (default the launcher-only one)."""
+    files = bundle_files(bundle) + game_files(games)
     version = version or bundle_version(files)
     if not VERSION_RE.match(version):
         raise InstallerError(f"--version {version!r}: expected MAJOR.MINOR.PATCH")
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    setup = out_dir / f"OpenRecomp-FGC-Setup-{version}.exe"
+    setup = out_dir / (name or f"OpenRecomp-FGC-Setup-{version}.exe")
     icon = ROOT / "openrecomp" / "ui" / "assets" / "icon.ico"
     with tempfile.TemporaryDirectory(prefix="orsetup-") as work:
         work = Path(work)
@@ -301,7 +328,8 @@ def make(bundle, out_dir, version=None, log=print):
     (out_dir / (setup.name + ".sha256")).write_text(f"{digest} *{setup.name}\n", encoding="ascii")
     facts = dict(setup=str(setup), version=version, files=len(files), unpacked_bytes=unpacked,
                  payload_bytes=len(blob), setup_bytes=setup.stat().st_size, sha256=digest,
-                 t4=any(path.startswith("T4/") for path, _ in files), warnings=warnings)
+                 t4=any(path.startswith("T4/") for path, _ in files), warnings=warnings,
+                 games=sorted({path.split("/")[1] for path, _ in files if path.startswith(BUNDLE_DIR + "/")}))
     for key, value in facts.items():
         log(f"{key}: {value}")
     return facts
@@ -312,10 +340,14 @@ def main(argv=None):
     parser.add_argument("--bundle", required=True, help="the bundle zip (OpenRecomp-FGC/ and optional T4/)")
     parser.add_argument("--out", default=str(ROOT / "dist"))
     parser.add_argument("--version", default=None, help="default: the launcher's __version__ in the bundle")
+    parser.add_argument("--game", action="append", default=[], metavar="GAME=FOLDER",
+                        help="a full Setup: that game's release files (zip, SHA256SUMS, SHA256SUMS.sig)")
+    parser.add_argument("--name", default=None, help="the Setup's file name")
     args = parser.parse_args(argv)
     try:
-        make(args.bundle, args.out, args.version)
-    except (InstallerError, OSError, zipfile.BadZipFile) as error:
+        games = dict(item.split("=", 1) for item in args.game)
+        make(args.bundle, args.out, args.version, games=games, name=args.name)
+    except (InstallerError, OSError, ValueError, zipfile.BadZipFile) as error:
         print(f"make_installer: {error}", file=sys.stderr)
         return 1
     return 0

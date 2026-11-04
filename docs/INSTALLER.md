@@ -21,6 +21,31 @@ available as the alternative: unpack it and double-click `OpenRecomp-FGC\run.cmd
   from it runs ("close it, then Retry").
 - `<folder>\OpenRecomp-install.txt` lists what Setup placed: an update and the uninstall touch only those files.
 
+## Full Setup (with the games)
+
+`OpenRecomp-FGC-Full-Setup-<version>.exe` is the same program with Tekken 5 DR Online and Tekken 4 inside
+(about 300 MB; the small Setup stays for players who want only the launcher). Its window has two more
+checkboxes, both on: "Tekken 5 Dark Resurrection Online <version>" and "Tekken 4 <version>, beta".
+
+- What it carries: each game's GitHub release files exactly as published (T5DR Online's own release:
+  `T5DR-Online-<v>.zip`, `SHA256SUMS`, `SHA256SUMS.sig`; Tekken 4's: `OpenRecomp-Tekken4-<tag>.zip` and its two
+  files), in `bundled-games\<game>\` of the payload. No game data: as always, each game is built once from the
+  player's own package / disc image.
+- How it installs them: the files are unpacked into Setup's staging folder (never into the install) and checked
+  against their SHA-256 like every file. After the launcher is in place, Setup runs the installed launcher's
+  `portable\pythonw.exe -B -m openrecomp.bundled_games`, which installs every chosen game exactly as
+  "Install" in the launcher does, only from the local files instead of GitHub: the release signature with the
+  keys built into the launcher, the zip's line in `SHA256SUMS`, the same unpack rules and the same
+  `openrecomp-release.json` marker. T5DR goes to `<folder>\T5DR-Online-<version>`, Tekken 4 to `<folder>\T4`,
+  where the launcher finds both: it starts with both games installed and only Build (own files) left.
+- A game that is already beside the launcher (any `T5DR-Online-*`, a `T4` folder) is left as it is; the launcher
+  offers its updates. Updates of the games keep coming from their own repositories, as after a launcher install.
+- A game that cannot be installed (not enough space for it and its build, a damaged file) does not stop the
+  launcher's install: Setup shows the launcher's message for it (in the player's language) and the game can be
+  installed later from the launcher. The staging folder is removed in every case.
+- Command line: `/games=t5dr,t4` (or one of them), `/nogames`; silent exit code 4 = the launcher is installed but a
+  game is not (the log has the launcher's message).
+
 ## Uninstall
 
 Apps & Features -> OpenRecomp-FGC -> Uninstall (or `<folder>\Uninstall OpenRecomp.exe`). It removes the

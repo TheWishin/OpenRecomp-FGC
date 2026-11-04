@@ -54,6 +54,47 @@ class BundleTest(unittest.TestCase):
             mi.bundle_files(bundle(skip=("OpenRecomp-FGC/portable/pythonw.exe",)))
 
 
+class FullSetupGamesTest(unittest.TestCase):
+    """A full Setup carries each game's release files exactly as published, in bundled-games/<game>/."""
+
+    def release(self, base, game, names):
+        folder = Path(base) / game
+        folder.mkdir()
+        for name in names:
+            (folder / name).write_bytes(name.encode("ascii") * 3)
+        return folder
+
+    def test_exact_release_files_taken_unchanged(self):
+        with tempfile.TemporaryDirectory() as work:
+            t5 = self.release(work, "a", ("T5DR-Online-1.2.0.zip", "SHA256SUMS", "SHA256SUMS.sig"))
+            t4 = self.release(work, "b", ("OpenRecomp-Tekken4-v0.1.0.zip", "SHA256SUMS", "SHA256SUMS.sig"))
+            files = dict(mi.game_files({"t5dr": t5, "t4": t4}))
+        self.assertEqual(sorted(files), ["bundled-games/t4/OpenRecomp-Tekken4-v0.1.0.zip", "bundled-games/t4/SHA256SUMS",
+                                         "bundled-games/t4/SHA256SUMS.sig", "bundled-games/t5dr/SHA256SUMS",
+                                         "bundled-games/t5dr/SHA256SUMS.sig", "bundled-games/t5dr/T5DR-Online-1.2.0.zip"])
+        self.assertEqual(files["bundled-games/t5dr/SHA256SUMS"], b"SHA256SUMS" * 3)
+
+    def test_refuses_anything_but_a_release(self):
+        cases = [("t5dr", ("T5DR-Online-1.2.0.zip", "SHA256SUMS")),                               # no signature
+                 ("t5dr", ("T5DR-Online-1.2.0.zip", "SHA256SUMS", "SHA256SUMS.sig", "NOTES.md")),
+                 ("t5dr", ("game.iso", "SHA256SUMS", "SHA256SUMS.sig")),
+                 ("t4", ("T5DR-Online-1.2.0.zip", "SHA256SUMS", "SHA256SUMS.sig")),                 # wrong game's zip
+                 ("t6", ("OpenRecomp-Tekken4-v0.1.0.zip", "SHA256SUMS", "SHA256SUMS.sig"))]
+        for game, names in cases:
+            with self.subTest(game=game, names=names), tempfile.TemporaryDirectory() as work:
+                with self.assertRaises(mi.InstallerError):
+                    mi.game_files({game: self.release(work, "x", names)})
+
+    @unittest.skipUnless(os.name == "nt", "the Windows Compression API")
+    def test_release_zips_are_stored_not_compressed_again(self):
+        blob, _ = mi.build_payload([("bundled-games/t4/x.zip", b"A" * 100_000), ("OpenRecomp-FGC/a.txt", b"A" * 100_000)],
+                                   "1.0.0")
+        header, files = mi.parse_payload(blob)
+        self.assertEqual(dict(files)["bundled-games/t4/x.zip"], b"A" * 100_000)
+        self.assertGreater(len(blob), 100_000)       # the zip stored, the text compressed
+        self.assertLess(len(blob), 150_000)
+
+
 @unittest.skipUnless(os.name == "nt", "the Windows Compression API")
 class PayloadTest(unittest.TestCase):
     def test_round_trip_with_every_method_and_checksums(self):

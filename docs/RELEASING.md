@@ -35,6 +35,24 @@ Output (default `dist\release-<version>`, never overwritten):
 
 plus `COMMANDS.txt` (the `gh` commands for both releases) and `release-facts.json` (commits, sizes, SHA-256).
 
+### With the games inside: `--full`
+
+```
+python tools\make_release.py ... --full --t5dr-release <folder> [--t4-release <folder>]
+```
+
+adds `OpenRecomp-FGC-Full-Setup-X.Y.Z.exe` to `launcher\` (and to its signed `SHA256SUMS`): the same Setup with
+Tekken 5 DR Online and Tekken 4 inside. `--t5dr-release` is a folder with exactly T5DR's published release files
+(`T5DR-Online-<v>.zip`, `SHA256SUMS`, `SHA256SUMS.sig`, downloaded from its GitHub release). Tekken 4's are the ones
+this run makes in `t4\`, or exactly the files in `--t4-release` (an already published T4 release). The files go
+into Setup unchanged; Setup's checkboxes "Tekken 5 DR" and "Tekken 4" (both on) let the installed launcher install
+them with its own release checks ([INSTALLER.md](INSTALLER.md) "Full Setup"). Before the full Setup is kept, the
+tool checks T5DR's signature with the launcher's built-in key, scans its zip for this PC's private words, installs
+both games from exactly those files the way Setup's launcher does and checks that the launcher finds them, and
+checks the full Setup's payload: the launcher zip's folder + the six release files, byte for byte, nothing else.
+It stays below GitHub's 2 GiB limit per file (about 300 MB with T5DR 1.2.0 and T4 0.1.0). The small Setup and
+the zip stay as they are; updates afterwards still come per game from their own repositories.
+
 What it does: exports the tagged launcher commit and the T4 commit with `git -c core.autocrlf=false archive`
 (the committed bytes); builds the launcher zip (`OpenRecomp-FGC/` with `release.json`) and the T4 zip (the
 same launcher + `T4/`) with the bundle scanners (source catalogs, pinned runtime, this PC's private words);
