@@ -300,6 +300,7 @@ class T4(T4Support, T4Online, Adapter):
                 run.start()
             finally:
                 self.core.game_env = real_env
+            self._track_playtime(lambda: run.proc.poll() is None, process=run.proc, extra_env=extra_env)
             self.run = run
             self.core.take_run_lock("openrecomp")
             lock_acquired = True
@@ -360,7 +361,13 @@ class T4(T4Support, T4Online, Adapter):
             raise RuntimeError("@no_native")
         script = os.path.join(self.root, "launcher", "t4_launcher.pyw")
         python = self.core.find_python()
-        self.core.subprocess.Popen([python, script], cwd=self.root, creationflags=self.core.NO_WINDOW)
+        process = self.core.subprocess.Popen([python, script], cwd=self.root, creationflags=self.core.NO_WINDOW)
+        if getattr(self, "playtime_store", None) is not None:
+            try:
+                exe, _why = self.core.find_runtime(self.s)
+                self._track_native_playtime(process, (os.path.basename(exe),) if exe else ())
+            except (OSError, RuntimeError):
+                pass
 
     # ---------------------------------------------------------------- settings
     def _net_diagnostics(self):

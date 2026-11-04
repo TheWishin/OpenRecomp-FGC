@@ -7,6 +7,7 @@ Every picture uses the test adapter boundary, empty image fields and a private h
 The real Backend, input readers and game adapters are never instantiated.
 """
 import argparse
+from datetime import date
 import json
 import os
 from pathlib import Path
@@ -33,7 +34,8 @@ from test_ui_loads import FakeBackend, spin, wait_pages  # noqa: E402
 SCENES = ("shelf", "shelf_build_needed", "shelf_update", "shelf_update_required", "play", "replays", "replays_empty", "settings",
           "controls", "controls_empty", "support", "support_loading", "support_error",
           "build", "build_loading", "online", "login", "login_error", "drawer",
-          "confirm", "info", "error", "keyboard", "fighters")
+          "confirm", "info", "error", "keyboard", "fighters",
+          "playtime_tile", "playtime_game", "playtime_profile")
 
 
 def configure_environment():
@@ -62,6 +64,9 @@ class Synthetic(Lobby):
     def status(self):
         return dict(status="@ready" if self.is_ready else "@build_first", version="1.0",
                     players="", last="2026-10-28", detail="@start_hint")
+
+    def playtime(self):
+        return dict(getattr(self, "playtime_stats", {}))
 
     def settings(self):
         specs = (("resolution", "@settings_ui.group.display", "1920 × 1080", "@settings_ui.note.display", "display"),
@@ -109,8 +114,23 @@ class Synthetic(Lobby):
 
 
 def scene(name, language):
+    if name == "playtime_profile":
+        from tools.online_shots import scene as online_scene
+        nav = online_scene("t5", "profile", language)
+        nav.game.a.playtime_stats = dict(offline_seconds=30 * 3600, online_seconds=12 * 3600,
+                                         last_played=date.today().isoformat(), sessions=54)
+        nav.game.a.snapshot["profile"]["self"] = True
+        other = Fake(manifest("t4", short="T4"), is_ready=True)
+        other.playtime = lambda: dict(offline_seconds=6 * 3600, online_seconds=0,
+                                      last_played=date.today().isoformat(), sessions=8)
+        nav.games.append(Game(other.m, other))
+        return nav
     adapter = Synthetic()
     other = Fake(manifest("sample2", title="Sample Circuit", accent="#65979F"), is_ready=False)
+    if name in ("playtime_tile", "playtime_game"):
+        adapter.playtime_stats = dict(offline_seconds=10 * 3600, online_seconds=2 * 3600 + 30 * 60,
+                                      last_played=date.today().isoformat(), sessions=18)
+        name = "shelf" if name == "playtime_tile" else "play"
     nav = Nav([Game(adapter.m, adapter), Game(other.m, other)], language=language)
     nav.dry = True
     nav.device = nav.pad_kind = "xbox"
@@ -216,7 +236,7 @@ def font_coverage():
 def main(argv=None):
     configure_environment()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("before", "after", "probe"))
+    parser.add_argument("phase", choices=("before", "after", "probe", "playtime"))
     parser.add_argument("--ui-dir", type=Path, default=ROOT / "openrecomp" / "ui")
     parser.add_argument("--languages", nargs="+", default=list(i18n.LANGUAGES))
     parser.add_argument("--scenes", nargs="+", choices=SCENES, default=list(SCENES))

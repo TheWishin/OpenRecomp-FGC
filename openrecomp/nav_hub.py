@@ -1,5 +1,5 @@
 """Hub navigation, focused rows, and the hub view."""
-from . import i18n, ui_sound
+from . import i18n, nav_playtime, ui_sound
 from .nav_common import ROWS_VISIBLE, SECTION_TITLES, badge, uri, window
 
 
@@ -242,7 +242,7 @@ class Hub:
         state = g.a.support_state() if section == "support" else {}
         leads = dict(play="@ui.play.lead", replays="@ui.replays.lead", controls="@ui.controls.lead", support="@ui.support.lead")
         v["sessionPage"] = dict(show=True, section=section, title="@" + SECTION_TITLES[section],
-                                lead=leads[section], rows=rows,
+                                lead=leads[section], rows=rows, playtime=nav_playtime.summary(g, self.language) if section == "play" else "",
                                   controls=[self._btn(items, n, focus) for n, it in enumerate(items)
                                             if section == "replays" and it.get("kind") == "cycler"],
                                 replayColumns=["@date", "@opponent", "@ui.replays.fighters", "@result", "@ui.replays.length"],

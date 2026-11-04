@@ -88,11 +88,15 @@ def picker_dirs(config):
 
 
 def load_games(config):
+    from .playtime import shared_store
+
     manifests, problems = mf.load_all()
     games = [Game(m, adapters.make(m, config)) for m in manifests]
     # A manifest game with "shelf": "found" shows only on a PC that has it (games/tag2.json: no tile for everyone)
     games = [g for g in games if g.m.get("shelf") != "found" or g.a.found()]
+    playtime_store = shared_store()
     for game in games:
+        game.a.playtime_store = playtime_store
         # T4 Online may offer a T5DR remembered login (one account for both); each adapter decides what it reads.
         game.a.account_peers = tuple(other.a for other in games if other is not game)
     problems += [g.a.problem for g in games if g.a.problem]
@@ -220,6 +224,9 @@ class Backend(QObject, GameSetupBackend):
     def _quit(self):
         if getattr(self, "_save_timer", None) is not None and self._save_timer.isActive():
             self._flush_config()
+        stores = {getattr(g.a, "playtime_store", None) for g in getattr(getattr(self, "nav", None), "games", [])}
+        for store in stores - {None}:
+            store.checkpoint()
         if self.window is not None:
             self.window.setProperty("allowClose", True)
         QGuiApplication.quit()
@@ -735,6 +742,15 @@ class Backend(QObject, GameSetupBackend):
                     cache = {}
                     setattr(self, cache_name, cache)
                 snapshot = getattr(g.a, method)()
+                if snapshot != cache.get(g.id):
+                    cache[g.id] = snapshot
+                    changed = True
+            playtime = getattr(g.a, "playtime", None)
+            if playtime is not None:
+                cache = self.__dict__.setdefault("_last_playtime", {})
+                snapshot = playtime()
+                snapshot = {**snapshot, **{key: int(snapshot.get(key, 0) // 60)
+                                          for key in ("offline_seconds", "online_seconds")}}
                 if snapshot != cache.get(g.id):
                     cache[g.id] = snapshot
                     changed = True

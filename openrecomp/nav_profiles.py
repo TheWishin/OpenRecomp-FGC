@@ -1,7 +1,7 @@
 """Controller rows for the installed client's public records and statistics."""
 from datetime import datetime
 
-from . import i18n
+from . import i18n, nav_playtime
 from .nav_common import uri
 
 
@@ -74,6 +74,9 @@ def _profile_rows(nav, g, state, action):
     record = profile.get("record") or []
     details += [dict(k=label, v=str(value)) for value, label in zip(record, ("@online.wins", "@online.losses", "@online.draws"))]
     out = [_detail("profile_summary", title, "@online.profile", details)]
+    if nav is not None and profile.get("self") is True:
+        out.append(_detail("profile_playtime", nav_playtime.profile(nav.games, nav.language), "@playtime.label",
+                           nav_playtime.details(g, nav.language), hint="@playtime.local_only"))
     stats = profile.get("stats") or {}
     if stats:
         total = {key: sum(mode.get(key, 0) for mode in stats.values()) for key in ("games", "wins", "losses", "draws")}

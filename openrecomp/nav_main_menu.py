@@ -1,5 +1,5 @@
 """Per-game main menu. Entries route to existing pages without starting a search."""
-from . import i18n
+from . import i18n, nav_playtime
 
 MAIN_LABELS = dict(ranked="@main_menu.ranked", quick="@main_menu.quick", lobby="@main_menu.lobby",
                    rooms="@main_menu.rooms", friend="@main_menu.friend", practice="@main_menu.practice",
@@ -172,6 +172,7 @@ class MainMenu:
         friends = sum(friend.get("status") == "online" for friend in state.get("friends") or [])
         notifications = len(state.get("friend_incoming") or []) + len(state.get("open_challenges") or [])
         v["mainMenu"] = dict(show=True, title=i18n.literal(g.m["title"]),
+            playtime=nav_playtime.summary(g, self.language),
             kicker="@main_menu.title", entries=entries, selected=selected,
             status="@main_menu.online" if connected else "@main_menu.connection_offline",
             player=i18n.literal(me.get("name") or state.get("username") or ""),

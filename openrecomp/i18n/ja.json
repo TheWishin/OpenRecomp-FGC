@@ -1599,5 +1599,22 @@
  "feedback.no_deadline": "制限時間の指定なし",
  "feedback.vs": "VS",
  "feedback.mode": "対戦形式",
- "feedback.rounds": "ラウンド数"
+ "feedback.rounds": "ラウンド数",
+ "playtime.minutes": "{minutes}分",
+ "playtime.hours": "{hours}時間",
+ "playtime.hours_minutes": "{hours}時間{minutes}分",
+ "playtime.summary": "プレイ時間 {duration} · {last}",
+ "playtime.last_today": "最終プレイ：今日",
+ "playtime.last_yesterday": "最終プレイ：昨日",
+ "playtime.last_date": "最終プレイ：{date}",
+ "playtime.last_never": "未プレイ",
+ "playtime.date": "{year}年{month}月{day}日",
+ "playtime.profile": "プレイ時間：{games}",
+ "playtime.entry": "{game} {duration}",
+ "playtime.separator": "、",
+ "playtime.label": "プレイ時間",
+ "playtime.offline": "オフライン",
+ "playtime.online": "オンライン",
+ "playtime.sessions": "セッション数",
+ "playtime.local_only": "このPCにのみ保存されます。アップロードされません。"
 }

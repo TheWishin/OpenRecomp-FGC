@@ -2,7 +2,7 @@
 import os
 from datetime import datetime
 
-from . import i18n
+from . import i18n, nav_playtime
 
 
 class Sections:
@@ -12,7 +12,7 @@ class Sections:
         ready = g.a.ready()
         running = g.a.running()
         detail = dict(kicker=st["status"], title=i18n.literal(g.short), lead=st["detail"],
-                      rows=[dict(k="@version", v=st["version"]), dict(k="@last_played", v=st["last"])],
+                      rows=[dict(k="@version", v=st["version"]), dict(k="@last_played", v=st["last"])] + nav_playtime.details(g, self.language),
                       results=g.a.recent_results(), image="")
         by_id = {s["id"]: s for s in g.a.settings()}
         for sid in g.a.quick_settings():

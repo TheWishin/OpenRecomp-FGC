@@ -2,7 +2,7 @@
 import os
 
 from . import manifest as mf
-from . import i18n
+from . import i18n, nav_playtime
 from .nav_common import GAP, SCREEN_W, SECTION_TITLES, SPINE_GAME, SPINE_SLOT, WIDE, badge, uri
 
 
@@ -178,6 +178,7 @@ class Shelf:
                 status = "@ui.shelf.update_required" if required else "@ui.shelf.update" if update else "@ready" if ready else "@ui.shelf.build_needed"
                 t.update(badge=badge(g), num=i18n.literal(g.m["numeral"]), name=i18n.literal(g.m["title"]), subtitle=i18n.literal(g.m["subtitle"]) if foc else st["status"], accent=g.accent, hero=uri(g.a.hero()),
                          ready=ready, status=status, statusKind="update" if update else "ready" if ready else "build", play="@play", playG=self.glyph("play", True),
+                         playtime=nav_playtime.summary(g, self.language),
                          rows=[dict(k="@status", v=st["status"]), dict(k="@version", v=st["version"]), dict(k="@section.online", v=st["players"]), dict(k="@last_played", v=st["last"])],
                          results=self._cells(g.a.recent_results()), empty="@no_sets", sections=["@" + SECTION_TITLES[s] for s in g.m["sections"]],
                          bar="@onboarding.choose_folder" if self._folder_source(g) else ("@open" if ready else "@go_build"))

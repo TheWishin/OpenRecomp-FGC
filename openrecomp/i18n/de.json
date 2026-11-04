@@ -1599,5 +1599,22 @@
  "feedback.no_deadline": "Keine Frist angegeben",
  "feedback.vs": "VS",
  "feedback.mode": "Modus",
- "feedback.rounds": "Runden"
+ "feedback.rounds": "Runden",
+ "playtime.minutes": "{minutes} Min.",
+ "playtime.hours": "{hours} Std.",
+ "playtime.hours_minutes": "{hours} Std. {minutes} Min.",
+ "playtime.summary": "{duration} gespielt · {last}",
+ "playtime.last_today": "zuletzt heute gespielt",
+ "playtime.last_yesterday": "zuletzt gestern gespielt",
+ "playtime.last_date": "zuletzt am {date} gespielt",
+ "playtime.last_never": "noch nie gespielt",
+ "playtime.date": "{day}.{month}.{year}",
+ "playtime.profile": "Spielzeit: {games}",
+ "playtime.entry": "{game} {duration}",
+ "playtime.separator": ", ",
+ "playtime.label": "Spielzeit",
+ "playtime.offline": "Offline",
+ "playtime.online": "Online",
+ "playtime.sessions": "Sitzungen",
+ "playtime.local_only": "Nur auf diesem PC gespeichert. Wird nie hochgeladen."
 }

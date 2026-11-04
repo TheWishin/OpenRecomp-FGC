@@ -673,6 +673,7 @@ class OnlineLayout:
         v["online"] = page
 
     def _view_profile(self, g, state, items, fi, by_id):
+        from . import nav_playtime
         me = state.get("me") or {}
         rank = self._rank_label(me) if me else ("@online.guest_kind" if not state.get("account") else "")
         record = me.get("record")
@@ -711,6 +712,7 @@ class OnlineLayout:
             build.append(i18n.literal(state["game_folder"]))
         return dict(name=i18n.literal(state.get("name") or ""), rank=rank, build=build, plate=uri(g.a.rank_plate(me.get("tier"))) if me else "",
                     face=face, main=i18n.literal(g.a.fighter_label(main)) if main else "", rows=rows, conn=conn,
+                    playtime=nav_playtime.profile(self.games, self.language),
                     index=n, focused=n == fi, guest=not state.get("account"),
                     progress=progress, progressText=progress_text, recent=recent, recentLabel="@recent_sets",
                     buttons=[self._btn(items, by_id[i], fi) for i in ("profile_self", "logout") if i in by_id])

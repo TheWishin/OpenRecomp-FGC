@@ -1599,5 +1599,22 @@
  "feedback.no_deadline": "제한 시간 정보 없음",
  "feedback.vs": "VS",
  "feedback.mode": "대전 방식",
- "feedback.rounds": "라운드 수"
+ "feedback.rounds": "라운드 수",
+ "playtime.minutes": "{minutes}분",
+ "playtime.hours": "{hours}시간",
+ "playtime.hours_minutes": "{hours}시간 {minutes}분",
+ "playtime.summary": "플레이 시간 {duration} · {last}",
+ "playtime.last_today": "마지막 플레이: 오늘",
+ "playtime.last_yesterday": "마지막 플레이: 어제",
+ "playtime.last_date": "마지막 플레이: {date}",
+ "playtime.last_never": "플레이 기록 없음",
+ "playtime.date": "{year}년 {month}월 {day}일",
+ "playtime.profile": "플레이 시간: {games}",
+ "playtime.entry": "{game} {duration}",
+ "playtime.separator": ", ",
+ "playtime.label": "플레이 시간",
+ "playtime.offline": "오프라인",
+ "playtime.online": "온라인",
+ "playtime.sessions": "세션 수",
+ "playtime.local_only": "이 PC에만 저장되며 업로드되지 않습니다."
 }

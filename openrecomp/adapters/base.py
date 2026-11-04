@@ -74,6 +74,31 @@ class Adapter:
     def open_native(self):
         raise RuntimeError("@no_native")
 
+    def playtime(self):
+        """Local totals only; never included in the game's online client state."""
+        store = getattr(self, "playtime_store", None)
+        if store is None:
+            return dict(offline_seconds=0.0, online_seconds=0.0, last_played="", sessions=0)
+        return store.snapshot(self.m["id"])
+
+    def _track_playtime(self, running, process=None, extra_env=None):
+        store = getattr(self, "playtime_store", None)
+        if store is not None:
+            from ..playtime import online_environment
+            try:
+                store.watch(self.m["id"], running, process=process,
+                            online=bool(getattr(self, "_playtime_online_launch", False)) or online_environment(extra_env))
+            except (OSError, RuntimeError):
+                pass
+
+    def _track_native_playtime(self, process, images):
+        store = getattr(self, "playtime_store", None)
+        if store is not None:
+            try:
+                store.watch_native(self.m["id"], process, images)
+            except (OSError, RuntimeError):
+                pass
+
     # ---------------------------------------------------------------- settings: dict(id, label, hint, lead, options, value)
     def settings(self):
         return []
@@ -400,6 +425,8 @@ class Generic(Adapter):
             cwd = os.path.expandvars(self.m.get("cwd") or os.path.dirname(self.exe()))
         self.proc = subprocess.Popen([self.exe()] + [str(a) for a in self.m.get("args") or []], cwd=cwd, env=env,
                                      shell=False)
+        proc = self.proc
+        self._track_playtime(lambda: proc.poll() is None, process=proc, extra_env=extra_env)
         return self.proc.pid
 
     def running(self):
@@ -545,7 +572,11 @@ class Generic(Adapter):
 
     def run_online(self, item_id):
         if item_id == "own" and (self.m.get("online") or {}).get("mode") == "own":
-            self.start()
+            self._playtime_online_launch = True
+            try:
+                self.start()
+            finally:
+                self._playtime_online_launch = False
         return ""
 
 

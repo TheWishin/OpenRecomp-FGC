@@ -1599,5 +1599,22 @@
  "feedback.no_deadline": "Sin plazo indicado",
  "feedback.vs": "VS",
  "feedback.mode": "Modo",
- "feedback.rounds": "Asaltos"
+ "feedback.rounds": "Asaltos",
+ "playtime.minutes": "{minutes} min",
+ "playtime.hours": "{hours} h",
+ "playtime.hours_minutes": "{hours} h {minutes} min",
+ "playtime.summary": "{duration} jugados · {last}",
+ "playtime.last_today": "última partida hoy",
+ "playtime.last_yesterday": "última partida ayer",
+ "playtime.last_date": "última partida el {date}",
+ "playtime.last_never": "sin partidas",
+ "playtime.date": "{day}/{month}/{year}",
+ "playtime.profile": "Tiempo de juego: {games}",
+ "playtime.entry": "{game} {duration}",
+ "playtime.separator": ", ",
+ "playtime.label": "Tiempo de juego",
+ "playtime.offline": "Sin conexión",
+ "playtime.online": "En línea",
+ "playtime.sessions": "Sesiones",
+ "playtime.local_only": "Guardado solo en este PC. Nunca se sube."
 }

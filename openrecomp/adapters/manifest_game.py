@@ -182,6 +182,8 @@ class ManifestGame(Adapter):
                 raise RuntimeError("@not_ready")
             argv, cwd, env = self._command(extra_env)
             self.proc = self.popen(argv, cwd=cwd, env=env, shell=False)
+            proc = self.proc
+            self._track_playtime(lambda: proc.poll() is None, process=proc, extra_env=extra_env)
             return self.proc.pid
 
     def running(self):
@@ -312,7 +314,11 @@ class ManifestGame(Adapter):
 
     def run_online(self, item_id):
         if item_id == "own" and (self.m.get("online") or {}).get("mode") == "external":
-            self.start()
+            self._playtime_online_launch = True
+            try:
+                self.start()
+            finally:
+                self._playtime_online_launch = False
         return ""
 
     # ---------------------------------------------------------------- update check

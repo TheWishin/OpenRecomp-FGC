@@ -122,6 +122,9 @@ class SyntheticOnline(Lobby):
             options=[("auto", "@resolution.auto")] + [(str(n), str(n)) for n in range(5)],
             value=self.values.get("input_delay", "auto"), hint="@input_delay.hint", lead="@input_delay.lead")]
 
+    def playtime(self):
+        return dict(getattr(self, "playtime_stats", {}))
+
     def controls_supported(self):
         return True
 

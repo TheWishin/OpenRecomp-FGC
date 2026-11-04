@@ -40,6 +40,14 @@ are included; native-speaker and controller layout review remain release checks.
 For the gradual move from 1.1.9, see [Keep both T5DR launchers](docs/T5DR_COEXISTENCE.md):
 existing-install use, separate preferences, the private settings-copy drill and rollback.
 
+Play time is kept per game on this PC in `OPENRECOMP_HOME/playtime.json` (the launcher's
+local data folder by default), with separate offline and online totals, last played date
+and session count. Only games started through this launcher, including through a native
+launcher it opened, count. Totals are saved atomically every 60 seconds while playing and
+when the game exits; a launcher crash retains the last checkpoint. These records are never
+uploaded or added to public profiles. The shelf, game pages and your own profile show the
+local totals in your selected language.
+
 Automated tests exercise launcher logic with fakes and inert temporary files.
 They do not prove real two-PC synchronization, physical pad operation, visual
 readability, the compiled starter or a packaged update. See the acceptance checks

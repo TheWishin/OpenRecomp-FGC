@@ -1599,5 +1599,22 @@
  "feedback.no_deadline": "Aucune échéance indiquée",
  "feedback.vs": "VS",
  "feedback.mode": "Mode",
- "feedback.rounds": "Manches"
+ "feedback.rounds": "Manches",
+ "playtime.minutes": "{minutes} min",
+ "playtime.hours": "{hours} h",
+ "playtime.hours_minutes": "{hours} h {minutes} min",
+ "playtime.summary": "{duration} de jeu · {last}",
+ "playtime.last_today": "dernière partie aujourd’hui",
+ "playtime.last_yesterday": "dernière partie hier",
+ "playtime.last_date": "dernière partie le {date}",
+ "playtime.last_never": "jamais joué",
+ "playtime.date": "{day}/{month}/{year}",
+ "playtime.profile": "Temps de jeu : {games}",
+ "playtime.entry": "{game} {duration}",
+ "playtime.separator": ", ",
+ "playtime.label": "Temps de jeu",
+ "playtime.offline": "Hors ligne",
+ "playtime.online": "En ligne",
+ "playtime.sessions": "Sessions",
+ "playtime.local_only": "Enregistré uniquement sur ce PC. Jamais envoyé."
 }

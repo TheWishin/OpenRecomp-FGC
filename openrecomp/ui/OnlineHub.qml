@@ -11,7 +11,7 @@ Item {
     readonly property bool arcadeFloor: o.chapter === "lobby" && !!o.arcade
     readonly property bool showCards: arcadeFloor
     readonly property bool wideProfileMeta: Theme.viewportScale < .85 && Theme.textScale > 1.1
-    readonly property real topH: Math.max(226, findOptions.y + findOptions.height + 12,
+    readonly property real topH: Math.max(226, findOptions.y + findOptions.height + 12, profileIdentity.y + profileIdentity.height + profileActions.height + 20,
                                          wideProfileMeta ? profileMeta.y + profileMeta.height + profileActions.height + 20 : 0)
     function click(b) { if (b && b.index >= 0 && !b.disabled) root.backend.clickRow(b.index) }
     component Caption: Text {
@@ -42,6 +42,7 @@ Item {
             Interaction { handler: profileTap; selected: !!page.prof.focused; name: [page.prof.name || "", page.prof.main || ""].filter(s => s).join(". "); onActivated: page.click(face.b) }
         }
         Column {
+            id: profileIdentity
             x: 96; y: 10; width: parent.width - 108; spacing: 4
             Caption { objectName: "profileName"; width: parent.width; text: page.prof.name || ""; font.family: page.root.display; font.weight: Font.Black; font.pixelSize: Theme.onlinePx(28) }
             Row {
@@ -52,12 +53,14 @@ Item {
             Caption { visible: !page.wideProfileMeta; width: parent.width; text: (page.prof.rows || []).join("  \u00b7  "); font.family: page.root.mono }
             Caption { visible: !page.wideProfileMeta; width: parent.width; text: (page.prof.conn || []).join("  \u00b7  "); color: Theme.muted }
             Caption { objectName: "profileBuild"; width: parent.width; text: (page.prof.build || []).join("  \u00b7  "); color: Theme.muted; visible: !!text }
+            Caption { objectName: "profilePlaytime"; width: parent.width; text: page.prof.playtime || ""; visible: !page.wideProfileMeta && !!text; wrapMode: Text.Wrap; elide: Text.ElideNone }
         }
         Column {
             id: profileMeta; visible: page.wideProfileMeta
             x: 12; y: 92; width: parent.width - 24; spacing: 4
             Caption { width: parent.width; text: (page.prof.rows || []).join("  \u00b7  "); font.family: page.root.mono; wrapMode: Text.Wrap; elide: Text.ElideNone }
             Caption { width: parent.width; text: (page.prof.conn || []).join("  \u00b7  "); color: Theme.muted; wrapMode: Text.Wrap; elide: Text.ElideNone }
+            Caption { objectName: "profilePlaytimeWide"; width: parent.width; text: page.prof.playtime || ""; visible: !!text; wrapMode: Text.Wrap; elide: Text.ElideNone }
         }
         Row {
             id: profileActions

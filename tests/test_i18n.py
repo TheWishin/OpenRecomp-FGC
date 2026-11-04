@@ -303,7 +303,7 @@ def untranslated_literals(source):
         "private_rooms_ok", "profile", "profile_", "profile_board:", "profile_char:", "profile_history:",
         "profile_history_next", "profile_history_offset", "profile_history_previous",
         "profile_history_replay:", "profile_load", "profile_player:", "profile_ranked_char:", "profile_self",
-        "profile_stats:", "profile_stats:all", "profile_summary", "profiles", "prompts", "provisional",
+        "profile_stats:", "profile_stats:all", "profile_summary", "profile_playtime", "profiles", "prompts", "provisional",
         "queue", "quit", "qwertyuiop", "rank", "ranked_chars", "ranked_games", "ranked_losses", "ranked_wins",
         "rap", "rated", "rating", "rd", "ready_check", "ready_timeout", "reason", "rebuild", "reconnecting",
         "record", "recover_account", "recovery_codes_left", "refresh", "relay", "relay_full", "rematch_offer",

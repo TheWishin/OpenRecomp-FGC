@@ -19,6 +19,7 @@ Item {
         x: parent.width * 0.53 + 24; y: 64; width: parent.width - x - 32; spacing: 16
         OnlineStyle.HelpText { objectName: "mainMenuStatus"; width: parent.width; text: menu.m.status || ""; color: Theme.value; font.weight: Font.Bold }
         Text { width: parent.width; text: menu.m.title || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: Theme.text; font.family: menu.root.display; font.weight: Font.Black; font.pixelSize: Theme.px(48); lineHeight: 0.95 }
+        OnlineStyle.HelpText { objectName: "mainMenuPlaytime"; width: parent.width; text: menu.m.playtime || ""; visible: !!text }
         OnlineStyle.SectionHeader { width: parent.width; text: menu.m.player || "" }
         OnlineStyle.HelpText { width: parent.width; text: menu.m.activity || "" }
         Repeater {

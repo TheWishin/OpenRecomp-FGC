@@ -22,9 +22,11 @@ Item {
         color: page.card; border.width: 1; border.color: page.root.line
         Rectangle { width: 5; height: 92; color: Theme.readableAccent(page.root.v.accent) }
         Column {
+            id: sessionHeader
             x: 28; y: 24; width: page.listWidth - 56; spacing: 6
             Text { objectName: "sessionTitle"; width: parent.width; height: 48; textFormat: Text.PlainText; text: page.p.title || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(40); fontSizeMode: Text.Fit; minimumPixelSize: Theme.px(26); elide: Text.ElideRight }
             Text { width: parent.width; height: 50; textFormat: Text.PlainText; text: page.p.lead || ""; color: page.root.muted; font.family: page.root.sans; font.pixelSize: Theme.px(21); wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
+            Text { objectName: "sessionPlaytime"; visible: !!text; width: parent.width; textFormat: Text.PlainText; text: page.p.playtime || ""; color: page.root.textC; font.family: page.root.sans; font.pixelSize: Theme.px(21); wrapMode: Text.Wrap }
         }
         Flow {
             id: replayControls
@@ -57,7 +59,7 @@ Item {
         Flickable {
             id: rowViewport
             objectName: "sessionViewport"
-            x: 28; y: page.replays && !page.p.empty ? replayHeader.y + replayHeader.height + 12 : 140
+            x: 28; y: page.replays && !page.p.empty ? replayHeader.y + replayHeader.height + 12 : Math.max(140, sessionHeader.y + sessionHeader.height + 16)
             width: page.listWidth - 56; height: parent.height - y - 24
             contentHeight: rows.height; clip: true; boundsBehavior: Flickable.StopAtBounds
             function reveal() {

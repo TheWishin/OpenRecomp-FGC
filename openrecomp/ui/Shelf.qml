@@ -62,7 +62,7 @@ Item {
                     height: Math.min(shelfDescription.implicitHeight, tile.t.focused ? tileAction.y - y - 16 : tile.height - y - 24)
                     contentWidth: width; contentHeight: shelfDescription.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
                     contentY: Math.min(Math.max(0, contentHeight - height), (tile.t.scrollStep || 0) * 96)
-                    Accessible.name: [tile.t.name || "", tile.t.subtitle || ""].join(". ")
+                    Accessible.name: [tile.t.name || "", tile.t.subtitle || "", tile.t.playtime || ""].join(". ")
                 Column {
                     id: shelfDescription; width: parent.width
                     spacing: 0
@@ -87,6 +87,12 @@ Item {
                         textFormat: Text.PlainText; width: parent.width; topPadding: 8; text: tile.t.subtitle || ""
                         wrapMode: Text.Wrap
                         color: shelf.root.muted; font.family: shelf.root.sans; font.pixelSize: Theme.px(tile.t.focused ? 23 : 19)
+                    }
+                    Text {
+                        objectName: "shelfPlaytime"
+                        visible: !!text; width: parent.width; topPadding: 12
+                        textFormat: Text.PlainText; text: tile.t.playtime || ""; wrapMode: Text.Wrap
+                        color: shelf.root.textC; font.family: shelf.root.sans; font.pixelSize: Theme.px(tile.t.focused ? 21 : 18)
                     }
                     Item { width: 1; height: tile.t.focused ? 18 : 12 }
                     Rectangle {

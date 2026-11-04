@@ -312,6 +312,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             game = self.core.GameRun(self.s.out_dir, self.s)
             self.game = game
             result = game.start(extra_env=extra_env)
+            self._track_playtime(game.running, process=getattr(game, "proc", None), extra_env=extra_env)
             self._game_guard = guard
             guard.watch(game.running)
         except Exception:
@@ -350,7 +351,8 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         return subprocess.Popen(cmd + list(args), cwd=self.root, creationflags=NO_WINDOW)
 
     def open_native(self):
-        self._exe_launcher()
+        process = self._exe_launcher()
+        self._track_native_playtime(process, ("t5dr.exe",))
 
     # ---------------------------------------------------------------- settings
     def _input_delay_options(self):
