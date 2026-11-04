@@ -109,6 +109,21 @@ a game install; an installed T5DR Online can also supply its HID reader. Real US
 Normal launcher navigation pauses while a game runs. During T4, hold View + Menu (Share + Options) on one controller
 for two seconds to stop the game and return to the launcher.
 
+**Pad bindings** (T5DR Online, when its installed launcher has the controls editor). One tab per connected controller
+and the keyboard (player shown, type detected: Xbox, PlayStation, other, keyboard); LT/RT (L2/R2, PgUp/PgDn) or the
+tabs switch. The game's actions are listed in Tekken notation -- 1 2 3 4, the combos (1+2, 3+4, 1+3, 2+4, 1+2+3+4
+and the others), Start, Select, the PS3 shoulder buttons, the four directions -- each with the controller's own
+button drawn next to it (`openrecomp/pad_glyphs.py`, `ui/PadGlyph.qml`: our own shapes). Confirm an action, then
+press a button within 5 seconds; a short tap on Back binds Back, holding it for a second cancels (Esc on the
+keyboard). A button another action already uses is named and swapped on Yes (that action gets this one's old
+button); X clears an action. Presets (`openrecomp/pad_presets.py`): Default (the game's own), Tekken Classic,
+Arcade stick, Hitbox / Leverless (stick as d-pad, SOCD neutral), Left-handed, and for the keyboard Number pad;
+Reset to default, Plays as (player pin), Left + right at once (SOCD) and Left stick (analog / d-pad). Input test:
+the actions light up and the bottom strip shows held bindings in Tekken notation (d/f+1+2), before the game's
+SOCD filtering; opposite directions stay visible (b+f or u+d). Hold Back for a second to finish.
+Every change is the installed T5DR editor's own edit of `controls.ini`, so the file
+stays in the format the game reads. T4 reads a fixed layout (the game has no bindings file yet), so it has no Pad bindings page.
+
 **Menu sounds.** Moving, confirming, going back, switching sections, toggling a setting, opening and closing a panel,
 a refused press and a found match each have a short sound (40-150 ms); the pad, the keyboard and the mouse make the
 same one. They play only while the launcher's window is in front and no game runs, follow Windows' default output
@@ -152,6 +167,7 @@ Tournament 2 has a placeholder in the small known-games catalog until its reposi
 | `openrecomp/file_dialog.py` | The Windows Explorer open dialog (ctypes, no Qt Widgets) for mouse and keyboard |
 | `openrecomp/pad.py` | Controllers to actions |
 | `openrecomp/ui_sound.py`, `openrecomp/nav_sound.py` | Menu sounds: which press makes which sound, the player |
+| `openrecomp/nav_controls_page.py`, `openrecomp/pad_glyphs.py`, `openrecomp/pad_presets.py` | Pad bindings page: rows, button glyphs, Tekken notation, presets |
 | `openrecomp/app.py` | Window, QML scene, timers |
 | `openrecomp/adapters/` | One per kind of game |
 | `openrecomp/ui/` | The QML screens, the bundled fonts and the menu sounds (`ui/sounds`) |

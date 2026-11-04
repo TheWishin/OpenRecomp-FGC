@@ -39,6 +39,8 @@ class Dialog:
             elif yes and self.confirm_kind == "rebuild" and not self._dry("@dry_rebuild"):
                 if self._offline_action(self.game.a.build_start, force=True):
                     self.say("@rebuild_starting")
+            elif yes and self.confirm_kind == "controls_reset":
+                self._reset_controls()
             elif yes and self.confirm_kind == "support_report":
                 self._start_support(self.game, "report")
             elif yes and self.confirm_kind == "update":
@@ -64,6 +66,8 @@ class Dialog:
             title, text = "@dialog.stop.title", "@dialog.stop.text"
         elif self.confirm_kind == "rebuild":
             title, text = "@dialog.rebuild.title", "@dialog.rebuild.text"
+        elif self.confirm_kind == "controls_reset":
+            title, text = "@controls.reset", "@controls.reset_confirm"
         elif self.confirm_kind == "support_report":
             title, text = "@support.report.confirm.title", "@support.report.confirm.text"
             text = self.game.a.support_state().get("confirm_text", text)

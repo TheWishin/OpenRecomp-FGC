@@ -121,7 +121,7 @@ class ToolScenes(unittest.TestCase):
                 self.assertEqual(len(backend._v["tabs"]), 7)
                 nav.act("confirm", device="xbox")
                 publish()
-                self.assertEqual(backend._v["overlay"], "dialog")
+                self.assertEqual(backend._v["overlay"], "bindcapture")
                 adapter.result = dict(state="conflict", source="B", conflicts=["@controls.slot.SELECT"])
                 nav.poll_tools()
                 publish()

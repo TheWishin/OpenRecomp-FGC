@@ -1,4 +1,5 @@
 import json
+import re
 import string
 import unittest
 from pathlib import Path
@@ -11,6 +12,14 @@ CATALOGS = Path(__file__).parents[1] / "openrecomp" / "i18n"
 
 
 class CatalogAudit(unittest.TestCase):
+    def test_pad_bindings_have_no_encoding_replacement_characters(self):
+        for code in i18n.LANGUAGES:
+            for key, value in i18n.catalog(code).items():
+                if key.startswith("controls."):
+                    with self.subTest(code=code, key=key):
+                        self.assertNotIn("\ufffd", value)
+                        self.assertIsNone(re.search(r"\?{2,}|(?<=\w)\?(?=\w)", value))
+
     def test_generic_actions_are_translated_in_every_language(self):
         english = i18n.catalog("en")
         for code in i18n.LANGUAGES:

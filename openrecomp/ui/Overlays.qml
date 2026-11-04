@@ -229,4 +229,88 @@ Item {
         Text { textFormat: Text.PlainText; visible: ov.v.picker.up; x: 1360; y: 130; text: "▲"; color: ov.root.muted; font.pixelSize: 18 }
         Text { textFormat: Text.PlainText; visible: ov.v.picker.down; x: 1360; y: 890; text: "▼"; color: ov.root.muted; font.pixelSize: 18 }
     }
+
+    // ---------------------------------------------------------------- Pad bindings: "Press a button" and a conflict
+    Rectangle {
+        objectName: "bindCapture"
+        readonly property var c: ov.v.bindCapture || ({})
+        visible: ov.v.overlay === "bindcapture"
+        width: 980; height: captureColumn.implicitHeight + 96
+        x: (1920 - width) / 2; y: (972 - height) / 2
+        color: ov.root.panel
+        Rectangle { width: parent.width; height: 6; color: ov.v.accent }
+        Column {
+            id: captureColumn
+            x: 56; y: 48; width: 868; spacing: 18
+            Text { textFormat: Text.PlainText; width: parent.width; text: parent.parent.c.title || ""; wrapMode: Text.Wrap; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 72; lineHeight: 0.95 }
+            Row {
+                spacing: 18
+                Rectangle {
+                    width: Math.max(72, captureNotation.implicitWidth + 24); height: 56; radius: 6; color: ov.v.accent
+                    Text { id: captureNotation; anchors.centerIn: parent; textFormat: Text.PlainText; text: ({ UP: "↑", DOWN: "↓", LEFT: "←", RIGHT: "→" })[captureColumn.parent.c.notation || ""] || captureColumn.parent.c.notation || ""; color: "#0E0F11"; font.family: ov.root.mono; font.weight: Font.Black; font.pixelSize: 30 }
+                }
+                Text { anchors.verticalCenter: parent.verticalCenter; width: 700; elide: Text.ElideRight; textFormat: Text.PlainText; text: captureColumn.parent.c.action || ""; color: ov.root.textC; font.family: ov.root.sans; font.weight: Font.DemiBold; font.pixelSize: 34 }
+            }
+            Text { width: parent.width; textFormat: Text.PlainText; text: captureColumn.parent.c.text || ""; wrapMode: Text.Wrap; color: ov.root.textC; font.family: ov.root.sans; font.pixelSize: 28 }
+            // the countdown: seconds left and a bar running out
+            Item {
+                visible: !!captureColumn.parent.c.waiting
+                width: parent.width; height: 120
+                Text { objectName: "captureCountdown"; textFormat: Text.PlainText; text: captureColumn.parent.c.holding ? "…" : String(captureColumn.parent.c.left || 0); color: ov.v.accent; font.family: ov.root.display; font.weight: Font.Black; font.pixelSize: 110; anchors.verticalCenter: parent.verticalCenter }
+                Rectangle {
+                    x: 140; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 140; height: 14; color: "#24272C"
+                    Rectangle { height: parent.height; width: parent.width * (captureColumn.parent.c.progress || 0); color: ov.v.accent }
+                }
+            }
+            Text { visible: !!captureColumn.parent.c.waiting; width: parent.width; textFormat: Text.PlainText; text: captureColumn.parent.c.cancel || ""; wrapMode: Text.Wrap; color: captureColumn.parent.c.holding ? ov.v.accent : ov.root.muted; font.family: ov.root.sans; font.pixelSize: 24 }
+            Row {
+                visible: (captureColumn.parent.c.options || []).length > 0
+                spacing: 12
+                Repeater {
+                    model: (captureColumn.parent.c.options || []).length
+                    Rectangle {
+                        required property int index
+                        readonly property var o: ov.root.ok(captureColumn.parent.c.options, index)
+                        width: (868 - 12) / 2; height: 96
+                        color: o.focused ? ov.root.bone : "#24272C"
+                        Text { textFormat: Text.PlainText; anchors.centerIn: parent; width: parent.width - 24; horizontalAlignment: Text.AlignHCenter; text: parent.o.label || ""; elide: Text.ElideRight; fontSizeMode: Text.Fit; minimumPixelSize: 24; color: parent.o.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 52 }
+                        TapHandler { onTapped: ov.root.backend.clickEntry(parent.index) }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- Pad bindings: choose a preset
+    Rectangle {
+        objectName: "ctlPreset"
+        readonly property var p: ov.v.ctlPreset || ({})
+        visible: ov.v.overlay === "ctlpreset"
+        width: 1100; height: presetColumn.implicitHeight + 96
+        x: (1920 - width) / 2; y: (972 - height) / 2
+        color: ov.root.panel
+        Rectangle { width: parent.width; height: 6; color: ov.v.accent }
+        Column {
+            id: presetColumn
+            x: 48; y: 44; width: 1004; spacing: 8
+            Text { textFormat: Text.PlainText; width: parent.width; bottomPadding: 10; text: presetColumn.parent.p.title || ""; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 64 }
+            Repeater {
+                model: (presetColumn.parent.p.rows || []).length
+                Rectangle {
+                    required property int index
+                    readonly property var r: ov.root.ok(presetColumn.parent.p.rows, index)
+                    width: presetColumn.width; height: presetText.implicitHeight + 28
+                    color: r.focused ? ov.root.bone : "#1C1E23"
+                    Rectangle { visible: !!parent.r.focused; width: 6; height: parent.height; color: ov.v.accent }
+                    Column {
+                        id: presetText
+                        x: 24; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 48; spacing: 2
+                        Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: parent.parent.r.label || ""; color: parent.parent.r.focused ? "#0E0F11" : ov.root.textC; font.family: ov.root.sans; font.weight: Font.DemiBold; font.pixelSize: 28 }
+                        Text { width: parent.width; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; textFormat: Text.PlainText; text: parent.parent.r.hint || ""; color: parent.parent.r.focused ? "#3A3D44" : ov.root.muted; font.family: ov.root.sans; font.pixelSize: 20 }
+                    }
+                    TapHandler { onTapped: ov.root.backend.clickEntry(parent.index) }
+                }
+            }
+        }
+    }
 }

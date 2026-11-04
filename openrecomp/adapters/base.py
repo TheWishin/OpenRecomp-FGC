@@ -90,8 +90,35 @@ class Adapter:
         return False
 
     def controls(self):
-        """[dict(id, label, port, slots=[dict(id, label, value)])]."""
+        """[dict(id, label, port, slots=[dict(id, label, value)])].
+
+        Optional, for the Pad bindings page: name, type (xbox / ps / generic / keyboard), features (clear, reset,
+        presets, options, player), presets [(id, label)], preset (an id or "custom"), player (pinned port or None),
+        options dict(socd, stick); slots add group (attack / macro / menu / dir), sources and glyphs
+        (pad_glyphs.glyph dicts)."""
         return []
+
+    def controls_input(self, pad_id):
+        """dict(lit=[slot ids pressed now], notation=Tekken notation) for the input test."""
+        return dict(lit=[], notation="")
+
+    def begin_input_test(self, pad_id):
+        raise RuntimeError("@controls.unsupported")
+
+    def apply_preset(self, pad_id, preset_id):
+        raise RuntimeError("@controls.unsupported")
+
+    def reset_controls(self, pad_id):
+        raise RuntimeError("@controls.unsupported")
+
+    def clear_binding(self, pad_id, slot_id):
+        raise RuntimeError("@controls.unsupported")
+
+    def set_control_option(self, pad_id, key, value):
+        raise RuntimeError("@controls.unsupported")
+
+    def set_control_player(self, pad_id, port):
+        raise RuntimeError("@controls.unsupported")
 
     def begin_binding(self, pad_id, slot_id):
         raise RuntimeError("@controls.unsupported")
@@ -100,7 +127,8 @@ class Adapter:
         """dict(state, source, conflicts): capture progress without blocking."""
         return dict(state="")
 
-    def accept_binding(self):
+    def accept_binding(self, swap=True):
+        """Save the captured button; with swap the action that had it gets this action's old button."""
         pass
 
     def cancel_binding(self):

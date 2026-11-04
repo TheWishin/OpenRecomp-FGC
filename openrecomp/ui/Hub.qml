@@ -90,6 +90,13 @@ Column {
     }
 
     PageLoader {
+        page: "BindingsPage.qml"; pageName: "bindingsPage"
+        active: hub.v.bindingsPage.layout === "bindings"
+        width: 1920; height: parent.height - 64
+        root: hub.root
+    }
+
+    PageLoader {
         page: "BuildPage.qml"; pageName: "buildPage"
         active: !!(hub.v.build && hub.v.build.show)
         width: 1920; height: parent.height - 64
@@ -97,7 +104,7 @@ Column {
     }
 
     Row {
-        visible: !(hub.v.build && hub.v.build.show) && ["lobby", "card", "login"].indexOf(hub.v.online.layout) < 0 && hub.v.settingsPage.layout !== "groups"
+        visible: !(hub.v.build && hub.v.build.show) && ["lobby", "card", "login"].indexOf(hub.v.online.layout) < 0 && hub.v.settingsPage.layout !== "groups" && hub.v.bindingsPage.layout !== "bindings"
         width: 1920; height: parent.height - 64
         // ---------------------------------------------------------------- the list
         Item {

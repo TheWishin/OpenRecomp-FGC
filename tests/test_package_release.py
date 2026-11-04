@@ -188,6 +188,20 @@ class PackageTests(unittest.TestCase):
             with self.assertRaises(package.PackageError):
                 package.release_trust("other-project")
 
+    def test_source_payload_includes_release_features_and_pad_bindings(self):
+        required = {
+            "openrecomp/t4_report.py", "openrecomp/ui_sound.py", "openrecomp/nav_sound.py",
+            "openrecomp/adapters/t4_support.py", "openrecomp/adapters/t5_netext.py",
+            "openrecomp/ui/PageLoader.qml", "openrecomp/ui/PeerPing.qml",
+            "openrecomp/nav_controls_page.py", "openrecomp/pad_glyphs.py", "openrecomp/pad_presets.py",
+            "openrecomp/ui/BindingsPage.qml", "openrecomp/ui/PadGlyph.qml",
+        }
+        self.assertFalse(required - package.SOURCE_FILES)
+        root = Path(__file__).parents[1]
+        for name in required:
+            with self.subTest(name=name):
+                self.assertTrue((root / name).is_file())
+
     def test_source_payload_is_exact_and_ships_player_update_guides(self):
         for name in package.SOURCE_FILES:
             data = b"{}" if name.endswith(".json") else b"fake launcher source"

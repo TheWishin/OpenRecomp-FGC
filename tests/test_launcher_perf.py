@@ -14,6 +14,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 from openrecomp import app
 from openrecomp.nav import Game, Nav
 from openrecomp.pad import Pads
+from pad_fakes import PadsFake
 from test_nav import Fake, manifest
 from test_online_nav import Lobby
 from test_online_page import lobby_snapshot
@@ -156,6 +157,7 @@ class LauncherPerf(unittest.TestCase):
         lobby = Lobby()
         lobby.snapshot.update(lobby_snapshot())
         lobby.controls_supported = lambda: True
+        lobby.controls = PadsFake().controls
         lobby.support_available = lambda: True
         nav = Nav([Game(lobby.m, lobby)], language="en")
         backend = FakeBackend(nav)
@@ -195,6 +197,10 @@ class LauncherPerf(unittest.TestCase):
         visited = set()
         for _ in nav.sections():
             visited.add(nav.section())
+            if nav.section() == "controls":
+                self.assertIsNotNone(window.findChild(QObject, "bindingsPage"))
+            else:
+                self.assertIsNone(window.findChild(QObject, "bindingsPage"))
             if nav.section() == "online":
                 self.assertIsNotNone(window.findChild(QObject, "onlineHub"))
                 for phase, name in (("offline", "onlineLoginPage"), ("connecting", "onlineCardPage"),
