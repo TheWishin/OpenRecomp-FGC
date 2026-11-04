@@ -465,7 +465,7 @@ class T4(T4Support, T4Online, Adapter):
         return dict(self._tool_install)
 
     def install_prerequisites(self, run=None):
-        """Install the missing tools with winget, one after the other on a worker, then check them all again.
+        """Install missing tools on a worker, falling back to verified vendor downloads, then recheck.
 
         Only what the launcher's dialog listed (the missing rows' COMMANDS) is run; the player confirmed it there."""
         from . import t4_prerequisites as tools
@@ -476,24 +476,20 @@ class T4(T4Support, T4Online, Adapter):
         self._tool_install = dict(running=True, done=0, total=len(plan), current=plan[0][0], result="")
 
         def work():
-            failed = False
-            for index, (label, command) in enumerate(plan):
+            def progress(index, total, label):
                 self._tool_install.update(done=index, current=label)
-                try:
-                    ok = tools.run_install(command, **({"run": run} if run else {}))
-                except FileNotFoundError:
-                    self._tool_install = dict(running=False, done=index, total=len(plan), current="",
-                                              result="@t4.tools.no_winget")
-                    return
-                except Exception:  # noqa: BLE001 -- one failed installer must not strand the row in Installing
-                    ok = False
-                failed = failed or not ok
+            try:
+                statuses = tools.install_tools(plan, progress=progress, run=run)
+                result = ("@t4.tools.reboot" if "reboot" in statuses else
+                          "@t4.tools.install_done" if all(s == "ok" for s in statuses) else "@t4.tools.install_failed")
+            except Exception as error:  # noqa: BLE001 -- always leave a retry path
+                result = str(error) if str(error).startswith("@t4.tools.") else "@t4.tools.install_failed"
             try:
                 tools.refresh_path()
             except Exception:  # noqa: BLE001 -- the re-check still runs with the old PATH
                 pass
             self._tool_install = dict(running=False, done=len(plan), total=len(plan), current="",
-                                      result="@t4.tools.install_failed" if failed else "@t4.tools.install_done")
+                                      result=result)
             self.refresh_prerequisites()
         try:
             threading.Thread(target=work, daemon=True).start()
@@ -537,7 +533,7 @@ class T4(T4Support, T4Online, Adapter):
         return bool(self._prerequisite_rows) and all(row.get("ok") is True for row in self._prerequisite_rows)
 
     def build_prepares(self):
-        """Problems build_start solves by itself: missing build tools are installed first (winget), then it builds."""
+        """Problems build_start solves by itself: missing build tools are installed first, then it builds."""
         return ("@t4.tools.required",) if getattr(self.core, "source_only", False) else ()
 
     def _tools_then_build(self, force, run=None, check=None, wait=0.2):
@@ -555,24 +551,19 @@ class T4(T4Support, T4Online, Adapter):
             if not all(row.get("ok") is True for row in rows) and not tools.install_plan(rows):
                 rows = check()                       # an earlier check failed: ask again before installing
             plan = tools.install_plan(rows) if not all(row.get("ok") is True for row in rows) else []
-            reboot = False
-            failed = []
-            for index, (label, command) in enumerate(plan):
-                if self._pipeline["cancel"]:
-                    break
-                state.update(running=True, done=index, total=len(plan), current=label, result="")
-                try:
-                    status = tools.install_status(command, **({"run": run} if run else {}))
-                except FileNotFoundError:
-                    self._tool_install = dict(running=False, done=index, total=len(plan), current="",
-                                              result="@t4.tools.no_winget")
-                    self._build_stopped("tools", "@t4.tools.no_winget")
-                    return
-                except Exception:  # noqa: BLE001 -- one failed installer must not strand Build in Installing
-                    status = "failed"
-                reboot = reboot or status == "reboot"
-                if status == "failed":
-                    failed.append(label)
+
+            def progress(index, total, label):
+                state.update(running=True, done=index, total=total, current=label, result="")
+
+            statuses = tools.install_tools(plan, progress=progress, cancelled=lambda: self._pipeline["cancel"], run=run)
+            reboot = "reboot" in statuses
+            failed = [label for (label, _command), status in zip(plan, statuses) if status == "failed"]
+            if reboot and not self._pipeline["cancel"]:
+                self._remember_resume()
+                self._tool_install = dict(running=False, done=statuses.index("reboot") + 1,
+                                          total=len(plan), current="", result="@t4.tools.reboot")
+                self._build_stopped("tools", "@t4.tools.reboot")
+                return
             if plan:
                 try:
                     tools.refresh_path()
@@ -587,10 +578,7 @@ class T4(T4Support, T4Online, Adapter):
                 return
             missing = [row for row in rows if row.get("ok") is not True]
             if missing:
-                if reboot:
-                    self._remember_resume()
-                    self._build_stopped("tools", "@t4.tools.reboot")
-                elif not plan:
+                if not plan:
                     self._build_stopped("tools", "@t4.tools.check_failed")
                 else:
                     name = (failed or [missing[0]["label"]])[0]
@@ -601,8 +589,10 @@ class T4(T4Support, T4Online, Adapter):
             self._start_process(force)
         except Exception as error:  # noqa: BLE001 -- Build must end with a message, never stay "running"
             self._tool_install = dict(self._tool_install, running=False)
-            self._build_stopped("build" if self.build else "tools",
-                                self.message("t4.build_start_failed", error=str(error) or error.__class__.__name__))
+            result = (str(error) if str(error).startswith("@t4.tools.") else
+                      self.message("t4.build_start_failed", error=str(error) or error.__class__.__name__))
+            self._tool_install["result"] = result
+            self._build_stopped("build" if self.build else "tools", result)
         finally:
             self._pipeline["running"] = False
 
@@ -857,7 +847,8 @@ class T4(T4Support, T4Online, Adapter):
                      title="" if tools_phase else self.build_step,
                      steps=steps, result=self.last_result, line=self.build_lines[-1] if self.build_lines else "",
                      lines=list(self.build_lines[-14:]), phase="tools" if tools_phase else ("build" if running else ""),
-                     tools=dict(done=install.get("done", 0), total=install.get("total", 0)),
+                     tools=dict(done=install.get("done", 0), total=install.get("total", 0),
+                                current=install.get("current", "")),
                      failed=self.build_failed if not running else "")
         if total and not tools_phase:
             state["step_no"] = [n, total]

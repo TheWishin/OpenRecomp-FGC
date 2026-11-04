@@ -69,8 +69,10 @@ def untranslated_literals(source):
         elif isinstance(node, ast.Assign):
             if any(isinstance(t, ast.Name) and t.id in ("GLYPHS", "TRAIL", "OSK", "ONLINE_KEYS", "BACK_SOURCE", "__all__") for t in node.targets):
                 ignore(node.value)  # physical button names, keyboard keys, exports
-            if any(isinstance(t, ast.Name) and t.id == "PREFLIGHT_SCRIPT" for t in node.targets):
-                ignore(node.value)  # internal PowerShell wrapper, never screen copy
+            if any(isinstance(t, ast.Name) and t.id in ("PREFLIGHT_SCRIPT", "WORKER", "AUTHENTICODE_SCRIPT") for t in node.targets):
+                ignore(node.value)  # internal PowerShell wrappers, never screen copy
+            if any(isinstance(t, ast.Name) and t.id in ("VS_URL", "SPECS", "HOSTS", "_fields_") for t in node.targets):
+                ignore(node.value)  # fixed vendor download manifest and ctypes structure layouts
             if any(isinstance(t, ast.Name) and t.id in ("SECTION_TITLES", "DEVICE_LABEL", "OSK_ACTIONS") for t in node.targets):
                 for child in ast.walk(node.value):
                     if isinstance(child, ast.Constant) and child.value in english:
@@ -398,6 +400,16 @@ def untranslated_literals(source):
         "CMake/bin", "Microsoft/WinGet/Links", "Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin",
         "Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja", "VC/Auxiliary/Build/vcvars64.bat",
     })
+    technical.update({
+        # Verified build-tool downloads: API paths, Windows security APIs, and internal failure codes.
+        "System32/WindowsPowerShell/v1.0/powershell.exe", "C:/Windows", "-NoLogo", "-EncodedCommand",
+        "WindowsPowerShell/v1.0/powershell.exe", "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+        "ascii", "utf-16-le", "runas", "wintrust", "shell32", "00aac56b-cd44-11d0-8cc2-00c04fc295ee",
+        "install-result.json", "__MANIFEST__", "__CANCEL__", "__RESULT__", "__(RESULT|CANCEL|MANIFEST)__", "-release.json",
+        "/releases/latest", "/releases/download/", "https://api.github.com/repos/", "https://github.com/",
+        "sha256:[0-9a-f]{64}", "OpenRecomp-build-tools", "application/vnd.github+json", "openrecomp-tools-",
+        "checksum", "trust", "publisher", "no checksum", "release URL", "worker failed", "download too large",
+    })
     formats = {
         'f"{platform} RECOMP"', 'f"slot{i}"', 'f"{self.game.id}:{self.section()}"', 'f"{letter}:\\\\"',
         'f"v{version}"', 'f"face_{gid:02d}.png"', 'f"hero_{gid:02d}.png"',
@@ -651,6 +663,18 @@ class Catalogs(unittest.TestCase):
             self.assertTrue(untranslated_literals(f'token = {prefix!r}'))
         self.assertTrue(untranslated_literals('label = "@t4.unreviewed." + key'))
         self.assertTrue(untranslated_literals('label = "@t4.tools.new_player_message"'))
+
+    def test_python_scan_accepts_installer_internals_but_checks_labels_and_errors(self):
+        source = ('WORKER = "$ErrorActionPreference=\\\'Stop\\\'"\n'
+                  'AUTHENTICODE_SCRIPT = "$s=Get-AuthenticodeSignature"\n'
+                  'SPECS = {"git": {"signer": ["Publisher name"]}}\n'
+                  'HOSTS = {"github.com"}\n'
+                  'VS_URL = "https://aka.ms/vs/17/release/vs_BuildTools.exe"\n'
+                  '_fields_ = [("mask", wintypes.ULONG)]\n')
+        self.assertEqual(untranslated_literals(source), [])
+        for code in ('SPECS = dict(label="Choose a tool")',
+                     'self.say("Install build tools")', 'raise RuntimeError("Could not download tools")'):
+            self.assertTrue(untranslated_literals(code), code)
 
     def test_python_scan_accepts_library_protocol_but_checks_visible_text(self):
         for value in (".exe", ".png", ".jpg", ".jpeg", ".webp", "preview", "library_repository", "library_source", "library_manage",

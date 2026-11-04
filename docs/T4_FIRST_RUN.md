@@ -37,7 +37,9 @@ ganze Zwei-PC-Ablauf mit beiden Spielen steht in [HAND_CHECK.md](HAND_CHECK.md).
    Python, Git, CMake, Ninja und VS 2022 Build Tools (MSVC) automatisch im
    Hintergrund; eine Liste wird nicht gezeigt, nur eine Zeile (**Bereit** oder
    **Automatisch**). Fehlt etwas, installiert **Bauen** es zuerst selbst mit
-   **winget** (eine Zeile **Installiere Build-Werkzeuge (x von y) ...**;
+   **winget** oder, wenn winget fehlt oder fehlschlaegt, ueber gepruefte HTTPS-Downloads
+   der offiziellen Anbieter (ohne Microsoft Store; eine Windows-Erlaubnis fuer den Download-Installationslauf;
+   eine Zeile **Installiere Build-Werkzeuge (x von y): Name ...**;
    Windows fragt eventuell nach Erlaubnis; VS 2022 mit C++-Buildwerkzeugen und
    Windows SDK dauert eine Weile), uebernimmt den neuen PATH ohne Neustart und baut
    danach weiter. Verlangt Windows einen Neustart, merkt sich der Launcher das und

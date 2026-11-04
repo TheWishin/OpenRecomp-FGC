@@ -1,4 +1,4 @@
-"""Checks for the source test bundle's build tools, and the winget installs the player confirms in the launcher."""
+"""Build-tool checks and installs: winget first, verified vendor downloads as a fallback."""
 import os
 from pathlib import Path
 import re
@@ -8,6 +8,7 @@ import subprocess
 import sys
 
 from .base import NO_WINDOW
+from . import build_tool_downloads as downloads
 
 
 VS_COMMAND = ('winget install --id Microsoft.VisualStudio.2022.BuildTools --exact '
@@ -150,7 +151,7 @@ def install_plan(rows):
 def winget_args(command):
     """A command of COMMANDS -> argv for subprocess (no shell); only winget installs are ever run."""
     args = shlex.split(command, posix=True)
-    if len(args) < 3 or args[:2] != ["winget", "install"]:
+    if command not in COMMANDS.values() or len(args) < 3 or args[:2] != ["winget", "install"]:
         raise ValueError("not a winget install")
     winget = shutil.which("winget")
     if not winget:
@@ -172,6 +173,49 @@ def install_status(command, run=subprocess.run):
 def run_install(command, run=subprocess.run):
     """-> True when installed or already there (a restart still pending counts as installed)."""
     return install_status(command, run) != "failed"
+
+
+def install_tools(plan, progress=lambda index, total, label: None, cancelled=lambda: False, run=None):
+    """Install a known plan; download only what winget could not install, with one elevation for that batch.
+
+    Results keep the plan's order. A reboot stops the batch: on next launch the ordinary checks create a fresh
+    plan containing only tools still missing. Cancellation never interrupts an installer that is already running.
+    """
+    ids = {command: sid for sid, command in COMMANDS.items() if sid != "msvc"}
+    for _label, command in plan:
+        if command not in ids:
+            raise ValueError("@t4.tools.install_unavailable")
+    statuses = ["pending"] * len(plan)
+    fallback = []
+    winget = shutil.which("winget")
+    for index, (label, command) in enumerate(plan):
+        if cancelled():
+            return statuses
+        progress(index, len(plan), label)
+        status = "failed"
+        if winget:
+            try:
+                status = install_status(command, **({"run": run} if run else {}))
+            except (OSError, subprocess.SubprocessError):
+                pass
+        if status == "failed":
+            fallback.append(index)
+        else:
+            statuses[index] = status
+        if status == "reboot":
+            return statuses
+    if fallback and not cancelled():
+        def downloaded_progress(index, total, label):
+            progress(fallback[index], len(plan), label)
+
+        results = downloads.install_batch([ids[plan[index][1]] for index in fallback],
+                                         progress=downloaded_progress, cancelled=cancelled,
+                                         **({"run": run} if run else {}))
+        if len(results) != len(fallback):
+            raise RuntimeError("@t4.tools.install_failed")
+        for index, status in zip(fallback, results):
+            statuses[index] = status
+    return statuses
 
 
 def refresh_path(environ=None, read=None):

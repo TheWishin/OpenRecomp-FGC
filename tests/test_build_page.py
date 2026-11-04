@@ -152,15 +152,21 @@ class Cards(unittest.TestCase):
         nav.act("confirm", device="xbox")
         self.assertEqual(adapter.calls, [("build", False)])
 
-    def test_installing_tools_is_one_line_x_of_y(self):
+    def test_installing_tools_names_the_current_tool_and_shows_progress(self):
         adapter = Page(checks=rows(("git", "vs2022", "msvc")), problem="@t4.tools.required",
-                       state=dict(running=True, phase="tools", tools=dict(done=1, total=2)))
+                       state=dict(running=True, phase="tools", tools=dict(done=1, total=2, current="@t4.tools.vs2022")))
         v = page(adapter).view()
-        line = i18n.text("en", "build.tools_installing", done=2, total=2)
+        line = i18n.text("en", "build.tools_installing", done=2, total=2, name=i18n.text("en", "t4.tools.vs2022"))
         self.assertEqual(cards(v)["tools"]["text"], line)
         self.assertEqual(v["build"]["main"]["stepLine"], line)
-        self.assertEqual(v["build"]["main"]["progress"], -1.0, "no fake percentage while winget runs")
+        self.assertEqual(v["build"]["main"]["progress"], 0.5)
         self.assertEqual(v["build"]["main"]["button"]["label"], i18n.text("en", "cancel"))
+
+    def test_tools_check_before_a_plan_has_indeterminate_progress(self):
+        adapter = Page(checks=rows(busy=True), state=dict(running=True, phase="tools", tools=dict(done=0, total=0)))
+        main = page(adapter).view()["build"]["main"]
+        self.assertEqual(main["stepLine"], i18n.text("en", "build.tools_checking"))
+        self.assertEqual(main["progress"], -1.0)
 
     def test_failed_install_is_a_clear_error_with_try_again_and_help(self):
         error = dict(_text="t4.tools.not_installed", _values=dict(name="@t4.tools.vs2022"))
@@ -457,7 +463,8 @@ class Pipeline(unittest.TestCase):
 
     def test_a_tool_that_will_not_install_stops_with_its_name(self):
         self.start_and_wait()
-        self.run_pipeline([0, 1], [dict(r, busy=False) for r in rows(("vs2022", "msvc"))])
+        with mock.patch.object(tools.downloads, "install_batch", return_value=["failed"]):
+            self.run_pipeline([0, 1], [dict(r, busy=False) for r in rows(("vs2022", "msvc"))])
         self.process.assert_not_called()
         state = self.adapter.build_state()
         self.assertFalse(state["running"])
@@ -487,12 +494,75 @@ class Pipeline(unittest.TestCase):
         old._prerequisite_rows = [dict(r, busy=False) for r in rows()]
         self.assertFalse(old.build_resume_pending())
 
-    def test_no_winget_is_said_and_nothing_runs(self):
+    def test_no_winget_downloads_missing_tools_then_builds(self):
         self.start_and_wait()
-        with mock.patch.object(tools.shutil, "which", return_value=None):
-            self.adapter._tools_then_build(False, run=mock.Mock(), check=lambda: rows(("git",)))
-        self.assertEqual(self.adapter.build_state()["result"], "@t4.tools.no_winget")
+        run = mock.Mock()
+        with mock.patch.object(tools.shutil, "which", return_value=None), \
+                mock.patch.object(tools.downloads, "install_batch", return_value=["ok", "ok"]) as fallback:
+            self.adapter._tools_then_build(False, run=run, check=lambda: rows())
+        self.assertEqual(fallback.call_args.args[0], ["git", "vs2022"])
+        self.process.assert_called_once()
+        run.assert_not_called()
+
+    def test_fallback_progress_reaches_build_state_with_the_tool_name(self):
+        self.start_and_wait()
+
+        def batch(names, progress, **kwargs):
+            progress(1, 2, "@t4.tools.vs2022")
+            state = self.adapter.build_state()
+            self.assertEqual(state["tools"]["current"], "@t4.tools.vs2022")
+            self.assertEqual((state["tools"]["done"], state["tools"]["total"]), (1, 2))
+            return ["ok", "ok"]
+
+        with mock.patch.object(tools.shutil, "which", return_value=None), \
+                mock.patch.object(tools.downloads, "install_batch", side_effect=batch):
+            self.adapter._tools_then_build(False, run=mock.Mock(), check=lambda: rows())
+        self.process.assert_called_once()
+
+    def test_fallback_error_stops_with_retry_help_and_clears_on_retry(self):
+        self.start_and_wait()
+        with mock.patch.object(tools.shutil, "which", return_value=None), \
+                mock.patch.object(tools.downloads, "install_batch",
+                                  side_effect=[RuntimeError("@t4.tools.verification_failed"), ["ok", "ok"]]):
+            self.adapter._tools_then_build(False, run=mock.Mock(), check=lambda: rows(("git", "vs2022", "msvc")))
+            self.assertEqual(self.adapter.build_state()["result"], "@t4.tools.verification_failed")
+            self.process.assert_not_called()
+            nav = page(Page(checks=self.adapter.prerequisites(), problem="@t4.tools.required",
+                            state=self.adapter.build_state()))
+            view = nav.view()
+            self.assertEqual(view["build"]["main"]["button"]["label"], "Try again")
+            self.assertEqual(cards(view)["tools"]["actions"][0]["label"], "Help")
+            self.start_and_wait()
+            self.adapter._tools_then_build(False, run=mock.Mock(), check=lambda: rows())
+        self.process.assert_called_once()
+        self.assertEqual(self.adapter.build_state()["failed"], "")
+
+    def test_reboot_result_pauses_even_when_the_tool_check_passes(self):
+        self.start_and_wait()
+        self.run_pipeline([3010], rows())
         self.process.assert_not_called()
+        state = self.adapter.build_state()
+        self.assertEqual(state["result"], "@t4.tools.reboot")
+        self.assertIn("t4", self.config["build_resume"])
+
+    def test_reboot_is_remembered_before_any_further_tool_probe(self):
+        self.start_and_wait()
+        check = mock.Mock(side_effect=OSError("inert postinstall probe failure"))
+        self.adapter._tools_then_build(False, run=lambda args, **kwargs: SimpleNamespace(returncode=3010), check=check)
+        self.process.assert_not_called()
+        check.assert_not_called()
+        self.assertEqual(self.adapter.build_state()["result"], "@t4.tools.reboot")
+        self.assertIn("t4", self.config["build_resume"])
+
+    def test_fallback_reboot_is_saved_for_the_next_launcher_start(self):
+        self.start_and_wait()
+        with mock.patch.object(tools.shutil, "which", return_value=None), \
+                mock.patch.object(tools.downloads, "install_batch", return_value=["ok", "reboot"]):
+            self.adapter._tools_then_build(False, run=mock.Mock(), check=lambda: rows(("vs2022", "msvc")))
+        state = self.adapter.build_state()
+        self.assertEqual(state["result"], "@t4.tools.reboot")
+        self.process.assert_not_called()
+        self.assertIn("t4", self.config["build_resume"])
 
     def test_cancel_stops_after_the_running_installer(self):
         self.start_and_wait()
