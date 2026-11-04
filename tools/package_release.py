@@ -38,7 +38,7 @@ SOURCE_GROUPS = {
                            "t5_accounts.py", "t5_challenges.py", "t5_community.py", "t5_features.py",
                            "t5_moderation.py", "t5_private_chat.py", "t5_profiles.py", "t5_rules.py", "t5_netext.py",
                            "t5_spectating.py", "t5_tournaments.py", "manifest_game.py"),
-    "openrecomp/data": ("t4_ranks.json", "known_games.json"),
+    "openrecomp/data": ("known_games.json",),
     # The T4 lobby server the launcher ships with: one "T4 Online" entry, a placeholder (no server) until the
     # beta server is deployed and tools/set_t4_server.py fills in its address and certificate fingerprint.
     "openrecomp/vendor": ("servers.json",),
@@ -53,7 +53,7 @@ SOURCE_GROUPS = {
     "openrecomp/ui/sounds": ("back.wav", "close.wav", "confirm.wav", "error.wav", "move.wav", "notify.wav",
                              "open.wav", "tab.wav", "toggle_off.wav", "toggle_on.wav"),
     # Tekken 4 Online's rank badges: our own drawing (tools/make_rank_badges.py), one per T4 rank tier
-    "openrecomp/ui/assets/ranks": tuple("t4_rank_%02d.svg" % tier for tier in range(47)),
+    "openrecomp/ui/assets/ranks": tuple("t4_rank_%02d.svg" % tier for tier in range(37)),
     "openrecomp/ui/fonts": ("BigShoulders-800.ttf", "BigShoulders-900.ttf", "IBMPlexMono-400.ttf",
                             "IBMPlexMono-500.ttf", "IBMPlexMono-600.ttf", "IBMPlexSans-400.ttf",
                             "IBMPlexSans-500.ttf", "IBMPlexSans-600.ttf", "OFL-BigShoulders.txt",

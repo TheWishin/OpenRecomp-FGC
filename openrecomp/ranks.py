@@ -1,7 +1,7 @@
-"""Client-only T4 rank labels, maintained independently of lobby ratings."""
-import json
+"""T4 rating labels from the same ladder as the lobby and drawn badges."""
 import math
-from pathlib import Path
+
+from .vendor.t4lobby import ranks
 
 
 def t4_rank_name(rating, table=None):
@@ -10,10 +10,7 @@ def t4_rank_name(rating, table=None):
             or (isinstance(rating, float) and not math.isfinite(rating))):
         return ""
     if table is None:
-        try:
-            table = json.loads((Path(__file__).parent / "data" / "t4_ranks.json").read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return ""
+        return ranks.name(ranks.tier_for(rating))
     if not isinstance(table, dict) or not isinstance(table.get("ranks"), list):
         return ""
     selected = ""

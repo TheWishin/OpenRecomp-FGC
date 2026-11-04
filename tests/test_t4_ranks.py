@@ -1,21 +1,20 @@
-"""Rank labels are optional text from a maintainer-controlled table."""
-import json
+"""Rating labels share the lobby ladder; explicit custom tables remain validated."""
 from pathlib import Path
 import unittest
 from unittest import mock
 
 from openrecomp.ranks import t4_rank_name
+from openrecomp.vendor.t4lobby import ranks
 
 
 class T4RankTests(unittest.TestCase):
-    def test_shipped_table_has_blank_names_and_shows_no_rank(self):
+    def test_default_labels_use_the_lobby_table_without_a_second_shipped_ladder(self):
         path = Path(__file__).parents[1] / "openrecomp" / "data" / "t4_ranks.json"
-        table = json.loads(path.read_text(encoding="utf-8"))
-        self.assertTrue(table["ranks"])
-        self.assertTrue(all(row["name"] == "" for row in table["ranks"]))
-        self.assertNotIn("icon", table)
-        for rating in (-1, 0, 500, 1500, 100000):
-            self.assertEqual(t4_rank_name(rating), "")
+        self.assertFalse(path.exists())
+        for rating in (-1, 0, 500, 1500, 1640, 2600, 100000):
+            self.assertEqual(t4_rank_name(rating), ranks.name(ranks.tier_for(rating)))
+        self.assertEqual(t4_rank_name(1640), "4th Dan")
+        self.assertEqual(t4_rank_name(2600), "Tekken Lord (Kirin)")
 
     def test_maintainer_filled_boundaries_select_text_including_exact_boundary(self):
         table = dict(ranks=[dict(minimum_rating=0, name="First label"),
@@ -36,10 +35,9 @@ class T4RankTests(unittest.TestCase):
                                   dict(minimum_rating=0, name="Duplicate")])):
             self.assertEqual(t4_rank_name(100, table), "")
 
-    def test_missing_or_malformed_data_hides_ranks(self):
-        for error in (OSError(), ValueError()):
-            with mock.patch.object(Path, "read_text", side_effect=error):
-                self.assertEqual(t4_rank_name(100), "")
+    def test_default_labels_read_the_canonical_ladder_at_call_time(self):
+        with mock.patch.object(ranks, "RANKS", [("Beginner", None), ("9th Kyu", None), ("8th Kyu", 900)]):
+            self.assertEqual(t4_rank_name(900), "8th Kyu")
 
 
 if __name__ == "__main__":

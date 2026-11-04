@@ -29,7 +29,7 @@ T4 port's netplay environment, read by runtime/tekken4_rollback_overrides.cpp np
     TEKKEN4_NET_PATH / _RTT_MS                  informational (in the run dir's env file)
     TEKKEN4_HUD_NAMES    "<P1>|<P2>"            the players' lobby names for the game's name plates (hud_env; the T4
     TEKKEN4_HUD_RANKS    "<P1 tier>,<P2 tier>"  port's runtime/tekken4_hud_overrides.cpp): P1 = the host's side on both
-                                                PCs; tiers of t4lobby/ranks.py (Tekken 7's names), -1 = none (guest)
+                                                PCs; tiers of t4lobby/ranks.py (Tekken 5 DR's names), -1 = none (guest)
     TEKKEN4_HUD_PLATES   0                      no name plates (the player's setting)
 
 Not passed (the T4 game has no use for them yet): T5_NET_DELAY (T5DR's lockstep delay), T5_FIGHT / T5_CTL_DIR

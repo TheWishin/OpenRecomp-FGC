@@ -5,7 +5,7 @@
 <circle cx="50" cy="50" r="36" fill="#4a525b" stroke="#e6ebf0" stroke-width="3"/>
 <polygon points="50.00,20.00 80.00,50.00 50.00,80.00 20.00,50.00" fill="#e6ebf0" stroke="#4a525b" stroke-width="1.5" stroke-linejoin="round"/>
 <circle cx="96.0" cy="80.0" r="4" fill="#e6ebf0" stroke="#4a525b" stroke-width="1.5"/>
-<circle cx="110.0" cy="80.0" r="4" fill="#e6ebf0" stroke="#4a525b" stroke-width="1.5"/>
-<circle cx="124.0" cy="80.0" r="4" fill="#e6ebf0" stroke="#4a525b" stroke-width="1.5"/>
+<circle cx="107.0" cy="80.0" r="4" fill="#e6ebf0" stroke="#4a525b" stroke-width="1.5"/>
+<circle cx="118.0" cy="80.0" r="4" fill="#e6ebf0" stroke="#4a525b" stroke-width="1.5"/>
 <text x="141" y="44" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="18.8" fill="#ffffff" stroke="#4a525b" stroke-width="3" paint-order="stroke">3RD DAN</text>
 </svg>

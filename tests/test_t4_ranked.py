@@ -1,5 +1,5 @@
 """T4 ranked in the launcher (fakes only, no server, no game): ranked opens when the T4 server says so (accounts), our
-own rank badges (tools/make_rank_badges.py, Tekken 7's names), the found match names both sides with name, rank and
+own rank badges (tools/make_rank_badges.py, Tekken 5 DR's names), the found match names both sides with name, rank and
 badge, a ranked set's next game starts by itself, the game gets the name plates' environment, the server's verdicts
 on unproven results and the set's character lock have their own texts."""
 import importlib.util
@@ -41,13 +41,13 @@ class Base(unittest.TestCase):
         client = self.a.clients[-1]
         client.welcome = dict(ranked_queue=ranked_queue)
         client.leave_set = lambda: client.calls.append(("leave_set",))
-        self.a._online_me = dict(name="FakePlayer", rank="Initiate", tier=13, rating=1640)
+        self.a._online_me = dict(name="FakePlayer", rank="4th Dan", tier=13, rating=1640)
         return client
 
     def found(self, client, **values):
         event = dict(t="match_found", match="fake-match", ranked=True, slot=1, ready_check=True,
-                     you=dict(name="FakePlayer", rank="Initiate", tier=13),
-                     opponent=dict(name="Other", rank="Tekken King", tier=42), ping=dict(ms=10),
+                     you=dict(name="FakePlayer", rank="4th Dan", tier=13),
+                     opponent=dict(name="Other", rank="Tekken Lord (Kirin)", tier=36), ping=dict(ms=10),
                      set=dict(id="s1", rated=True, wins_needed=2, best_of=3, number=1, wins=[0, 0]))
         event.update(values)
         client.events.put(event)
@@ -93,7 +93,7 @@ class BadgesTest(Base):
 
     def test_every_tier_has_our_own_badge(self):
         names = sorted(p.name for p in BADGES.iterdir())
-        self.assertEqual(names, ["t4_rank_%02d.svg" % t for t in range(47)])
+        self.assertEqual(names, ["t4_rank_%02d.svg" % t for t in range(37)])
         for path in BADGES.iterdir():
             text = path.read_text(encoding="utf-8")
             self.assertTrue(text.startswith("<svg"), path.name)
@@ -110,12 +110,12 @@ class BadgesTest(Base):
         self.assertEqual(sorted(shipped), sorted(p.name for p in BADGES.iterdir()))
 
     def test_rank_plate_and_progress(self):
-        self.assertTrue(self.a.rank_plate(46).endswith("t4_rank_46.svg"))
-        for bad in (None, -1, 64, True, "3"):
+        self.assertTrue(self.a.rank_plate(36).endswith("t4_rank_36.svg"))
+        for bad in (None, -1, 37, 46, 64, True, "3"):
             self.assertEqual(self.a.rank_plate(bad), "")
         self.enterContext(mock.patch.dict(sys.modules, {"t4lobby.ranks": vranks}))
-        self.assertEqual(self.a.rank_progress(1640), (1630.0, 1660.0, "Mentor"))
-        self.assertIsNone(self.a.rank_progress(2800))         # Tekken God Omega: no next rank
+        self.assertEqual(self.a.rank_progress(1640), (1640.0, 1680.0, "5th Dan"))
+        self.assertIsNone(self.a.rank_progress(2600))         # Tekken Lord (Kirin): no next rank
 
 
 class FoundMatchTest(Base):
@@ -125,7 +125,7 @@ class FoundMatchTest(Base):
         match = self.a.online_state()["match"]
         self.assertEqual(match["slot"], 1)
         self.assertEqual([(s["name"], s["rank"], s["tier"], s["you"]) for s in match["sides"]],
-                         [("Other", "Tekken King", 42, False), ("FakePlayer", "Initiate", 13, True)])
+                         [("Other", "Tekken Lord (Kirin)", 36, False), ("FakePlayer", "4th Dan", 13, True)])
 
     def test_nav_rows_name_p1_and_p2(self):
         from openrecomp import i18n
@@ -140,15 +140,15 @@ class FoundMatchTest(Base):
         status = next(it for it in nav.items() if it.get("id") == "online_status")
         sides = [r for r in status["detail"]["rows"] if r.get("k") in ("@online.challenge_p1", "@online.challenge_p2")]
         self.assertEqual([r["k"] for r in sides], ["@online.challenge_p1", "@online.challenge_p2"])
-        self.assertTrue(sides[0]["plate"].endswith("t4_rank_42.svg"))
+        self.assertTrue(sides[0]["plate"].endswith("t4_rank_36.svg"))
         self.assertEqual(sides[1]["v"], i18n.message("t4.side_you_rank", name=i18n.literal("FakePlayer"),
-                                                     rank=i18n.literal("Initiate")))
+                                                     rank=i18n.literal("4th Dan")))
         self.assertTrue(sides[1]["accent"])
         # the hub's detail panel keeps the badge (nav_hub) -- the found match's card shows it beside the name
         nav.focus[self.a.m["id"] + ":online"] = 0
         view = nav.view()
         plates = [r.get("plate", "") for r in view["detail"]["rows"]]
-        self.assertTrue(any(p.endswith("t4_rank_42.svg") for p in plates), plates)
+        self.assertTrue(any(p.endswith("t4_rank_36.svg") for p in plates), plates)
 
     def test_guest_opponent_has_no_rank(self):
         client = self.login()
@@ -164,12 +164,12 @@ class GameEnvTest(Base):
         if plates is not None:
             self.a.config["t4_name_plates"] = plates
         return self.a._online_game_env(ticket("join" if slot else "host", ranked=True,
-                                              opponent=dict(name="Other", tier=42)))
+                                              opponent=dict(name="Other", tier=36)))
 
     def test_ranked_ticket_gets_the_name_plates(self):
         env = self.env()
         self.assertEqual(env["TEKKEN4_HUD_NAMES"], "Other|FakePlayer")      # P1 = the host = the opponent here
-        self.assertEqual(env["TEKKEN4_HUD_RANKS"], "42,13")
+        self.assertEqual(env["TEKKEN4_HUD_RANKS"], "36,13")
         self.assertIn("TEKKEN4_NET_RESULT", env)
 
     def test_the_setting_turns_them_off(self):

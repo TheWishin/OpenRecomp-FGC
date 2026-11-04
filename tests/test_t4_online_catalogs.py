@@ -1,4 +1,6 @@
 """The hidden future lobby retains translated text without enabling its controls."""
+from pathlib import Path
+import re
 import unittest
 
 from openrecomp import i18n
@@ -78,6 +80,22 @@ class T4OnlineCatalogTests(unittest.TestCase):
                 text = i18n.catalog(language)["t4.name_plates_hint"]
                 self.assertIn("T5DR", text)
                 self.assertNotIn("Tekken 7", text)
+
+    def test_catalogs_and_docs_have_no_obsolete_rank_names(self):
+        # Shared ranks remain valid; "Fighter" is also an ordinary character-picker label.
+        obsolete = ("Initiate", "Mentor", "Grand Master", "Brawler", "Marauder", "Vanguard",
+                    "Vindicator", "Juggernaut", "Usurper", "Vanquisher", "Savior", "Overlord",
+                    "Genbu", "Byakko", "Seiryu", "Suzaku", "Mighty Ruler", "Revered Ruler",
+                    "Divine Ruler", "Eternal Ruler", "Yaksa", "Ryujin", "Emperor", "Tekken King",
+                    "Tekken God", "True Tekken God", "Tekken God Prime", "Tekken God Omega",
+                    "Tekken 7")
+        root = Path(__file__).resolve().parents[1]
+        paths = [*(root / "openrecomp" / "i18n").glob("*.json"),
+                 *(root / "docs").glob("*.md"), root / "README.md", root / "CHANGELOG.md"]
+        pattern = re.compile(r"\b(?:" + "|".join(re.escape(name) for name in obsolete) + r")\b")
+        for path in paths:
+            with self.subTest(path=path.relative_to(root)):
+                self.assertIsNone(pattern.search(path.read_text(encoding="utf-8")))
 
 
 if __name__ == "__main__":
