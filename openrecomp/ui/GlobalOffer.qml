@@ -37,12 +37,14 @@ Item {
             width: parent.width; spacing: 12
             Column {
                 visible: popup.offer.kind === "match"; width: visible ? (parent.width - 80) / 2 : 0; spacing: 4
+                FighterPortrait { objectName: "offerOwnPortrait"; width: 64; height: 64; source: popup.offer.selfArt || "" }
                 OnlineStyle.FieldLabel { width: parent.width; text: popup.offer.selfName || "" }
                 OnlineStyle.Value { width: parent.width; text: popup.offer.selfRank || "" }
             }
             OnlineStyle.PageTitle { visible: popup.offer.kind === "match"; width: visible ? 56 : 0; text: popup.offer.versus || ""; horizontalAlignment: Text.AlignHCenter }
             Column {
                 width: popup.offer.kind === "match" ? (parent.width - 80) / 2 : parent.width; spacing: 4
+                FighterPortrait { objectName: "offerPeerPortrait"; width: 64; height: 64; source: popup.offer.art || ""; mirrored: true }
                 OnlineStyle.FieldLabel { width: parent.width; text: popup.offer.name || ""; Accessible.name: text }
                 Row {
                     width: parent.width; spacing: 8
@@ -59,11 +61,13 @@ Item {
             OnlineStyle.PrimaryButton {
                 objectName: "globalOfferAccept"; width: (parent.width - 24) * .45; maxW: width; height: Math.max(Theme.target(64), captionHeight + 20)
                 b: ({label: popup.offer.acceptLabel || "", disabled: !!popup.offer.disabled, focused: !!popup.offer.focused})
+                glyph: popup.root.v.confirmInk || ({})
                 accent: popup.accent; onActivated: popup.root.backend.respondOffer(popup.offer.identity, true)
             }
             OnlineStyle.SecondaryButton {
                 objectName: "globalOfferDecline"; width: (parent.width - 24) * .30; maxW: width; height: Math.max(Theme.target(64), captionHeight + 20)
                 b: ({label: popup.offer.declineLabel || "", disabled: !!popup.offer.disabled})
+                glyph: popup.root.v.backG || ({})
                 onActivated: popup.root.backend.respondOffer(popup.offer.identity, false)
             }
             OnlineStyle.SecondaryButton {

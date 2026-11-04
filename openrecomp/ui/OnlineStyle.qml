@@ -59,20 +59,20 @@ QtObject {
         FieldLabel {
             id: label
             visible: !field.editable
-            x: 14; y: 11; width: field.width * (field.b.value ? 0.54 : 0.94) - 20
+            x: 14; y: help.visible || fieldFeedback.visible ? 11 : (field.height - implicitHeight) / 2; width: field.width * (field.b.value ? 0.54 : 0.94) - 20
             text: field.b.label || ""; color: field.b.focused && !field.failed ? Theme.ground : Theme.text
         }
         Value {
             id: value
             visible: !field.b.toggle && !field.editable
-            x: field.width * 0.56; y: 9; width: field.width * 0.44 - 14
+            x: field.width * 0.56; y: help.visible || fieldFeedback.visible ? 9 : (field.height - implicitHeight) / 2; width: field.width * 0.44 - 14
             horizontalAlignment: Text.AlignRight
             text: field.b.cycler ? "‹ " + (field.b.value || "") + " ›" : field.b.value || ""
             color: field.b.focused && !field.failed ? Theme.ground : Theme.value
         }
         Row {
             visible: !!field.b.toggle
-            anchors.right: parent.right; anchors.rightMargin: 14; y: 10; spacing: 10
+            anchors.right: parent.right; anchors.rightMargin: 14; y: help.visible || fieldFeedback.visible ? 10 : (field.height - height) / 2; spacing: 10
             Value { text: field.b.value || ""; color: field.b.focused && !field.failed ? Theme.ground : Theme.value }
             Rectangle {
                 width: 48; height: 26; radius: 13; color: field.b.on ? Theme.value : "#555A62"

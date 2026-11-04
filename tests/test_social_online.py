@@ -113,7 +113,7 @@ class SocialOnlineTests(unittest.TestCase):
         state = self.a.online_state()
         self.assertEqual(state["phase"], "logged_in")
         self.assertEqual([friend["name"] for friend in state["friends"]], ["InitialFriend"])
-        self.assertEqual(state["friend_incoming"], [dict(name="InitialRequest")])
+        self.assertEqual(state["friend_incoming"], [dict(name="InitialRequest", main="")])
         client.friends_list.assert_not_called()
 
     def test_code_create_join_and_room_code_is_for_members_only(self):

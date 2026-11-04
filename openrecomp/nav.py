@@ -341,7 +341,7 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
                  textScale=self.text_size / 100, highContrast=self.high_contrast,
                  inputMode=self.device, nativeEdit=getattr(self, "native_edit", ""), nativeField={},
                  device="@" + DEVICE_LABEL["kb" if self.device == "kb" else self.pad_kind],
-                 trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True),
+                 trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True), backG=self.glyph("back"),
                  shelf=dict(tiles=[], x=0, w=SCREEN_W), tabs=[], rows=[], detail=dict(rows=[], results=[], images=[]), hint="", prompts=[], accent="#ECE9E1", badge="", gameShort="", numeral="",
                    topline="", hold=0, mainMenu=dict(show=False), sessionPage=dict(show=False), loading="@ui.loading", loadError="@ui.load_error", more=dict(up=False, down=False), grid=dict(cells=[], main=""), osk=dict(rows=[], text="", title="", selected=False, paste="", copy="", canCopy=False), dialog=dict(title="", text="", options=[]),
                  picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]), build=dict(show=False, cards=[], main=dict(button={}, logLines=[]), more=[]), online=dict(layout=""), settingsPage=dict(layout=""), quickAccess="@quick_access", discord="@community.discord", recentSets="@recent_sets", folder="@folder", file="@file", pick="@picker.pick", mainLabel="@main", fighterTitle="@fighter.choose", fighterMain="@fighter.main")

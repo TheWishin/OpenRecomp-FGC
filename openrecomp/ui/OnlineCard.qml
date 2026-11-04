@@ -26,6 +26,7 @@ Item {
             Image { visible: !!parent.parent.person.plate; source: parent.parent.person.plate || ""; width: parent.width; height: visible ? 32 : 0; fillMode: Image.PreserveAspectFit }
             OnlineStyle.Value { width: parent.width; text: [parent.parent.person.rank || "", parent.parent.person.rating || "", parent.parent.person.region || ""].filter(s => s).join(" · ") }
             OnlineStyle.HelpText { width: parent.width; text: parent.parent.person.fighter || "" }
+            OnlineStyle.HelpText { objectName: "versusMain"; width: parent.width; visible: !!parent.parent.person.picked && !!parent.parent.person.main; text: visible ? (parent.parent.person.mainLabel || "") + ": " + parent.parent.person.main : "" }
         }
     }
     OnlineStyle.SectionCard {
@@ -60,13 +61,15 @@ Item {
             Row {
                 width: parent.width; spacing: 16
                 OnlineStyle.PrimaryButton {
-                    objectName: "versusReady"; width: (parent.width - 16) * .7; maxW: width; height: Math.max(Theme.target(80), captionHeight + 20)
+                    objectName: "versusReady"; width: (parent.width - 16) * .7; maxW: width; height: Math.max(Theme.target(80), captionHeight + 20) + feedbackHeight
                     b: Object.assign({}, page.o.primary || {}, {label: page.vs.readyLabel || "", disabled: !!page.vs.disabled || !!(page.o.primary || {}).disabled})
+                    glyph: page.root.v.confirmInk || ({})
                     accent: Theme.readableAccent(page.root.v.accent); onActivated: i => page.root.backend.clickRow(i)
                 }
                 OnlineStyle.SecondaryButton {
-                    objectName: "versusDecline"; width: (parent.width - 16) * .3; maxW: width; height: Math.max(Theme.target(80), captionHeight + 20)
+                    objectName: "versusDecline"; width: (parent.width - 16) * .3; maxW: width; height: Math.max(Theme.target(80), captionHeight + 20) + feedbackHeight
                     b: (page.o.lines || []).filter(r => r.id === "cancel_match")[0] || ({})
+                    glyph: page.root.v.backG || ({})
                     onActivated: i => page.root.backend.clickRow(i)
                 }
             }

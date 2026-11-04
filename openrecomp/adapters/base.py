@@ -159,6 +159,10 @@ class Adapter:
         Playable clients add capabilities, players, rooms, chat, challenge, room and a text rank.
         Optional social capabilities add friends, friend_incoming, friend_outgoing,
         invites and outgoing_invite. Rematch is offered only while its capability is true.
+        Player main keys describe each player's most-played fighter (games, wins,
+        then latest play); missing usage gives an empty key and silhouette. Only the
+        local player may fall back to local match history. Match you_char/opp_char
+        are explicit known picks, separate from each player's main.
         Installed T5DR clients can add capability-gated tournaments, profile, leaderboard,
         community_stats, spectating, community and challenge_preferences snapshots.
         Outgoing offers may include server supplied remaining seconds. challenge_updates

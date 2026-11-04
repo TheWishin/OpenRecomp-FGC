@@ -1,4 +1,5 @@
 """Allowlisted public lobby metadata for cards; no client requests or file access."""
+from ..player_main import choose_main
 
 
 def players(value, known=()):
@@ -14,6 +15,8 @@ def players(value, known=()):
         source = dict(lookup.get(str(item.get("id")), {}), **item) if isinstance(item, dict) else lookup.get(str(item), {})
         row = {key: str(source[key])[:limit] for key, limit in (("id", 80), ("name", 64), ("main", 40))
                if isinstance(source.get(key), (str, int)) and not isinstance(source.get(key), bool)}
+        if row:
+            row["main"] = choose_main(source)
         if source.get("state") in ("playing", "ready", "away"):
             row["state"] = source["state"]
         if row:

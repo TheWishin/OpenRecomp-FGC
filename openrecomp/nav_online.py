@@ -487,6 +487,8 @@ class Online:
                     run=lambda: self._edit_field(tid))
 
     def _online_friend_items(self, g, state, out, action):
+        from .nav_profiles import player_art
+
         out.append(dict(kind="heading", label="@online.friends"))
         out.append(action("refresh_friends", "@online.refresh_friends", "@online.friends_hint"))
         out.append(self._online_text_item(g, "online_friend_name", "@online.friend_name", "@online.friends_hint"))
@@ -495,6 +497,7 @@ class Online:
         def friend_action(prefix, label, person):
             name = str(person.get("name") or "")
             item = action(prefix + ":" + name, label, "@online.friends_hint")
+            item.update(player_art(g, person))
             item["value"] = i18n.literal(name)
             item["detail"]["rows"] = [dict(k="@online.name", v=i18n.literal(name))]
             if person.get("status"):

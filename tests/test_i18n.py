@@ -108,8 +108,9 @@ def untranslated_literals(source):
                 if kw.arg in ("label", "hint", "lead", "title", "verb", "kicker", "k", "v", "value", "note", "primary", "status", "version", "players", "last", "result", "empty", "bar"):
                     # Friend snapshots carry a protocol enum; Nav translates that enum.
                     friend_record = (name == "dict" and kw.arg == "status"
-                                     and {item.arg for item in node.keywords}
-                                     == {"name", "status", "activity", "invite", "retry"})
+                                     and {item.arg for item in node.keywords} in
+                                     ({"name", "status", "activity", "invite", "retry"},
+                                      {"name", "status", "activity", "invite", "retry", "main"}))
                     # Source checks return a reload instruction alongside localized errors.
                     source_record = (name == "dict" and kw.arg == "result"
                                      and {item.arg for item in node.keywords}
@@ -121,7 +122,7 @@ def untranslated_literals(source):
 
     # These are filenames, environment variables, technical units, and protocol identifiers.
     technical = {
-        "character", "face",  # table-cell metadata keys, never display labels
+        "character", "face", "playerPortrait",  # table-cell metadata keys, never display labels
         # Shell offer identities and actions; none are presented as copy.
         "offers", "returnActivity", "match:", "invite:", "/match:", "/cancel", "online_input_delay", "netext_online_feel", "region", "country",
         r"[A-Za-z0-9_-]{1,48}",

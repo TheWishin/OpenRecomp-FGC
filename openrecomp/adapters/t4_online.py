@@ -926,9 +926,7 @@ class T4Online(T4Direct, Online):
                 self._online_message = "@online.connection_relay" if path == "relay" else "@online.connection_direct"
             return True
         if kind == "match_reveal":
-            opponent = event.get("opponent") or {}
-            opponent = opponent if isinstance(opponent, dict) else {}
-            self._online_match["opponent"] = str(opponent.get("name") or "")
+            self._online_match.update(self._online_match_view(event))
             return True
         if kind == "match_start":
             ticket = event.get("ticket")

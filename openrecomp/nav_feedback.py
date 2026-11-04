@@ -367,6 +367,9 @@ def global_view(nav):
                 plate=uri(g.a.rank_plate(info.get("tier"))) if info.get("tier") is not None else "",
                 selfName=i18n.literal(str((state.get("me") or {}).get("name") or state.get("name") or "")),
                 selfRank=i18n.literal(str((state.get("me") or {}).get("rank") or state.get("rank") or "")),
+                art=uri(g.a.fighter_image(info["main"])) if info.get("main") else "",
+                fighter=i18n.literal(g.a.fighter_label(info["main"])) if info.get("main") else "",
+                selfArt=uri(g.a.fighter_image(state["me"]["main"])) if (state.get("me") or {}).get("main") else "",
                 connection=connection(info), details=details, seconds=seconds,
                 countdown=f"{seconds // 60}:{seconds % 60:02}" if seconds is not None else "@feedback.no_deadline",
                 disabled=pending, focused=nav.__dict__.get("_global_offer_focus") == identity,
@@ -459,12 +462,18 @@ def match_view(nav, g):
         return {}
     match = state.get("match") or {}
     me = state.get("me") or {}
-    def player(info, name):
-        fighter = info.get("fighter") or info.get("main") or ""
+    you_char, opp_char = match.get("you_char"), match.get("opp_char")
+    picked = state.get("phase") == "matched" and all(
+        isinstance(key, str) and key and key != "random" for key in (you_char, opp_char))
+
+    def player(info, name, pick):
+        main = info.get("main") or ""
+        fighter = pick if picked else main
         return dict(name=i18n.literal(str(name)), rank=i18n.literal(str(info.get("rank") or "")),
                     rating=str(info["rating"]) if info.get("rating") is not None else "",
                     region=i18n.literal(str(info.get("region") or info.get("country") or "")),
                     fighter=i18n.literal(str(g.a.fighter_label(fighter))) if fighter else "",
+                    main=i18n.literal(str(g.a.fighter_label(main))) if main else "", mainLabel="@online_ui.col.main", picked=bool(picked),
                     art=uri(g.a.fighter_image(fighter)) if fighter else "",
                     plate=uri(g.a.rank_plate(info.get("tier"))) if info.get("tier") is not None else "")
     opponent = match.get("opponent")
@@ -492,8 +501,8 @@ def match_view(nav, g):
             details.append(dict(k=label, v=value or i18n.literal(str(match[field]))))
     row = next((row for row in global_view(nav) if row["game"] == g.id and row["kind"] == "match"), {})
     ready = match.get("opponent_ready")
-    return dict(gameId=g.id, left=player(me, me.get("name") or state.get("name") or ""),
-                right=player(opponent_info, opponent or ""), connection=connection(match), details=details,
+    return dict(gameId=g.id, left=player(me, me.get("name") or state.get("name") or "", you_char),
+                right=player(opponent_info, opponent or "", opp_char), connection=connection(match), details=details,
                 game=i18n.literal(g.short), versus="@feedback.vs", countdown=row.get("countdown", "@feedback.no_deadline"),
                 seconds=row.get("seconds"), readyLabel="@feedback.ready", disabled=bool(state.get("busy")),
                 opponentStatus="@feedback.opponent_ready" if ready is True else "@feedback.opponent_waiting" if ready is False else "")

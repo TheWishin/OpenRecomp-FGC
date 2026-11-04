@@ -17,6 +17,7 @@ from .base import NO_WINDOW, add_path
 from .t5_coexist import readonly_imports
 from . import other_launchers, t5_challenges, t5_features, t5_netext
 from .. import i18n
+from ..player_main import choose_main, local_main
 
 
 SERVERS_FORMAT = "t5dr-servers/1"
@@ -486,7 +487,11 @@ class Online:
                 snapshot["build_id"] = build[:24]
             if isinstance(getattr(self, "root", None), str) and self.root:
                 snapshot["game_folder"] = self.root[-120:]
-        return t5_features.state(self, snapshot)
+        snapshot = t5_features.state(self, snapshot)
+        me = snapshot.setdefault("me", {})
+        if not me.get("main"):
+            me["main"] = local_main(self)
+        return snapshot
 
     def _online_social_cap(self, capability):
         if not self.online_lobby or self.online_game == "t4" or self._online_client is None:
@@ -899,8 +904,7 @@ class Online:
         if (isinstance(placement, (list, tuple)) and len(placement) == 2
                 and all(isinstance(n, int) and not isinstance(n, bool) and 0 <= n < 100 for n in placement)):
             out["placement"] = list(placement)
-        if isinstance(player.get("main"), str) and player["main"]:
-            out["main"] = player["main"][:40]
+        out["main"] = choose_main(player)
         opponent = player.get("opponent_name") or player.get("opponent")
         if isinstance(opponent, str):
             out["opponent"] = opponent[:64]
@@ -966,10 +970,11 @@ class Online:
             retry = self._online_invite_wait(friend["name"], retry)
             self._online_friends.append(dict(name=str(friend["name"])[:64],
                 status=friend.get("status") if friend.get("status") in ("online", "in_match", "offline") else "offline",
-                activity=str(friend.get("activity") or "")[:64], invite=friend.get("invite") == "ok", retry=retry))
+                activity=str(friend.get("activity") or "")[:64], invite=friend.get("invite") == "ok", retry=retry,
+                main=choose_main(friend)))
         for field in ("incoming", "outgoing"):
             entries = event.get(field) or []
-            setattr(self, "_online_friend_" + field, [dict(name=str(entry["name"])[:64])
+            setattr(self, "_online_friend_" + field, [dict(name=str(entry["name"])[:64], main=choose_main(entry))
                 for entry in entries[:200] if isinstance(entry, dict) and entry.get("name")]
                 if isinstance(entries, list) else [])
 
@@ -1274,10 +1279,13 @@ class Online:
         if mid:
             out["id"] = mid
         person = {}
-        for key, maximum in (("name", 64), ("rank", 40), ("main", 40), ("fighter", 40), ("region", 16), ("country", 2)):
+        for key, maximum in (("name", 64), ("rank", 40), ("fighter", 40), ("region", 16), ("country", 2)):
             value = opponent.get(key)
             if isinstance(value, str) and value:
                 person[key] = "".join(ch for ch in value if ch.isprintable())[:maximum]
+        main = choose_main(opponent)
+        if main:
+            person["main"] = main
         pid = match_identity(opponent.get("id"))
         if pid:
             person["id"] = pid
@@ -1289,6 +1297,18 @@ class Online:
         if person:
             out["opponent_info"] = person
         fight = event.get("fight") if isinstance(event.get("fight"), dict) else {}
+        chars = event.get("chars", fight.get("chars"))
+        slot = event.get("slot")
+        picks = chars if (isinstance(chars, (list, tuple)) and len(chars) == 2
+                          and type(slot) is int and slot in (0, 1)) else (None, None)
+        slot = slot if type(slot) is int and slot in (0, 1) else 0
+        own = event.get("you") or event.get("self")
+        own = own if isinstance(own, dict) else {}
+        for key, value in (("you_char", event.get("you_char") or own.get("fighter") or own.get("char") or picks[slot]),
+                           ("opp_char", event.get("opp_char") or opponent.get("fighter") or opponent.get("char") or picks[1 - slot])):
+            if (isinstance(value, str) and 0 < len(value) <= 80 and value.isprintable()
+                    and value.casefold() not in ("random", "none")):
+                out[key] = value
         for key, maximum in (("rounds", 9), ("first_to", 10)):
             value = event.get(key, fight.get(key))
             if type(value) is int and 1 <= value <= maximum:
@@ -1424,6 +1444,11 @@ class Online:
                                               name=str(sender.get("name") or "")[:64]
                                               if isinstance(sender, dict) else "",
                                               **self._online_ping_view(event))
+                if isinstance(sender, dict):
+                    if sender.get("id"):
+                        self._online_challenge["player"] = str(sender["id"])[:80]
+                    if choose_main(sender):
+                        self._online_challenge["main"] = choose_main(sender)
                 changed = True
             elif self.online_lobby and event.get("t") == "challenge_update":
                 cid, outcome = event.get("challenge"), event.get("state")

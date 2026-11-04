@@ -57,6 +57,11 @@ def _fighter_art(g, key):
     return dict(character=i18n.literal(_fighter(g, key)), face=uri(g.a.fighter_image(key)))
 
 
+def player_art(g, player):
+    main = player.get("main") or ""
+    return dict(playerPortrait=True, face=uri(g.a.fighter_image(main)) if main else "")
+
+
 def _profile_rows(nav, g, state, action):
     profile = state.get("profile") or {}
     title = i18n.literal(profile.get("name") or state.get("name") or "")
@@ -74,6 +79,7 @@ def _profile_rows(nav, g, state, action):
     record = profile.get("record") or []
     details += [dict(k=label, v=str(value)) for value, label in zip(record, ("@online.wins", "@online.losses", "@online.draws"))]
     out = [_detail("profile_summary", title, "@online.profile", details)]
+    out[0].update(player_art(g, profile))
     if nav is not None and profile.get("self") is True:
         out.append(_detail("profile_playtime", nav_playtime.profile(nav.games, nav.language), "@playtime.label",
                            nav_playtime.details(g, nav.language), hint="@playtime.local_only"))
@@ -180,6 +186,7 @@ def _board_rows(nav, g, state, action):
     visible = [row for row in board.get("rows") or [] if not prefs.get("fighter") or row.get("main") == prefs["fighter"]]
     for row in sorted(visible, key=sort_key, reverse=bool(board.get("descending"))):
         item = action("profile_board:" + row["name"], i18n.literal(row["name"]))
+        item.update(player_art(g, row))
         item["value"] = str(row.get("place", ""))
         item["detail"]["rows"] = [dict(k=label, v=i18n.literal(row[field])) for field, label in _BOARD_LABELS if field in row]
         if row.get("main"):

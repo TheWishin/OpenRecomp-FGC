@@ -112,7 +112,7 @@ def _btn(nav, items, by_id, iid, fi, label=""):
 
 
 def _face(g, player):
-    main = player.get("main") or player.get("char") or ""
+    main = player.get("main") or ""
     return dict(name=i18n.literal(player.get("name") or ""), face=uri(g.a.fighter_image(main)) if main else "")
 
 
@@ -133,7 +133,7 @@ def view(nav, g, state, items, fi):
     players = []
     me = dict(state.get("me") or {})
     me.update(name=state.get("name") or me.get("name") or "", status=me.get("status") or "idle")
-    me["main"] = me.get("main") or g.a.main_fighter() or g.a.chosen_fighter()
+    me["main"] = me.get("main") or ""
     if me["main"] == "random":
         me["main"] = ""
     own_id = str(me.get("id") or "self")

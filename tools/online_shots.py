@@ -37,17 +37,18 @@ COMMUNITY_SCENES = ("lobby_dense", "lobby_guest", "lobby_long_names", "player_bu
                     "mentions", "chat_history", "native_composer", "pad_composer", "pad_osk",
                     "challenge_incoming", "challenge_sent", "challenge_waiting", "challenge_cancelled",
                     "challenge_declined", "challenge_expired", "searching", "cancelling", "matched",
-                    "starting", "playing", "result", "reporting", "disconnect_retry", "rooms_create",
+                    "matched_picks", "starting", "playing", "result", "reporting", "disconnect_retry", "rooms_create",
                     "community_room", "controls")
 OFFER_SCENES = ("offer_shelf", "offer_home", "offer_settings")
 ACTIVITY_SCENES = ("activity_rooms", "activity_home")
+PORTRAIT_SCENES = ("matched", "matched_picks", "searching", "result", "lobby_dense", "profile", "friends", "leaderboard", "challenge_incoming")
 FINAL_SCENES = ("home", "lobby_dense", "lobby_long_names", "lobby_guest", "arcade_selected", "mentions",
                 "private_chat", "rooms", "rooms_create", "community_room", "ranked", "ranked_select",
                 "challenge_incoming", "challenge_waiting", "challenge_declined", "challenge_expired",
                 "matched", "starting", "playing", "result", "reporting", "searching", "cancelling", "disconnect_retry", "leaderboard", "profile", "settings", "controls") + OFFER_SCENES + ACTIVITY_SCENES
 SCENES = BASELINE_SCENES + ("home", "ranked", "ranked_select", "settings", "feedback") + ARCADE_SCENES + COMMUNITY_SCENES + OFFER_SCENES + ACTIVITY_SCENES
 SIZES = ((1920, 1080), (1280, 720))
-ART_FIELDS = {"hero", "image", "art", "wordmark", "face", "plate", "portrait", "background"}
+ART_FIELDS = {"hero", "image", "art", "selfArt", "wordmark", "face", "plate", "portrait", "background"}
 ART_LISTS = {"images", "mosaic"}
 DECORATIVE_CLIPPING = ("shelfDecoration", "buildDecoration")
 BASELINE = ROOT / "build" / "tmp-home" / "online-before"
@@ -194,7 +195,7 @@ def scene(game, chapter, language, nav_type=Nav, text_size=100, high_contrast=Fa
             lock="none", rotation="queue", in_line=True, host=False, line=["p1", "me", "p6"],
             members=[dict(id="p1", name="Rival"), dict(id="me", name="Me"), dict(id="p6", name="Player 6")],
             tables=[dict(id="1", players=["p1", "me"], wins=[1, 0], playing=True)])
-    phase = {"searching": "searching", "activity_rooms": "searching", "activity_home": "searching", "cancelling": "cancelling", "matched": "matched", "starting": "starting",
+    phase = {"searching": "searching", "activity_rooms": "searching", "activity_home": "searching", "cancelling": "cancelling", "matched": "matched", "matched_picks": "matched", "starting": "starting",
              "playing": "playing", "result": "result", "reporting": "result_sent", "disconnect_retry": "error"}.get(requested)
     if phase:
         adapter.snapshot.update(phase=phase, message={"searching": "@online.searching_casual",
@@ -205,6 +206,8 @@ def scene(game, chapter, language, nav_type=Nav, text_size=100, high_contrast=Fa
         if phase == "matched":
             adapter.snapshot["match"].update(id="sample-match", seconds=27, delay=dict(auto=True, frames=2),
                 first_to=2, rounds=3, ping_path="direct", opponent_ready=False, mode="casual")
+        if requested == "matched_picks":
+            adapter.snapshot["match"].update(you_char="f4", opp_char="f2")
     if requested == "challenge_incoming":
         adapter.snapshot["challenge"] = dict(id="sample-incoming", name="Rival", player="p1", ping=42, ping_measured=True)
         adapter.snapshot["challenge_preferences"]["incoming"] = dict(id="sample-incoming", first_to=2, delay=dict(auto=True))
@@ -457,7 +460,7 @@ def main(argv=None):
     parser.add_argument("--scenes", nargs="+", choices=SCENES)
     parser.add_argument("--text-size", choices=("normal", "large", "larger"), default="normal")
     parser.add_argument("--high-contrast", action="store_true")
-    parser.add_argument("--batch", choices=("presentation", "arcade", "community", "final"))
+    parser.add_argument("--batch", choices=("presentation", "arcade", "community", "final", "portraits"))
     parser.add_argument("--merge-report", action="store_true", help="Refresh selected scenes and retain the complete report and contact sheets")
     parser.add_argument("--platform", choices=("offscreen", "windows"), default="offscreen")
     args = parser.parse_args(argv)
@@ -466,7 +469,8 @@ def main(argv=None):
     for name in ("OPENRECOMP_HOME", "APPDATA", "LOCALAPPDATA", "TMP", "TEMP"):
         os.environ[name] = str(home)
     if args.scenes is None:
-        args.scenes = list(ARCADE_SCENES if args.batch == "arcade" else
+        args.scenes = list(PORTRAIT_SCENES if args.batch == "portraits" else
+                           ARCADE_SCENES if args.batch == "arcade" else
                            COMMUNITY_SCENES if args.batch == "community" else
                            FINAL_SCENES if args.batch == "final" else
                            BASELINE_SCENES if args.phase == "before" else SCENES)

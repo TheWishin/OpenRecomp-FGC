@@ -53,8 +53,8 @@ Item {
                             }
                         }
                         Image { visible: !!cell.modelData.plate; source: cell.modelData.plate || ""; width: visible ? Math.min(48, cell.width * .35) : 0; height: visible ? 24 : 0; fillMode: Image.PreserveAspectFit; asynchronous: true }
-                        FighterPortrait { objectName: "onlineTableFighter"; visible: !!cell.modelData.character; source: cell.modelData.face || ""; name: ""; width: visible ? 24 : 0; height: visible ? 24 : 0 }
-                        Image { visible: !!cell.modelData.face && !cell.modelData.character; source: cell.modelData.face || ""; width: visible ? 24 : 0; height: visible ? 24 : 0; fillMode: Image.PreserveAspectCrop; asynchronous: true }
+                        FighterPortrait { objectName: "onlineTableFighter"; visible: !!cell.modelData.character || !!cell.modelData.playerPortrait; source: cell.modelData.face || ""; name: ""; width: visible ? 24 : 0; height: visible ? 24 : 0 }
+                        Image { visible: !!cell.modelData.face && !cell.modelData.character && !cell.modelData.playerPortrait; source: cell.modelData.face || ""; width: visible ? 24 : 0; height: visible ? 24 : 0; fillMode: Image.PreserveAspectCrop; asynchronous: true }
                         Item {
                             visible: !!cell.modelData.locked; width: visible ? 20 : 0; height: visible ? 24 : 0
                             Rectangle { x: 5; y: 1; width: 10; height: 13; radius: 5; color: "transparent"; border.width: 2; border.color: Theme.value }

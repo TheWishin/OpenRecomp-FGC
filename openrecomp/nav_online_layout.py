@@ -597,6 +597,7 @@ class OnlineLayout:
                     cycler=it.get("kind") == "cycler", toggle=it.get("kind") == "cycler" and isinstance(it.get("current"), bool),
                     on=it.get("current") is True, verb=it.get("verb", "") if n == fi else "",
                     feedback=nav_feedback.view(self, self.game.id, it.get("id", "")),
+                    **{key: it[key] for key in ("face", "playerPortrait") if key in it},
                     **self.field_metadata(it.get("id", "")))
 
     def _view_online_card(self, v, g, items, fi):
@@ -1102,7 +1103,7 @@ class OnlineLayout:
         for main, extra in block:
             details = {r["k"]: r for r in (items[main].get("detail") or {}).get("rows") or []}
             label = items[main].get("label", "")
-            cells = [dict(text=label, bold=True, **{key: items[main][key] for key in ("character", "face") if key in items[main]})]
+            cells = [dict(text=label, bold=True, **{key: items[main][key] for key in ("character", "face", "playerPortrait") if key in items[main]})]
             cells += [dict(text=details.get(k, {}).get("v", ""),
                            **{key: details[k][key] for key in ("character", "face") if key in details.get(k, {})}) for k in keys]
             lines.append(self._trow(items, fi, main, extra, cells, False))

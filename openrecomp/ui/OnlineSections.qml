@@ -54,13 +54,21 @@ Flickable {
                             required property var modelData
                             required property int index
                             readonly property var l: modelData
+                            readonly property var person: l.playerPortrait ? l : (l.buttons || []).find(b => b.playerPortrait) || ({})
+                            readonly property real portraitSpace: person.playerPortrait ? 42 : 0
                             width: rowsColumn.width
                             height: l.kind === "note" ? note.implicitHeight + 12 : l.kind === "bar" ? buttons.implicitHeight : l.kind === "trow" || l.kind === "thead" ? table.height : field.height
                             OnlineStyle.HelpText {
                                 id: note; visible: row.l.kind === "note"; x: 10; y: 6; width: parent.width - 20; text: row.l.label || ""
                             }
+                            FighterPortrait {
+                                objectName: "onlinePlayerPortrait"
+                                visible: !!row.person.playerPortrait && row.l.kind !== "trow" && row.l.kind !== "thead"
+                                x: 4; anchors.verticalCenter: parent.verticalCenter; width: 32; height: 32
+                                source: row.person.face || ""; name: ""
+                            }
                             Flow {
-                                id: buttons; visible: row.l.kind === "bar"; width: parent.width; spacing: 8
+                                id: buttons; visible: row.l.kind === "bar"; x: row.portraitSpace; width: parent.width - x; spacing: 8
                                 Repeater {
                                     model: row.l.buttons || []
                                     OnlineStyle.SecondaryButton { required property var modelData; b: modelData; maxW: buttons.width; onActivated: i => view.root.backend.clickRow(i) }
@@ -77,7 +85,7 @@ Flickable {
                                 onSelected: i => view.root.backend.focusOnlineRow(i)
                             }
                             OnlineStyle.FieldRow {
-                                id: field; root: view.root; visible: row.l.kind === "row"; width: parent.width; b: row.l
+                                id: field; root: view.root; visible: row.l.kind === "row"; x: row.portraitSpace; width: parent.width - x; b: row.l
                                 onActivated: i => view.root.backend.clickRow(i)
                             }
                         }

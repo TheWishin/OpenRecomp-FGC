@@ -44,7 +44,11 @@ Flickable {
         Row {
             id: values; x: 12; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 24; spacing: 0
             OnlineStyle.Value { width: values.width * 0.07; text: row.entry.place || "" }
-            OnlineStyle.FieldLabel { width: values.width * 0.24; rightPadding: 12; text: row.entry.name || ""; font.weight: Font.DemiBold; wrapMode: Text.NoWrap; elide: Text.ElideRight }
+            Row {
+                width: values.width * 0.24; spacing: 6
+                FighterPortrait { objectName: "rankingPlayerPortrait"; width: 24; height: 24; source: row.entry.face || ""; name: "" }
+                OnlineStyle.FieldLabel { width: parent.width - 30; rightPadding: 12; text: row.entry.name || ""; font.weight: Font.DemiBold; wrapMode: Text.NoWrap; elide: Text.ElideRight }
+            }
             Row {
                 width: values.width * 0.19; spacing: 4
                 Image { visible: !!row.entry.plate; source: row.entry.plate || ""; width: visible ? Math.min(parent.width * .38, 48) : 0; height: 24; fillMode: Image.PreserveAspectFit; asynchronous: true }
@@ -82,6 +86,7 @@ Flickable {
                     Column {
                         id: podiumContent; x: 8; y: 8; width: parent.width - 16; spacing: 4
                         OnlineStyle.PageTitle { width: parent.width; text: "#" + parent.parent.modelData.place; font.pixelSize: Theme.onlinePx(24) }
+                        FighterPortrait { objectName: "podiumPlayerPortrait"; width: 32; height: 32; source: parent.parent.modelData.face || ""; name: "" }
                         OnlineStyle.FieldLabel { width: parent.width; text: parent.parent.modelData.name; font.weight: Font.Bold }
                         OnlineStyle.HelpText { visible: !page.compact; width: parent.width; text: parent.parent.modelData.rank || "—" }
                         OnlineStyle.Value { visible: !page.compact; width: parent.width; text: parent.parent.modelData.rating }

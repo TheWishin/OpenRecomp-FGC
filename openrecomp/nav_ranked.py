@@ -58,6 +58,7 @@ def leaderboard(nav, g, state, items, fi):
         return dict(index=index, name=i18n.literal(name), place=_number(source.get("place")),
                     rank=nav._rank_label(source), rating=_number(source.get("rating")), record=record,
                     main=i18n.literal(g.a.fighter_label(main)) if main else "—",
+                    face=uri(g.a.fighter_image(main)) if main else "",
                     plate=uri(g.a.rank_plate(source.get("tier"))), focused=index == fi and index >= 0,
                     own=name.casefold() == str(state.get("name") or "").casefold())
 
