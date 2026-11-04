@@ -106,8 +106,10 @@ class ArcadeFloor(unittest.TestCase):
         items = nav.items()
         rows, floor = nav_arcade.routes(nav, items, nav.focus_index(items))
         visible = {n for row in rows for n in row}
-        self.assertTrue(set(b["index"] for b in floor["options"][:2]).issubset(visible))
-        self.assertFalse(visible.intersection(b["index"] for b in floor["options"][2:]))
+        top = [b for b in floor["options"] if b["id"] in ("online_input_delay", "netext_online_feel")]
+        top = top or floor["options"][:2]
+        self.assertTrue(set(b["index"] for b in top).issubset(visible))
+        self.assertFalse(visible.intersection(b["index"] for b in floor["options"] if b not in top))
 
     def test_drawer_sounds_and_pointer_card_selection_use_existing_cues(self):
         nav = scene("t5", "arcade_floor", "en")
@@ -189,6 +191,117 @@ class ArcadeFloor(unittest.TestCase):
         self.assertNotIn("secret", str(public))
         self.assertIs(T4Online._online_room_view, Online._online_room_view)
         client.watch.assert_not_called()
+
+
+class CompactArcadeGeometry(unittest.TestCase):
+    """Count clipped output rows with identity, match actions and both summaries present."""
+
+    @classmethod
+    def setUpClass(cls):
+        import os
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
+        os.environ.setdefault("QT_QUICK_BACKEND", "software")
+        from PySide6.QtGui import QFontDatabase, QGuiApplication
+        cls.app = QGuiApplication.instance() or QGuiApplication([])
+        for font in (Path(__file__).resolve().parents[1] / "openrecomp/ui/fonts").glob("*.ttf"):
+            QFontDatabase.addApplicationFont(str(font))
+
+    def setUp(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtQml import QQmlApplicationEngine
+        from test_ui_loads import FakeBackend, wait_pages
+        self.nav = scene("t5", "lobby_dense", "en")
+        self.nav.game.a.snapshot["players"] = [
+            dict(id=f"dense-{n}", name="Long synthetic player name " + str(n),
+                 **(dict(rank="2nd Dan", tier=n % 12, rating=1400 + n, main="f1",
+                         status=("idle", "playing", "queue")[n % 3], ping=20 + n * 3,
+                         ping_measured=True) if n % 7 else {})) for n in range(39)]
+        self.backend = FakeBackend(self.nav)
+        self.engine = QQmlApplicationEngine()
+        self.warnings = []
+        self.engine.warnings.connect(lambda ws: self.warnings.extend(w.toString() for w in ws))
+        self.engine.setInitialProperties({"backend": self.backend, "wantFull": False})
+        source = Path(__file__).resolve().parents[1] / "openrecomp/ui/Main.qml"
+        self.engine.load(QUrl.fromLocalFile(str(source)))
+        self.assertTrue(self.engine.rootObjects(), self.warnings)
+        self.win = self.engine.rootObjects()[0]
+        self.win.show()
+        wait_pages(self.win)
+
+    def tearDown(self):
+        self.win.setProperty("allowClose", True)
+        self.win.close()
+        self.assertEqual(self.warnings, [])
+        del self.win
+        del self.engine
+
+    def named(self, name):
+        from test_ui_polish import items
+        return [item for item in items(self.win.contentItem())
+                if item.objectName() == name and item.isVisible()]
+
+    def publish(self):
+        from test_ui_loads import spin, wait_pages
+        self.backend.refresh()
+        wait_pages(self.win)
+        spin(40)
+
+    def test_rows_are_counted_in_clipped_viewport_and_actions_keep_output_size(self):
+        from PySide6.QtCore import QPointF
+        from test_ui_loads import spin
+        counts = []
+        for width, height, minimum in ((1920, 1080, 15), (1280, 720, 10)):
+            self.win.setWidth(width)
+            self.win.setHeight(height)
+            spin(80)
+            viewport = self.named("arcadePlayersViewport")[0]
+            visible = [row for row in self.named("arcadePlayer")
+                       if row.mapToItem(viewport, QPointF(0, 0)).y() >= -.1
+                       and row.mapToItem(viewport, QPointF(0, row.height())).y() <= viewport.height() + .1]
+            counts.append(len(visible))
+            self.assertGreaterEqual(len(visible), minimum, (width, height, viewport.height(), counts))
+            self.assertEqual(len(self.named("arcadePlayer")), 40)
+            for name in ("onlineProfile", "onlineFind", "lobbyChatPane", "lobbyLivePane", "lobbyRoomsPane", "onlineChapters"):
+                pane = self.named(name)[0]
+                bottom = pane.mapToScene(QPointF(pane.width(), pane.height()))
+                self.assertLessEqual(bottom.x(), width + .1, name)
+                self.assertLessEqual(bottom.y(), height + .1, name)
+            for name in ("onlineRankedAction", "onlineCasualAction"):
+                action = self.named(name)[0]
+                output_height = (action.mapToScene(QPointF(0, action.height())) - action.mapToScene(QPointF(0, 0))).y()
+                self.assertGreaterEqual(output_height, 72)
+                self.assertLessEqual(output_height, 88)
+            for name in ("lobbyProfileAction", "findOptionAction", "lobbyCreateRoom"):
+                for action in self.named(name):
+                    output_height = (action.mapToScene(QPointF(0, action.height())) - action.mapToScene(QPointF(0, 0))).y()
+                    self.assertGreaterEqual(output_height, 44 - .1, name)
+
+    def test_sort_refresh_keep_scroll_and_selected_id_and_inline_targets_contained(self):
+        from test_ui_loads import spin
+        viewport = self.named("arcadePlayersViewport")[0]
+        viewport.setProperty("contentY", 170)
+        self.nav.game.a.snapshot["players"].append(dict(id="new", name="New player"))
+        self.publish()
+        self.assertAlmostEqual(viewport.property("contentY"), 170, delta=1)
+        rows = self.nav.items()
+        index = next(n for n, row in enumerate(rows) if row.get("id") == "challenge:dense-9")
+        self.nav.focus_online_row(index)
+        self.publish()
+        selected = self.nav.view()["online"]["arcade"]["selected"]
+        before = viewport.property("contentY")
+        next(row for row in self.nav.items() if row.get("id") == "arcade_sort:name")["run"]()
+        self.publish()
+        self.assertEqual(self.nav.view()["online"]["arcade"]["selected"], selected)
+        self.assertAlmostEqual(viewport.property("contentY"), before, delta=1)
+        for inline in self.named("playerInlineActions"):
+            self.assertLessEqual(inline.x() + inline.width(), inline.parentItem().width())
+            self.assertLessEqual(inline.height(), inline.parentItem().height())
+            for action in inline.childItems():
+                if action.isVisible() and action.width() > 0:
+                    self.assertGreaterEqual(action.y(), 0)
+                    self.assertLessEqual(action.y() + action.height(), inline.height() + .1)
+        spin()
+        self.assertEqual(self.nav.game.a.calls, [])
 
 
 if __name__ == "__main__":

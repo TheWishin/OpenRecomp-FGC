@@ -51,7 +51,11 @@ def rows(nav, g, state, action):
 
 def _details(info):
     details = []
-    delay = info.get("delay") or {}
+    delay = info.get("delay")
+    if type(delay) is int:
+        delay = dict(frames=delay)
+    elif not isinstance(delay, dict):
+        delay = {}
     if "frames" in delay:
         details.append(dict(k="@online.challenge_delay", v=str(delay["frames"])))
     elif delay.get("auto"):

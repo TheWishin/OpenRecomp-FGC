@@ -39,9 +39,13 @@ COMMUNITY_SCENES = ("lobby_dense", "lobby_guest", "lobby_long_names", "player_bu
                     "challenge_declined", "challenge_expired", "searching", "cancelling", "matched",
                     "starting", "playing", "result", "reporting", "disconnect_retry", "rooms_create",
                     "community_room", "controls")
-FINAL_SCENES = ("home", "mentions", "private_chat", "rooms", "rooms_create", "community_room",
-                "matched", "searching", "leaderboard", "profile", "settings", "controls")
-SCENES = BASELINE_SCENES + ("home", "ranked", "settings", "feedback") + ARCADE_SCENES + COMMUNITY_SCENES
+OFFER_SCENES = ("offer_shelf", "offer_home", "offer_settings")
+ACTIVITY_SCENES = ("activity_rooms", "activity_home")
+FINAL_SCENES = ("home", "lobby_dense", "lobby_long_names", "lobby_guest", "arcade_selected", "mentions",
+                "private_chat", "rooms", "rooms_create", "community_room", "ranked", "ranked_select",
+                "challenge_incoming", "challenge_waiting", "challenge_declined", "challenge_expired",
+                "matched", "starting", "playing", "result", "reporting", "searching", "cancelling", "disconnect_retry", "leaderboard", "profile", "settings", "controls") + OFFER_SCENES + ACTIVITY_SCENES
+SCENES = BASELINE_SCENES + ("home", "ranked", "ranked_select", "settings", "feedback") + ARCADE_SCENES + COMMUNITY_SCENES + OFFER_SCENES + ACTIVITY_SCENES
 SIZES = ((1920, 1080), (1280, 720))
 ART_FIELDS = {"hero", "image", "art", "wordmark", "face", "plate", "portrait", "background"}
 ART_LISTS = {"images", "mosaic"}
@@ -73,7 +77,8 @@ class SyntheticOnline(Lobby):
             ranked=game != "t4", t4_lobby=game == "t4", private_rooms=True, friends=True,
             profiles=True, leaderboard=True, community_stats=True, community=True,
             room_tables=True, tournaments=True, spectating=True, account_tools=True,
-            account_blocks=True, strict=game != "t4")
+            account_blocks=True, strict=game != "t4", online_feel=game != "t4")
+        self.snapshot["netext"] = dict(online_feel="balanced")
         self.snapshot.update(
             rooms=[dict(id="r1", name="Evening practice", host="Rival", status="open", size=4,
                         players=2, members=[dict(id="p1"), dict(id="p2")], maximum=4,
@@ -97,7 +102,8 @@ class SyntheticOnline(Lobby):
             profile=dict(name="Me", rank="3rd Dan", rating=1610, record=[19, 42, 0],
                          stats=dict(ranked=dict(games=61, wins=19, losses=42, draws=0)),
                          ranked_chars=[dict(char="Fighter A", games=40, wins=22, losses=18)],
-                         history=[dict(opponent="Rival", ranked=True, result="win", status="confirmed", score=[3, 1])]),
+                         history=[dict(opponent="Rival", ranked=True, result="win", status="confirmed", score=[3, 1],
+                                       you_char="f3", opp_char="f1")]),
             tournaments=dict(rows=[dict(id="t1", name="Weekend bracket", state="signup", organizer="Player 1",
                                          players=12, max_players=16, set_wins=2)],
                              can_create=True, options=dict(format="single", set_wins=2,
@@ -112,7 +118,9 @@ class SyntheticOnline(Lobby):
 
     def settings(self):
         from tools.ui_shots import Synthetic
-        return Synthetic.settings(self)
+        return Synthetic.settings(self) + [dict(id="input_delay", label="@input_delay",
+            options=[("auto", "@resolution.auto")] + [(str(n), str(n)) for n in range(5)],
+            value=self.values.get("input_delay", "auto"), hint="@input_delay.hint", lead="@input_delay.lead")]
 
     def controls_supported(self):
         return True
@@ -148,9 +156,13 @@ def scene(game, chapter, language, nav_type=Nav, text_size=100, high_contrast=Fa
             players=[dict(id="p2", name="Busy", main="f2"),
                      dict(id="p3", name="Player 3", main="f4")], score=[2, 1])
         if requested == "lobby_dense":
-            adapter.snapshot["players"] += [dict(id=f"p{n}", name=f"Player {n:02}", rank="2nd Dan",
-                rating=1500 + n, main="f1", status="idle", ping=40 + n, ping_measured=True)
-                for n in range(7, 31)]
+            adapter.snapshot["players"] += [dict(id=f"p{n}",
+                name=f"Player {n:02}" if n % 7 else f"Long community player name {n:02}",
+                rank=("Beginner", "2nd Dan", "Warrior", "")[n % 4],
+                **({"rating": 1200 + n * 17} if n % 5 else {}), main="f1" if n % 6 else "",
+                status=("idle", "playing", "searching", "in_room")[n % 4],
+                **({"ping": 20 + n * 4, "ping_measured": True} if n % 3 else {}))
+                for n in range(7, 40)]
         chapter = "lobby"
     adapter.snapshot["capabilities"].update(private_chat=True, mentions=True, challenge_preferences=True)
     if requested == "lobby_guest":
@@ -179,7 +191,7 @@ def scene(game, chapter, language, nav_type=Nav, text_size=100, high_contrast=Fa
             lock="none", rotation="queue", in_line=True, host=False, line=["p1", "me", "p6"],
             members=[dict(id="p1", name="Rival"), dict(id="me", name="Me"), dict(id="p6", name="Player 6")],
             tables=[dict(id="1", players=["p1", "me"], wins=[1, 0], playing=True)])
-    phase = {"searching": "searching", "cancelling": "cancelling", "matched": "matched", "starting": "starting",
+    phase = {"searching": "searching", "activity_rooms": "searching", "activity_home": "searching", "cancelling": "cancelling", "matched": "matched", "starting": "starting",
              "playing": "playing", "result": "result", "reporting": "result_sent", "disconnect_retry": "error"}.get(requested)
     if phase:
         adapter.snapshot.update(phase=phase, message={"searching": "@online.searching_casual",
@@ -187,6 +199,9 @@ def scene(game, chapter, language, nav_type=Nav, text_size=100, high_contrast=Fa
             "playing": "@online.match_active", "result": "@online.result", "result_sent": "@online.result",
             "error": "@online.disconnected"}[phase],
             match=dict(opponent="Rival", ping=42, ping_measured=True, ranked=False))
+        if phase == "matched":
+            adapter.snapshot["match"].update(id="sample-match", seconds=27, delay=dict(auto=True, frames=2),
+                first_to=2, rounds=3, ping_path="direct", opponent_ready=False, mode="casual")
     if requested == "challenge_incoming":
         adapter.snapshot["challenge"] = dict(id="sample-incoming", name="Rival", player="p1", ping=42, ping_measured=True)
         adapter.snapshot["challenge_preferences"]["incoming"] = dict(id="sample-incoming", first_to=2, delay=dict(auto=True))
@@ -201,6 +216,26 @@ def scene(game, chapter, language, nav_type=Nav, text_size=100, high_contrast=Fa
     nav.screen = "hub"
     nav.sec[game] = "online"
     nav.main_menu_visited = {game}
+    from openrecomp import nav_feedback
+    nav_feedback.observe_offers(nav, nav.game, adapter.snapshot)
+    if requested in ACTIVITY_SCENES:
+        if requested == "activity_home":
+            nav.open_main_menu()
+        else:
+            nav.click_chapter("rooms")
+        return nav
+    if requested in OFFER_SCENES:
+        from openrecomp import nav_feedback
+        adapter.snapshot["challenge"] = dict(id="global-sample", name="Rival", player="p1", rank="2nd Dan", ping=42, ping_measured=True, seconds=24)
+        adapter.snapshot["challenge_preferences"]["incoming"] = dict(id="global-sample", first_to=2, delay=dict(auto=True))
+        if requested == "offer_shelf":
+            nav.screen = "start"
+        elif requested == "offer_home":
+            nav.open_main_menu()
+        else:
+            nav.sec[game] = "settings"
+        nav_feedback.observe_offers(nav, nav.game, adapter.snapshot)
+        return nav
     if arcade_scene:
         if phase:
             return nav
@@ -248,8 +283,10 @@ def scene(game, chapter, language, nav_type=Nav, text_size=100, high_contrast=Fa
     if chapter == "settings":
         nav.sec[game] = "settings"
         return nav
-    if chapter == "ranked":
+    if chapter in ("ranked", "ranked_select"):
         nav.open_ranked(nav.game)
+        if chapter == "ranked_select":
+            nav._open_fighters()
         return nav
     if chapter == "feedback":
         from openrecomp import nav_feedback
@@ -332,7 +369,7 @@ def geometry(window):
                     parent.property("contentHeight") > parent.height())
                 top = item.mapToItem(parent, QPointF(0, 0))
                 bottom = item.mapToItem(parent, QPointF(item.width(), item.height()))
-                if (parent.objectName() in ("rankingCompactControls", "onlineChapters", "chatTabsViewport") and
+                if (parent.objectName() in ("rankingCompactControls", "onlineChapters", "chatTabsViewport", "findOptionsViewport") and
                         parent.property("contentX") is not None and
                         parent.property("contentWidth") is not None and
                         parent.property("contentWidth") > parent.width()):
@@ -398,6 +435,15 @@ def capture_home(phase, text_size, high_contrast=False, batch=None, platform="of
     return ROOT / "build" / "tmp-home" / "uipolish5" / ("online-" + profile)
 
 
+def merge_captures(previous, current):
+    """Replace recaptured scene records without losing the other reviewed scenes."""
+    def key(record):
+        return tuple(record[field] for field in ("language", "game", "scene", "size"))
+    records = {key(record): record for record in previous}
+    records.update((key(record), record) for record in current)
+    return list(records.values())
+
+
 def main(argv=None):
     os.environ["QML_DISABLE_DISK_CACHE"] = "1"
     parser = argparse.ArgumentParser(description=__doc__)
@@ -409,6 +455,7 @@ def main(argv=None):
     parser.add_argument("--text-size", choices=("normal", "large", "larger"), default="normal")
     parser.add_argument("--high-contrast", action="store_true")
     parser.add_argument("--batch", choices=("presentation", "arcade", "community", "final"))
+    parser.add_argument("--merge-report", action="store_true", help="Refresh selected scenes and retain the complete report and contact sheets")
     parser.add_argument("--platform", choices=("offscreen", "windows"), default="offscreen")
     args = parser.parse_args(argv)
     home = capture_home(args.phase, args.text_size, args.high_contrast, args.batch, args.platform)
@@ -433,7 +480,7 @@ def main(argv=None):
     except ImportError:
         parser.exit(2, "PySide6 is required for captures; install the existing requirements.txt dependency first.\n")
     from test_ui_loads import FakeBackend, spin, wait_pages
-    from tools.ui_shots import font_coverage
+    from tools.ui_shots import font_coverage_details
 
     os.environ["QT_QPA_PLATFORM"] = args.platform
     app = QGuiApplication.instance() or QGuiApplication(sys.argv[:1])
@@ -480,15 +527,23 @@ def main(argv=None):
                     layout = layout_geometry(window)
                     records.append(dict(language=language, game=game, scene=chapter, size=f"{width}x{height}",
                                         path=path.relative_to(ROOT).as_posix(), overflow=overflow, elided=elided,
-                                        layout=layout, collisions=layout_problems(layout)))
+                                        layout=layout, visible_player_rows=sum(row.get("fullyVisible", False) for row in layout if row["name"] == "arcadePlayer"),
+                                        collisions=layout_problems(layout)))
             print(f"{args.phase}: {language} / {game}: {len(args.scenes) * 2} synthetic captures", flush=True)
-    coverage = font_coverage()
-    limitations = [f"{lang}: CJK glyph coverage unavailable; actual glyph layout remains unverified"
+    coverage_details = font_coverage_details()
+    coverage = {language: detail["covered"] for language, detail in coverage_details.items()}
+    limitations = [f"{lang}: catalog glyph coverage incomplete; actual glyph layout remains unverified"
                    for lang, covered in coverage.items() if not covered]
+    if args.merge_report and (out / "report.json").exists():
+        previous = json.loads((out / "report.json").read_text(encoding="utf-8"))
+        records = merge_captures(previous.get("captures", []), records)
+        warnings = list(dict.fromkeys(previous.get("qml_warnings", []) + warnings))
     (out / "report.json").write_text(json.dumps(dict(captures=records, qml_warnings=warnings,
-        font_coverage=coverage, limitations=limitations,
+        font_coverage=coverage, font_coverage_details=coverage_details, limitations=limitations,
         geometry_exclusions=dict(art_free_background_numerals=DECORATIVE_CLIPPING)), ensure_ascii=False, indent=2), encoding="utf-8")
-    contact_sheets(out, args.languages, args.games, args.scenes)
+    sheet_scenes = [name for name in (FINAL_SCENES if args.batch == "final" else SCENES)
+                    if any(record["scene"] == name for record in records)] if args.merge_report else args.scenes
+    contact_sheets(out, args.languages, args.games, sheet_scenes)
     window.setProperty("allowClose", True)
     window.close()
     print(f"Saved {len(records)} synthetic captures to {out.relative_to(ROOT).as_posix()}")
@@ -512,8 +567,19 @@ def layout_geometry(window):
                             "onlineRankedAction", "onlineCasualAction", "arcadePlayerPortrait", "playerInlineActions"):
                     top = child.mapToScene(QPointF(0, 0))
                     bottom = child.mapToScene(QPointF(child.width(), child.height()))
-                    records.append(dict(name=name, x=round(top.x(), 2), y=round(top.y(), 2),
-                        width=round(bottom.x() - top.x(), 2), height=round(bottom.y() - top.y(), 2)))
+                    record = dict(name=name, x=round(top.x(), 2), y=round(top.y(), 2),
+                        width=round(bottom.x() - top.x(), 2), height=round(bottom.y() - top.y(), 2))
+                    if name == "arcadePlayer":
+                        fully_visible = True
+                        ancestor = child.parentItem()
+                        while ancestor:
+                            if ancestor.clip():
+                                left = child.mapToItem(ancestor, QPointF(0, 0))
+                                right = child.mapToItem(ancestor, QPointF(child.width(), child.height()))
+                                fully_visible = fully_visible and left.x() >= -.1 and left.y() >= -.1 and right.x() <= ancestor.width() + .1 and right.y() <= ancestor.height() + .1
+                            ancestor = ancestor.parentItem()
+                        record["fullyVisible"] = fully_visible
+                    records.append(record)
                 visit(child)
     visit(window.contentItem())
     return records

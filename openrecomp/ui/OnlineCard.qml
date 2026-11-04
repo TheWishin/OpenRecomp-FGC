@@ -6,6 +6,72 @@ Item {
     required property var root
     readonly property var o: root.v.online || ({})
     readonly property var d: o.detail || ({})
+    readonly property var vs: root.v.matchVersus || ({})
+    readonly property bool versus: o.phase === "matched" && !!vs.left
+    component FighterSide: Rectangle {
+        property var person: ({})
+        property bool mirror: false
+        color: Theme.raised; radius: 6; border.width: 1; border.color: Theme.border
+        Item {
+            id: portrait
+            x: 16; y: 16; width: parent.width - 32; height: Math.max(80, parent.height - identity.height - 40)
+            // Independently drawn silhouettes are the complete fallback when the adapter has no image.
+            Rectangle { visible: !fighterImage.visible; width: Math.min(parent.width * .24, parent.height * .3); height: width; radius: width / 2; anchors.horizontalCenter: parent.horizontalCenter; y: 8; color: Theme.muted; opacity: .4 }
+            Rectangle { visible: !fighterImage.visible; width: Math.min(parent.width * .6, parent.height * .7); height: parent.height * .55; radius: width * .26; anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; color: Theme.muted; opacity: .3; rotation: parent.parent.mirror ? -8 : 8 }
+            Image { id: fighterImage; anchors.fill: parent; source: parent.parent.person.art || ""; visible: status === Image.Ready; mirror: parent.parent.mirror; fillMode: Image.PreserveAspectFit; asynchronous: true }
+        }
+        Column {
+            id: identity; x: 16; anchors.bottom: parent.bottom; anchors.bottomMargin: 16; width: parent.width - 32; spacing: 4
+            OnlineStyle.SectionHeader { width: parent.width; text: parent.parent.person.name || ""; maximumLineCount: 2; elide: Text.ElideRight; Accessible.name: text }
+            Image { visible: !!parent.parent.person.plate; source: parent.parent.person.plate || ""; width: parent.width; height: visible ? 32 : 0; fillMode: Image.PreserveAspectFit }
+            OnlineStyle.Value { width: parent.width; text: [parent.parent.person.rank || "", parent.parent.person.rating || "", parent.parent.person.region || ""].filter(s => s).join(" · ") }
+            OnlineStyle.HelpText { width: parent.width; text: parent.parent.person.fighter || "" }
+        }
+    }
+    OnlineStyle.SectionCard {
+        objectName: "matchVersusCard"
+        visible: page.versus
+        x: 24; y: 16; width: parent.width - 48; height: parent.height - 32
+        Column {
+            id: versusHeading; x: 24; y: 16; width: parent.width - 48; spacing: 4
+            OnlineStyle.PageTitle { width: parent.width; text: (page.vs.game || "") + " · " + (page.o.title || "") }
+            OnlineStyle.HelpText { width: parent.width; text: (page.vs.details || []).map(r => r.k + ": " + r.v).join(" · "); visible: !!text }
+        }
+        Row {
+            id: fighters; x: 24; y: versusHeading.y + versusHeading.height + 12; width: parent.width - 48
+            height: Math.max(140, versusFooter.y - y - 16); spacing: 16
+            FighterSide { width: (parent.width - versusCentre.width - 32) / 2; height: parent.height; person: page.vs.left || ({}) }
+            Column {
+                id: versusCentre; width: Math.max(180, parent.width * .18); anchors.verticalCenter: parent.verticalCenter; spacing: 12
+                OnlineStyle.PageTitle { width: parent.width; text: page.vs.versus || ""; horizontalAlignment: Text.AlignHCenter; font.pixelSize: Theme.onlinePx(64) }
+                Rectangle {
+                    width: Math.min(112, parent.width); height: width; radius: width / 2; anchors.horizontalCenter: parent.horizontalCenter
+                    color: "transparent"; border.width: 4; border.color: Theme.readableAccent(page.root.v.accent)
+                    OnlineStyle.Value { anchors.centerIn: parent; width: parent.width - 12; text: page.vs.seconds === null || page.vs.seconds === undefined ? "—" : page.vs.countdown || ""; horizontalAlignment: Text.AlignHCenter; font.pixelSize: Theme.onlinePx(26) }
+                }
+                OnlineStyle.HelpText { width: parent.width; text: page.vs.seconds === null || page.vs.seconds === undefined ? page.vs.countdown || "" : ""; visible: !!text; horizontalAlignment: Text.AlignHCenter }
+                OnlineStyle.HelpText { width: parent.width; text: page.vs.opponentStatus || ""; visible: !!text; horizontalAlignment: Text.AlignHCenter }
+            }
+            FighterSide { width: (parent.width - versusCentre.width - 32) / 2; height: parent.height; person: page.vs.right || ({}); mirror: true }
+        }
+        Column {
+            id: versusFooter; x: 24; y: parent.height - height - 20; width: parent.width - 48; spacing: 12
+            PeerPing { anchors.horizontalCenter: parent.horizontalCenter; connection: page.vs.connection || ({}); ink: Theme.text; dim: Theme.border }
+            Row {
+                width: parent.width; spacing: 16
+                OnlineStyle.PrimaryButton {
+                    objectName: "versusReady"; width: (parent.width - 16) * .7; maxW: width; height: Math.max(Theme.target(80), captionHeight + 20)
+                    b: Object.assign({}, page.o.primary || {}, {label: page.vs.readyLabel || "", disabled: !!page.vs.disabled || !!(page.o.primary || {}).disabled})
+                    accent: Theme.readableAccent(page.root.v.accent); onActivated: i => page.root.backend.clickRow(i)
+                }
+                OnlineStyle.SecondaryButton {
+                    objectName: "versusDecline"; width: (parent.width - 16) * .3; maxW: width; height: Math.max(Theme.target(80), captionHeight + 20)
+                    b: (page.o.lines || []).filter(r => r.id === "cancel_match")[0] || ({})
+                    onActivated: i => page.root.backend.clickRow(i)
+                }
+            }
+        }
+    }
     function sections() {
         var out = []
         for (var line of o.lines || []) {
@@ -21,6 +87,7 @@ Item {
     }
     OnlineStyle.SectionCard {
         id: card
+        visible: !page.versus
         objectName: "onlineCard"
         x: 24; y: 18; width: (parent.width - 68) * 0.62; height: parent.height - y - 16
         border.color: page.o.statusFocused ? Theme.readableAccent(page.root.v.accent) : page.root.line
@@ -49,11 +116,19 @@ Item {
     }
     OnlineStyle.SectionCard {
         objectName: "onlineCardDetail"
+        visible: !page.versus
         x: card.x + card.width + 20; y: card.y; width: page.width - 24 - x; height: card.height
         Flickable {
             anchors.fill: parent; anchors.margins: 28; clip: true; contentHeight: detail.height
             Column {
                 id: detail; width: parent.width; spacing: 12
+                Row {
+                    objectName: "sessionFighterPortraits"
+                    visible: !!page.vs.left && !page.versus
+                    width: parent.width; height: visible ? 160 : 0; spacing: 8
+                    FighterPortrait { objectName: "resultOwnPortrait"; width: (parent.width - 8) / 2; height: parent.height; source: (page.vs.left || {}).art || ""; name: (page.vs.left || {}).fighter || (page.vs.left || {}).name || "" }
+                    FighterPortrait { objectName: "resultPeerPortrait"; width: (parent.width - 8) / 2; height: parent.height; source: (page.vs.right || {}).art || ""; name: (page.vs.right || {}).fighter || (page.vs.right || {}).name || ""; mirrored: true }
+                }
                 OnlineStyle.SectionHeader { visible: !!text && text !== page.o.title; width: parent.width; text: page.d.title || "" }
                 OnlineStyle.HelpText { width: parent.width; text: page.d.lead || ""; visible: !!text && text !== page.o.message && text !== page.o.title }
                 Repeater {

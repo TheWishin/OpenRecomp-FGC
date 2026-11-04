@@ -140,6 +140,28 @@ class Subject(Online, Adapter):
 
 
 class OnlineAdapterTests(unittest.TestCase):
+    def test_match_presentation_keeps_only_supplied_bounded_public_fields(self):
+        self.a._online_init()
+        event = dict(match="public-match-1", opponent=dict(id="peer-1", name="Rival", rank="3rd Dan", rating=1610,
+            tier=12, main="fighter-a", region="eu", country="DE", token="private-token", address="private-address"),
+            delay=dict(auto=True, frames=2, secret="private-delay"), first_to=3, rounds=2, seconds=30,
+            ranked=True, opponent_ready=False, ticket="private-ticket", key="private-key")
+        value = self.a._online_match_view(event)
+        self.assertEqual(value["id"], "public-match-1")
+        self.assertEqual(value["opponent_info"], dict(id="peer-1", name="Rival", rank="3rd Dan", rating=1610,
+            tier=12, main="fighter-a", region="eu", country="DE"))
+        self.assertEqual(value["delay"], dict(auto=True, frames=2))
+        self.assertEqual((value["first_to"], value["rounds"], value["seconds"]), (3, 2, 30))
+        self.assertNotIn("private-", str(value))
+        minimal = self.a._online_match_view(dict(match="public-match-2", opponent=dict(name="Rival")))
+        for key in ("delay", "rounds", "first_to", "seconds", "ranked", "opponent_ready"):
+            self.assertNotIn(key, minimal)
+        invalid = self.a._online_match_view(dict(match={"token": "private"}, opponent=dict(name={"token": "private"},
+            rating=float("nan"), tier=True), delay=dict(frames=True), first_to=11, rounds=0, seconds=float("inf")))
+        for key in ("id", "opponent_info", "delay", "first_to", "rounds", "seconds"):
+            self.assertNotIn(key, invalid)
+        self.assertEqual(invalid["opponent"], "")
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(dir=os.getcwd())
         self.addCleanup(self.directory.cleanup)

@@ -33,6 +33,13 @@ def close_client(client):
         pass
 
 
+def match_identity(value):
+    """An opaque public match identifier, never an event payload or connection credential."""
+    if isinstance(value, str) and 0 < len(value) <= 128 and all(ch.isascii() and (ch.isalnum() or ch in "_.:-") for ch in value):
+        return value
+    return ""
+
+
 def game_process_running(image="t5dr.exe"):
     """Conservatively include matching game processes, whoever started them. None means unknown."""
     if os.name != "nt":
@@ -1260,8 +1267,49 @@ class Online:
     def _online_match_view(self, event):
         opponent = event.get("opponent")
         opponent = opponent if isinstance(opponent, dict) else {}
-        out = dict(opponent=str(opponent.get("name") or "")[:64], ping=None)
+        name = opponent.get("name")
+        out = dict(opponent="".join(ch for ch in name if ch.isprintable())[:64] if isinstance(name, str) else "", ping=None)
         out.update(self._online_ping_view(event, "opponent"))
+        mid = match_identity(event.get("match"))
+        if mid:
+            out["id"] = mid
+        person = {}
+        for key, maximum in (("name", 64), ("rank", 40), ("main", 40), ("fighter", 40), ("region", 16), ("country", 2)):
+            value = opponent.get(key)
+            if isinstance(value, str) and value:
+                person[key] = "".join(ch for ch in value if ch.isprintable())[:maximum]
+        pid = match_identity(opponent.get("id"))
+        if pid:
+            person["id"] = pid
+        rating = opponent.get("rating")
+        if type(rating) in (int, float) and 0 <= rating <= 10 ** 7 and math.isfinite(rating):
+            person["rating"] = rating
+        if type(opponent.get("tier")) is int and 0 <= opponent["tier"] < 64:
+            person["tier"] = opponent["tier"]
+        if person:
+            out["opponent_info"] = person
+        fight = event.get("fight") if isinstance(event.get("fight"), dict) else {}
+        for key, maximum in (("rounds", 9), ("first_to", 10)):
+            value = event.get(key, fight.get(key))
+            if type(value) is int and 1 <= value <= maximum:
+                out[key] = value
+        seconds = event.get("seconds")
+        if type(seconds) in (int, float) and 0 <= seconds <= 3600 and math.isfinite(seconds):
+            out["seconds"] = seconds
+        delay = event.get("delay", fight.get("delay"))
+        if type(delay) is int and 0 <= delay <= 8:
+            out["delay"] = dict(frames=delay)
+        elif isinstance(delay, dict):
+            public = {}
+            if type(delay.get("frames")) is int and 0 <= delay["frames"] <= 8:
+                public["frames"] = delay["frames"]
+            if type(delay.get("auto")) is bool:
+                public["auto"] = delay["auto"]
+            if public:
+                out["delay"] = public
+        for key in ("ranked", "opponent_ready"):
+            if type(event.get(key)) is bool:
+                out[key] = event[key]
         return out
 
     def _online_completion(self, action, value, error):

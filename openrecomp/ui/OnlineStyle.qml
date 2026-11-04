@@ -51,7 +51,7 @@ QtObject {
         readonly property bool failed: (b.feedback || {}).kind === "error"
         signal activated(int index)
         width: parent ? parent.width : 400
-        height: editable ? nativeField.height + 16 : Math.max(48, Math.max(label.implicitHeight, value.implicitHeight) + 22 + (help.visible ? help.implicitHeight + 5 : 0) + (fieldFeedback.visible ? fieldFeedback.implicitHeight + 10 : 0))
+        height: editable ? nativeField.height + 16 : Math.max(Theme.target(48), Math.max(label.implicitHeight, value.implicitHeight) + 22 + (help.visible ? help.implicitHeight + 5 : 0) + (fieldFeedback.visible ? fieldFeedback.implicitHeight + 10 : 0))
         radius: 4
         color: failed ? "#321B22" : b.focused ? Theme.selected : "#1B1E23"
         opacity: b.disabled ? 0.5 : 1
@@ -81,8 +81,9 @@ QtObject {
         }
         HelpText {
             id: help
+            objectName: "onlineFieldHelp"
             x: 14; y: Math.max(label.implicitHeight + label.y, value.implicitHeight + value.y) + 5
-            width: field.width - 28; visible: !!field.b.hint && !field.editable
+            width: field.width - 28; visible: !!field.b.hint && !field.editable && (!!field.b.focused || !!field.b.disabled)
             text: field.b.hint || ""; color: field.b.focused && !field.failed ? Theme.inkHelp : Theme.muted
         }
         Feedback {

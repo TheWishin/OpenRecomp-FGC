@@ -22,7 +22,7 @@ Window {
 
     readonly property var v: backend.view
     readonly property color ground: Theme.ground
-    readonly property color panel: "#141619"
+    readonly property color panel: Theme.card
     readonly property color bar: "#08090A"
     readonly property color line: Theme.border
     readonly property color textC: Theme.text
@@ -37,13 +37,17 @@ Window {
     readonly property real chatDockWidth: chatDocked ? ((v.online.chat || {}).open !== false ? 568 : 88) : 0
     readonly property real onlineContentWidth: chatDocked ? 1920 - chatDockWidth - 16 : 1920
     readonly property bool compactOnline: chatDocked || v.online.layout === "lobby"
+    readonly property bool activityAtOrigin: !!(v.activity || {}).current && v.screen === "hub" && !v.mainMenu.show
+        && ((v.online.chapter === "lobby" && !!(v.online.arcade || {}).search)
+            || ["matched", "starting", "playing", "result", "result_sent"].indexOf(v.online.phase) >= 0)
+    readonly property real activityHeight: (v.activity || {}).game && !activityAtOrigin ? Math.max(Theme.target(44) + 8, activityReturn.captionHeight + 28) : 0
     property string lastToast: ""
     readonly property real hintHeight: Math.ceil(Math.max((compactOnline ? 36 : 48) * Theme.textScale, focusHint.implicitHeight + (compactOnline ? 8 : 12)))
     readonly property real headerHeight: Math.max(compactOnline ? 56 : 72, Theme.target(44) + (compactOnline ? 8 : 12), topActions.implicitHeight + (compactOnline ? 8 : 12))
     readonly property real promptHeight: Math.max(compactOnline ? 48 : 60, promptRow.implicitHeight + (compactOnline ? 8 : 12))
 
-    onVChanged: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; if (v.toast) lastToast = v.toast }
-    Component.onCompleted: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; lastToast = v.toast || "" }
+    onVChanged: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; Theme.gameKind = v.gameTheme || ""; if (v.toast) lastToast = v.toast }
+    Component.onCompleted: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; Theme.gameKind = v.gameTheme || ""; lastToast = v.toast || "" }
 
     function ok(a, i) { return (a && a[i]) || ({}) }
     function focusStage() { stage.forceActiveFocus() }
@@ -129,9 +133,17 @@ Window {
             Item {
                 id: body
                 width: 1920; height: 1080 - win.headerHeight - win.hintHeight - win.promptHeight
-                PageLoader { anchors.fill: parent; active: win.v.screen === "start"; page: "Shelf.qml"; root: win }
-                PageLoader { width: win.onlineContentWidth; height: parent.height; active: win.v.screen === "hub" && !win.v.mainMenu.show; page: "Hub.qml"; root: win }
-                PageLoader { width: win.onlineContentWidth; height: parent.height; active: win.v.screen === "hub" && !!win.v.mainMenu.show; page: "MainMenu.qml"; root: win }
+                PageLoader { y: win.activityHeight; width: parent.width; height: parent.height - y; active: win.v.screen === "start"; page: "Shelf.qml"; root: win }
+                PageLoader { y: win.activityHeight; width: win.onlineContentWidth; height: parent.height - y; active: win.v.screen === "hub" && !win.v.mainMenu.show; page: "Hub.qml"; root: win }
+                PageLoader { y: win.activityHeight; width: win.onlineContentWidth; height: parent.height - y; active: win.v.screen === "hub" && !!win.v.mainMenu.show; page: "MainMenu.qml"; root: win }
+                OnlineStyle.SecondaryButton {
+                    id: activityReturn
+                    objectName: "onlineActivityReturn"
+                    visible: win.activityHeight > 0
+                    x: 16; y: 4; width: win.onlineContentWidth - 32; maxW: width; height: win.activityHeight - 8
+                    b: ({label: [(win.v.activity || {}).name, (win.v.activity || {}).label, (win.v.activity || {}).status].filter(s => s).join(" · ")})
+                    onActivated: win.backend.press("returnActivity")
+                }
                 LobbyChat {
                     objectName: "lobbyChatPane"
                     root: win; chat: win.v.online.chat || ({})
@@ -184,7 +196,7 @@ Window {
             }
         }
 
-        PageLoader { anchors.fill: parent; active: !!win.v.overlay; page: "Overlays.qml"; root: win }
+        PageLoader { anchors.fill: parent; z: 1000; active: !!win.v.overlay || (win.v.globalOffers || []).length > 0; page: "Overlays.qml"; root: win }
 
         // ---------------------------------------------------------------- one toast, never a stack of banners
         Rectangle {

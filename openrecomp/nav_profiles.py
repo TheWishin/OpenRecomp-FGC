@@ -2,6 +2,7 @@
 from datetime import datetime
 
 from . import i18n
+from .nav_common import uri
 
 
 _COUNT_LABELS = (("games", "@online.games"), ("wins", "@online.wins"), ("losses", "@online.losses"),
@@ -52,6 +53,10 @@ def _fighter(g, key):
     return next((fighter.get("name") or key for fighter in g.a.fighters() if fighter.get("key") == key), key)
 
 
+def _fighter_art(g, key):
+    return dict(character=i18n.literal(_fighter(g, key)), face=uri(g.a.fighter_image(key)))
+
+
 def _profile_rows(nav, g, state, action):
     profile = state.get("profile") or {}
     title = i18n.literal(profile.get("name") or state.get("name") or "")
@@ -77,12 +82,16 @@ def _profile_rows(nav, g, state, action):
         if mode in stats:
             out.append(_detail("profile_stats:" + mode, label, "@online.profile", _counts(stats[mode])))
     for row in profile.get("chars") or []:
-        out.append(_detail("profile_char:" + row["char"], i18n.literal(_fighter(g, row["char"])), "@online.profile", _counts(row)))
+        item = _detail("profile_char:" + row["char"], i18n.literal(_fighter(g, row["char"])), "@online.profile", _counts(row))
+        item.update(_fighter_art(g, row["char"]))
+        out.append(item)
     if "ranked_chars" in profile:
         out.append(dict(kind="heading", label="@online.ranked_chars"))
         for row in profile["ranked_chars"]:
-            out.append(_detail("profile_ranked_char:" + row["char"], i18n.literal(_fighter(g, row["char"])),
-                               "@online.ranked_chars", _counts(row)))
+            item = _detail("profile_ranked_char:" + row["char"], i18n.literal(_fighter(g, row["char"])),
+                           "@online.ranked_chars", _counts(row))
+            item.update(_fighter_art(g, row["char"]))
+            out.append(item)
         if not profile["ranked_chars"]:
             out.append(_detail("no_ranked_chars", "@online.no_ranked_chars", "@online.ranked_chars", []))
     out.append(dict(kind="heading", label="@online.history"))
@@ -99,7 +108,7 @@ def _profile_rows(nav, g, state, action):
         for key in ("you_char", "opp_char"):
             if row.get(key):
                 details.append(dict(k="@fighter" if key == "you_char" else "@online.opponent",
-                                    v=i18n.literal(_fighter(g, row[key]))))
+                                    v=i18n.literal(_fighter(g, row[key])), **_fighter_art(g, row[key])))
         score = row.get("score")
         if score:
             details.append(dict(k="@online.score", v=" : ".join(str(n) for n in score)))
@@ -132,6 +141,10 @@ def _board_rows(nav, g, state, action):
     board = state.get("leaderboard") or {}
     out = [dict(kind="heading", label="@online.leaderboard")]
     prefs = nav.__dict__.setdefault("board_filters", {}).setdefault(g.id, dict(mode="ranked", fighter=""))
+    podium = nav.__dict__.setdefault("board_podium", {})
+    out.append(dict(kind="action", id="leaderboard_podium", label="@official_ui.podium",
+                    value="@on" if podium.get(g.id, False) else "@off", verb="@open",
+                    run=lambda: podium.__setitem__(g.id, not podium.get(g.id, False))))
     fighters = sorted({row["main"] for row in board.get("rows") or [] if row.get("main")})
     specs = (("mode", "@official_ui.mode", [("ranked", "@online.ranked_mode"), ("casual", "@online.casual_mode")]),
              ("fighter", "@fighter", [("", "@online.all")] + [(key, i18n.literal(_fighter(g, key))) for key in fighters]))

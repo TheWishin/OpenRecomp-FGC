@@ -183,6 +183,22 @@ class T4(T4Support, T4Online, Adapter):
         self._art_busy = True
         threading.Thread(target=self._make_art, args=(iso, path), daemon=True).start()
 
+    def fighter_image(self, key):
+        """Optional per-fighter user cache; unknown keys never read outside that cache.
+
+        The verified disc extractor currently identifies only Jin's portrait. Other
+        fighters need a verified entry mapping before extraction can be enabled.
+        """
+        if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,48}", key):
+            return ""
+        path = os.path.join(art_dir("t4"), "fighters", key + ".png")
+        if os.path.isfile(path):
+            return path
+        if key.casefold() == "jin":
+            path = os.path.join(art_dir("t4"), t4_art.FILE_NAME)
+            return path if os.path.isfile(path) else ""
+        return ""
+
     def _make_art(self, iso, path):
         try:
             t4_art.make_hero(iso, path)

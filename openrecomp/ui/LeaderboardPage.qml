@@ -5,7 +5,7 @@ Flickable {
     required property var root
     readonly property var board: root.v.online.leaderboard || ({})
     readonly property var labels: board.labels || ({})
-    readonly property bool compact: Theme.viewportScale < 0.9 || Theme.textScale > 1
+    readonly property bool compact: true
     contentWidth: width; contentHeight: content.height; clip: true; boundsBehavior: Flickable.StopAtBounds
     function revealFocus() {
         var target = null
@@ -34,7 +34,7 @@ Flickable {
         id: row
         objectName: "rankingRow"
         property var entry: ({})
-        width: parent.width; height: Math.max(Theme.listRowHeight, values.implicitHeight + 24); radius: 5
+        width: parent.width; height: Math.max(40, values.implicitHeight + 16); radius: 4
         color: entry.focused ? Theme.highlighted : entry.own ? "#252C33" : "#1B1E23"
         border.width: entry.focused ? 4 : entry.own ? 2 : 1
         border.color: entry.focused ? "#F2EFE6" : entry.own ? "#D3B59D" : "#3A3D42"
@@ -42,45 +42,46 @@ Flickable {
         Accessible.name: [entry.place, entry.name, entry.rank, entry.rating, entry.record, entry.main].join(", ")
         Accessible.onPressAction: if (entry.index >= 0) page.root.backend.clickRow(entry.index)
         Row {
-            id: values; x: 14; y: 12; width: parent.width - 28; spacing: 0
+            id: values; x: 12; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 24; spacing: 0
             OnlineStyle.Value { width: values.width * 0.07; text: row.entry.place || "" }
-            OnlineStyle.FieldLabel { width: values.width * 0.24; rightPadding: 12; text: row.entry.name || ""; font.weight: Font.DemiBold }
-            Column {
-                width: values.width * 0.19; spacing: 3
-                Image { visible: !!row.entry.plate; source: row.entry.plate || ""; width: Math.min(parent.width - 12, 100); height: 40; fillMode: Image.PreserveAspectFit; asynchronous: true }
-                OnlineStyle.FieldLabel { width: parent.width - 12; text: row.entry.rank || "—" }
+            OnlineStyle.FieldLabel { width: values.width * 0.24; rightPadding: 12; text: row.entry.name || ""; font.weight: Font.DemiBold; wrapMode: Text.NoWrap; elide: Text.ElideRight }
+            Row {
+                width: values.width * 0.19; spacing: 4
+                Image { visible: !!row.entry.plate; source: row.entry.plate || ""; width: visible ? Math.min(parent.width * .38, 48) : 0; height: 24; fillMode: Image.PreserveAspectFit; asynchronous: true }
+                OnlineStyle.FieldLabel { width: parent.width - (row.entry.plate ? Math.min(parent.width * .38, 48) + 4 : 0) - 8; text: row.entry.rank || "—"; wrapMode: Text.NoWrap; elide: Text.ElideRight }
             }
             OnlineStyle.Value { width: values.width * 0.13; text: row.entry.rating || "—" }
             OnlineStyle.FieldLabel { width: values.width * 0.15; rightPadding: 10; text: row.entry.record || "—" }
-            OnlineStyle.FieldLabel { width: values.width * 0.22; text: row.entry.main || "—" }
+            OnlineStyle.FieldLabel { width: values.width * 0.22; text: row.entry.main || "—"; wrapMode: Text.NoWrap; elide: Text.ElideRight }
         }
         HoverHandler { id: hover }
         Rectangle { anchors.fill: parent; radius: parent.radius; color: "#FFFFFF"; opacity: tap.pressed ? 0.14 : hover.hovered ? 0.07 : 0 }
         TapHandler { id: tap; enabled: row.entry.index >= 0; onTapped: page.root.backend.focusOnlineRow(row.entry.index); onDoubleTapped: page.root.backend.clickRow(row.entry.index) }
     }
     Column {
-        id: content; width: page.width; spacing: 16
+        id: content; width: page.width; spacing: 8
         OnlineStyle.PageTitle { width: parent.width; text: page.root.v.online.body.title || page.labels.ranking || "" }
         OnlineStyle.HelpText { width: parent.width; text: page.board.updated || "" }
         Column {
-            width: parent.width; spacing: 8; visible: !!page.board.own && !page.compact
+            width: parent.width; spacing: 4; visible: !!page.board.own
             OnlineStyle.SectionHeader { width: parent.width; text: page.labels.your_position || "" }
             RankingRow { width: parent.width; entry: page.board.own || ({}) }
         }
         Row {
-            width: parent.width; spacing: 12; visible: !page.compact && (page.board.podium || []).length > 0
+            objectName: "rankingPodium"
+            width: parent.width; spacing: 8; visible: !!page.board.podiumOpen && (page.board.podium || []).length > 0
             Repeater {
                 model: page.board.podium || []
                 OnlineStyle.SectionCard {
                     required property var modelData
-                    width: (content.width - 24) / 3; height: podiumContent.height + 32
+                    width: (content.width - 16) / 3; height: podiumContent.height + 16
                     border.color: "#D3B59D"
                     Accessible.role: Accessible.Button
                     Accessible.name: [modelData.place, modelData.name, modelData.rank, modelData.rating].join(", ")
                     Accessible.onPressAction: if (modelData.index >= 0) page.root.backend.clickRow(modelData.index)
                     Column {
-                        id: podiumContent; x: 16; y: 16; width: parent.width - 32; spacing: 5
-                        OnlineStyle.PageTitle { width: parent.width; text: "#" + parent.parent.modelData.place; font.pixelSize: Theme.px(32) }
+                        id: podiumContent; x: 8; y: 8; width: parent.width - 16; spacing: 4
+                        OnlineStyle.PageTitle { width: parent.width; text: "#" + parent.parent.modelData.place; font.pixelSize: Theme.onlinePx(24) }
                         OnlineStyle.FieldLabel { width: parent.width; text: parent.parent.modelData.name; font.weight: Font.Bold }
                         OnlineStyle.HelpText { visible: !page.compact; width: parent.width; text: parent.parent.modelData.rank || "—" }
                         OnlineStyle.Value { visible: !page.compact; width: parent.width; text: parent.parent.modelData.rating }

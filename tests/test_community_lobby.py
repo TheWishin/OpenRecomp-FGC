@@ -66,6 +66,14 @@ class CommunityLobby(unittest.TestCase):
         self.assertEqual(supplied["main"], nav.game.a.fighter_label("z-fighter"))
         self.assertEqual(nav.game.a.calls, [])
 
+    def test_missing_table_values_do_not_claim_idle_rank_rating_or_fighter(self):
+        self.nav.game.a.snapshot["players"] = [dict(id="unknown", name="Unknown data")]
+        player = next(p for p in self.page()["arcade"]["players"] if p["id"] == "unknown")
+        self.assertEqual(player["status"], "unknown")
+        self.assertEqual((player["rank"], player["rating"], player["main"]), ("\u2014", "\u2014", "\u2014"))
+        self.assertEqual(player["connection"]["bars"], 0)
+        self.assertEqual(self.nav.game.a.calls, [])
+
     def test_repeated_header_sort_reverses_peers_and_keeps_own_player_first(self):
         nav = self.nav
         def order():
@@ -93,6 +101,18 @@ class CommunityLobby(unittest.TestCase):
         self.assertTrue(search["ranked"])
         self.assertEqual(search["elapsed"], "0:42")
         self.assertEqual([button["id"] for button in search["buttons"]], ["cancel"])
+        self.assertEqual(nav.game.a.calls, [("online", "search_ranked")])
+
+    def test_cancelling_search_keeps_origin_and_disables_repeated_cancel(self):
+        nav = self.nav
+        nav._online_action(nav.game, "search_ranked")
+        nav.game.a.snapshot["phase"] = "cancelling"
+        search = self.page()["arcade"]["search"]
+        self.assertTrue(search["ranked"])
+        self.assertEqual(search["phase"], "cancelling")
+        self.assertEqual(search["text"], "Stopping the search\u2026")
+        self.assertTrue(search["buttons"][0]["disabled"])
+        self.assertNotIn("window", search)
         self.assertEqual(nav.game.a.calls, [("online", "search_ranked")])
 
     def test_challenge_role_survives_profile_focus(self):

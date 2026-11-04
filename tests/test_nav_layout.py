@@ -28,6 +28,7 @@ VIEW_FIELDS = {
     "topline", "hold", "more", "grid", "osk", "dialog", "picker", "drawer", "quickAccess", "recentSets",
     "folder", "file", "pick", "mainLabel", "fighterTitle", "fighterMain", "fullscreen", "reducedMotion", "build", "online", "settingsPage",
     "discord", "sessionPage", "loading", "loadError", "textScale", "highContrast", "mainMenu",
+    "globalOffers", "activity", "matchVersus", "gameTheme",
 }
 
 

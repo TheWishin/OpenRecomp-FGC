@@ -34,7 +34,8 @@ HIERARCHY_LABELS = {
 REGIONS = ("find",) + CHAPTERS + ("chat",)
 FIND_IDS = {"online_status", "online_fighter", "search_casual", "search_ranked", "cancel", "ranked_strict", "logout",
             "profile_self", "accept_challenge", "decline_challenge", "native", "leave_set", "game_setup",
-            "game_update", "rules_life", "screen_side", "always_left", "other_here", "other_keep", "netext_options"}
+            "game_update", "rules_life", "screen_side", "always_left", "other_here", "other_keep", "netext_options",
+            "online_input_delay", "netext_online_feel"}
 # (id or id prefix, region): the first match wins
 PREFIXES = (
     (("chat:", "no_chat", "online_chat", "send_chat", "chat_toggle", "chat_lobby", "private_send", "private_close",
@@ -664,6 +665,8 @@ class OnlineLayout:
         from . import nav_ranked
         if getattr(self, "ranked_page", "") == g.id:
             page["chapter"] = "ranked"
+            page["chapters"] = [dict(id="ranked", label="@official_ui.ranked", active=True, badge="")] + [
+                dict(tab, active=False) for tab in page["chapters"]]
             page["ranked"] = nav_ranked.ranked(self, g, state, items, fi, page["profile"], page["find"])
         if chapter == "leaderboard":
             page["leaderboard"] = nav_ranked.leaderboard(self, g, state, items, fi)
@@ -722,7 +725,7 @@ class OnlineLayout:
             out["present"] = True
             return out
         options = [self._btn(items, n, fi) for n, it in enumerate(items)
-                   if it.get("region") == "find" and (it.get("kind") == "cycler" or it.get("id") in ("online_fighter", "ranked_strict", "netext_options"))]
+                   if it.get("region") == "find" and (it.get("kind") == "cycler" or it.get("id") in ("online_fighter", "ranked_strict", "netext_options", "online_input_delay"))]
         extra = [self._btn(items, n, fi) for n, it in enumerate(items)
                  if it.get("region") == "find" and it.get("id") in ("native", "leave_set", "game_setup", "game_update")]
         challenge = state.get("challenge") or {}
@@ -766,6 +769,7 @@ class OnlineLayout:
             if members:
                 groups.append(dict(label=label, options=members))
         return dict(ranked=button("search_ranked"), quick=button("search_casual"), notice=notice, groups=groups,
+                    delayOptions=[b for b in options if b["id"] in ("online_input_delay", "netext_online_feel")],
                     optionsToggle=button("ranked_options"),
                     rankedNote="@online_ui.ranked_note", quickNote="@online_ui.quick_note",
                     options=options, extra=extra, incoming=incoming, outgoing=outgoing, message=state.get("message") or "")
@@ -1094,9 +1098,11 @@ class OnlineLayout:
         width = (1.0 - first) / max(1, len(keys))
         lines.append(dict(kind="thead", cols=[dict(label="", w=first)] + [dict(label=k, w=width) for k in keys]))
         for main, extra in block:
-            values = {r["k"]: r["v"] for r in (items[main].get("detail") or {}).get("rows") or []}
+            details = {r["k"]: r for r in (items[main].get("detail") or {}).get("rows") or []}
             label = items[main].get("label", "")
-            cells = [dict(text=label, bold=True)] + [dict(text=values.get(k, "")) for k in keys]
+            cells = [dict(text=label, bold=True, **{key: items[main][key] for key in ("character", "face") if key in items[main]})]
+            cells += [dict(text=details.get(k, {}).get("v", ""),
+                           **{key: details[k][key] for key in ("character", "face") if key in details.get(k, {})}) for k in keys]
             lines.append(self._trow(items, fi, main, extra, cells, False))
         return lines
 
@@ -1179,7 +1185,7 @@ class OnlineLayout:
             elif iid in ("send_chat", "private_send"): send = self._btn(items, n, fi)
             elif it.get("kind") != "heading" and (reporting or iid not in ("online_private_report_reason", "private_report")): other.append(self._btn(items, n, fi))
         toggle = next((self._btn(items, n, fi) for n, it in enumerate(items) if it.get("id") == "chat_toggle"), None)
-        return dict(open=self.__dict__.setdefault("chat_open", {}).get(g.id, True), conversation=selected or "lobby", unread=self._chat_unread(g, state),
+        return dict(open=self.__dict__.setdefault("chat_open", {}).get(g.id, True), game=g.id, conversation=selected or "lobby", unread=self._chat_unread(g, state),
                     mentions=sum(any(p["mention"] for p in segments(i18n.literal(m.get("text") or ""), me)) for m in state.get("chat") or []),
                     tabs=tabs, lines=lines, up=False, compose=compose, send=send, other=other, toggle=toggle,
                     latest=self._btn(items, by_id["chat_latest"], fi) if "chat_latest" in by_id else {},

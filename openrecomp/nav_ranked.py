@@ -16,6 +16,10 @@ LABELS = {
 }
 
 
+def _number(value):
+    return str(value) if value is not None else "—"
+
+
 def ranked(nav, g, state, items, fi, profile, find):
     source = state.get("profile") or {}
     mine = str(source.get("name") or "").casefold() == str(state.get("name") or "").casefold()
@@ -33,7 +37,7 @@ def ranked(nav, g, state, items, fi, profile, find):
                 available=bool((state.get("capabilities") or {}).get("ranked")),
                 season=i18n.literal(state["season"]) if state.get("season") else "@official_ui.season",
                 placement=bool((state.get("me") or {}).get("placement")),
-                rating=str((state.get("me") or {}).get("rating", "—")))
+                rating=_number((state.get("me") or {}).get("rating")))
 
 
 def leaderboard(nav, g, state, items, fi):
@@ -51,8 +55,8 @@ def leaderboard(nav, g, state, items, fi):
             wins, losses = source.get("wins"), source.get("losses")
         record = nav._record([wins, losses]) if wins is not None and losses is not None else "—"
         main = source.get("main") or ""
-        return dict(index=index, name=i18n.literal(name), place=str(source.get("place", "—")),
-                    rank=nav._rank_label(source), rating=str(source.get("rating", "—")), record=record,
+        return dict(index=index, name=i18n.literal(name), place=_number(source.get("place")),
+                    rank=nav._rank_label(source), rating=_number(source.get("rating")), record=record,
                     main=i18n.literal(g.a.fighter_label(main)) if main else "—",
                     plate=uri(g.a.rank_plate(source.get("tier"))), focused=index == fi and index >= 0,
                     own=name.casefold() == str(state.get("name") or "").casefold())
@@ -69,7 +73,8 @@ def leaderboard(nav, g, state, items, fi):
                 ("leaderboard_mode", "leaderboard_fighter")]
     sorts = [nav._btn(items, n, fi) for n, it in enumerate(items) if str(it.get("id") or "").startswith("leaderboard_sort:")]
     buttons = [nav._btn(items, n, fi) for n, it in enumerate(items) if it.get("id") in
-               ("leaderboard_refresh", "leaderboard_previous", "leaderboard_next")]
+               ("leaderboard_refresh", "leaderboard_previous", "leaderboard_next", "leaderboard_podium")]
     return dict(labels=LABELS, podium=[entry(row) for row in podium], rows=[entry(row) for row in shown],
                 own=entry(own) if own else None, controls=controls, sorts=sorts, buttons=buttons,
+                podiumOpen=nav.__dict__.get("board_podium", {}).get(g.id, False),
                 updated=i18n.message("official_ui.updated", time=_stamp(board["updated"])) if board.get("updated") else "@official_ui.updated_unknown")

@@ -211,7 +211,14 @@ class ArcadeRendering(unittest.TestCase):
                 with self.subTest(game=game, language=language):
                     overflow, elided = online_shots.geometry(self.win)
                     self.assertEqual(overflow, [])
-                    self.assertEqual(elided, [])
+                    self.assertTrue(all(row["name"] in ("arcadePlayerName", "lobbyPlayerHeaderText") for row in elided), elided)
+                    from PySide6.QtGui import QAccessible
+                    for name in {row["name"] for row in elided}:
+                        for label in self.named(name):
+                            if label.isVisible() and label.property("truncated"):
+                                accessible = QAccessible.queryAccessibleInterface(label)
+                                self.assertIsNotNone(accessible)
+                                self.assertEqual(accessible.text(QAccessible.Text.Name), label.property("text"))
                     for flow in self.named("lobbyRoomActions"):
                         for action in flow.childItems():
                             if action.isVisible() and action.width() > 0:
@@ -219,16 +226,18 @@ class ArcadeRendering(unittest.TestCase):
 
     def test_guest_fixture_keeps_full_match_buttons_and_readable_account_reason(self):
         for language in ("en", "de"):
-            self.publish("t5", "lobby_guest", language)
-            for width, height in online_shots.SIZES:
-                self.win.setWidth(width); self.win.setHeight(height); spin(20)
-                ranked = self.named("onlineRankedAction")[0]
-                self.assertTrue(ranked.isVisible())
-                self.assertTrue(ranked.property("b").toVariant()["disabled"])
-                self.assertGreaterEqual(ranked.height(), 64)
-                labels = [item for item in scene_items(ranked) if item.property("text")]
-                self.assertTrue(any(item.property("text") == i18n.text(language, "online_density.needs_account") for item in labels))
-                self.assertTrue(all(not item.property("truncated") for item in labels))
+            for percent in (100, 115, 130):
+                self.publish("t5", "lobby_guest", language, text_size=percent)
+                for width, height in online_shots.SIZES:
+                    with self.subTest(language=language, text_size=percent, size=(width, height)):
+                        self.win.setWidth(width); self.win.setHeight(height); spin(20)
+                        ranked = self.named("onlineRankedAction")[0]
+                        self.assertTrue(ranked.isVisible())
+                        self.assertTrue(ranked.property("b").toVariant()["disabled"])
+                        self.assertGreaterEqual(self.rect(ranked).height(), 72)
+                        labels = [item for item in scene_items(ranked) if item.isVisible() and item.property("text")]
+                        self.assertTrue(any(item.property("text") == i18n.text(language, "online_density.needs_account") for item in labels))
+                        self.assertTrue(all(not item.property("truncated") for item in labels))
 
     def test_lobby_drawer_opener_is_only_offered_where_its_drawer_is_rendered(self):
         for chapter, expected in (("rooms", False), ("arcade_floor", True)):
@@ -257,11 +266,19 @@ class ArcadeRendering(unittest.TestCase):
         self.assertEqual(action.property("b").toVariant()["id"], "cancel")
         self.assertFalse(self.named("onlineCasualAction")[0].property("searching"))
         labels = [item.property("text") for item in scene_items(action) if item.isVisible() and item.property("text")]
-        self.assertTrue(any("0:42" in text and "Cancel" in text for text in labels), labels)
-        QTest.mouseClick(self.win, Qt.LeftButton, Qt.NoModifier, self.rect(action).center().toPoint()); spin(30)
+        self.assertTrue(any("0:42" in text for text in labels), labels)
+        self.assertTrue(any("Cancel" in text for text in labels), labels)
+        self.assertTrue(self.named("onlineCasualAction")[0].property("b").toVariant()["disabled"])
+        cancel = next(button for button in self.named("searchCancelAction") if button.isVisible())
+        self.assertTrue(self.rect(action).contains(self.rect(cancel)))
+        self.assertGreaterEqual(self.rect(cancel).height(), 44)
+        from PySide6.QtCore import QPointF
+        QTest.mouseClick(self.win, Qt.LeftButton, Qt.NoModifier, action.mapToScene(QPointF(16, action.height() / 2)).toPoint()); spin(30)
+        self.assertEqual(nav.game.a.calls, [("online", "search_ranked")])
+        QTest.mouseClick(self.win, Qt.LeftButton, Qt.NoModifier, self.rect(cancel).center().toPoint()); spin(30)
         self.assertEqual(nav.game.a.calls, [("online", "search_ranked"), ("online", "cancel")])
 
-    def test_notice_is_in_flow_and_selection_does_not_reflow_rows(self):
+    def test_incoming_offer_is_global_and_selection_does_not_reflow_rows(self):
         self.publish("t5", "arcade_selected")
         before = [(c.y(), c.height()) for c in self.named("arcadePlayer")]
         nav = self.backend.nav
@@ -270,9 +287,40 @@ class ArcadeRendering(unittest.TestCase):
         self.assertEqual(before, [(c.y(), c.height()) for c in self.named("arcadePlayer")])
         self.publish("t5", "challenge_incoming")
         notice = self.named("lobbyNotice")[0]
-        self.assertTrue(notice.isVisible())
-        self.assertGreaterEqual(self.rect(self.named("lobbyPlayersPane")[0]).top(), self.rect(notice).bottom())
-        self.assertFalse(self.rect(notice).intersects(self.rect(self.named("lobbyChatPane")[0])))
+        self.assertFalse(notice.isVisible())
+        self.assertTrue(self.named("globalOffer")[0].isVisible())
+        self.assertTrue(self.named("globalOfferAccept")[0].isVisible())
+        self.assertTrue(self.named("globalOfferDecline")[0].isVisible())
+
+    def test_search_and_cancelling_labels_fit_all_catalogs_at_larger_720(self):
+        self.win.setWidth(1280); self.win.setHeight(720)
+        for language in i18n.LANGUAGES:
+            self.publish("t5", "lobby_dense", language, text_size=130, high_contrast=True)
+            nav = self.backend.nav
+            viewport = self.named("arcadePlayersViewport")[0]
+            idle_height = viewport.height()
+            idle_action = self.rect(self.named("onlineCasualAction")[0])
+            idle_rows = sum(card.y() >= viewport.property("contentY") and
+                            card.y() + card.height() <= viewport.property("contentY") + viewport.height() + .5
+                            for card in self.named("arcadePlayer"))
+            for phase in ("searching", "cancelling"):
+                with self.subTest(language=language, phase=phase):
+                    nav.game.a.snapshot.update(phase=phase, message="@online.searching_casual" if phase == "searching" else "@online.cancelling")
+                    self.backend.refresh(); spin(30)
+                    action = self.named("onlineCasualAction")[0]
+                    caption = next(item for item in scene_items(action) if item.objectName() == "onlineMatchActionCaption")
+                    self.assertFalse(caption.property("truncated"), caption.property("text"))
+                    cancel = next(item for item in self.named("searchCancelAction") if item.isVisible())
+                    label = next(item for item in scene_items(cancel) if item.objectName() == "arcadeActionLabel")
+                    self.assertEqual(label.property("text"), i18n.text(language, "cancel"))
+                    self.assertFalse(label.property("truncated"), label.property("text"))
+                    self.assertEqual(self.rect(action), idle_action)
+                    self.assertGreaterEqual(viewport.height(), idle_height)
+                    complete = sum(card.y() >= viewport.property("contentY") and
+                                   card.y() + card.height() <= viewport.property("contentY") + viewport.height() + .5
+                                   for card in self.named("arcadePlayer"))
+                    self.assertGreaterEqual(complete, idle_rows)
+            self.assertEqual(nav.game.a.calls, [])
 
     def test_profile_chip_cannot_become_logout_when_profiles_are_unsupported(self):
         self.publish("t4", "arcade_floor")
@@ -305,11 +353,12 @@ class ArcadeRendering(unittest.TestCase):
             self.win.setWidth(width); self.win.setHeight(height); spin(30)
             titles = [item for item in scene_items(self.win.contentItem()) if item.isVisible()
                       and item.property("text") == i18n.text("en", "online.match_found")]
-            self.assertEqual(len(titles), 2)  # page heading and existing footer status only
-            primary = self.named("onlinePhasePrimary")[0]
+            self.assertEqual(len(titles), 1)  # existing footer status; the card heading also names the game
+            primary = self.named("versusReady")[0]
             self.assertTrue(primary.isVisible())
-            card = self.named("onlineCard")[0]
-            self.assertEqual(primary.y() + primary.height(), card.height() - 24)
+            card = self.named("matchVersusCard")[0]
+            self.assertAlmostEqual(self.rect(primary).bottom(), self.rect(card).bottom() - 20 * width / 1920, delta=1)
+            self.assertTrue(self.named("versusDecline")[0].isVisible())
         self.assertEqual(nav.game.a.calls, [])
 
     def test_lobby_feedback_uses_footer_without_floating_over_panes(self):

@@ -8,6 +8,14 @@ from tools import online_shots
 
 
 class SyntheticOnlineScreenshots(unittest.TestCase):
+    def test_targeted_recapture_replaces_only_its_exact_locale_game_scene_size(self):
+        original = [dict(language="en", game="t5", scene="searching", size="1920x1080", overflow=["old"]),
+                    dict(language="de", game="t5", scene="searching", size="1920x1080", overflow=[]),
+                    dict(language="en", game="t4", scene="rooms", size="1280x720", overflow=[])]
+        refreshed = dict(original[0], overflow=[])
+        result = online_shots.merge_captures(original, [refreshed])
+        self.assertEqual(result, [refreshed] + original[1:])
+
     def test_parallel_capture_variants_have_separate_private_homes(self):
         homes = {online_shots.capture_home("after", "normal"),
                  online_shots.capture_home("after", "large"),
@@ -28,12 +36,25 @@ class SyntheticOnlineScreenshots(unittest.TestCase):
                             nav = online_shots.scene(game, chapter, language)
                             view = online_shots.snapshot(nav)
                             self.assertTrue(nav.dry)
-                            if chapter == "home":
+                            if chapter in online_shots.OFFER_SCENES:
+                                self.assertEqual(len(view["globalOffers"]), 1)
+                                self.assertEqual(view["globalOffers"][0]["name"], "Rival")
+                                self.assertEqual(view["screen"], "start" if chapter == "offer_shelf" else "hub")
+                            elif chapter in online_shots.ACTIVITY_SCENES:
+                                self.assertEqual(view["activity"]["phase"], "searching")
+                                self.assertEqual(view["mainMenu"]["show"], chapter == "activity_home")
+                                if chapter == "activity_rooms":
+                                    self.assertEqual(view["online"]["chapter"], "rooms")
+                            elif chapter == "home":
                                 self.assertTrue(view["mainMenu"]["show"])
                             elif chapter == "settings":
                                 self.assertEqual(view["settingsPage"]["layout"], "groups")
                             elif chapter == "controls":
                                 self.assertEqual(nav.section(), "controls")
+                            elif chapter == "ranked_select":
+                                self.assertEqual(view["online"]["chapter"], "ranked")
+                                self.assertEqual(view["overlay"], "fighters")
+                                self.assertTrue(view["grid"]["cells"])
                             else:
                                 if chapter in ("searching", "cancelling", "matched", "starting", "playing", "result", "reporting", "disconnect_retry"):
                                     self.assertEqual(nav.game.a.snapshot["phase"], {"reporting": "result_sent", "disconnect_retry": "error"}.get(chapter, chapter))
@@ -77,7 +98,7 @@ class SyntheticOnlineScreenshots(unittest.TestCase):
         for game in ("t5", "t4"):
             nav = online_shots.scene(game, "lobby_dense", "en")
             players = online_shots.snapshot(nav)["online"]["arcade"]["players"]
-            self.assertGreaterEqual(len(players), 19)
+            self.assertEqual(len(players), 40)
             self.assertEqual(len({player["id"] for player in players}), len(players))
             self.assertTrue(all(player["name"] for player in players))
             self.assertEqual(sum(player["own"] for player in players), 1)

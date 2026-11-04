@@ -345,6 +345,14 @@ class Presses(unittest.TestCase):
         self.nav.tick(0.016)
         self.assertIsNone(self.nav.take_sound())
 
+    def test_legacy_found_match_preserves_hidden_focus_and_stays_silent_while_game_runs(self):
+        self.nav.focus["a:online"] = 7
+        self.a.phase, self.a.news = "matched", True
+        with mock.patch.object(self.b, "running", return_value=True):
+            self.nav.tick(0.016)
+        self.assertIsNone(self.nav.take_sound())
+        self.assertEqual(self.nav.focus["a:online"], 7)
+
     def test_a_finished_hold_confirms(self):
         self.sound("confirm")
         ran = []

@@ -1588,5 +1588,16 @@
  "online_density.search_ranked": "Recherche classée...",
  "online_density.search_casual": "Recherche amicale...",
  "online_density.message": "Message",
- "online_density.needs_account": "Compte requis"
+ "online_density.needs_account": "Compte requis",
+ "feedback.offers": "Propositions reçues",
+ "feedback.review_offer": "Voir la proposition",
+ "feedback.offer_hint": "Ouvrez les propositions pour répondre avec A / B",
+ "feedback.return_activity": "Revenir à l’activité en ligne",
+ "feedback.ready": "Prêt",
+ "feedback.opponent_waiting": "Adversaire pas prêt",
+ "feedback.opponent_ready": "Adversaire prêt",
+ "feedback.no_deadline": "Aucune échéance indiquée",
+ "feedback.vs": "VS",
+ "feedback.mode": "Mode",
+ "feedback.rounds": "Manches"
 }

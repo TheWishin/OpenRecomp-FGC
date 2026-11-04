@@ -1588,5 +1588,16 @@
  "online_density.search_ranked": "Searching ranked...",
  "online_density.search_casual": "Searching casual...",
  "online_density.message": "Message",
- "online_density.needs_account": "Needs an account"
+ "online_density.needs_account": "Needs an account",
+ "feedback.offers": "Incoming offers",
+ "feedback.review_offer": "Review offer",
+ "feedback.offer_hint": "Open offers to respond with A / B",
+ "feedback.return_activity": "Return to online activity",
+ "feedback.ready": "Ready",
+ "feedback.opponent_waiting": "Opponent not ready",
+ "feedback.opponent_ready": "Opponent ready",
+ "feedback.no_deadline": "No deadline supplied",
+ "feedback.vs": "VS",
+ "feedback.mode": "Mode",
+ "feedback.rounds": "Rounds"
 }

@@ -10,7 +10,7 @@ Rectangle {
     readonly property color accent: Theme.readableAccent(root.v.accent)
     readonly property bool narrow: Theme.viewportScale < .85 || Theme.textScale > 1.1
     readonly property real actionWidth: narrow ? 108 : 230
-    readonly property real dataWidth: width - 44 - actionWidth
+    readonly property real dataWidth: width - 48
     readonly property var receipt: ((player.buttons || []).filter(b => (b.feedback || {}).text)[0] || {}).feedback || ({})
     height: Theme.playerRowHeight
     color: player.focused || player.selected ? Theme.highlighted : player.own ? Theme.raised : Theme.card
@@ -24,22 +24,25 @@ Rectangle {
     Row {
         x: 40; width: card.dataWidth; height: parent.height
         Repeater {
-            model: [{key:"name", value:card.player.name, part:.21}, {key:"rank", value:card.player.rank, part:.16}, {key:"rating", value:card.player.rating, part:.16}, {key:"main", value:card.player.main, part:.09}, {key:"status", value:card.receipt.text || card.player.status, part:.20}]
+            model: [{key:"name", value:card.player.name, part:.25}, {key:"rank", value:card.player.rank, part:.17}, {key:"rating", value:card.player.rating, part:.11}, {key:"main", value:card.player.main, part:.15}, {key:"status", value:card.player.status, part:.15}]
             Item {
                 required property var modelData
                 width: card.dataWidth * modelData.part; height: card.height
+                opacity: (card.player.selected || card.player.focused) && ["main", "status"].indexOf(modelData.key) >= 0 ? 0 : 1
                 Image { visible: parent.modelData.key === "rank" && !!card.player.plate; width: 32; height: 18; anchors.verticalCenter: parent.verticalCenter; source: card.player.plate || ""; fillMode: Image.PreserveAspectFit }
                 Text {
                     objectName: parent.modelData.key === "name" ? "arcadePlayerName" : parent.modelData.key === "status" ? "arcadePlayerStatus" : "arcadePlayerCell"
                     x: parent.modelData.key === "rank" && card.player.plate ? 36 : 0; width: parent.width - x - 6; anchors.verticalCenter: parent.verticalCenter
                     text: parent.modelData.value || ""; textFormat: Text.PlainText; elide: Text.ElideRight
+                    Accessible.name: text
                     color: parent.modelData.key === "rank" ? card.accent : parent.modelData.key === "name" ? Theme.text : Theme.muted
                     font.family: card.root.sans; font.pixelSize: Theme.onlinePx(14); font.weight: parent.modelData.key === "name" ? Font.DemiBold : Font.Normal
                 }
             }
         }
         Item {
-            width: card.dataWidth * .18; height: card.height
+            width: card.dataWidth * .17; height: card.height
+            opacity: card.player.selected || card.player.focused ? 0 : 1
             Row {
                 x: 0; spacing: 2; anchors.verticalCenter: parent.verticalCenter
                 Repeater { model: 4; Rectangle { required property int index; width: 3; height: 4 + index * 3; anchors.bottom: parent.bottom; color: index < (card.player.connection.bars || 0) ? card.accent : Theme.border } }

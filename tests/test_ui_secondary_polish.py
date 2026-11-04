@@ -69,6 +69,24 @@ class SecondaryCards(unittest.TestCase):
         wait_pages(self.win)
         spin(30)
 
+    def test_leaderboard_records_are_compact_and_podium_is_disclosed(self):
+        from tools.online_shots import scene, snapshot
+        self.nav = scene("t5", "leaderboard", "en")
+        self.backend.nav = self.nav
+        for width, height in ((1920, 1080), (1280, 720)):
+            self.win.setWidth(width)
+            self.win.setHeight(height)
+            self.backend._v = snapshot(self.nav)
+            self.backend.viewChanged.emit()
+            wait_pages(self.win)
+            spin(30)
+            rows = self.named("rankingRow")
+            self.assertTrue(rows)
+            self.assertTrue(all(row.height() * width / 1920 <= 54 for row in rows))
+            self.assertFalse(self.named("rankingPodium")[0].isVisible())
+            self.assertTrue(self.named("rankingColumnHeadings")[0].isVisible())
+            self.assertTrue(self.nav.view()["online"]["leaderboard"]["own"])
+
     def test_all_catalogs_fit_compact_sections_and_table(self):
         for language in i18n.LANGUAGES:
             for section in ("play", "replays", "controls", "support"):

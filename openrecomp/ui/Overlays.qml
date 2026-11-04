@@ -6,9 +6,10 @@ Item {
     required property var root
     readonly property var v: root.v
     readonly property real drawerRowHeight: Theme.target(64)
-    visible: v.overlay !== ""
+    visible: v.overlay !== "" || (v.globalOffers || []).length > 0
 
-    Rectangle { objectName: "overlayMask"; x: 0; y: 0; width: 1920; height: 1080 - ov.root.promptHeight - ov.root.hintHeight; color: "#C2000000"; TapHandler {} }
+    Rectangle { objectName: "overlayMask"; visible: ov.v.overlay !== ""; x: 0; y: 0; width: 1920; height: 1080 - ov.root.promptHeight - ov.root.hintHeight; color: "#C2000000"; TapHandler {} }
+    GlobalOffer { objectName: "globalOffer"; root: ov.root; z: 1000 }
 
     Rectangle {
         objectName: "nativeTextDialog"
@@ -127,10 +128,11 @@ Item {
                     scale: c.focused ? 1.05 : 1
                     Behavior on scale { enabled: !ov.root.reducedMotion; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
                     color: c.focused ? ov.root.bone : (c.chosen ? Theme.readableAccent(ov.v.accent) : "#1B1D21")
-                    Image {
-                        visible: !!cell.c.image
+                    FighterPortrait {
+                        objectName: "fighterSelectPortrait"
+                        visible: !cell.c.random
                         anchors.horizontalCenter: parent.horizontalCenter; y: 6; width: 142; height: 142
-                        source: cell.c.image || ""; asynchronous: true; mipmap: true; fillMode: Image.PreserveAspectFit
+                        source: cell.c.image || ""
                     }
                     Grid {
                         visible: !!cell.c.random

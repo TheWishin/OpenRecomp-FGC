@@ -16,6 +16,13 @@ class ShelfSettingsPolish(unittest.TestCase):
     wait_pages = test_ui_polish.ScenePolish.wait_pages
     publish = test_ui_polish.ScenePolish.publish
 
+    def test_transient_empty_shelf_delegate_has_safe_optional_visibility(self):
+        self.publish()
+        self.backend._v["shelf"]["tiles"] = [{}]
+        self.backend.viewChanged.emit()
+        spin(30)
+        self.assertEqual(self.warnings, [])
+
     def test_fallback_brand_has_no_blank_wordmark_space(self):
         self.publish()
         brand = self.named("brandFallback")[0]
@@ -99,6 +106,22 @@ class ShelfSettingsPolish(unittest.TestCase):
                 for group in strip.childItems():
                     if group.width():
                         self.assertLessEqual(group.x() + group.width(), strip.width() + 1)
+
+    def test_settings_label_value_rows_keep_help_in_detail_and_compact_targets(self):
+        self.nav.screen = "hub"
+        self.nav.sec[self.nav.game.id] = "settings"
+        for width, height in ((1920, 1080), (1280, 720)):
+            self.win.setWidth(width)
+            self.win.setHeight(height)
+            self.publish()
+            rows = [row for row in self.named("settingsCompactRow")
+                    if row.property("l").toVariant().get("kind") == "setting"]
+            self.assertTrue(rows)
+            for row in rows:
+                self.assertGreaterEqual(row.height() * width / 1920, 44)
+                self.assertLessEqual(row.height() * width / 1920, 64)
+            selected = next(line for line in self.nav.view()["settingsPage"]["tabLines"] if line.get("focused"))
+            self.assertEqual(self.nav.view()["settingsPage"]["detail"]["lead"], selected["hint"])
 
 
 if __name__ == "__main__":

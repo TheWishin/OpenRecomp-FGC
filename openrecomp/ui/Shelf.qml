@@ -38,14 +38,14 @@ Item {
                         font.pixelSize: Theme.px(tile.t.focused ? 560 : 200)
                     }
                     Image {
-                        visible: tile.t.focused && !!tile.t.hero
+                        visible: !!tile.t.focused && !!tile.t.hero
                         source: tile.t.hero || ""
                         anchors.right: parent.right; anchors.top: parent.top
                         width: parent.width * 0.62; height: parent.height - 92
                         fillMode: Image.PreserveAspectFit; asynchronous: true; smooth: true; mipmap: true
                     }
                     Rectangle {
-                        visible: tile.t.focused && !!tile.t.hero
+                        visible: !!tile.t.focused && !!tile.t.hero
                         width: parent.width * 0.74; height: parent.height
                         gradient: Gradient {
                             orientation: Gradient.Horizontal
@@ -117,7 +117,7 @@ Item {
                     }
                     Item { width: 1; height: tile.t.focused ? 16 : 0 }
                     Row {
-                        visible: tile.t.focused; spacing: 8; height: 40
+                        visible: !!tile.t.focused; spacing: 8; height: 40
                         Repeater {
                             model: (tile.t.results || []).length
                             ResultCell { required property int index; c: shelf.root.ok(tile.t.results, index); accent: Theme.readableAccent(tile.t.accent) || shelf.root.textC; root: shelf.root; width: 40; height: 40 }
@@ -147,7 +147,7 @@ Item {
                     objectName: "shelfOpenAction"
                     visible: !!tile.t.focused && !!tile.t.ready
                     x: 636; anchors.bottom: parent.bottom; anchors.bottomMargin: 67
-                    width: Math.max(0, tile.width - x - 52); height: 34; rightPadding: 44
+                    width: Math.max(0, tile.width - x - 52); height: Math.max(34, implicitHeight); rightPadding: 44
                     textFormat: Text.PlainText; text: tile.t.bar || ""; elide: Text.ElideRight
                     color: shelf.root.muted; font.family: shelf.root.sans; font.weight: Font.Medium; font.pixelSize: Theme.px(21)
                     Glyph { anchors.right: parent.right; size: 32; g: shelf.root.v.confirmInk }

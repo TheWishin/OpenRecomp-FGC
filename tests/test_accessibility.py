@@ -78,19 +78,38 @@ class DisplayPreferences(unittest.TestCase):
 
 class ReadableTheme(unittest.TestCase):
     def test_every_theme_text_colour_meets_wcag_aa_on_its_surfaces(self):
-        source = (ROOT / "openrecomp/ui/Theme.qml").read_text(encoding="utf-8")
-        colours = {}
-        for name, expression in re.findall(r"readonly property color (\w+): ([^\n]+)", source):
-            variants = re.findall(r'"(#[0-9A-Fa-f]{6})"', expression)
-            self.assertEqual(len(variants), 2, name)
-            colours[name] = variants
+        import os
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QGuiApplication
+        from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlExpression, qmlContext
+        app = QGuiApplication.instance() or QGuiApplication([])
+        engine = QQmlEngine()
+        component = QQmlComponent(engine)
+        component.setData(b'import QtQuick\nimport "."\nQtObject { property var theme: Theme }',
+                          QUrl.fromLocalFile(str(ROOT / "openrecomp/ui/ThemeProbe.qml")))
+        probe = component.create()
+        self.assertIsNotNone(probe, [error.toString() for error in component.errors()])
+        theme = probe.property("theme")
         pairs = [(text, surface) for text in ("text", "muted", "value", "error", "success")
                  for surface in ("ground", "card", "raised", "highlighted")]
         pairs += [("ground", "selected"), ("inkHelp", "selected"), ("focus", "ground")]
-        for text, surface in pairs:
-            for mode in range(2):
-                with self.subTest(text=text, surface=surface, high_contrast=mode == 0):
-                    self.assertGreaterEqual(contrast(colours[text][mode], colours[surface][mode]), 4.5)
+        for game in ("", "t5dr", "t4"):
+            theme.setProperty("gameKind", game)
+            for high_contrast in (False, True):
+                theme.setProperty("highContrast", high_contrast)
+                for text, surface in pairs:
+                    with self.subTest(game=game, text=text, surface=surface, high_contrast=high_contrast):
+                        self.assertGreaterEqual(contrast(theme.property(text).name(), theme.property(surface).name()), 4.5)
+                expression = QQmlExpression(qmlContext(probe), probe, "Theme.readableAccent(Theme.gameAccent)")
+                accent, undefined = expression.evaluate()
+                self.assertFalse(undefined, expression.error().toString())
+                for surface in ("ground", "card", "raised", "highlighted"):
+                    with self.subTest(game=game, text="readableAccent", surface=surface, high_contrast=high_contrast):
+                        self.assertGreaterEqual(contrast(accent.name(), theme.property(surface).name()), 4.5)
+                self.assertGreaterEqual(contrast(theme.property("ground").name(), accent.name()), 4.5)
+        del probe
+        del engine
 
     def test_all_text_sizes_use_the_shared_scale_and_floor(self):
         for path in (ROOT / "openrecomp/ui").glob("*.qml"):

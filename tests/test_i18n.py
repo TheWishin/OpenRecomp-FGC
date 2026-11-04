@@ -121,6 +121,10 @@ def untranslated_literals(source):
 
     # These are filenames, environment variables, technical units, and protocol identifiers.
     technical = {
+        "character", "face",  # table-cell metadata keys, never display labels
+        # Shell offer identities and actions; none are presented as copy.
+        "offers", "returnActivity", "match:", "invite:", "/match:", "/cancel", "online_input_delay", "netext_online_feel", "region", "country",
+        r"[A-Za-z0-9_-]{1,48}",
         "sort_reverse", "arcade_sort:", "arcade_create_room", "arcade_join_code", ":main_chat",
         "room_create_open", "room_join_code_open", "community_option:size", "community_option:rotation",
         "community_option:access", "community_option:hidden", "community_option:first_to",
@@ -605,6 +609,12 @@ class Catalogs(unittest.TestCase):
                  *(ROOT / "openrecomp" / "adapters").glob("*.py")]
         for path in paths:
             self.assertEqual(untranslated_literals(path.read_text(encoding="utf-8")), [], path.name)
+
+    def test_global_offer_protocol_tokens_do_not_exempt_display_copy(self):
+        for token in ("offers", "returnActivity", "match:", "invite:", "/match:", "/cancel", "online_input_delay", "netext_online_feel", "region", "country", r"[A-Za-z0-9_-]{1,48}"):
+            self.assertEqual(untranslated_literals(f'token = {token!r}'), [])
+            self.assertTrue(untranslated_literals(f'dict(label={token!r})'))
+            self.assertTrue(untranslated_literals(f'self.say({token!r})'))
 
     def test_community_protocol_tokens_still_reject_display_literals(self):
         for value in ("recommended", "inf", "pane_back", "latest", "ranked_options", "newest", "opener",

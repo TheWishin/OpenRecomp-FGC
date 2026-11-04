@@ -23,7 +23,7 @@ from .adapters import other_launchers
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right", Qt.Key_Return: "confirm", Qt.Key_Enter: "confirm",
         Qt.Key_Escape: "back", Qt.Key_Space: "play", Qt.Key_X: "x", Qt.Key_F: "social", Qt.Key_G: "switchGame", Qt.Key_Q: "prev", Qt.Key_E: "next",
-        Qt.Key_PageUp: "chapterPrev", Qt.Key_PageDown: "chapterNext"}
+        Qt.Key_PageUp: "chapterPrev", Qt.Key_PageDown: "chapterNext", Qt.Key_F8: "offers"}
 KEYS = {int(k): v for k, v in KEYS.items()}   # by number: an unknown key (any layout's letter) is no ValueError
 TICK_MS = 16
 # Windows' CJK fonts first (unchanged order), then the Linux ones Wine/Proton list (make_engine)
@@ -552,6 +552,9 @@ class Backend(QObject, GameSetupBackend):
             Backend._play_sound(self)
         previous = getattr(self, "_view", None)
         self._view = self.nav.view()
+        if getattr(self.nav, "pending_attention", False):
+            self.nav.pending_attention = False
+            Backend._offer_attention(self)
         if not hasattr(self, "_wordmark"):
             wordmark = os.path.join(UI_DIR, "assets", "logo-wordmark.svg")
             self._wordmark = QUrl.fromLocalFile(wordmark).toString() if os.path.isfile(wordmark) else ""
@@ -559,6 +562,17 @@ class Backend(QObject, GameSetupBackend):
         if self._view != previous:
             self.viewChanged.emit()
             Backend._announce_view(self, previous)
+
+    def _offer_attention(self):
+        """Flash an inactive launcher; the game keeps OS focus and its own notification panel."""
+        window = getattr(self, "window", None)
+        if window is None or any(g.a.running() for g in self.nav.games):
+            return
+        try:
+            if not window.isActive():
+                window.alert(0)
+        except (AttributeError, RuntimeError):
+            pass
 
     def _announce_view(self, previous):
         """One polite announcement for a result or phase; elapsed clocks and selection never speak."""
@@ -573,6 +587,12 @@ class Backend(QObject, GameSetupBackend):
             message = online.get("message") or (online.get("find") or {}).get("message") or online.get("title")
         if not message and online.get("phase") in ("error", "kicked", "result", "result_sent") and online.get("message") != old_online.get("message"):
             message = online.get("message")
+        if not message:
+            offers = current.get("globalOffers") or []
+            old_ids = {row.get("identity") for row in before.get("globalOffers") or []}
+            incoming_offer = next((row for row in offers if row.get("identity") not in old_ids), None)
+            if incoming_offer:
+                message = ". ".join(str(incoming_offer.get(key) or "") for key in ("title", "name", "rank"))
         if not message:
             incoming = (online.get("find") or {}).get("incoming") or {}
             old_incoming = (old_online.get("find") or {}).get("incoming") or {}
@@ -821,6 +841,12 @@ class Backend(QObject, GameSetupBackend):
         self.nav.act(action, device="kb")
         if action == "confirm":
             self.nav.release("confirm")
+        self.refresh()
+
+    @Slot(str, bool)
+    def respondOffer(self, identity, accept):
+        from . import nav_feedback
+        nav_feedback.click_global(self.nav, identity, accept)
         self.refresh()
 
     @Slot(int)

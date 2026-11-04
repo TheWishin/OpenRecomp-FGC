@@ -232,6 +232,8 @@ class Keyboard:
             self.osk["all"] = True
 
     def _osk_done(self):
+        if self.overlay != "osk" or not self.osk:
+            return False
         if self.osk["tid"] == "library_repository":
             source = self.osk["text"].strip()
             self.overlay = None

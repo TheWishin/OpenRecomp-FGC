@@ -90,6 +90,16 @@ class NativeDrafts(unittest.TestCase):
         self.assertIsNone(self.nav.overlay)
         self.assertNotIn(("online", "send_chat"), self.adapter.calls)
 
+    def test_duplicate_osk_done_is_inert_and_keypad_enter_submits_once(self):
+        self.nav._open_osk("online_chat")
+        self.nav.osk["text"] = "keypad draft"
+        backend = SimpleNamespace(nav=self.nav, refresh=mock.Mock())
+        Backend.keyPress(backend, int(Qt.Key_Enter), "Enter", False, 0, 0)
+        Backend.keyPress(backend, int(Qt.Key_Enter), "Enter", True, 0, 0)
+        self.assertFalse(self.nav._osk_done())
+        self.assertEqual(self.adapter.texts["online_chat"], "keypad draft")
+        self.assertEqual(self.adapter.calls.count(("online", "send_chat")), 1)
+
     def test_direct_edits_are_bounded_committed_and_stale_fields_are_rejected(self):
         self.nav.begin_edit("online_chat")
         self.assertTrue(self.nav.edit_text("online_chat", "a" * 299 + "界\nextra"))

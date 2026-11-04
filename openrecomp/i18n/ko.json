@@ -1588,5 +1588,16 @@
  "online_density.search_ranked": "랭크 검색 중...",
  "online_density.search_casual": "캐주얼 검색 중...",
  "online_density.message": "메시지",
- "online_density.needs_account": "계정 필요"
+ "online_density.needs_account": "계정 필요",
+ "feedback.offers": "받은 제안",
+ "feedback.review_offer": "제안 확인",
+ "feedback.offer_hint": "제안을 열고 A / B로 응답",
+ "feedback.return_activity": "진행 중인 온라인 활동으로 돌아가기",
+ "feedback.ready": "준비 완료",
+ "feedback.opponent_waiting": "상대 준비 중",
+ "feedback.opponent_ready": "상대 준비 완료",
+ "feedback.no_deadline": "제한 시간 정보 없음",
+ "feedback.vs": "VS",
+ "feedback.mode": "대전 방식",
+ "feedback.rounds": "라운드 수"
 }

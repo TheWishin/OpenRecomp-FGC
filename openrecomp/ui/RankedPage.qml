@@ -8,7 +8,7 @@ Item {
     readonly property var profile: ranked.profile || ({})
     readonly property var find: ranked.find || ({})
     OnlineStyle.HelpText { id: season; width: parent.width; text: page.ranked.season || ""; font.weight: Font.DemiBold }
-    OnlineStyle.PageTitle { id: title; y: season.height + 8; width: parent.width; text: page.labels.ranked || "" }
+    OnlineStyle.PageTitle { id: title; y: season.height + 4; width: parent.width; text: page.labels.ranked || "" }
     OnlineStyle.SectionCard {
         visible: page.ranked.available === false
         x: 0; y: title.y + title.height + 22; width: parent.width; height: unavailable.height + 48
@@ -16,19 +16,19 @@ Item {
     }
     Row {
         visible: page.ranked.available !== false
-        x: 0; y: title.y + title.height + 22; width: parent.width; height: parent.height - y; spacing: 18
+        x: 0; y: title.y + title.height + 12; width: parent.width; height: parent.height - y; spacing: 16
         OnlineStyle.SectionCard {
-            width: (parent.width - 18) * 0.52; height: parent.height
+            width: (parent.width - 16) * 0.42; height: parent.height
             Flickable {
-                anchors.fill: parent; anchors.margins: 26; clip: true; contentHeight: standing.height
+                anchors.fill: parent; anchors.margins: 16; clip: true; contentHeight: standing.height
                 Column {
-                    id: standing; width: parent.width; spacing: 18
+                    id: standing; width: parent.width; spacing: 8
                     OnlineStyle.HelpText { width: parent.width; text: page.labels.standing || "" }
-                    Image { visible: !!page.profile.plate; source: page.profile.plate || ""; width: parent.width; height: 110; fillMode: Image.PreserveAspectFit; asynchronous: true }
+                    Image { visible: !!page.profile.plate; source: page.profile.plate || ""; width: Math.min(parent.width, 240); height: visible ? 64 : 0; fillMode: Image.PreserveAspectFit; asynchronous: true }
                     OnlineStyle.PageTitle { width: parent.width; text: page.profile.rank || "—" }
                     OnlineStyle.FieldLabel { width: parent.width; text: page.profile.name || "" }
                     OnlineStyle.HelpText { width: parent.width; text: page.labels.rating || "" }
-                    OnlineStyle.PageTitle { width: parent.width; text: page.ranked.rating || "—"; font.pixelSize: Theme.px(Theme.titleSize * 1.6) }
+                    OnlineStyle.PageTitle { width: parent.width; text: page.ranked.rating || "—"; font.pixelSize: Theme.onlinePx(40) }
                     OnlineStyle.Value { width: parent.width; text: (page.profile.rows || []).slice(1).join(" · "); visible: !!text }
                     Column {
                         width: parent.width; spacing: 10; visible: (page.profile.progress === undefined ? -1 : page.profile.progress) >= 0
@@ -45,7 +45,7 @@ Item {
         }
         Flickable {
             id: optionsScroll
-            width: (parent.width - 18) * 0.48; height: parent.height; contentHeight: actions.height; clip: true
+            width: (parent.width - 16) * 0.58; height: parent.height; contentHeight: actions.height; clip: true
             function revealFocus() {
                 function focused(item) {
                     if (item.b && item.b.focused && item.visible) return item
@@ -63,12 +63,12 @@ Item {
             }
             Connections { target: page.root.backend; function onViewChanged() { Qt.callLater(optionsScroll.revealFocus) } }
             Column {
-                id: actions; width: parent.width; spacing: 18
+                id: actions; width: parent.width; spacing: 12
                 OnlineStyle.SectionCard {
-                    width: parent.width; height: searchContent.height + 40
+                    width: parent.width; height: searchContent.height + 24
                     Column {
-                        id: searchContent; x: 20; y: 20; width: parent.width - 40; spacing: 12
-                        OnlineStyle.PrimaryButton { width: parent.width; maxW: width; b: page.find.ranked || ({}); accent: Theme.readableAccent(page.root.v.accent); onActivated: i => page.root.backend.clickRow(i) }
+                        id: searchContent; x: 12; y: 12; width: parent.width - 24; spacing: 8
+                        OnlineStyle.PrimaryButton { objectName: "rankedSearchAction"; width: parent.width; maxW: width; height: Math.max(80, Theme.target(44), captionHeight + 24) + feedbackHeight; b: page.find.ranked || ({}); accent: Theme.readableAccent(page.root.v.accent); onActivated: i => page.root.backend.clickRow(i) }
                         OnlineStyle.HelpText { width: parent.width; text: page.find.ranked && page.find.ranked.disabled ? page.find.ranked.value || "" : page.find.rankedNote || "" }
                         OnlineStyle.SecondaryButton {
                             b: page.find.optionsToggle || ({}); maxW: parent.width
@@ -94,16 +94,16 @@ Item {
                     }
                 }
                 OnlineStyle.SectionCard {
-                    width: parent.width; height: results.height + 40
+                    width: parent.width; height: results.height + 24
                     Column {
-                        id: results; x: 20; y: 20; width: parent.width - 40; spacing: 12
+                        id: results; x: 12; y: 12; width: parent.width - 24; spacing: 8
                         OnlineStyle.SectionHeader { width: parent.width; text: page.labels.recent || "" }
                         OnlineStyle.HelpText { width: parent.width; visible: !(page.ranked.recent || []).length; text: page.labels.no_recent || "" }
                         Repeater {
                             model: page.ranked.recent || []
                             Rectangle {
-                                required property var modelData; width: results.width; height: resultText.height + 22; color: "#202328"; radius: 4
-                                OnlineStyle.FieldLabel { id: resultText; x: 12; y: 11; width: parent.width - 24; text: parent.modelData.result + " · " + parent.modelData.opponent + (parent.modelData.score ? " · " + parent.modelData.score : "") }
+                                required property var modelData; width: results.width; height: resultText.height + 16; color: Theme.raised; radius: 4
+                                OnlineStyle.FieldLabel { id: resultText; x: 8; y: 8; width: parent.width - 16; text: parent.modelData.result + " · " + parent.modelData.opponent + (parent.modelData.score ? " · " + parent.modelData.score : "") }
                             }
                         }
                     }

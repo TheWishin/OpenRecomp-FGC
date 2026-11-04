@@ -34,18 +34,29 @@ Item {
     Rectangle {
         id: notice
         objectName: "lobbyNotice"
-        readonly property var offer: floor.find.incoming || floor.find.outgoing || floor.find.notice || floor.arcade.result || ({})
+        readonly property var offer: floor.find.outgoing || floor.find.notice || floor.arcade.result || ({})
         visible: !!offer.text
         x: 0; y: 0; width: parent.width
-        height: visible ? noticeBody.height + 24 : 0
+        height: visible ? Math.max(88, Theme.target(44) + 24) : 0
         color: Theme.raised; border.width: 1; border.color: offer.error ? Theme.error : floor.accent
         Column {
-            id: noticeBody; x: 16; y: 12; width: parent.width - 32; spacing: 8
-            Text { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: notice.offer.text || ""; color: notice.offer.error ? Theme.error : Theme.text; font.family: floor.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(20) }
-            Text { visible: !!notice.offer.status; width: parent.width; text: notice.offer.status || ""; textFormat: Text.PlainText; color: Theme.muted; font.family: floor.root.sans; font.pixelSize: Theme.px(16) }
-            PeerPing { objectName: "arcadeOfferPing"; visible: !!notice.offer.connection; connection: notice.offer.connection || ({}); ink: Theme.text; dim: Theme.border }
-            Text { objectName: "challengeBannerTerms"; visible: !!text; width: parent.width; text: (notice.offer.details || []).map(r => r.k + ": " + r.v).join(" \u00b7 "); textFormat: Text.PlainText; wrapMode: Text.Wrap; color: Theme.muted; font.family: floor.root.sans; font.pixelSize: Theme.px(16) }
-            Flow { width: parent.width; spacing: 8; Repeater { model: notice.offer.buttons || []; ArcadeAction { required property var modelData; root: floor.root; b: modelData; primary: b.id === "accept_challenge"; onActivated: floor.click(b) } } }
+            id: noticeBody; x: 16; anchors.verticalCenter: parent.verticalCenter
+            width: noticeButtons.visible ? noticeButtons.x - x - 16 : parent.width - 32; spacing: 4
+            Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: notice.offer.text || ""; color: notice.offer.error ? Theme.error : Theme.text; font.family: floor.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.onlinePx(18) }
+            Row {
+                width: parent.width; spacing: 8
+                PeerPing { id: offerPing; objectName: "arcadeOfferPing"; visible: !!notice.offer.connection; compact: true; connection: notice.offer.connection || ({}); ink: Theme.text; dim: Theme.border }
+                Text { objectName: "challengeBannerTerms"; width: parent.width - (offerPing.visible ? offerPing.width + 8 : 0); text: [notice.offer.status || ""].concat((notice.offer.details || []).map(r => r.k + ": " + r.v)).filter(s => s).join(" \u00b7 "); textFormat: Text.PlainText; elide: Text.ElideRight; color: Theme.muted; font.family: floor.root.sans; font.pixelSize: Theme.onlinePx(14); Accessible.name: text }
+            }
+        }
+        Row {
+            id: noticeButtons; visible: (notice.offer.buttons || []).length > 0
+            anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter
+            width: Math.min(560, parent.width * .42); spacing: 8
+            Repeater {
+                model: notice.offer.buttons || []
+                ArcadeAction { required property var modelData; root: floor.root; b: modelData; width: (noticeButtons.width - Math.max(0, (notice.offer.buttons || []).length - 1) * 8) / Math.max(1, (notice.offer.buttons || []).length); primary: b.id === "accept_challenge"; onActivated: floor.click(b) }
+            }
         }
     }
     Rectangle {
@@ -58,7 +69,7 @@ Item {
         ArcadeAction { id: moreButton; root: floor.root; b: floor.controls.more || ({}); compact: true; anchors.right: parent.right; anchors.rightMargin: 4; y: 2; onActivated: floor.click(b) }
         Row {
             id: tableHeaders; x: 48; y: Math.max(34, sortButton.height + 4); height: Theme.onlinePx(14) + 8
-            readonly property real dataWidth: playerPane.width - 8 - 44 - (Theme.viewportScale < .85 || Theme.textScale > 1.1 ? 108 : 230)
+            readonly property real dataWidth: playerPane.width - 8 - 48
             Repeater {
                 model: floor.arcade.headers || []
                 Rectangle {
@@ -66,9 +77,9 @@ Item {
                     required property var modelData
                     required property int index
                     readonly property var b: modelData
-                    width: tableHeaders.dataWidth * [.21, .16, .16, .09, .20, .18][index]; height: tableHeaders.height
+                    width: tableHeaders.dataWidth * [.25, .17, .11, .15, .15, .17][index]; height: tableHeaders.height
                     color: "transparent"
-                    Text { width: parent.width - 4; anchors.verticalCenter: parent.verticalCenter; text: (parent.b.label || "") + (parent.b.active ? parent.b.descending ? " \u25be" : " \u25b4" : ""); textFormat: Text.PlainText; elide: Text.ElideRight; color: parent.b.active ? floor.accent : Theme.muted; font.family: floor.root.sans; font.pixelSize: Theme.onlinePx(14) }
+                    Text { objectName: "lobbyPlayerHeaderText"; width: parent.width - 4; anchors.verticalCenter: parent.verticalCenter; text: (parent.b.label || "") + (parent.b.active ? parent.b.descending ? " \u25be" : " \u25b4" : ""); textFormat: Text.PlainText; elide: Text.ElideRight; color: parent.b.active ? floor.accent : Theme.muted; font.family: floor.root.sans; font.pixelSize: Theme.onlinePx(14); Accessible.name: text }
                     TapHandler { id: headerTap; onTapped: floor.click(parent.b) }
                     Interaction { handler: headerTap; selected: !!b.focused; name: b.label || ""; onActivated: floor.click(b) }
                 }
@@ -119,8 +130,8 @@ Item {
             Text { x: 12; y: 8; width: parent.width - 24; text: floor.labels.rooms || ""; textFormat: Text.PlainText; color: Theme.text; font.family: floor.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.onlinePx(18) }
             Flow {
                 id: roomActions; x: 8; y: 38; width: parent.width - 16; spacing: 6
-                ArcadeAction { objectName: "lobbyCreateRoom"; root: floor.root; b: floor.arcade.createRoom || ({}); compact: true; primary: true; onActivated: floor.click(b) }
-                ArcadeAction { root: floor.root; b: floor.arcade.joinCode || ({}); compact: true; onActivated: floor.click(b) }
+                ArcadeAction { objectName: "lobbyCreateRoom"; root: floor.root; b: floor.arcade.createRoom || ({}); compact: true; height: Theme.target(44); primary: true; onActivated: floor.click(b) }
+                ArcadeAction { root: floor.root; b: floor.arcade.joinCode || ({}); compact: true; height: Theme.target(44); onActivated: floor.click(b) }
             }
             Flickable {
                 x: 8; y: roomActions.y + roomActions.height + 8; width: parent.width - 16; height: parent.height - y - 8; contentHeight: roomRows.height; clip: true

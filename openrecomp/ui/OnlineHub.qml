@@ -9,9 +9,9 @@ Item {
     readonly property var fnd: o.find || ({})
     readonly property color acc: Theme.readableAccent(root.v.accent)
     readonly property bool arcadeFloor: o.chapter === "lobby" && !!o.arcade
-    readonly property bool showCards: o.chapter !== "ranked"
+    readonly property bool showCards: arcadeFloor
     readonly property bool wideProfileMeta: Theme.viewportScale < .85 && Theme.textScale > 1.1
-    readonly property real topH: Math.max(176, Theme.onlinePx(14) * 3 + Theme.target(64) + 64,
+    readonly property real topH: Math.max(226, findOptions.y + findOptions.height + 12,
                                          wideProfileMeta ? profileMeta.y + profileMeta.height + profileActions.height + 20 : 0)
     function click(b) { if (b && b.index >= 0 && !b.disabled) root.backend.clickRow(b.index) }
     component Caption: Text {
@@ -29,7 +29,11 @@ Item {
             property var b: ({id: "online_status", index: page.prof.index})
             id: face; x: 12; y: 12; width: 72; height: page.wideProfileMeta ? 72 : 96; color: Theme.raised; clip: true
             Image { anchors.fill: parent; source: page.prof.face || ""; visible: !!source; fillMode: Image.PreserveAspectCrop }
-            Caption { anchors.centerIn: parent; text: (page.prof.name || "?").substring(0, 1); font.pixelSize: Theme.onlinePx(40); color: Theme.muted; visible: !page.prof.face }
+            Item {
+                visible: !page.prof.face; anchors.fill: parent
+                Rectangle { width: 24; height: 24; radius: 12; anchors.horizontalCenter: parent.horizontalCenter; y: 8; color: Theme.muted; opacity: .45 }
+                Rectangle { width: 56; height: 56; radius: 18; anchors.horizontalCenter: parent.horizontalCenter; y: 36; color: Theme.muted; opacity: .3 }
+            }
             Rectangle {
                 visible: !!page.prof.main; anchors.bottom: parent.bottom; width: parent.width; height: Math.max(22, Theme.onlinePx(14) * 1.4); color: Theme.ground
                 Caption { objectName: "profileMainFighter"; anchors.centerIn: parent; width: parent.width - 8; horizontalAlignment: Text.AlignHCenter; text: page.prof.main || "" }
@@ -60,7 +64,7 @@ Item {
             x: 12; anchors.bottom: parent.bottom; anchors.bottomMargin: 8; spacing: 8
             Repeater {
                 model: page.prof.buttons || []
-                ArcadeAction { required property var modelData; root: page.root; b: modelData; compact: true; onActivated: page.click(b) }
+                ArcadeAction { objectName: "lobbyProfileAction"; required property var modelData; root: page.root; b: modelData; compact: true; height: Theme.target(44); onActivated: page.click(b) }
             }
         }
     }
@@ -81,28 +85,47 @@ Item {
                     required property int index
                     readonly property var original: modelData
                     readonly property bool searching: !!page.o.arcade && !!page.o.arcade.search && (index === 0 ? !!page.o.arcade.search.ranked : !page.o.arcade.search.ranked)
-                    readonly property var b: searching ? (page.o.arcade.search.buttons || [])[0] || ({}) : original
+                    readonly property var b: searching ? (page.o.arcade.search.buttons || [])[0] || ({}) : Object.assign({}, original, {disabled: !!original.disabled || !!(page.o.arcade || {}).search})
                     visible: !!original.present
                     objectName: index === 0 ? "onlineRankedAction" : "onlineCasualAction"
-                    width: page.fnd.ranked && page.fnd.ranked.present ? (findButtons.width - 12) / 2 : findButtons.width; height: Math.max(64, Theme.target(64), matchCaption.implicitHeight + matchNote.implicitHeight + 12)
+                    width: page.fnd.ranked && page.fnd.ranked.present ? (findButtons.width - 12) / 2 : findButtons.width; height: Math.max(80 / Math.max(.5, Theme.viewportScale), matchCaption.implicitHeight + matchNote.implicitHeight + (searching ? 14 : 16))
                     color: index === 0 ? page.acc : Theme.raised
                     border.width: b.focused ? Theme.focusWidth : 1; border.color: b.focused ? Theme.focus : Theme.border
                     opacity: b.disabled ? 0.55 : 1
                     Column {
-                        x: 12; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 24; spacing: 2
-                        Caption { id: matchCaption; width: parent.width; text: matchAction.searching ? (page.o.arcade.search.text || "") : (((page.o.arcade || {}).labels || {})[matchAction.index === 0 ? "ranked" : "quick"] || matchAction.original.label || ""); color: matchAction.index === 0 ? Theme.ground : Theme.text; font.pixelSize: Theme.onlinePx(24); font.weight: Font.Bold }
-                        Caption { id: matchNote; width: parent.width; text: matchAction.searching ? [page.o.arcade.search.elapsed || "", matchAction.b.label || ""].filter(s => s).join("  ") : matchAction.original.disabled && matchAction.original.value ? page.prof.guest && page.o.arcade ? page.o.arcade.labels.needsAccount : matchAction.original.value : matchAction.index === 0 ? page.fnd.rankedNote || "" : page.fnd.quickNote || ""; color: matchAction.index === 0 ? Theme.ground : Theme.muted }
+                        x: 12; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 24 - (matchAction.searching ? searchCancel.width + 8 : 0); spacing: 2
+                        Caption { id: matchCaption; objectName: "onlineMatchActionCaption"; width: parent.width; text: matchAction.searching ? (page.o.arcade.search.text || "") : (((page.o.arcade || {}).labels || {})[matchAction.index === 0 ? "ranked" : "quick"] || matchAction.original.label || ""); color: matchAction.index === 0 ? Theme.ground : Theme.text; font.pixelSize: Theme.onlinePx(matchAction.searching ? 18 : 24); font.weight: Font.Bold; wrapMode: matchAction.searching ? Text.Wrap : Text.NoWrap; maximumLineCount: matchAction.searching ? 2 : 1 }
+                        Caption { id: matchNote; width: parent.width; text: matchAction.searching ? page.o.arcade.search.elapsed || "" : matchAction.original.disabled && matchAction.original.value ? page.prof.guest && page.o.arcade ? page.o.arcade.labels.needsAccount : matchAction.original.value : matchAction.index === 0 ? page.fnd.rankedNote || "" : page.fnd.quickNote || ""; color: matchAction.index === 0 ? Theme.ground : Theme.muted }
                     }
-                    TapHandler { id: matchTap; enabled: !matchAction.b.disabled; onTapped: page.click(matchAction.b) }
-                    Interaction { handler: matchTap; selected: !!b.focused; disabled: !!b.disabled; name: matchCaption.text + ". " + matchNote.text; onActivated: page.click(matchAction.b) }
+                    ArcadeAction { id: searchCancel; objectName: "searchCancelAction"; visible: matchAction.searching; root: page.root; b: matchAction.b; compact: true; height: Theme.target(44); width: Math.min(implicitWidth, parent.width * .42); anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter; onActivated: page.click(b) }
+                    TapHandler { id: matchTap; enabled: !matchAction.searching && !matchAction.b.disabled; onTapped: page.click(matchAction.b) }
+                    Interaction { handler: matchTap; selected: !searching && !!b.focused; disabled: !searching && !!b.disabled; role: searching ? Accessible.StaticText : Accessible.Button; name: matchCaption.text + ". " + matchNote.text; onActivated: if (!matchAction.searching) page.click(matchAction.b) }
                 }
             }
         }
-        Flow {
-            x: 12; y: findButtons.y + findButtons.height + 8; width: find.width - 24; spacing: 6
-            Repeater {
-                model: (page.fnd.options || []).slice(0, 2).concat([((page.o.arcade || {}).controls || {}).options || ({})])
-                ArcadeAction { required property var modelData; root: page.root; b: modelData; visible: b.index !== undefined && (b.id !== "arcade_options" || page.arcadeFloor); compact: true; label: [b.label || "", b.value || ""].filter(s => s).join(": "); onActivated: page.click(b) }
+        Flickable {
+            id: findOptions
+            objectName: "findOptionsViewport"
+            x: 12; y: findButtons.y + findButtons.height + 8; width: find.width - 24
+            height: Math.max(Theme.target(44), Theme.onlinePx(14) * 1.4 + 8)
+            contentWidth: optionRow.width; clip: true; boundsBehavior: Flickable.StopAtBounds
+            function revealOption() {
+                for (var i = 0; i < optionChips.count; ++i) {
+                    var chip = optionChips.itemAt(i)
+                    if (chip && chip.b.focused) {
+                        if (chip.x < contentX) contentX = chip.x
+                        else if (chip.x + chip.width > contentX + width) contentX = chip.x + chip.width - width
+                    }
+                }
+            }
+            Connections { target: page.root.backend; function onViewChanged() { Qt.callLater(findOptions.revealOption) } }
+            Row {
+                id: optionRow; spacing: 6
+                Repeater {
+                    id: optionChips
+                    model: (page.fnd.delayOptions || (page.fnd.options || []).slice(0, 2)).concat([((page.o.arcade || {}).controls || {}).options || ({})])
+                    ArcadeAction { objectName: "findOptionAction"; required property var modelData; root: page.root; b: modelData; visible: b.index !== undefined && (b.id !== "arcade_options" || page.arcadeFloor); compact: true; height: findOptions.height; label: [b.label || "", b.value || ""].filter(s => s).join(": "); onActivated: page.click(b) }
+                }
             }
         }
     }

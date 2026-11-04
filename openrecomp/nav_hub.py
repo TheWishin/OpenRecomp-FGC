@@ -263,7 +263,8 @@ class Hub:
             return
         if 0 <= index < len(items) and items[index].get("kind") != "heading":
             if getattr(self, "main_menu_game", "") == self.game.id:
-                self.main_menu_chat = True
+                self.main_menu_chat = items[index].get("region") == "chat"
+                self.main_menu_options = items[index].get("id") in ("online_input_delay", "netext_online_feel")
             already = self.focus_index(items) == index
             self.focus[self.key()] = index
             if already or items[index].get("kind") != "hold":

@@ -30,7 +30,7 @@ Flickable {
     onContentHeightChanged: Qt.callLater(revealFocus)
     Column {
         id: cards
-        width: view.width; spacing: 14
+        width: view.width; spacing: 8
         onPositioningComplete: Qt.callLater(view.revealFocus)
         Repeater {
             id: cardRepeater
@@ -40,12 +40,12 @@ Flickable {
                 required property var modelData
                 property alias rows: rowRepeater
                 readonly property real contentY: rowsColumn.y
-                width: cards.width; height: rowsColumn.y + rowsColumn.height + 18
-                OnlineStyle.SectionHeader { id: header; visible: !!text; x: 20; y: 16; width: parent.width - 40; text: card.modelData.title || "" }
+                width: cards.width; height: rowsColumn.y + rowsColumn.height + 12
+                OnlineStyle.SectionHeader { id: header; visible: !!text; x: 12; y: 12; width: parent.width - 24; text: card.modelData.title || "" }
                 Column {
                     id: rowsColumn
                     onPositioningComplete: Qt.callLater(view.revealFocus)
-                    x: 16; y: header.visible ? header.y + header.height + 14 : 16; width: parent.width - 32; spacing: 6
+                    x: 8; y: header.visible ? header.y + header.height + 8 : 8; width: parent.width - 16; spacing: 4
                     Repeater {
                         id: rowRepeater
                         model: card.modelData.lines || []

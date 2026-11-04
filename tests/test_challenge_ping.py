@@ -8,7 +8,7 @@ from unittest import mock
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ.setdefault("QT_QUICK_BACKEND", "software")
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QRectF, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -78,7 +78,7 @@ class ChallengePingAdapter(unittest.TestCase):
         result = owner._online_ping_view(event)
         self.assertEqual(result, dict(ping=31, ping_measured=True, ping_path="direct"))
         match = owner._online_match_view(dict(opponent=event["from"], ping=event["ping"]))
-        self.assertEqual(match, dict(opponent="XERO", **result))
+        self.assertEqual(match, dict(opponent="XERO", opponent_info=dict(id="peer", name="XERO"), **result))
 
     def test_local_best_relay_sum_wins_over_server_estimate(self):
         owner = self.subject()
@@ -110,7 +110,8 @@ class ChallengePingAdapter(unittest.TestCase):
         owner._online_client.events.put(dict(t="match_found", opponent=dict(id="peer", name="XERO")))
         owner._online_events()
         self.assertIsNone(owner._online_client)
-        self.assertEqual(owner.online_state()["match"], dict(opponent="XERO", ping=48, ping_measured=False))
+        self.assertEqual(owner.online_state()["match"], dict(opponent="XERO", opponent_info=dict(id="peer", name="XERO"),
+                                                           ping=48, ping_measured=False))
 
     def test_outgoing_reply_keeps_ping_and_expiry_clears_waiting(self):
         owner = self.subject()
@@ -178,14 +179,14 @@ class ChallengePingScene(unittest.TestCase):
                                 online = backend._v["online"]
                                 key = "online_ui.ping_ms" if ping.get("ping_measured") else "online_ui.ping_est"
                                 expected = i18n.text(language, key, ping=ping["ping"]) if ping else i18n.text(language, "online_ui.ping_unknown")
-                                conn = online["connection"] if mode == "matched" else online["find"]["incoming" if mode == "incoming" else "outgoing"]["connection"]
+                                conn = backend._v["matchVersus"]["connection"] if mode == "matched" else backend._v["globalOffers"][0]["connection"] if mode == "incoming" else online["find"]["outgoing"]["connection"]
                                 self.assertEqual(conn["text"], expected)
                                 expected_bars = {48: 4, 31: 4, 78: 3, 120: 2, 180: 1}.get(ping.get("ping"), 0)
                                 self.assertEqual(conn["bars"], expected_bars)
                                 self.assertEqual(conn["path"], i18n.text(language, "online_ui.path_" + ping["ping_path"]) if ping.get("ping_path") else "")
                                 visible = [item for item in items(win.contentItem()) if item.isVisible()]
                                 container = next(item for item in visible if item.objectName() ==
-                                                 ("onlineCard" if mode == "matched" else "arcadeOfferPing"))
+                                                 ("matchVersusCard" if mode == "matched" else "globalOfferPing" if mode == "incoming" else "arcadeOfferPing"))
                                 text = next(item for item in items(container) if item.isVisible()
                                             and item.objectName() == "peerPingText")
                                 self.assertEqual(text.property("text"), expected)
@@ -198,18 +199,22 @@ class ChallengePingScene(unittest.TestCase):
                                 self.assertEqual(sum(item.property("color") == signal.property("ink")
                                                      for item in rectangles), expected_bars)
                                 if mode == "matched":
-                                    rows = next(item for item in visible if item.objectName() == "onlineCardRows")
-                                    self.assertLessEqual(signal.parentItem().y() + signal.parentItem().implicitHeight(), rows.y())
+                                    ready = next(item for item in visible if item.objectName() == "versusReady")
+                                    ping_rect = signal.mapRectToScene(QRectF(0, 0, signal.width(), signal.height()))
+                                    ready_rect = ready.mapRectToScene(QRectF(0, 0, ready.width(), ready.height()))
+                                    card_rect = container.mapRectToScene(QRectF(0, 0, container.width(), container.height()))
+                                    self.assertLessEqual(ping_rect.bottom(), ready_rect.top())
+                                    self.assertTrue(card_rect.contains(ping_rect))
                                 if mode == "incoming":
-                                    terms = next(item for item in visible if item.objectName() == "challengeBannerTerms")
-                                    self.assertIn(i18n.text(language, "online.challenge_random_stage"), terms.property("text"))
-                                    # Added display data must not add a pad stop between Accept and Decline.
-                                    rows = nav.items()
-                                    nav.focus[nav.key()] = next(i for i, row in enumerate(rows) if row.get("id") == "accept_challenge")
-                                    nav.act("right", device="xbox")
-                                    self.assertEqual(nav.items()[nav.focus_index(nav.items())]["id"], "decline_challenge")
-                                    nav.act("left", device="xbox")
-                                    self.assertEqual(nav.items()[nav.focus_index(nav.items())]["id"], "accept_challenge")
+                                    popup = next(item for item in visible if item.objectName() == "globalOffer")
+                                    stage = i18n.text(language, "online.challenge_random_stage")
+                                    self.assertTrue(any(stage in str(item.property("text") or "") for item in items(popup)))
+                                    origin = nav.focus_index(nav.items())
+                                    nav.act("offers", device="xbox")
+                                    self.assertTrue(nav.view()["globalOffers"][0]["focused"])
+                                    self.assertEqual(nav.focus_index(nav.items()), origin)
+                                    self.assertEqual(adapter.calls, [])
+                                    nav._global_offer_focus = ""
                 self.assertEqual(warnings, [])
                 self.assertEqual(adapter.calls, [])
             finally:

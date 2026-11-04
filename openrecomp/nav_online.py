@@ -326,6 +326,15 @@ class Online:
             out.append(action("leave_set", "@online.leave_set", "@online.leave_ranked_set" if set_state.get("rated") else "@online.leave_set"))
         if g.a.native_label:
             out.append(self._native_item(g))
+        if phase == "logged_in":
+            delay = next((setting for setting in g.a.settings() if setting.get("id") == "input_delay"), None)
+            if delay and delay.get("options"):
+                control = self._cycler_item(g, delay)
+                control["id"] = "online_input_delay"
+                out.append(control)
+            elif capabilities.get("lobby"):
+                out.append(dict(kind="action", id="online_input_delay", label="@input_delay", value="@official_ui.unavailable",
+                    disabled=True, hint="@official_ui.unavailable", detail=dict(title="@input_delay", lead="@official_ui.unavailable", rows=[])))
         out = self._online_layout_items(g, state, out)
         out = self._login_items(g, state, out)
         from .nav_lobby_chat import ensure_rows
@@ -535,13 +544,13 @@ class Online:
                     phase = state.get("phase")
                     seen = self.__dict__.setdefault("_online_seen_phase", {})
                     if phase in ("matched", "result", "result_sent", "kicked", "error"):
-                        # Connection notices keep arriving while a match waits for Start: only a new
-                        # phase moves the focus, or a pad press can land on the status row instead.
+                        # Notifications do not disturb a page's semantic focus. The offer layer owns
+                        # its sound/attention; rebuilding online rows repairs removed destinations.
                         if seen.get(g.id) != phase:
-                            self.focus[g.id + ":online"] = 0
-                            if phase == "matched":
-                                self.note_sound(ui_sound.NOTIFY)      # one per match found (the phase repeats)
-                        self.say(state.get("message") or "@online.status", 12)
+                            if (phase == "matched" and not (state.get("capabilities") or {}).get("match_flow")
+                                    and not any(game.a.running() for game in self.games)):
+                                self.note_sound(ui_sound.NOTIFY)
+                            self.say(state.get("message") or "@online.status", 12)
                     seen[g.id] = phase
             except Exception:  # noqa: BLE001 -- keep the timer alive without exposing login details
                 self.say("@online.failure", 12)

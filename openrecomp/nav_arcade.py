@@ -162,6 +162,7 @@ def view(nav, g, state, items, fi):
         message = next((b for b in extra if b.get("id", "").startswith("private_open:")), None)
         if message:
             message["label"] = "@online_density.message"
+            message["semantic"] = "message"
             primary.append(message)
         if own:
             extra.append(_btn(nav, items, by_id, "logout", fi))
@@ -170,14 +171,15 @@ def view(nav, g, state, items, fi):
         if focused:
             selected = pid
             memory(nav, "selected")[g.id] = pid
-        status = {"idle": "@arcade.idle", "queue": "@arcade.searching", "searching": "@arcade.searching",
-                  "room": "@arcade.in_room", "in_room": "@arcade.in_room"}.get(p.get("status"), "@arcade.idle")
+        status = {"idle": "@arcade.idle", "online": "@arcade.idle", "available": "@arcade.idle",
+                  "queue": "@arcade.searching", "searching": "@arcade.searching",
+                  "room": "@arcade.in_room", "in_room": "@arcade.in_room"}.get(p.get("status"), "@unknown")
         if p.get("status") in ("match", "playing", "in_match"):
             status = "@online_ui.status.playing"
         players.append(dict(id=pid, index=index, name=i18n.literal(p.get("name") or ""),
                             face=_face(g, p)["face"], plate=uri(g.a.rank_plate(p.get("tier"))) if "tier" in p else "",
-                            rank=nav._rank_label(p), rating=str(p["rating"]) if p.get("rating") is not None else "",
-                            main=i18n.literal(g.a.fighter_label(p.get("main"))) if p.get("main") else "",
+                            rank=nav._rank_label(p) or "\u2014", rating=str(p["rating"]) if p.get("rating") is not None else "\u2014",
+                            main=i18n.literal(g.a.fighter_label(p.get("main"))) if p.get("main") else "\u2014",
                             status=status, connection=connection(p), areaLanguage=where(p), own=own, focused=focused,
                             buttons=primary[:4], more=extra, moreOpen=more_open and selected == pid))
     cabinets = []
@@ -238,8 +240,12 @@ def view(nav, g, state, items, fi):
                         if action.startswith("search_") and r.get("kind") in ("pending", "waiting")), {})
         ranked = receipt.get("action") == "search_ranked" or state.get("message") == "@online.searching_ranked"
         seconds = int(max(0, receipt.get("age", 0)))
-        search = dict(text="@online_density.search_ranked" if ranked else "@online_density.search_casual",
-                      ranked=ranked, elapsed=f"{seconds // 60}:{seconds % 60:02}", buttons=[cancel] if cancel else [])
+        cancel = dict(cancel, label="@cancel") if cancel else dict(id="cancel", index=-1, label="@cancel", disabled=True)
+        if phase == "cancelling":
+            cancel = dict(cancel, disabled=True, disabledReason="@online.cancelling")
+        search = dict(text="@online.cancelling" if phase == "cancelling" else
+                           "@online_density.search_ranked" if ranked else "@online_density.search_casual",
+                      phase=phase, ranked=ranked, elapsed=f"{seconds // 60}:{seconds % 60:02}", buttons=[cancel])
     result = nav.__dict__.get("last_action_result", {}).get(g.id)
     return dict(players=players, cabinets=cabinets, rooms=rooms, selected=selected,
                 createRoom=_btn(nav, items, by_id, "arcade_create_room", fi),
@@ -296,7 +302,8 @@ def routes(nav, items, i):
         for prefixes in (("accept_challenge", "decline_challenge"), ("cancel_challenge:",), ("other_here", "other_keep"), ("cancel",)):
             row = [n for n, it in enumerate(items) if ((it.get("id") or "").startswith("cancel_challenge:") if prefixes == ("cancel_challenge:",) else it.get("id") in prefixes)]
             if row: rows.append(row)
-        rows += [[b["index"]] for b in floor["options"][:2]]
+        top_options = [b for b in floor["options"] if b["id"] in ("online_input_delay", "netext_online_feel")]
+        rows += [[b["index"]] for b in (top_options or floor["options"][:2])]
         rows.append([floor["sort"]["index"]])
         rows.append([b["index"] for b in floor["headers"]])
         rows += [[p["index"]] for p in floor["players"] if p["index"] >= 0]

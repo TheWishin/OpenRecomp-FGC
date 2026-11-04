@@ -17,7 +17,7 @@ Rectangle {
     height: Math.max(Theme.target(44), caption.implicitHeight + 20) + feedbackHeight
     radius: 5
     color: failed ? "#321B22" : b.focused ? Theme.selected : primary ? Theme.readableAccent(accent) : strong ? "#272B31" : "#1C1F24"
-    border.width: 1; border.color: b.focused ? accent : Theme.border
+    border.width: b.focused ? Theme.focusWidth : 1; border.color: b.focused ? Theme.focus : Theme.border
     opacity: b.disabled ? 0.45 : 1
     OnlineLabel {
         id: caption
@@ -29,6 +29,7 @@ Rectangle {
     }
     ActionReceipt { id: buttonFeedback; x: 14; y: caption.y + caption.implicitHeight + 6; width: parent.width - 28; receipt: button.b.feedback || ({}); color: button.failed ? Theme.error : button.b.focused || button.primary ? Theme.ground : Theme.text }
     TapHandler { id: buttonTap; onTapped: if (!button.b.disabled) button.activated(button.b.index === undefined ? -1 : button.b.index) }
-    Interaction { handler: buttonTap; selected: !!button.b.focused; disabled: !!button.b.disabled; name: (button.b.label || "") + ". " + (button.b.value || "") + ". " + ((button.b.feedback || {}).text || ""); onActivated: if (!button.b.disabled) button.activated(button.b.index === undefined ? -1 : button.b.index) }
+    Rectangle { visible: button.primary; x: 12; y: parent.height - 5; width: parent.width - 24; height: 2; color: Theme.ground }
+    Interaction { handler: buttonTap; selected: !!button.b.focused; disabled: !!button.b.disabled; name: (button.b.label || "") + ". " + (button.b.value || "") + ". " + (button.b.hint || "") + ". " + ((button.b.feedback || {}).text || ""); onActivated: if (!button.b.disabled) button.activated(button.b.index === undefined ? -1 : button.b.index) }
 
 }

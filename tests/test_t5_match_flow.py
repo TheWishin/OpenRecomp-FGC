@@ -112,6 +112,38 @@ class T5MatchTests(unittest.TestCase):
         self.a.online_poll()
         self.assertEqual(self.a.fake_driver.started, 1)
 
+    def test_public_match_identity_allows_new_same_opponent_offer_but_guards_each_ready_once(self):
+        from openrecomp.nav import Game, Nav
+        from test_nav import manifest
+        client = self.match()
+        nav = Nav([Game(manifest("t5"), self.a)], language="en")
+        for mid in ("one", "two"):
+            if mid == "two":
+                client.events.put(dict(t="match_found", match=mid, opponent=dict(name="Peer")))
+                self.a.online_poll()
+                self.a.online_poll()
+            self.assertEqual(self.a.online_state()["match"]["id"], mid)
+            nav._online_action(nav.game, "start_match")
+            nav._online_action(nav.game, "start_match")
+            self.a.online_poll()
+            self.assertEqual(self.a.online_state()["match"]["id"], mid)
+            client.events.put(dict(t="match_cancel", match=mid, reason="declined"))
+            self.a.online_poll()
+            self.a.online_poll()
+        self.assertEqual(client.ready.call_args_list, [mock.call(True), mock.call(True)])
+        self.assertEqual(self.a.fake_driver.started, 0)
+
+    def test_current_match_id_survives_partial_reveal_and_real_ready_event_is_exposed(self):
+        client = self.match()
+        self.a._online_match = dict(opponent="Peer", ping=31)
+        for phase in ("matched", "starting", "playing", "result", "result_sent"):
+            self.a._online_phase = phase
+            self.assertEqual(self.a.online_state()["match"]["id"], "one")
+        self.a._online_phase = "matched"
+        client.events.put(dict(t="opponent_ready", match="one"))
+        self.a.online_poll()
+        self.assertTrue(self.a.online_state()["match"]["opponent_ready"])
+
     def test_driver_polling_keeps_pad_actions_available(self):
         client = self.match()
         for _ in range(4):

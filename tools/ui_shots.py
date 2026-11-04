@@ -192,10 +192,25 @@ def geometry(window):
     return online_geometry(window)[0]
 
 
-def font_coverage():
+def font_coverage_details():
+    """Check every printable catalog character against the available Qt fallback fonts."""
     faces = [QRawFont.fromFont(QFont(family)) for family in QFontDatabase.families()]
-    return {language: all(any(face.supportsCharacter(ord(char)) for face in faces) for char in sample)
-            for language, sample in {"ja": "日本語", "ko": "한국어"}.items()}
+    catalogs = {language: {char for value in i18n.catalog(language).values() for char in value
+                           if char.isprintable() and not char.isspace()}
+                for language in i18n.LANGUAGES}
+    supported = {char: any(face.supportsCharacter(ord(char)) for face in faces)
+                 for char in set().union(*catalogs.values())}
+    result = {}
+    for language, characters in catalogs.items():
+        missing = sorted(char for char in characters if not supported[char])
+        result[language] = dict(covered=not missing, tested_characters=len(characters),
+                                missing_characters="".join(missing),
+                                missing_codepoints=[f"U+{ord(char):04X}" for char in missing])
+    return result
+
+
+def font_coverage():
+    return {language: detail["covered"] for language, detail in font_coverage_details().items()}
 
 
 def main(argv=None):
@@ -244,12 +259,14 @@ def main(argv=None):
                                     layout=layout, collisions=layout_problems(layout)))
         print(f"{args.phase}: {language}: {len(args.scenes) * 2} synthetic captures", flush=True)
     out = ROOT / "build" / "shots" / args.phase
-    coverage = font_coverage()
-    limitations = [f"{language}: no available CJK glyph coverage in the offscreen font database; glyph layout is unverified"
+    coverage_details = font_coverage_details()
+    coverage = {language: detail["covered"] for language, detail in coverage_details.items()}
+    limitations = [f"{language}: catalog characters are missing from the offscreen font database; glyph layout is unverified"
                    for language, covered in coverage.items() if not covered]
     from tools.online_shots import DECORATIVE_CLIPPING
     (out / "report.json").write_text(json.dumps(dict(captures=records, qml_warnings=warnings,
-                                                    font_coverage=coverage, limitations=limitations,
+                                                    font_coverage=coverage, font_coverage_details=coverage_details,
+                                                    limitations=limitations,
                                                     geometry_exclusions=dict(art_free_background_numerals=DECORATIVE_CLIPPING)),
                                               ensure_ascii=False, indent=2), encoding="utf-8")
     # Small contact sheets make it practical to inspect every page, language and size.

@@ -1588,5 +1588,16 @@
  "online_density.search_ranked": "Ranglistensuche...",
  "online_density.search_casual": "Ungewertete Suche...",
  "online_density.message": "Nachricht",
- "online_density.needs_account": "Konto erforderlich"
+ "online_density.needs_account": "Konto erforderlich",
+ "feedback.offers": "Eingehende Angebote",
+ "feedback.review_offer": "Angebot ansehen",
+ "feedback.offer_hint": "Angebote öffnen und mit A / B antworten",
+ "feedback.return_activity": "Zur Online-Aktivität",
+ "feedback.ready": "Bereit",
+ "feedback.opponent_waiting": "Gegner noch nicht bereit",
+ "feedback.opponent_ready": "Gegner bereit",
+ "feedback.no_deadline": "Keine Frist angegeben",
+ "feedback.vs": "VS",
+ "feedback.mode": "Modus",
+ "feedback.rounds": "Runden"
 }

@@ -216,6 +216,12 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
             return self.open_discord()
         if self.overlay == "binding":
             return self._binding(a)
+        from . import nav_feedback
+        if not self.overlay or self.overlay not in ("osk", "native"):
+            if nav_feedback.global_action(self, "offers" if a == "social" and nav_feedback.global_view(self) else a):
+                return None
+            if a == "returnActivity":
+                return nav_feedback.return_activity(self)
         if self.overlay == "dialog":
             return self._dialog(a)
         if self.overlay == "osk":
@@ -346,6 +352,17 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
         over = getattr(self, "_view_" + self.overlay, None) if self.overlay else None
         if over:
             over(v)
+        from . import nav_feedback
+        v["globalOffers"] = nav_feedback.global_view(self)
+        v["activity"] = nav_feedback.activity_view(self)
+        v["matchVersus"] = nav_feedback.match_view(self, self.game) if self.game else {}
+        if v["globalOffers"]:
+            for prompt in v["prompts"]:
+                if prompt.get("action") == "social":
+                    prompt["label"] = "@feedback.offers"
+        v["gameTheme"] = self.game.m.get("adapter", "") if self.game and self.screen == "hub" else ""
+        if v["gameTheme"] in ("t4", "t5dr"):
+            v["accent"] = "#71CBE5" if v["gameTheme"] == "t4" else "#E99761"
         v["nativeEdit"] = getattr(self, "native_edit", "")
         return i18n.localize(v, self.language)
 

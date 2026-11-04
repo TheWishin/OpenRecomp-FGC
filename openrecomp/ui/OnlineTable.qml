@@ -8,7 +8,7 @@ Item {
     property var columns: []
     signal selected(int index)
     signal activated(int index)
-    height: line.kind === "thead" ? heading.implicitHeight + 16 : Math.max(44, body.implicitHeight + 20)
+    height: line.kind === "thead" ? heading.implicitHeight + 12 : Math.max(44, body.implicitHeight + 16)
     Rectangle {
         anchors.fill: parent; radius: 4
         color: table.line.focused || !!(table.line.feedback || {}).text ? Theme.raised : "#1B1E23"
@@ -26,7 +26,7 @@ Item {
     Column {
         id: body
         visible: table.line.kind !== "thead"
-        x: 10; y: 10; width: Math.max(1, parent.width - 20); spacing: 10
+        x: 8; y: 8; width: Math.max(1, parent.width - 16); spacing: 4
         Row {
             id: cells
             width: parent.width
@@ -34,14 +34,15 @@ Item {
                 model: table.line.kind !== "thead" ? table.line.cells || [] : []
                 Item {
                     id: cell
+                    objectName: "onlineTableCell"
                     required property var modelData
                     required property int index
                     width: Math.max(12, cells.width * ((table.columns[index] || {}).w || 0))
-                    height: textColumn.implicitHeight
-                    Column {
-                        id: textColumn; width: Math.max(1, cell.width - 10); spacing: 2
+                    height: Math.max(1, textColumn.implicitHeight, visuals.implicitHeight)
+                    Row {
+                        id: visuals; spacing: 4
                         Row {
-                            visible: (cell.modelData.bars || 0) > 0; height: visible ? 20 : 0; spacing: 3
+                            visible: (cell.modelData.bars || 0) > 0; width: visible ? 24 : 0; height: visible ? 20 : 0; spacing: 2
                             Repeater {
                                 model: parent.visible ? 4 : 0
                                 Rectangle {
@@ -51,14 +52,18 @@ Item {
                                 }
                             }
                         }
-                        Image { visible: !!cell.modelData.plate; source: cell.modelData.plate || ""; width: Math.min(60, textColumn.width); height: visible ? 30 : 0; fillMode: Image.PreserveAspectFit; asynchronous: true }
-                        Image { visible: !!cell.modelData.face; source: cell.modelData.face || ""; width: 28; height: visible ? 28 : 0; fillMode: Image.PreserveAspectCrop; asynchronous: true }
+                        Image { visible: !!cell.modelData.plate; source: cell.modelData.plate || ""; width: visible ? Math.min(48, cell.width * .35) : 0; height: visible ? 24 : 0; fillMode: Image.PreserveAspectFit; asynchronous: true }
+                        FighterPortrait { objectName: "onlineTableFighter"; visible: !!cell.modelData.character; source: cell.modelData.face || ""; name: ""; width: visible ? 24 : 0; height: visible ? 24 : 0 }
+                        Image { visible: !!cell.modelData.face && !cell.modelData.character; source: cell.modelData.face || ""; width: visible ? 24 : 0; height: visible ? 24 : 0; fillMode: Image.PreserveAspectCrop; asynchronous: true }
                         Item {
-                            visible: !!cell.modelData.locked; width: 20; height: visible ? 24 : 0
+                            visible: !!cell.modelData.locked; width: visible ? 20 : 0; height: visible ? 24 : 0
                             Rectangle { x: 5; y: 1; width: 10; height: 13; radius: 5; color: "transparent"; border.width: 2; border.color: Theme.value }
                             Rectangle { x: 2; y: 10; width: 16; height: 12; radius: 2; color: Theme.value }
                         }
-                        OnlineLabel { width: parent.width; visible: !!text; text: cell.modelData.text || ""; font.weight: cell.modelData.bold ? Font.DemiBold : Font.Normal }
+                    }
+                    Column {
+                        id: textColumn; x: visuals.width ? visuals.width + 4 : 0; width: Math.max(1, cell.width - x - 8); spacing: 2
+                        OnlineLabel { width: parent.width; visible: !!text; text: cell.modelData.text || ""; font.weight: cell.modelData.bold ? Font.DemiBold : Font.Normal; wrapMode: cell.modelData.character ? Text.NoWrap : Text.Wrap; elide: cell.modelData.character ? Text.ElideRight : Text.ElideNone }
                         OnlineHelp { objectName: "onlineAreaLanguage"; width: parent.width; visible: !!cell.modelData.tags; text: cell.modelData.tags || "" }
                         OnlineHelp { width: parent.width; visible: !!cell.modelData.hint; text: cell.modelData.hint || "" }
                     }

@@ -17,6 +17,7 @@ class MainMenu:
         self.screen = "hub"
         self.main_menu_game = g.id
         self.main_menu_chat = False
+        self.main_menu_options = False
         self.ranked_page = ""
         self.__dict__.setdefault("main_menu_visited", set()).add(g.id)
 
@@ -55,6 +56,9 @@ class MainMenu:
 
     def _open_main_entry(self, entry):
         g = self.game
+        if entry["id"] == "ranked" and not g.a.online_state().get("account"):
+            self.say("@online_density.needs_account")
+            return
         self.main_menu_game = ""
         self.ranked_page = ""
         if entry["section"] == "games":
@@ -79,6 +83,26 @@ class MainMenu:
 
     def _main_menu(self, action):
         from .nav_lobby_chat import available
+        items = self.items()
+        option_ids = ("online_input_delay", "netext_online_feel")
+        options = [n for n, row in enumerate(items) if row.get("id") in option_ids and row.get("kind") == "cycler" and not row.get("disabled")]
+        options.sort(key=lambda n: option_ids.index(items[n]["id"]))
+        if action == "play" and options:
+            self.main_menu_options = not getattr(self, "main_menu_options", False)
+            self.main_menu_chat = False
+            if self.main_menu_options:
+                self.focus[self.key()] = options[0]
+            return
+        if getattr(self, "main_menu_options", False):
+            index = self.focus_index(items)
+            if action == "back":
+                self.main_menu_options = False
+            elif action in ("up", "down") and options:
+                position = options.index(index) if index in options else 0
+                self.focus[self.key()] = options[max(0, min(len(options) - 1, position + (-1 if action == "up" else 1)))]
+            elif action in ("confirm", "left", "right") and index in options:
+                self._cycle(items[index], -1 if action == "left" else 1)
+            return
         if available(self.game.a.online_state()):
             items = self.items()
             i = self.focus_index(items)
@@ -131,6 +155,19 @@ class MainMenu:
         for index, entry in enumerate(entries):
             entry.update(index=index, focused=index == selected)
             entry["groupStart"] = index == 0 or entries[index - 1]["group"] != entry["group"]
+            if entry["id"] in ("ranked", "quick"):
+                entry["subtitle"] = "@online_ui.ranked_note" if entry["id"] == "ranked" else "@online_ui.quick_note"
+                if entry["id"] == "ranked" and not state.get("account"):
+                    entry.update(disabled=True, subtitle="@online_density.needs_account")
+                if state.get("phase") in ("searching", "cancelling"):
+                    from . import nav_feedback
+                    receipt = next((r for action, r in nav_feedback.records(self, g.id).items()
+                                    if action.startswith("search_") and r.get("kind") in ("pending", "waiting")), {})
+                    ranked = receipt.get("action") == "search_ranked" or state.get("message") == "@online.searching_ranked"
+                    if (entry["id"] == "ranked") == ranked:
+                        seconds = int(max(0, receipt.get("age", 0)))
+                        entry["label"] = "@feedback.cancelling" if state["phase"] == "cancelling" else "@online_density.search_ranked" if ranked else "@online_density.search_casual"
+                        entry["subtitle"] = f"{seconds // 60}:{seconds % 60:02}"
         connected = state.get("phase") not in (None, "", "offline", "error", "kicked")
         friends = sum(friend.get("status") == "online" for friend in state.get("friends") or [])
         notifications = len(state.get("friend_incoming") or []) + len(state.get("open_challenges") or [])
@@ -141,13 +178,24 @@ class MainMenu:
             activity=i18n.message("main_menu.activity", players=len(state.get("players") or []),
                                   friends=friends, notifications=notifications),
             hint="@main_menu.hint")
+        from .nav_common import uri
+        v["mainMenu"]["fighters"] = [dict(name=i18n.literal(f["name"]), image=uri(g.a.fighter_image(f["key"])))
+                                       for f in g.a.fighters()[:3]]
+        v["mainMenu"]["rank"] = self._rank_label(me) if me else ""
         v["hint"] = "@main_menu.hint"
         from .nav_lobby_chat import available
         if available(state):
             items = self.items()
+            focused = self.focus_index(items) if getattr(self, "main_menu_options", False) else -1
+            if focused >= 0:
+                v["hint"] = items[focused].get("hint") or "@main_menu.hint"
+            v["mainMenu"]["delayOptions"] = [self._btn(items, n, focused) for n, row in enumerate(items)
+                if row.get("id") in ("online_input_delay", "netext_online_feel")]
             v["online"].update(chatDocked=True, chat=self._view_chat(g, state, items,
                 self.focus_index(items) if getattr(self, "main_menu_chat", False) else -1))
         v["prompts"] = [self.prompt("confirm", "@open"), self.prompt("back", "@games"),
                         self.prompt("social", "@quick_access"), self.prompt("switchGame", "@switch_game")]
         if available(state):
             v["prompts"].insert(2, self.prompt("x", "@community_ui.chat_short"))
+            if v["mainMenu"].get("delayOptions"):
+                v["prompts"].insert(2, self.prompt("play", "@arcade.options"))

@@ -10,6 +10,15 @@ Item {
     readonly property var labels: o.labels || ({})
     readonly property bool roomPage: o.chapter === "rooms"
     readonly property bool officialPage: o.chapter === "ranked" || o.chapter === "leaderboard"
+    readonly property bool sideDetail: !!b.detail && width >= 1100 && Theme.textScale <= 1.15
+    function sections() {
+        var rows = body.b.sections || []
+        if (body.sideDetail || !body.b.detail) return rows
+        var d = body.b.detail
+        var lines = d.lead ? [{kind: "note", label: d.lead}] : []
+        for (var r of d.rows || []) lines.push({kind: "note", label: r.k + ": " + r.v})
+        return rows.concat([{title: d.title || "", lines: lines}])
+    }
     PageLoader { anchors.fill: parent; active: body.o.chapter === "ranked"; page: "RankedPage.qml"; root: body.root }
     PageLoader { anchors.fill: parent; active: body.o.chapter === "leaderboard"; page: "LeaderboardPage.qml"; root: body.root }
     OnlineStyle.PageTitle { id: title; visible: !body.officialPage; x: 0; y: 2; width: parent.width - (roomHeaderActions.visible ? roomHeaderActions.width + 16 : 0); text: body.rooms.createOpen ? body.labels.create_room || "" : body.b.title || "" }
@@ -31,12 +40,12 @@ Item {
     }
     OnlineSections {
         visible: !body.roomPage && !body.officialPage
-        x: 0; y: title.height + 16; width: parent.width - (body.b.detail ? 350 : 0); height: parent.height - y
-        root: body.root; sections: !body.roomPage && !body.officialPage ? body.b.sections || [] : []
+        x: 0; y: title.height + 12; width: parent.width - (body.sideDetail ? 334 : 0); height: parent.height - y
+        root: body.root; sections: !body.roomPage && !body.officialPage ? body.sections() : []
     }
     OnlineStyle.SectionCard {
-        visible: !body.roomPage && !body.officialPage && !!body.b.detail
-        x: parent.width - 334; y: title.height + 16; width: 334; height: parent.height - y
+        visible: !body.roomPage && !body.officialPage && body.sideDetail
+        x: parent.width - 318; y: title.height + 12; width: 318; height: parent.height - y
         Flickable {
             anchors.fill: parent; anchors.margins: 20; contentHeight: details.height; clip: true
             Column {
@@ -58,7 +67,7 @@ Item {
         id: joinedRoom
         visible: body.roomPage && !!body.rooms.joined
         readonly property var room: body.rooms.joined || ({})
-        x: 0; y: title.height + 16; width: parent.width; height: parent.height - y
+        x: 0; y: Math.max(title.y + title.height, roomHeaderActions.visible ? roomHeaderActions.height : 0) + 12; width: parent.width; height: parent.height - y
         OnlineStyle.SectionCard {
             width: (parent.width - 16) * 0.55; height: parent.height
             Flickable {
@@ -152,7 +161,7 @@ Item {
     }
     Item {
         visible: body.roomPage && !body.rooms.joined
-        x: 0; y: title.height + 16; width: parent.width; height: parent.height - y
+        x: 0; y: Math.max(title.y + title.height, roomHeaderActions.visible ? roomHeaderActions.height : 0) + 12; width: parent.width; height: parent.height - y
         OnlineStyle.SectionCard {
             id: browser
             visible: !body.rooms.createOpen

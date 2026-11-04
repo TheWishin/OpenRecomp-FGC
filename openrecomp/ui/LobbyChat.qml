@@ -19,7 +19,7 @@ Rectangle {
     function click(b) { if (b && b.index >= 0 && !b.disabled) root.backend.clickRow(b.index) }
     function updateHistory() {
         if (!visible) return
-        var key = chat.conversation || "lobby"
+        var key = (chat.game || "") + "/" + (chat.conversation || "lobby")
         var changedConversation = key !== conversation
         var tail = (chat.lines || []).length ? chat.lines[chat.lines.length - 1].id : ""
         if (key !== conversation) {

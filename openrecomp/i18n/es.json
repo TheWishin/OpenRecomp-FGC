@@ -1588,5 +1588,16 @@
  "online_density.search_ranked": "Buscando clasificatoria...",
  "online_density.search_casual": "Buscando casual...",
  "online_density.message": "Mensaje",
- "online_density.needs_account": "Requiere una cuenta"
+ "online_density.needs_account": "Requiere una cuenta",
+ "feedback.offers": "Ofertas recibidas",
+ "feedback.review_offer": "Ver oferta",
+ "feedback.offer_hint": "Abre las ofertas para responder con A / B",
+ "feedback.return_activity": "Volver a la actividad en línea",
+ "feedback.ready": "Listo",
+ "feedback.opponent_waiting": "Rival sin preparar",
+ "feedback.opponent_ready": "Rival listo",
+ "feedback.no_deadline": "Sin plazo indicado",
+ "feedback.vs": "VS",
+ "feedback.mode": "Modo",
+ "feedback.rounds": "Asaltos"
 }

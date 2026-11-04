@@ -1588,5 +1588,16 @@
  "online_density.search_ranked": "ランク戦検索中...",
  "online_density.search_casual": "カジュアル検索中...",
  "online_density.message": "メッセージ",
- "online_density.needs_account": "アカウントが必要"
+ "online_density.needs_account": "アカウントが必要",
+ "feedback.offers": "受信したオファー",
+ "feedback.review_offer": "オファーを確認",
+ "feedback.offer_hint": "オファーを開いて A / B で応答",
+ "feedback.return_activity": "オンラインの進行状況に戻る",
+ "feedback.ready": "準備完了",
+ "feedback.opponent_waiting": "相手は準備中",
+ "feedback.opponent_ready": "相手は準備完了",
+ "feedback.no_deadline": "制限時間の指定なし",
+ "feedback.vs": "VS",
+ "feedback.mode": "対戦形式",
+ "feedback.rounds": "ラウンド数"
 }

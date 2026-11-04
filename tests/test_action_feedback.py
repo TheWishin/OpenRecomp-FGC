@@ -184,6 +184,44 @@ class FeedbackNavigation(unittest.TestCase):
         self.assertEqual(self.receipt("join_room:r1")["kind"], "error")
         self.assertNotIn("private-secret", str(self.nav.view()))
 
+    def test_one_search_receipt_tracks_cancelling_found_and_start_then_error_without_reissue(self):
+        self.nav._online_action(self.nav.game, "search_casual")
+        calls = list(self.a.calls)
+        for phase in ("cancelling", "matched", "starting", "playing", "result"):
+            self.reply(phase=phase, message="@online.status")
+            receipt = self.receipt("search_casual")
+            self.assertEqual(receipt["phase"], phase)
+            self.assertEqual(receipt["kind"], "waiting")
+        self.reply(phase="error", message="@online.failure")
+        self.assertEqual(self.receipt("search_casual")["kind"], "error")
+        self.assertEqual(self.a.calls, calls)
+
+    def test_ready_and_decline_are_identity_guarded_through_late_match_replies(self):
+        self.a.snapshot.update(phase="matched", busy=False, match=dict(id="same-match", opponent="Rival"))
+        self.nav._online_action(self.nav.game, "start_match")
+        self.nav._online_action(self.nav.game, "start_match")
+        self.assertEqual(self.a.calls.count(("online", "start_match")), 1)
+        self.reply(phase="starting")
+        self.nav._online_action(self.nav.game, "cancel_match")
+        self.nav._online_action(self.nav.game, "cancel_match")
+        self.assertEqual(self.a.calls.count(("online", "cancel_match")), 1)
+        self.reply(phase="logged_in", match={}, message="@online.cancelled")
+        self.nav.tick(10)
+        self.reply(phase="matched", match=dict(id="same-match", opponent="Rival"))
+        self.nav._online_action(self.nav.game, "start_match")
+        self.nav._online_action(self.nav.game, "cancel_match")
+        self.assertEqual(self.a.calls.count(("online", "start_match")), 1)
+        self.assertEqual(self.a.calls.count(("online", "cancel_match")), 1)
+
+    def test_hidden_online_focus_and_notifications_remain_stable_on_other_pages(self):
+        self.nav.screen = "start"
+        self.nav.focus[self.nav.game.id + ":online"] = 7
+        self.reply(phase="matched", match=dict(id="offer", opponent="Rival"))
+        self.assertEqual(self.nav.focus[self.nav.game.id + ":online"], 7)
+        self.assertEqual(self.nav.take_sound(), "notify")
+        self.reply(phase="matched", match=dict(id="offer", opponent="Rival", ping=30))
+        self.assertIsNone(self.nav.take_sound())
+
     def test_y_opens_selected_profile_and_quick_access_still_opens_elsewhere(self):
         items = self.nav.items()
         index = next(n for n, it in enumerate(items) if it.get("id") == "challenge:p1")
