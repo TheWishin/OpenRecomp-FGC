@@ -160,6 +160,7 @@ def untranslated_literals(source):
         "refresh_players", "refresh_rooms", "accept_challenge", "decline_challenge",
         "create_room", "leave_room", "send_chat", "no_players", "no_rooms", "no_chat",
         "start_match", "cancel_match", "stop_match", "result_win", "result_loss", "result_none", "return_lobby",
+        "t4_rematch", "t4_rematch_decline",  # internal worker operations; the existing rematch labels are translated
         "result_game", "t4_result-", "[^A-Za-z0-9_-]",       # the T4 game's own result file (t4_online)
         "starting", "playing", "result", "result_sent",
         "t4lobby", "online-t4.json", "hashes.json", "toolchain.json", ".client", ".buildid", ".servers", ".proto", "IMAGENAME eq ",

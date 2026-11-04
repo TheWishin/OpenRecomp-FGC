@@ -18,6 +18,17 @@ FEATURE_SOURCES.add("openrecomp/adapters/t5_features.py")
 
 
 class T5OnlinePackagingTests(unittest.TestCase):
+    def test_t5_build_runtime_import_is_shipped(self):
+        tree = ast.parse((ROOT / "openrecomp/adapters/t5dr.py").read_text(encoding="utf-8"))
+        imports = {node.module for node in ast.walk(tree)
+                   if isinstance(node, ast.ImportFrom) and node.level == 1}
+        self.assertIn("t5_build_runtime", imports)
+        name = "openrecomp/adapters/t5_build_runtime.py"
+        self.assertIn(name, package.SOURCE_FILES)
+        selected = package.source_files(ROOT)
+        self.assertIn(name, selected)
+        package.scan_file(selected[name], name)
+
     def test_coexistence_runtime_modules_and_guide_are_shipped(self):
         required = {"openrecomp/adapters/t5_coexist.py", "openrecomp/adapters/t5_compatibility.py",
                     "openrecomp/adapters/t5_discovery.py",

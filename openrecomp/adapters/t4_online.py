@@ -848,6 +848,8 @@ class T4Online(T4Direct, Online):
         if state["phase"] == "offline" and state["message"] == "@online.offline":
             state["message"] = "@t4.online_setup_hint" if server else "@t4.lobby_no_server"
         state["capabilities"].update(t4_lobby=True, direct_available=True, server_set=server)
+        state["capabilities"]["rematch"] = bool(getattr(self, "_online_rematch", False)
+                                                   and callable(getattr(self._online_client, "rematch", None)))
         saved = self._online_saved() if state.get("saved_available") else None
         # One account for T5DR and T4: a T5DR remembered login offered here is named as such.
         state["saved_shared"] = bool(saved and saved.get("shared"))
@@ -989,6 +991,24 @@ class T4Online(T4Direct, Online):
 
     def _online_match_found(self, event):
         self._online_reap_owned()
+        if (event.get("origin") == "rematch" and event.get("ready_check") is False
+                and self._online_phase == "result_sent" and getattr(self, "_online_next_authorized", False)
+                and event.get("rematch_of") == getattr(self, "_online_match_id", None)
+                and event.get("match") and event["match"] != getattr(self, "_online_match_id", None)):
+            # T4 rematches use a fresh connection and game. Only this player's vote authorizes the next ticket;
+            # the launch worker waits for the previous owned process to stop before starting it.
+            self._online_ticket = None
+            self._online_match_id = event["match"]
+            self._online_authorized = True
+            self._online_next_authorized = self._online_rematch = False
+            self._online_ready_check = False
+            self._online_early_start = self._online_pending_start = None
+            self._online_result_message = "@online.result_sent"
+            self._online_match = self._online_match_view(event)
+            self._t4_set_info(event)
+            self._online_phase, self._online_queue = "starting", ""
+            self._online_message = "@online.starting"
+            return True
         info = event.get("set") if isinstance(event.get("set"), dict) else None
         if (event.get("origin") == "set" and _is_set(info)
                 and self._online_phase in ("result", "result_sent")
@@ -998,6 +1018,7 @@ class T4Online(T4Direct, Online):
             self._online_ticket = None
             self._online_match_id = event.get("match")
             self._online_authorized = True
+            self._online_next_authorized = self._online_rematch = False
             self._online_ready_check = False
             self._online_early_start = None
             self._online_pending_start = None
@@ -1023,6 +1044,7 @@ class T4Online(T4Direct, Online):
         self._online_ticket = None
         self._online_match_id = event.get("match")
         self._online_authorized = False
+        self._online_next_authorized = self._online_rematch = False
         self._online_ready_check = event.get("ready_check", True) is not False
         self._online_early_start = None
         self._online_owned_run = None
@@ -1072,12 +1094,22 @@ class T4Online(T4Direct, Online):
                 # This match cannot be played: leave it, stay in the lobby (closing here was a logout).
                 self._online_to_lobby(message, leave=getattr(self, "_online_match_id", None) or None)
             return True
-        if kind in ("match_reveal", "match_cancel", "match_result", "nat_status", "nat_upgrade", "nat_fallback"):
+        if kind in ("match_reveal", "match_cancel", "match_result", "rematch", "nat_status", "nat_upgrade", "nat_fallback"):
             if self._online_phase not in ("matched", "starting", "playing", "result", "result_sent"):
                 return True
             current = getattr(self, "_online_match_id", None)
             if current and event.get("match") not in (None, current):
                 return True
+        if kind == "rematch":
+            if self._online_phase != "result_sent":
+                return True
+            if event.get("state") == "offered" and not getattr(self, "_online_next_authorized", False):
+                self._online_rematch = True
+                self._online_message = "@online.rematch_offer"
+            elif event.get("state") in ("declined", "expired"):
+                self._online_rematch = self._online_next_authorized = self._online_authorized = False
+                self._online_message = "@online.rematch_declined"
+            return True
         if kind in ("nat_status", "nat_upgrade", "nat_fallback"):
             if self._online_phase not in ("matched", "starting", "playing"):
                 return True
@@ -1178,6 +1210,8 @@ class T4Online(T4Direct, Online):
             if self._online_phase in ("playing", "result", "result_sent"):
                 self._online_stop_owned()
                 self._online_phase = "result_sent"
+                self._online_rematch = bool(event.get("rematch_window"))
+                self._online_next_authorized = False
                 status = event.get("status")
                 self._online_result_message = {
                     "confirmed": "@online.result_confirmed", "disputed": "@online.result_disputed",
@@ -1262,13 +1296,30 @@ class T4Online(T4Direct, Online):
             self._online_authorized = False
             self._online_match = {}
             self._online_phase, self._online_message = "logged_in", "@online.logged_in"
-        elif action == "return_lobby" and phase == "result_sent":
+        elif (action == "rematch" and phase == "result_sent" and client and not self._online_busy
+              and self.online_state()["capabilities"].get("rematch")):
+            mid, generation = self._online_match_id, self._online_generation
+            self._t4_rematch_from = mid
+            self._online_authorized = self._online_next_authorized = True
+            self._online_rematch = False
+            self._online_message = "@online.rematch_wait"
+
+            def rematch():
+                self._online_check_request(generation, client)
+                return client.rematch(mid, True, keep=False)
+            self._online_submit("t4_rematch", rematch)
+        elif action == "return_lobby" and phase == "result_sent" and not self._online_busy:
+            mid = self._online_match_id
+            decline = bool(getattr(self, "_online_rematch", False) or getattr(self, "_online_next_authorized", False))
+            self._online_rematch = self._online_next_authorized = False
             self._online_ticket = None
             self._online_match_id = None
             self._online_authorized = False
             self._online_early_start = None
             self._online_match = {}
             self._online_phase, self._online_message = "logged_in", "@online.logged_in"
+            if decline and client and callable(getattr(client, "rematch", None)):
+                self._online_submit("t4_rematch_decline", lambda: client.rematch(mid, False, keep=False))
         else:
             super().online_action(action)
 
@@ -1284,6 +1335,16 @@ class T4Online(T4Direct, Online):
         return super()._online_error(error, saved)
 
     def _online_completion(self, action, value, error):
+        if action == "t4_rematch_decline":
+            # The old window may already have expired; its reply cannot undo the return to the lobby.
+            return True
+        if action == "t4_rematch":
+            previous = self.__dict__.pop("_t4_rematch_from", None)
+            if error and self._online_match_id == previous and self._online_phase == "result_sent":
+                # A correlated match_found can arrive before a lost request reply. Its new ticket keeps the vote.
+                self._online_next_authorized = self._online_authorized = False
+                self._online_message = self._online_error(error)
+            return True
         if action.startswith("login_") and not error:
             self._online_rating = value["me"].get("rating")
         if action not in ("start_match", "start_game", "game_started", "game_playing", "nat_fallback",
@@ -1480,6 +1541,7 @@ class T4Online(T4Direct, Online):
 
     def _online_match_reset(self):
         self._online_authorized = False
+        self._online_next_authorized = self._online_rematch = False
         self._online_early_start = None
         self._online_pending_start = None
         self._online_ticket = None
@@ -1492,6 +1554,7 @@ class T4Online(T4Direct, Online):
         self._online_init()
         with self._online_lock:
             self._online_authorized = False
+            self._online_next_authorized = self._online_rematch = False
             self._online_early_start = None
             self._online_pending_start = None
             self._online_stop_owned()
