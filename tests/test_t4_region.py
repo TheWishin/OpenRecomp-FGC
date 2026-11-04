@@ -35,6 +35,20 @@ class Tree(unittest.TestCase):
         path.write_text(text, encoding="utf-8")
         return path
 
+    def source_core(self, home=None):
+        folder = Path(self.tmp.name)
+        # Model sibling launcher, source and player directories inside the fixture;
+        # the production containment check still protects the launcher and source.
+        with mock.patch.object(t4_source, "__file__", str(folder / "launcher/openrecomp/adapters/t4_source.py")), \
+                mock.patch.object(t4_source, "user_dir", return_value=str(home or folder / "home")):
+            return t4_source.SourceCore(str(self.root))
+
+    def test_source_core_fixture_still_refuses_player_data_in_launcher_or_source(self):
+        for protected in (Path(self.tmp.name) / "launcher", self.root):
+            with self.subTest(protected=protected):
+                with self.assertRaisesRegex(RuntimeError, "t4.source.data_outside"):
+                    self.source_core(protected / "home")
+
     def test_the_us_tree_passes(self):
         self.assertIsNone(t4_region.tree_problem(str(self.root)))
 
@@ -70,8 +84,7 @@ class Tree(unittest.TestCase):
 
     def test_source_core_refuses_check_build_and_play_for_a_pal_tree(self):
         self.write("tools/iso_extract.py", us_iso_tool(boot="SCES_508.78", sha1=PAL_SHA1))
-        with mock.patch.object(t4_source, "user_dir", return_value=str(Path(self.tmp.name) / "home")):
-            core = t4_source.SourceCore(str(self.root))
+        core = self.source_core()
         iso = self.write("pal.iso", "image")
         with mock.patch.object(t4_source.subprocess, "run") as run:
             self.assertEqual(core.verify_iso(str(iso)), (False, t4_region.NOT_US))
@@ -81,8 +94,7 @@ class Tree(unittest.TestCase):
         self.assertEqual(core.play_problems({}), [t4_region.NOT_US])
 
     def test_source_core_refuses_an_image_whose_check_names_another_elf(self):
-        with mock.patch.object(t4_source, "user_dir", return_value=str(Path(self.tmp.name) / "home")):
-            core = t4_source.SourceCore(str(self.root))
+        core = self.source_core()
         iso = self.write("x.iso", "image")
         answer = mock.Mock(returncode=0, stdout="BOOT2 SLUS_203.28\nELF_SHA1 %s\nOK\n" % PAL_SHA1)
         with mock.patch.object(t4_source.subprocess, "run", return_value=answer):

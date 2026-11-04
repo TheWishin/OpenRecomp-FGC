@@ -115,6 +115,9 @@ class Tools:
                     changed = True
                 elif state == "waiting":
                     self.binding_result = result
+                elif state == "multi":
+                    self.binding_result = dict(state="waiting", left=self.binding_result.get("left", CAPTURE_SECONDS))
+                    self.say("@controls.multi")
                 else:
                     changed = True
                     self.binding_result = result
@@ -127,7 +130,7 @@ class Tools:
                         self.exit_focus = 0
                     else:
                         self._cancel_binding()
-                        messages = dict(timeout="@controls.timeout", multi="@controls.multi",
+                        messages = dict(timeout="@controls.timeout",
                                         disconnected="@controls.disconnected", cancelled="@controls.cancelled",
                                         game_key="@controls.game_key")
                         if state == "cancelled":

@@ -1,6 +1,6 @@
 """The Pad bindings page: glyphs and notation, the adapter's presets / capture rules, and the page by pad and mouse.
 
-Fake controllers and a fake editor only: no device, no installed game, no file is written."""
+Fake controllers and editor, plus an optional installed-editor check writing only to a temporary home."""
 import os
 import unittest
 from collections import namedtuple
@@ -49,7 +49,9 @@ class Glyphs(unittest.TestCase):
         self.assertEqual(n(["DOWN", "RIGHT", "SQUARE", "TRIANGLE"]), "d/f+1+2")
         self.assertEqual(n(["LEFT"]), "b")
         self.assertEqual(n(["UP", "LEFT", "CIRCLE"]), "u/b+4")
-        self.assertEqual(n(["LEFT", "RIGHT", "CROSS"]), "3")           # opposite directions cancel
+        self.assertEqual(n(["LEFT", "RIGHT", "CROSS"]), "b+f+3")
+        self.assertEqual(n(["UP", "DOWN"]), "u+d")
+        self.assertEqual(n(["UP", "DOWN", "LEFT", "RIGHT"]), "u+d+b+f")
         self.assertEqual(n(["START"]), "START")
         self.assertEqual(n([]), "")
 
@@ -245,6 +247,12 @@ class Adapter(unittest.TestCase):
             return ["keyboard"] if keyboard else []
         self.assertEqual(self.adapter._controls_sources(SimpleNamespace(default_sources=sources)), ["keyboard"])
 
+    def test_input_strip_preserves_opposite_bound_directions_before_socd(self):
+        self.pm.PS3_BIT = {"UP": 1, "DOWN": 2}
+        self.held("pad-one", {"A", "B"})
+        self.adapter.poll_binding()
+        self.assertEqual(self.adapter.controls_input("pad-one"), dict(lit=["1", "2"], notation="u+d"))
+
 
 class Page(unittest.TestCase):
     def setUp(self):
@@ -388,16 +396,21 @@ class InstalledEditor(unittest.TestCase):
 
     def setUp(self):
         import sys
-        before = set(sys.modules)
-        # the installed modules must not stay loaded for other tests (they import t5lobby from there)
-        self.addCleanup(lambda: [sys.modules.pop(name) for name in set(sys.modules) - before])
+        # Restore cached modules and paths too, even if importing the editor fails.
+        self.enterContext(mock.patch.dict(sys.modules))
+        self.enterContext(mock.patch.object(sys, "path", sys.path[:]))
+        for name in tuple(sys.modules):
+            if name == "t5lobby" or name.startswith("t5lobby.") or name in ("controls_edit", "controls_ui"):
+                sys.modules.pop(name)
 
     def test_bindings_read_back_exactly_and_presets_write_what_the_game_parses(self):
         import tempfile
         from openrecomp.adapters.base import Adapter as Base
         from openrecomp.adapters.t5_controls import Controls
 
-        out = tempfile.mkdtemp()
+        home = os.path.join(os.path.dirname(os.path.dirname(__file__)), "build", "tmp-home")
+        os.makedirs(home, exist_ok=True)
+        out = self.enterContext(tempfile.TemporaryDirectory(dir=home))
 
         class Real(Controls, Base):
             def __init__(self):
@@ -435,6 +448,30 @@ class InstalledEditor(unittest.TestCase):
                             self.assertEqual(slot["sources"], list(table.sources_exactly(pm.target_mask(slot["id"]))))
             finally:
                 a.controls_close()
+
+
+class InstalledEditorIsolation(unittest.TestCase):
+    def test_cleanup_restores_modules_and_search_path(self):
+        import sys
+
+        old_package = SimpleNamespace()
+        old_editor = SimpleNamespace()
+        with mock.patch.dict(sys.modules, {"t5lobby": old_package, "controls_edit": old_editor}):
+            sys.modules.pop("t5lobby.padmap", None)
+            before_path = sys.path[:]
+            case = InstalledEditor("test_bindings_read_back_exactly_and_presets_write_what_the_game_parses")
+            case.setUp()
+            try:
+                sys.modules["t5lobby"] = SimpleNamespace()
+                sys.modules["t5lobby.padmap"] = SimpleNamespace()
+                sys.modules.pop("controls_edit", None)
+                sys.path.insert(0, "fake-installed-launcher")
+            finally:
+                case.doCleanups()
+            self.assertIs(sys.modules["t5lobby"], old_package)
+            self.assertIs(sys.modules["controls_edit"], old_editor)
+            self.assertNotIn("t5lobby.padmap", sys.modules)
+            self.assertEqual(sys.path, before_path)
 
 
 if __name__ == "__main__":

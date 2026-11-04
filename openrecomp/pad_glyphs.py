@@ -107,16 +107,16 @@ _OTHER = ("L1", "R1", "L2", "R2", "L3", "R3", "SELECT", "START")
 
 def notation(buttons):
     """Held PS3 buttons (names: UP DOWN LEFT RIGHT SQUARE TRIANGLE CROSS CIRCLE L1 .. START) -> Tekken notation as a
-    player facing right reads it: u d b f, d/f, 1+2, ... ("" when nothing is held). Up+down or left+right together
-    cancel, as the game's own SOCD rule does on a hitbox."""
+    player facing right reads it: u d b f, d/f, 1+2, ... ("" when nothing is held). Opposite directions stay visible:
+    these are held bindings, before the game's SOCD filtering."""
     held = {str(b).upper() for b in buttons}
-    v = "u" if "UP" in held and "DOWN" not in held else "d" if "DOWN" in held and "UP" not in held else ""
-    h = "b" if "LEFT" in held and "RIGHT" not in held else "f" if "RIGHT" in held and "LEFT" not in held else ""
+    v = [text for name, text in (("UP", "u"), ("DOWN", "d")) if name in held]
+    h = [text for name, text in (("LEFT", "b"), ("RIGHT", "f")) if name in held]
     parts = []
-    if v and h:
-        parts.append(v + "/" + h)
+    if len(v) == len(h) == 1:
+        parts.append(v[0] + "/" + h[0])
     elif v or h:
-        parts.append(v or h)
+        parts.append("+".join(v + h))
     face = [digit for name, digit in _FACE if name in held]
     if face:
         parts.append("+".join(face))

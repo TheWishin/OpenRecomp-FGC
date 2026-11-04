@@ -37,7 +37,9 @@ class Home(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.base = Path(self.tmp.name)
         patcher = mock.patch.dict(os.environ, {"OPENRECOMP_HOME": str(self.base / "home"),
-                                               "USERPROFILE": str(self.base / "profile")})
+                                               "USERPROFILE": str(self.base / "profile"),
+                                               "OPENRECOMP_T5DR_ROOT": str(self.base / "missing-t5dr"),
+                                               "OPENRECOMP_T4_ROOT": str(self.base / "missing-t4")})
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -47,6 +49,23 @@ class Home(unittest.TestCase):
             (root / f).parent.mkdir(parents=True, exist_ok=True)
             (root / f).write_bytes(b"x")
         return root
+
+
+class HomeIsolation(unittest.TestCase):
+    def test_ambient_game_roots_are_masked_and_restored(self):
+        ambient = {"OPENRECOMP_T5DR_ROOT": "ambient-t5dr", "OPENRECOMP_T4_ROOT": "ambient-t4"}
+        with mock.patch.dict(os.environ, ambient):
+            fixture = Home()
+            try:
+                fixture.setUp()
+                for name in ambient:
+                    root = Path(os.environ[name])
+                    self.assertTrue(root.is_relative_to(fixture.base), name)
+                    self.assertFalse(root.exists(), name)
+            finally:
+                fixture.doCleanups()
+            for name, value in ambient.items():
+                self.assertEqual(os.environ[name], value)
 
 
 class ValidateTest(unittest.TestCase):

@@ -119,8 +119,9 @@ keyboard). A button another action already uses is named and swapped on Yes (tha
 button); X clears an action. Presets (`openrecomp/pad_presets.py`): Default (the game's own), Tekken Classic,
 Arcade stick, Hitbox / Leverless (stick as d-pad, SOCD neutral), Left-handed, and for the keyboard Number pad;
 Reset to default, Plays as (player pin), Left + right at once (SOCD) and Left stick (analog / d-pad). Input test:
-the actions light up and the bottom strip shows the input in Tekken notation (d/f+1+2) as the game reads it; hold
-Back for a second to finish. Every change is the installed T5DR editor's own edit of `controls.ini`, so the file
+the actions light up and the bottom strip shows held bindings in Tekken notation (d/f+1+2), before the game's
+SOCD filtering; opposite directions stay visible (b+f or u+d). Hold Back for a second to finish.
+Every change is the installed T5DR editor's own edit of `controls.ini`, so the file
 stays in the format the game reads. T4 reads a fixed layout (the game has no bindings file yet), so it has no Pad bindings page.
 
 **Menu sounds.** Moving, confirming, going back, switching sections, toggling a setting, opening and closing a panel,

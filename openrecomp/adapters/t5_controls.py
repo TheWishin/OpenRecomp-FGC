@@ -248,7 +248,7 @@ class Controls:
         return rows
 
     def controls_input(self, pad_id):
-        """What this controller presses right now, as the game reads it: dict(lit=[slot ids], notation)."""
+        """Held bindings before the game's stick/SOCD filtering: dict(lit=[slot ids], notation)."""
         session = getattr(self, "_controls_session", None)
         if session is None:
             return dict(lit=[], notation="")

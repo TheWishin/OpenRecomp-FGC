@@ -94,6 +94,27 @@ class ControlsNavigation(unittest.TestCase):
         self.nav.act("down", device="xbox")
         self.assertEqual(self.nav.focus_index(self.nav.items()), 2)
 
+    def test_multiple_presses_keep_capture_active_until_a_single_button_is_ready(self):
+        self.begin()
+        self.a.result = dict(state="waiting", left=3.5)
+        self.nav.poll_tools()
+        self.a.result = dict(state="multi")
+        self.nav.poll_tools()
+        self.assertTrue(self.nav.binding_active())
+        self.assertNotIn(("cancel",), self.a.calls)
+        capture = self.nav.view()["bindCapture"]
+        self.assertTrue(capture["waiting"])
+        self.assertEqual(capture["left"], 4)
+        self.nav.act("back", device="xbox")
+        self.assertTrue(self.nav.binding_active())
+        self.a.result = dict(state="waiting", left=2.0)
+        self.nav.poll_tools()
+        self.assertEqual(self.nav.view()["bindCapture"]["left"], 2)
+        self.a.result = dict(state="ready", source="X")
+        self.nav.poll_tools()
+        self.assertEqual(self.a.calls.count(("accept",)), 1)
+        self.assertIsNone(self.nav.overlay)
+
     def test_idle_polling_and_leaving_release_runtime_reader(self):
         self.nav.view()
         self.nav.poll_tools()
