@@ -640,6 +640,9 @@ class T4Online(T4Direct, Online):
         configured = os.environ.get(SERVER_ENV, "").strip() or str(self.config.get("t4_lobby_server") or "").strip()
         return configured[:256]
 
+    def _online_explicit_server(self):
+        return self._t4_explicit_server()          # never OPENRECOMP_T5_SERVER / t5_lobby_server
+
     def _online_default_server(self):
         """OPENRECOMP_T4_SERVER, the launcher config's t4_lobby_server, or a T4 servers.json entry; never built in."""
         configured = self._t4_explicit_server()

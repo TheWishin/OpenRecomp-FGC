@@ -492,6 +492,7 @@
     "online.bad_name": "Usa un nombre de entre 2 y 16 caracteres permitidos, sin espacios al principio ni al final.",
     "online.name_taken": "Ese nombre ya está en uso. Elige otro.",
     "online.unavailable": "No se pudo conectar con la sala. Comprueba el servidor y vuelve a intentarlo.",
+    "online.unreachable": "Sala no accesible. Comprueba tu conexión a internet y la Dirección de la sala, y vuelve a intentarlo.",
     "online.refused": "La sala ha rechazado esta solicitud. Comprueba tu sesión y vuelve a intentarlo.",
     "online.server_invalid": "La dirección del servidor de la sala o la configuración del certificado no es válida.",
     "online.save_failed": "Has iniciado sesión, pero no se pudo actualizar el inicio de sesión guardado.",

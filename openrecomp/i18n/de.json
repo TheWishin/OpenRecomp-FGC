@@ -492,6 +492,7 @@
     "online.bad_name": "Verwende einen Namen mit 2–16 erlaubten Zeichen, ohne Leerzeichen am Anfang oder Ende.",
     "online.name_taken": "Dieser Name wird bereits verwendet. Wähle einen anderen Namen.",
     "online.unavailable": "Die Lobby konnte nicht erreicht werden. Prüfe den Server und versuche es erneut.",
+    "online.unreachable": "Lobby nicht erreichbar. Prüfe deine Internetverbindung und die Lobby-Adresse und versuche es erneut.",
     "online.refused": "Die Lobby hat diese Anfrage abgelehnt. Prüfe deine Anmeldung und versuche es erneut.",
     "online.server_invalid": "Die Lobby-Serveradresse oder Zertifikatseinstellung ist ungültig.",
     "online.save_failed": "Du bist angemeldet, aber die gespeicherte Anmeldung konnte nicht aktualisiert werden.",

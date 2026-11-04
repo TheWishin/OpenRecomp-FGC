@@ -19,6 +19,9 @@ from . import t5_features
 from .. import i18n
 
 
+SERVERS_FORMAT = "t5dr-servers/1"
+
+
 class SearchRefused(RuntimeError):
     """A local check stopped the request before any queue call was sent."""
 
@@ -62,6 +65,8 @@ class Online:
     online_match_flow = False
     online_legacy_config = True
     online_registration = None  # None: only the T5DR client registers accounts
+    online_server_env = "OPENRECOMP_T5_SERVER"
+    online_server_setting = "t5_lobby_server"
 
     def online_supported(self):
         return True
@@ -104,6 +109,13 @@ class Online:
         # pressed while the search request is still on its way is sent after it (or the search is never sent).
         self._online_queue_lock = threading.Lock()
         self._online_relogin = None
+        explicit = self._online_explicit_server()
+        if explicit:
+            # An override beats the address saved by the last login, as for T4 (docs/T5DR_ONLINE.md "Lobby address").
+            self._online_fields["online_server"] = explicit
+        elif not self._online_fields["online_server"].strip():
+            # A new player sees the lobby an empty field means: the default entry of the servers lists.
+            self._online_fields["online_server"] = self._online_default_server()
         t5_features.init(self)
 
     def _online_nickname(self):
@@ -126,8 +138,63 @@ class Online:
         except (OSError, ValueError):
             raise RuntimeError("@online.build_required") from None
 
+    def _online_explicit_server(self):
+        """OPENRECOMP_T5_SERVER, else the launcher config's t5_lobby_server, else ""."""
+        configured = (os.environ.get(self.online_server_env, "").strip()
+                      or str((getattr(self, "config", None) or {}).get(self.online_server_setting) or "").strip())
+        return configured[:256]
+
     def _online_default_server(self):
-        return "127.0.0.1:" + str(self.online_port)
+        """What an empty Lobby address means: an override (OPENRECOMP_T5_SERVER, t5_lobby_server), else the
+        default entry of the servers lists the client resolves names from (the install's lobby/servers.json, then
+        the player's own, whose default wins), else the first listed entry; "" when nothing is listed (an invalid
+        address, never a guessed one). A loopback lobby is used only when a test names it."""
+        return self._online_explicit_server() or self._online_listed_default()
+
+    def _online_user_servers_dir(self):
+        """The folder of the player's own servers.json, as the client loads it."""
+        directory = self._online_servers_dir()
+        if getattr(self.s, "coexistence", False) and not os.path.isfile(os.path.join(directory, "servers.json")):
+            sources = self.s.legacy_online_paths
+            if sources:
+                source = next((path for path in sources if os.path.isfile(path)), sources[0])
+                directory = os.path.dirname(source)
+        return directory
+
+    def _online_listed_default(self):
+        """The default entry's name from the servers.json files (read as files: no installed code runs here)."""
+        paths = (os.path.join(self._online_lobby_dir(), "servers.json"),
+                 os.path.join(self._online_user_servers_dir(), "servers.json"))
+        stamps = []
+        for path in paths:
+            try:
+                info = os.stat(path)
+                stamps.append((path, info.st_mtime_ns, info.st_size))
+            except OSError:
+                stamps.append((path, None, None))
+        cached = getattr(self, "_online_listed_cache", None)
+        if cached and cached[0] == stamps:
+            return cached[1]
+        entries = {}
+        for path in paths:
+            try:
+                with open(path, encoding="utf-8") as stream:
+                    doc = json.load(stream)
+            except (OSError, ValueError):
+                continue
+            servers = doc.get("servers") if isinstance(doc, dict) and doc.get("format") == SERVERS_FORMAT else None
+            for entry in servers[:100] if isinstance(servers, list) else []:
+                if not isinstance(entry, dict) or not str(entry.get("host") or "").strip():
+                    continue
+                name = str(entry.get("name") or entry.get("host"))[:64]
+                if name != name.strip():
+                    continue                        # the client's resolver would never match it by name
+                entries.pop(name, None)
+                entries[name] = entry
+        found = next((name for name, entry in reversed(entries.items()) if entry.get("default") is True),
+                     next(iter(entries), ""))
+        self._online_listed_cache = (stamps, found)
+        return found
 
     # The lobby keeps a dropped player's session this long (server T5L_RESUME_WINDOW, 600 s); the client keeps trying
     # to resume it a little less (a 60 s window gave up during a 90 s outage that the server would have survived).
@@ -275,7 +342,7 @@ class Online:
         return out
 
     def _online_saved(self):
-        key = self._online_fields["online_server"].strip().lower() or self._online_default_server()
+        key = (self._online_fields["online_server"].strip() or self._online_default_server()).strip().lower()
         sessions = self._online_config().get("sessions") or {}
         saved = sessions.get(key) if isinstance(sessions, dict) else None
         rejected = getattr(self, "_online_rejected_sessions", {})
@@ -400,7 +467,11 @@ class Online:
                     name_taken="@online.name_taken", timeout="@online.unavailable", rate_limited="@online.rate_limited",
                     version_mismatch="@online.version_mismatch", proto_mismatch="@online.version_mismatch",
                     server_full="@online.server_full", busy="@online.busy_server",
-                    room_locked="@online.room_locked", bad_password="@online.room_locked")
+                    room_locked="@online.room_locked", bad_password="@online.room_locked",
+                    # The connection never came about or broke (refused, timed out, unknown name, TLS handshake): the
+                    # lobby did not refuse anything. A certificate other than the pinned one is a server setting.
+                    connect_failed="@online.unreachable", not_connected="@online.unreachable",
+                    disconnected="@online.unreachable", tls_mismatch="@online.server_invalid")
         local = ("@online.client_missing", "@online.build_required", "@online.no_online",
                  "@online.server_invalid", "@online.game_running", "@online.process_unknown", "@online.cancelled",
                  "@online.watch_unavailable", "@online.rules_unavailable", "@online.insecure")
@@ -481,15 +552,9 @@ class Online:
         cfg = self._online_config() if cfg is None else cfg
         api = self._online_modules()
         build = self._online_build(api)
-        directory = self._online_servers_dir()
-        if getattr(self.s, "coexistence", False) and not os.path.isfile(os.path.join(directory, "servers.json")):
-            sources = self.s.legacy_online_paths
-            if sources:
-                source = next((path for path in sources if os.path.isfile(path)), sources[0])
-                directory = os.path.dirname(source)
-        entries, _problems = api["servers"].load(user_dir=directory)
-        # A blank field has the same loopback meaning as saved-session lookup.
-        # Never send its credentials to an installed directory's default server.
+        entries, _problems = api["servers"].load(user_dir=self._online_user_servers_dir())
+        # A blank field means the same server as the saved-session lookup (_online_saved): a login saved for one
+        # server is never sent to another.
         target = server or self._online_default_server()
         try:
             entry = api["servers"].resolve(target, entries)
@@ -1494,8 +1559,8 @@ class Online:
         if not isinstance(code, str):
             code = ""
         message = self._online_error(error, True)
-        retry = (message in ("@online.unavailable", "@online.busy_server", "@online.server_full",
-                             "@online.rate_limited", "@online.name_taken")
+        retry = (message in ("@online.unavailable", "@online.unreachable", "@online.busy_server",
+                             "@online.server_full", "@online.rate_limited", "@online.name_taken")
                  or self._online_transport_error(error) or code == "timeout")
         if code in self.RELOGIN_FINAL or not retry:
             self._online_relogin = None
@@ -1512,7 +1577,7 @@ class Online:
             return None
         if not getattr(self.s, "coexistence", False):
             return saved
-        key = self._online_fields["online_server"].strip().lower() or self._online_default_server()
+        key = (self._online_fields["online_server"].strip() or self._online_default_server()).strip().lower()
         try:
             with open(self.online_cfg_path(), encoding="utf-8") as stream:
                 own = (json.load(stream).get("sessions") or {}).get(key)

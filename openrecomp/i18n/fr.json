@@ -492,6 +492,7 @@
     "online.bad_name": "Utilise un nom de 2 à 16 caractères autorisés, sans espaces au début ni à la fin.",
     "online.name_taken": "Ce nom est déjà utilisé. Choisis-en un autre.",
     "online.unavailable": "Impossible de joindre le salon. Vérifie le serveur et réessaie.",
+    "online.unreachable": "Salon injoignable. Vérifie ta connexion internet et l'Adresse du salon, puis réessaie.",
     "online.refused": "Le salon a refusé cette requête. Vérifie ta connexion et réessaie.",
     "online.server_invalid": "L'adresse du serveur du salon ou le réglage du certificat est invalide.",
     "online.save_failed": "Tu es connecté, mais la connexion enregistrée n'a pas pu être mise à jour.",

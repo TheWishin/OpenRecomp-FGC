@@ -17,6 +17,26 @@ list. A login, refresh, invitation, ready check or Watch action must be selected
 explicitly. Auto-spectate is a separate saved opt-in preference. A disconnected
 or replaced session cannot finish a stale request against its replacement.
 
+## Lobby address
+
+The launcher uses the first of:
+
+1. the environment variable `OPENRECOMP_T5_SERVER` (`host:7781`,
+   `host:7781#<certificate SHA-256>`, `tls://host:7781` or a listed name);
+2. `t5_lobby_server` in the launcher's `config.json`;
+3. the server the last login used (`online.json`, also the old T5DR launcher's);
+4. the default entry of the server lists the installed client reads: the
+   install's `lobby\servers.json` (**T5DR Online**), then the player's own
+   `servers.json` next to `online.json`, whose default wins; without a default
+   the first listed entry.
+
+On a new PC the Lobby address field shows **T5DR Online**; an emptied field
+means the same server. Nothing listed means no address: a loopback lobby is
+used only when it is named (tests). A connection that never came about
+(refused, timed out, unknown name, TLS handshake) says "Lobby not reachable",
+never that the lobby refused the request; a certificate other than the pinned
+one is reported as an invalid server setting.
+
 ## Screen comparison
 
 This table describes the adapter's intended counterparts to the native

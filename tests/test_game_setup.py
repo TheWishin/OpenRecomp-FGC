@@ -418,6 +418,51 @@ class Worker(Env):
         setup.poll()
         self.assertEqual((setup.view("t5dr")["latest"], setup.view("t5dr")["offer"]["prerelease"]), ("1.3.0-rc.1", True))
 
+    def test_test_versions_switched_on_refresh_the_offer_of_a_game_not_installed(self):
+        # drill120: the install dialog offered 1.1.9 again after Test versions was turned on, until a restart.
+        from types import SimpleNamespace
+        from openrecomp.app_game_setup import GameSetupBackend
+
+        class Backend(GameSetupBackend):
+            def __init__(self, config):
+                self.config = config
+                self.setup = gs.GameSetup(config, worker=lambda fn: fn())
+                self.nav = SimpleNamespace(game_by_id=lambda gid: None)       # nothing installed
+
+            def _save_config(self):
+                pass
+
+        self.gh.add_t5dr("1.2.0")
+        self.gh.add_t5dr("1.3.0-rc.1", prerelease=True)
+        backend = Backend({})
+        backend.setup.check("t5dr", None, force=True)          # the install dialog looked it up
+        backend.setup.poll()
+        self.assertEqual(backend.setup.view("t5dr")["latest"], "1.2.0")
+        backend._save_prereleases(True)
+        backend.setup.poll()
+        view = backend.setup.view("t5dr")
+        self.assertEqual((view["latest"], view["offer"]["prerelease"]), ("1.3.0-rc.1", True))
+        self.assertNotIn("t4", backend.setup.state)            # never looked up: asked only when its dialog opens
+        backend._save_prereleases(False)
+        backend.setup.poll()
+        self.assertEqual(backend.setup.view("t5dr")["latest"], "1.2.0")
+
+    def test_a_check_of_the_old_channel_still_running_at_the_switch_is_asked_again(self):
+        self.gh.add_t5dr("1.2.0")
+        self.gh.add_t5dr("1.3.0-rc.1", prerelease=True)
+        queued = []
+        config = {}
+        setup = gs.GameSetup(config, worker=queued.append)
+        self.assertTrue(setup.check("t5dr", None, force=True))
+        config["game_prereleases"] = True                       # switched while the stable check runs
+        self.assertFalse(setup.check("t5dr", None, force=True))  # busy: this one is not started
+        queued.pop(0)()
+        self.assertEqual(setup.poll(), [])                      # the stable answer is not handed out ...
+        self.assertEqual(setup.view("t5dr")["phase"], "checking")
+        queued.pop(0)()                                         # ... the test channel is asked instead
+        [(gid, kind, _result, error)] = setup.poll()
+        self.assertEqual((gid, kind, error, setup.view("t5dr")["latest"]), ("t5dr", "check", None, "1.3.0-rc.1"))
+
     def test_the_lobbys_announced_release_makes_an_update_needed(self):
         self.gh.add_t5dr("1.2.0")
         setup = self.setup_()

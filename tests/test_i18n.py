@@ -186,7 +186,7 @@ def untranslated_literals(source):
         "[a-z0-9_-]+", "invalid game id", "OpenRecomp-FGC-launches", ".lock", "a+b",
         "openrecomp-game-reservation",
         "online_address", "host", "join", "collect_logs", "disconnect", "direct_back", "mode_lobby", "mode_direct",
-        "vendor", "OPENRECOMP_T4_SERVER", "t5dr-servers/1", "ca", "[0-9A-Za-z.+-]{1,40}",
+        "vendor", "OPENRECOMP_T4_SERVER", "OPENRECOMP_T5_SERVER", "t5_lobby_server", "t5dr-servers/1", "ca", "[0-9A-Za-z.+-]{1,40}",
         "TEKKEN4_RUNAHEAD", "TEKKEN4_NET_DIAG", "TEKKEN4_NET_HASH_PROFILE",
         "TEKKEN4_NET_COST_PROFILE", "TEKKEN4_NET_COALESCE", "TEKKEN4_NET_STRICT_HELLO",
         "TEKKEN4_RB_AUDIO_TIMELINE", "TEKKEN4_NET_DELAY_MATCH", "TEKKEN4_NET_SIM_SAFE_WAIT",

@@ -22,18 +22,30 @@ class OnlineAuditTests(unittest.TestCase):
         self.addCleanup(owner.online_close)
         return owner
 
-    def test_blank_server_never_uses_installed_default_or_leaks_loopback_session(self):
+    def test_blank_server_uses_the_listed_default_and_never_leaks_a_loopback_session(self):
+        # A blank Lobby address means the servers.json default (read as files, not through the installed module's
+        # default_entry), and only a login saved for that server is sent there (drill120: loopback for new players).
         owner = self.subject()
+        os.makedirs(os.path.join(self.directory, "lobby"), exist_ok=True)
+        with open(os.path.join(self.directory, "lobby", "servers.json"), "w", encoding="utf-8") as stream:
+            json.dump({"format": "t5dr-servers/1", "servers": [
+                dict(name="Listed default", host="listed.example", tls="pin", fingerprint="ab" * 32, default=True)]},
+                stream)
         with open(owner.online_cfg_path(), "w", encoding="utf-8") as stream:
             json.dump(dict(sessions={"127.0.0.1:7781": dict(token="loopback-only")}), stream)
         servers = SimpleNamespace(load=Servers.load, resolve=Servers.resolve,
                                   default_entry=mock.Mock(return_value=SimpleNamespace(name="other-server")))
         owner._online_api["servers"] = servers
+        owner.set_online_text_value("online_server", "")
         owner.online_action("login_saved")
         owner.online_poll()
+        self.assertEqual(owner.clients, [])                       # no login saved for the listed default
+        self.assertEqual(owner.online_state()["message"], "@online.saved_missing")
+        owner.online_action("login_guest")
+        owner.online_poll()
         client = owner.clients[-1]
-        self.assertEqual(client.kwargs["server"], "127.0.0.1:7781")
-        self.assertIn(("session", "loopback-only"), client.calls)
+        self.assertEqual(client.kwargs["server"], "Listed default")
+        self.assertNotIn(("session", "loopback-only"), client.calls)
         servers.default_entry.assert_not_called()
 
     def test_explicit_server_is_still_resolved(self):

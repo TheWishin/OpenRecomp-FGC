@@ -492,6 +492,7 @@
     "online.bad_name": "Use a name of 2–16 allowed characters, with no spaces at either end.",
     "online.name_taken": "That name is already in use. Choose another name.",
     "online.unavailable": "The lobby could not be reached. Check the server and try again.",
+    "online.unreachable": "Lobby not reachable. Check your internet connection and the Lobby address, then try again.",
     "online.refused": "The lobby refused this request. Check your login and try again.",
     "online.server_invalid": "The lobby server address or certificate setting is invalid.",
     "online.save_failed": "You are logged in, but the saved login could not be updated.",

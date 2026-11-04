@@ -221,6 +221,9 @@ class GameSetup:
                     st["installed"] = result["installed"]
                     st["unknown"] = bool(st.get("root")) and gr.unknown_version_updatable(gid, st["root"])
                 self._apply(gid)
+                if (result["channel"] != gr.channel(self.config, gid, st.get("root") or None)
+                        and self.check(gid, st.get("root") or None, force=True)):
+                    continue        # Test versions switched while this check ran: its offer is of the old channel
             elif kind == "install":
                 st.update(phase="installed", result=result, installed=self.offers[gid]["version"],
                           required=False, available=False)

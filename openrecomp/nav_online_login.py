@@ -22,8 +22,8 @@ FOOTER_IDS = ("online_server", "online_fingerprint", "mode_direct", "native")
 FIELD_ERRORS = {
     "online_name": ("@online.bad_name", "@online.name_taken"),
     "online_password": ("@online.password_required", "@online.auth_failed", "@online.account_required"),
-    "online_server": ("@online.unavailable", "@online.refused", "@online.server_invalid", "@online.insecure",
-                      "@online.version_mismatch", "@online.server_full", "@online.busy_server",
+    "online_server": ("@online.unavailable", "@online.unreachable", "@online.refused", "@online.server_invalid",
+                      "@online.insecure", "@online.version_mismatch", "@online.server_full", "@online.busy_server",
                       "@online.client_missing"),
 }
 

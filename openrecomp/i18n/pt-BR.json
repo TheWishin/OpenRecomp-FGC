@@ -492,6 +492,7 @@
     "online.bad_name": "Use um nome de 2 a 16 caracteres permitidos, sem espaços no início ou no fim.",
     "online.name_taken": "Esse nome já está em uso. Escolha outro.",
     "online.unavailable": "Não foi possível acessar o saguão. Verifique o servidor e tente novamente.",
+    "online.unreachable": "Saguão inacessível. Verifique sua conexão com a internet e o Endereço do saguão e tente novamente.",
     "online.refused": "O saguão recusou esta solicitação. Verifique seu login e tente novamente.",
     "online.server_invalid": "O endereço do servidor do saguão ou a configuração do certificado é inválida.",
     "online.save_failed": "Você entrou, mas não foi possível atualizar o login salvo.",

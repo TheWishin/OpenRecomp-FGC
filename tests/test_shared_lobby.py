@@ -81,7 +81,7 @@ class SharedLobbyTests(unittest.TestCase):
         self.a.online_action(action)
         self.a.online_poll()
 
-    def test_package_identity_default_port_and_lazy_import(self):
+    def test_package_identity_no_guessed_default_and_lazy_import(self):
         del self.a._online_api
         api = runtime_modules(self.directory.name, "t4lobby", dict(client=SimpleNamespace(LobbyClient=self.a.make_client),
                    buildid=SimpleNamespace(BuildInfo=SimpleNamespace(
@@ -96,7 +96,7 @@ class SharedLobbyTests(unittest.TestCase):
             self.a.online_state()
             load.assert_not_called()
             client = self.login()
-        self.assertEqual(client.kwargs["server"], "127.0.0.1:7791")
+        self.assertEqual(client.kwargs["server"], "")     # nothing listed: no guessed loopback address (drill120)
         self.assertEqual([call.args[0] for call in load.call_args_list], [
             "t4lobby.client", "t4lobby.buildid", "t4lobby.servers", "t4lobby.proto"])
         self.assertFalse(self.a.online_state()["capabilities"]["ranked"])

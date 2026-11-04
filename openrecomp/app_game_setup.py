@@ -39,6 +39,10 @@ class GameSetupBackend:
             root = self._setup_root(gid)
             if root:
                 self.setup.check(gid, root, force=force)
+            elif force and self.setup.state.get(gid, {}).get("phase") not in (None, "idle"):
+                # A game not installed whose install offer was already looked up (Test versions switched since):
+                # its offer follows the new channel now, not after a restart. Never looked up = asked when opened.
+                self.setup.check(gid, None, force=True)
 
     def _setup_busy(self):
         return self.setup.busy()

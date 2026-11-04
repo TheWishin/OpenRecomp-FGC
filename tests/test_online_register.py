@@ -33,6 +33,7 @@ class OnlineRegisterTests(unittest.TestCase):
         self.addCleanup(self.a.online_close)
 
     def test_registration_creates_account_and_saves_session_without_password(self):
+        self.a.set_text_value("online_server", "127.0.0.1:7781")      # a local test lobby, named by the test
         self.a.set_text_value("online_name", "NewAccount")
         self.a.set_text_value("online_password", "fake-password")
         self.a.online_action("login_register")
