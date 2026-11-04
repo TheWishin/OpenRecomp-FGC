@@ -23,7 +23,8 @@ from .app_game_setup import GameSetupBackend
 
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right", Qt.Key_Return: "confirm", Qt.Key_Enter: "confirm",
-        Qt.Key_Escape: "back", Qt.Key_Space: "play", Qt.Key_X: "x", Qt.Key_F: "social", Qt.Key_G: "switchGame", Qt.Key_Q: "prev", Qt.Key_E: "next"}
+        Qt.Key_Escape: "back", Qt.Key_Space: "play", Qt.Key_X: "x", Qt.Key_F: "social", Qt.Key_G: "switchGame", Qt.Key_Q: "prev", Qt.Key_E: "next",
+        Qt.Key_PageUp: "chapterPrev", Qt.Key_PageDown: "chapterNext"}
 KEYS = {int(k): v for k, v in KEYS.items()}   # by number: an unknown key (any layout's letter) is no ValueError
 TICK_MS = 16
 CTRL, SHIFT, ALT = int(Qt.ControlModifier.value), int(Qt.ShiftModifier.value), int(Qt.AltModifier.value)
@@ -95,6 +96,7 @@ class Backend(QObject, GameSetupBackend):
         self.nav = Nav(games, on_quit=self._quit, install=self._install, launch_env=launch_env,
                        native_picker=native_picker_available(), picker_dirs=picker_dirs(self.config),
                        on_picker_dir=self._save_picker_dir,
+                       online_prefs=self.config.get("online_prefs"), on_online_prefs=self._save_online_prefs,
                        language=self.config.get("language"), on_language=self._save_language,
                        last_game=self.config.get("last_game"), on_game=self._save_game,
                        fullscreen=self.config.get("fullscreen", True) and not windowed,
@@ -346,6 +348,10 @@ class Backend(QObject, GameSetupBackend):
     def _save_build_history(self, game_id, history):
         times = self.config.get("build_times")
         self.config["build_times"] = dict(times if isinstance(times, dict) else {}, **{game_id: history})
+        self._save_config()
+
+    def _save_online_prefs(self, prefs):
+        self.config["online_prefs"] = prefs
         self._save_config()
 
     def _save_picker_dir(self, key, folder):
@@ -627,6 +633,12 @@ class Backend(QObject, GameSetupBackend):
     def clickTab(self, s):
         self.nav.device = "kb"
         self.nav.click_tab(s)
+        self.refresh()
+
+    @Slot(str)
+    def clickChapter(self, chapter):
+        self.nav.device = "kb"
+        self.nav.click_chapter(chapter)
         self.refresh()
 
     @Slot()

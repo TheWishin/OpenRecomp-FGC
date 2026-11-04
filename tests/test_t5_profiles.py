@@ -252,8 +252,10 @@ class ProfileNavigationTests(unittest.TestCase):
         self.choose("stats_sort:winrate")
         self.choose("community_fighter:fixture")
         self.assertIn("100", str(self.nav.view()["detail"]))
-        self.choose("close_profile")
-        self.assertNotIn("community_fighter:fixture", [item.get("id") for item in self.nav.items()])
+        # On the lobby page the pages are chapters: no Back row, the statistics stay in their chapter.
+        ids = [item.get("id") for item in self.nav.items()]
+        self.assertNotIn("close_profile", ids)
+        self.assertEqual(self.nav.view()["online"]["chapter"], "stats")
 
     def test_dry_profile_navigation_never_requests_or_plays(self):
         self.nav.dry = True

@@ -8,6 +8,7 @@ from unittest import mock
 from openrecomp.nav import Game, Nav
 from test_online_adapter import Subject
 from test_online_nav import Lobby
+from pad_step import pad_step
 
 
 class OnlineBCSafetyTests(unittest.TestCase):
@@ -26,7 +27,7 @@ class OnlineBCSafetyTests(unittest.TestCase):
         items = nav.items()
         target = next(i for i, item in enumerate(items) if item.get("id") == action)
         while nav.focus_index(items) != target:
-            nav.act("down" if nav.focus_index(items) < target else "up", device="xbox")
+            pad_step(nav, target)
         nav.act("confirm", device="xbox")
 
     def social_snapshot(self):

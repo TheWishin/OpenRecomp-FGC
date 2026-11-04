@@ -7,6 +7,7 @@ from unittest import mock
 from openrecomp.nav import Game, Nav
 from openrecomp.nav_keyboard import ONLINE_KEYS
 from test_nav import Fake, manifest
+from pad_step import pad_step
 
 
 class Lobby(Fake):
@@ -65,7 +66,7 @@ class OnlineNavigation(unittest.TestCase):
         items = self.nav.items()
         target = next(i for i, it in enumerate(items) if it.get("id") == iid)
         while self.nav.focus_index(items) != target:
-            self.nav.act("down" if self.nav.focus_index(items) < target else "up", device="xbox")
+            pad_step(self.nav, target)
         self.nav.act("confirm", device="xbox")
 
     def pad_key(self, char):

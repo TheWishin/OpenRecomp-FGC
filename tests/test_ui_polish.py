@@ -111,10 +111,10 @@ class ScenePolish(unittest.TestCase):
                 self.assertLessEqual(focused.y() + focused.height() + focused.parentItem().y(), viewport.height())
         mask = self.named("overlayMask")[0]
         panel = self.named("drawerPanel")[0]
-        self.assertLessEqual(mask.y() + mask.height(), 944)
-        self.assertLessEqual(panel.y() + panel.height(), 944)
+        self.assertLessEqual(mask.y() + mask.height(), 972)
+        self.assertLessEqual(panel.y() + panel.height(), 972)
         picker = self.named("pickerPanel")[0]
-        self.assertLessEqual(picker.y() + picker.height(), 944)
+        self.assertLessEqual(picker.y() + picker.height(), 972)
         self.named("pickerMessage")
 
     def test_reduced_motion_moves_shelf_to_target_without_animation(self):

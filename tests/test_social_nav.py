@@ -4,6 +4,7 @@ import unittest
 from openrecomp import i18n
 from openrecomp.nav import Game, Nav
 from test_online_nav import Lobby, OnlineNavigation
+from pad_step import pad_step
 
 
 class SocialLobby(Lobby):
@@ -40,7 +41,7 @@ class SocialNavigation(unittest.TestCase):
             if current == target:
                 self.nav.act("confirm", device="xbox")
                 return
-            self.nav.act("down" if current < target else "up", device="xbox")
+            pad_step(self.nav, target)
         self.fail("Controller navigation did not reach " + iid)
 
     def test_all_social_actions_are_pad_reachable(self):
@@ -77,7 +78,7 @@ class SocialNavigation(unittest.TestCase):
         self.nav.dry = True
         for item in list(self.nav.items()):
             iid = item.get("id")
-            if iid and item.get("run") and iid != "native":
+            if iid and item.get("run") and iid not in ("native", "chat_toggle"):   # (the panel: no request)
                 self.choose(iid)
                 if self.nav.overlay == "osk":
                     self.nav.type_text("dry text")
@@ -105,7 +106,7 @@ class SocialNavigation(unittest.TestCase):
         items = self.nav.items()
         target = next(i for i, item in enumerate(items) if item.get("id") == "remove_friend:" + literal)
         while self.nav.focus_index(items) != target:
-            self.nav.act("down" if self.nav.focus_index(items) < target else "up", device="xbox")
+            pad_step(self.nav, target)
         self.assertIn(literal, str(self.nav.view()["detail"]))
         self.choose("room_invite_code")
         self.assertEqual(self.nav.view()["detail"]["lead"], literal)

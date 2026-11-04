@@ -7,13 +7,13 @@ Item {
     readonly property var v: root.v
     visible: v.overlay !== ""
 
-    Rectangle { objectName: "overlayMask"; x: 0; y: 0; width: 1920; height: 1080 - 76 - 60; color: "#C2000000"; TapHandler {} }
+    Rectangle { objectName: "overlayMask"; x: 0; y: 0; width: 1920; height: 1080 - 60 - 48; color: "#C2000000"; TapHandler {} }
 
     // ---------------------------------------------------------------- dialog: the safe answer has the focus
     Rectangle {
         visible: ov.v.overlay === "dialog"
         width: 860; height: dialogColumn.implicitHeight + 112
-        x: (1920 - width) / 2; y: (944 - height) / 2
+        x: (1920 - width) / 2; y: (972 - height) / 2
         color: ov.root.panel
         Column {
             id: dialogColumn
@@ -42,7 +42,7 @@ Item {
     Rectangle {
         visible: ov.v.overlay === "drawer"
         objectName: "drawerPanel"
-        x: 1920 - 780; y: 0; width: 780; height: 944
+        x: 1920 - 780; y: 0; width: 780; height: 972
         color: ov.root.panel
         Item {
             y: 40; width: parent.width; height: parent.height - 40
@@ -131,7 +131,7 @@ Item {
     Rectangle {
         visible: ov.v.overlay === "osk"
         width: 1240; height: oskColumn.implicitHeight + 96
-        x: (1920 - width) / 2; y: (944 - height) / 2
+        x: (1920 - width) / 2; y: (972 - height) / 2
         color: ov.root.panel
         Column {
             id: oskColumn

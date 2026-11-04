@@ -23,7 +23,7 @@ CHANNEL = re.compile(r"[a-z0-9][a-z0-9._-]{2,79}\Z")
 SOURCE_GROUPS = {
     "openrecomp": ("__init__.py", "__main__.py", "app.py", "manifest.py", "nav.py", "nav_common.py",
                    "nav_build.py", "nav_dialog.py", "nav_drawer.py", "nav_grid.py", "nav_hub.py", "nav_keyboard.py",
-                   "nav_online.py", "nav_picker.py", "nav_sections.py", "nav_shelf.py", "nav_tools.py",
+                   "nav_online.py", "nav_online_layout.py", "nav_online_login.py", "nav_settings_page.py", "nav_picker.py", "nav_sections.py", "nav_shelf.py", "nav_tools.py",
                    "nav_accounts.py", "nav_challenges.py", "nav_community.py", "nav_moderation.py",
                    "nav_private_chat.py", "nav_profiles.py",
                    "nav_rules.py", "nav_spectating.py", "nav_tournaments.py",
@@ -45,7 +45,7 @@ SOURCE_GROUPS = {
                                   "i18n_known.py", "nat.py", "portmap.py", "proto.py", "servers.py", "spectate.py",
                                   "t4game.py", "tour_client.py"),
     "openrecomp/i18n": ("__init__.py", "de.json", "en.json", "es.json", "fr.json", "ja.json", "ko.json", "pt-BR.json"),
-    "openrecomp/ui": ("BuildAction.qml", "BuildPage.qml", "Glyph.qml", "Hub.qml", "Main.qml", "Overlays.qml", "ResultCell.qml", "Shelf.qml"),
+    "openrecomp/ui": ("BuildAction.qml", "BuildPage.qml", "Glyph.qml", "Hub.qml", "Main.qml", "OnlineCard.qml", "OnlineHub.qml", "OnlineLogin.qml", "Overlays.qml", "ResultCell.qml", "SettingsHub.qml", "Shelf.qml"),
     "openrecomp/ui/assets": ("icon.ico", "icon.svg", "logo-mark-light.svg", "logo-mark.svg", "logo-wordmark-light.svg", "logo-wordmark.svg"),
     "openrecomp/ui/fonts": ("BigShoulders-800.ttf", "BigShoulders-900.ttf", "IBMPlexMono-400.ttf",
                             "IBMPlexMono-500.ttf", "IBMPlexMono-600.ttf", "IBMPlexSans-400.ttf",

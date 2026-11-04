@@ -20,6 +20,7 @@ from unittest import mock
 from openrecomp.adapters.base import Adapter
 from openrecomp.adapters.t5_match import T5Match
 from openrecomp.nav import Game, Nav
+from pad_step import pad_step
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -447,7 +448,7 @@ class LocalLobbyTests(unittest.TestCase):
                 nav.act(button, device="xbox")
                 self.assertNotEqual(nav.toast, "@online.failure")
                 return
-            nav.act("down" if focus < target else "up", device="xbox")
+            pad_step(nav, target)
         self.fail("controller could not reach " + iid)
 
     def login(self, index, name, action="login_guest"):

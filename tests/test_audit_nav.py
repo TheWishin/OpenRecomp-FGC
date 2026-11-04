@@ -38,7 +38,10 @@ class AuditNavigation(unittest.TestCase):
         self.focus("challenge:first")
         self.adapter.snapshot["players"].reverse()
         self.nav.act("confirm", device="xbox")
-        self.assertEqual(self.adapter.calls, [])
+        # The focus goes with the row it was on (the lobby page keeps its place when the list changes): the
+        # press can only ever challenge the player who was selected, never the one now at the old position.
+        self.assertNotIn(("online", "challenge:second"), self.adapter.calls)
+        self.assertIn(self.adapter.calls, ([], [("online", "challenge:first")]))
 
     def test_new_challenge_requires_selecting_it_again(self):
         self.adapter.snapshot.update(phase="logged_in", capabilities=dict(lobby=True),
