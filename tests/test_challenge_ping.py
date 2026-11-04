@@ -185,8 +185,24 @@ class ChallengePingScene(unittest.TestCase):
                                 self.assertEqual(conn["bars"], expected_bars)
                                 self.assertEqual(conn["path"], i18n.text(language, "online_ui.path_" + ping["ping_path"]) if ping.get("ping_path") else "")
                                 visible = [item for item in items(win.contentItem()) if item.isVisible()]
+                                if mode == "matched":
+                                    container = next(item for item in visible if item.objectName() == "matchPresentation")
+                                    text = next(item for item in items(container) if item.isVisible()
+                                                and item.objectName() == "versusInfoLine")
+                                    self.assertEqual(text.property("text"), backend._v["matchVersus"]["infoLine"])
+                                    self.assertIn(expected, text.property("text"))
+                                    if conn["path"]:
+                                        self.assertIn(conn["path"], text.property("text"))
+                                    self.assertFalse(text.property("truncated"))
+                                    ready = next(item for item in visible if item.objectName() == "versusReady")
+                                    ping_rect = text.mapRectToScene(QRectF(0, 0, text.width(), text.height()))
+                                    ready_rect = ready.mapRectToScene(QRectF(0, 0, ready.width(), ready.height()))
+                                    presentation_rect = container.mapRectToScene(QRectF(0, 0, container.width(), container.height()))
+                                    self.assertLessEqual(ping_rect.bottom(), ready_rect.top())
+                                    self.assertTrue(presentation_rect.contains(ping_rect))
+                                    continue
                                 container = next(item for item in visible if item.objectName() ==
-                                                 ("matchVersusCard" if mode == "matched" else "globalOfferPing" if mode == "incoming" else "arcadeOfferPing"))
+                                                 ("globalOfferPing" if mode == "incoming" else "arcadeOfferPing"))
                                 text = next(item for item in items(container) if item.isVisible()
                                             and item.objectName() == "peerPingText")
                                 self.assertEqual(text.property("text"), expected)
@@ -198,13 +214,6 @@ class ChallengePingScene(unittest.TestCase):
                                 self.assertEqual(len(rectangles), 4)
                                 self.assertEqual(sum(item.property("color") == signal.property("ink")
                                                      for item in rectangles), expected_bars)
-                                if mode == "matched":
-                                    ready = next(item for item in visible if item.objectName() == "versusReady")
-                                    ping_rect = signal.mapRectToScene(QRectF(0, 0, signal.width(), signal.height()))
-                                    ready_rect = ready.mapRectToScene(QRectF(0, 0, ready.width(), ready.height()))
-                                    card_rect = container.mapRectToScene(QRectF(0, 0, container.width(), container.height()))
-                                    self.assertLessEqual(ping_rect.bottom(), ready_rect.top())
-                                    self.assertTrue(card_rect.contains(ping_rect))
                                 if mode == "incoming":
                                     popup = next(item for item in visible if item.objectName() == "globalOffer")
                                     stage = i18n.text(language, "online.challenge_random_stage")

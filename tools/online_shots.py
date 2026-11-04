@@ -199,13 +199,13 @@ def scene(game, chapter, language, nav_type=Nav, text_size=100, high_contrast=Fa
              "playing": "playing", "result": "result", "reporting": "result_sent", "disconnect_retry": "error"}.get(requested)
     if phase:
         adapter.snapshot.update(phase=phase, message={"searching": "@online.searching_casual",
-            "cancelling": "@feedback.cancelling", "matched": "@online.match_found", "starting": "@online.start_match",
+            "cancelling": "@feedback.cancelling", "matched": "@online.match_found", "starting": "@online.starting",
             "playing": "@online.match_active", "result": "@online.result", "result_sent": "@online.result",
             "error": "@online.disconnected"}[phase],
             match=dict(opponent="Rival", ping=42, ping_measured=True, ranked=False))
-        if phase == "matched":
+        if phase in ("matched", "starting"):
             adapter.snapshot["match"].update(id="sample-match", seconds=27, delay=dict(auto=True, frames=2),
-                first_to=2, rounds=3, ping_path="direct", opponent_ready=False, mode="casual")
+                first_to=2, rounds=3, ping_path="direct", opponent_ready=phase == "starting", mode="casual")
         if requested == "matched_picks":
             adapter.snapshot["match"].update(you_char="f4", opp_char="f2")
     if requested == "challenge_incoming":

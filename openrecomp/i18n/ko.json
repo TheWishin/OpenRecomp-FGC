@@ -1599,6 +1599,7 @@
  "feedback.no_deadline": "제한 시간 정보 없음",
  "feedback.vs": "VS",
  "feedback.mode": "대전 방식",
+ "feedback.delay_short": "지연",
  "feedback.rounds": "라운드 수",
  "playtime.minutes": "{minutes}분",
  "playtime.hours": "{hours}시간",

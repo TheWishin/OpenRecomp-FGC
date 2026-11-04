@@ -8,6 +8,7 @@ Rectangle {
     property var labels: ({})
     property var glyphs: ({})
     readonly property color accent: Theme.readableAccent(root.v.accent)
+    readonly property bool warmSelection: Theme.gameKind === "t5dr" && !Theme.highContrast && (player.focused || player.selected)
     readonly property bool narrow: Theme.viewportScale < .85 || Theme.textScale > 1.1
     readonly property real actionWidth: narrow ? 108 : 230
     readonly property real dataWidth: width - 48
@@ -15,6 +16,16 @@ Rectangle {
     height: Theme.playerRowHeight
     color: player.focused || player.selected ? Theme.highlighted : player.own ? Theme.raised : Theme.card
     border.width: player.focused ? 2 : 0; border.color: Theme.focus
+    Rectangle {
+        objectName: "arcadePlayerSelection"
+        visible: card.warmSelection
+        anchors.fill: parent; anchors.margins: card.border.width
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0; color: Theme.highlightStart }
+            GradientStop { position: 1; color: Theme.highlightEnd }
+        }
+    }
     Rectangle {
         objectName: "arcadePlayerPortrait"
         x: 8; anchors.verticalCenter: parent.verticalCenter; width: 24; height: 24; color: Theme.raised; clip: true
@@ -35,7 +46,7 @@ Rectangle {
                     x: parent.modelData.key === "rank" && card.player.plate ? 36 : 0; width: parent.width - x - 6; anchors.verticalCenter: parent.verticalCenter
                     text: parent.modelData.value || ""; textFormat: Text.PlainText; elide: Text.ElideRight
                     Accessible.name: text
-                    color: parent.modelData.key === "rank" ? card.accent : parent.modelData.key === "name" ? Theme.text : Theme.muted
+                    color: parent.modelData.key === "rank" ? Theme.rankGold : card.warmSelection || parent.modelData.key === "name" ? Theme.text : Theme.muted
                     font.family: card.root.sans; font.pixelSize: Theme.onlinePx(14); font.weight: parent.modelData.key === "name" ? Font.DemiBold : Font.Normal
                 }
             }

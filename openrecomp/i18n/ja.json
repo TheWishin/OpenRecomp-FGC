@@ -1599,6 +1599,7 @@
  "feedback.no_deadline": "制限時間の指定なし",
  "feedback.vs": "VS",
  "feedback.mode": "対戦形式",
+ "feedback.delay_short": "遅延",
  "feedback.rounds": "ラウンド数",
  "playtime.minutes": "{minutes}分",
  "playtime.hours": "{hours}時間",

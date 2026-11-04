@@ -64,17 +64,18 @@ with tempfile.TemporaryDirectory(dir="build") as directory:
         picture = next(item for item in descendants(portrait) if item.objectName() == "fighterPicture")
         assert not outline.isVisible()
         assert picture.isVisible()
-        assert QQmlExpression(qmlContext(picture), picture, "fillMode === 1").evaluate()[0]  # PreserveAspectFit
+        assert QQmlExpression(qmlContext(picture), picture, "fillMode === 2").evaluate()[0]  # PreserveAspectCrop
         assert picture.width() == portrait.width() and picture.height() == portrait.height()
         assert picture.width() > 128
         assert abs(picture.property("paintedWidth") / picture.property("paintedHeight") - 2) < .001
-        assert picture.property("paintedWidth") <= picture.width() + .01
-        assert picture.property("paintedHeight") <= picture.height() + .01
+        assert picture.property("paintedWidth") >= picture.width() - .01
+        assert picture.property("paintedHeight") >= picture.height() - .01
         portrait.setProperty("showcase", False)
     spin(20)
     for portrait in portraits:
         picture = next(item for item in descendants(portrait) if item.objectName() == "fighterPicture")
         assert picture.width() == 128 and picture.height() == 64
+        assert QQmlExpression(qmlContext(picture), picture, "fillMode === 1").evaluate()[0]  # PreserveAspectFit
 assert not warnings, warnings
 window.setProperty("allowClose", True)
 window.close()

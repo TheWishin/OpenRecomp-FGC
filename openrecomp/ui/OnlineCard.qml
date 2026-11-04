@@ -7,76 +7,144 @@ Item {
     readonly property var o: root.v.online || ({})
     readonly property var d: o.detail || ({})
     readonly property var vs: root.v.matchVersus || ({})
-    readonly property bool versus: o.phase === "matched" && !!vs.left
+    readonly property bool versus: ["matched", "starting"].indexOf(o.phase) >= 0 && !!vs.left
+    readonly property bool accepted: o.phase === "starting"
+    readonly property bool starting: !!vs.starting
+    readonly property var decline: (o.lines || []).filter(r => r.id === "cancel_match")[0] || ({})
+    QtObject {
+        id: backdropRoot
+        readonly property var v: Object.assign({}, page.root.v, {online: page.o.backdrop || ({})})
+        readonly property var backend: page.root.backend
+        readonly property string sans: page.root.sans
+        readonly property string display: page.root.display
+        readonly property string mono: page.root.mono
+        readonly property bool reducedMotion: page.root.reducedMotion
+        readonly property color bone: page.root.bone
+        readonly property color line: page.root.line
+        readonly property color muted: page.root.muted
+        readonly property color textC: page.root.textC
+        function ok(a, i) { return page.root.ok(a, i) }
+    }
+    PageLoader {
+        pageName: "matchLobbyBackdrop"
+        anchors.fill: parent; active: page.versus && !!page.o.backdrop
+        page: "OnlineHub.qml"; root: backdropRoot; enabled: false
+    }
+    Rectangle {
+        objectName: "matchLobbyDimmer"
+        visible: page.versus
+        anchors.fill: parent; color: "#B5000000"
+        TapHandler {}
+    }
     component FighterSide: Rectangle {
         id: fighter
         property var person: ({})
         property bool mirror: false
-        color: Theme.raised; radius: 6; border.width: 1; border.color: Theme.border
-        Rectangle {
-            anchors.fill: parent; anchors.margins: 1; radius: 5
-            gradient: Gradient {
-                GradientStop { position: 0; color: Qt.rgba(Theme.gameAccent.r, Theme.gameAccent.g, Theme.gameAccent.b, .12) }
-                GradientStop { position: 1; color: "transparent" }
-            }
+        objectName: "versusFighterHalf"
+        color: Theme.raised; clip: true
+        gradient: Gradient {
+            GradientStop { position: 0; color: Qt.rgba(Theme.gameAccent.r, Theme.gameAccent.g, Theme.gameAccent.b, .24) }
+            GradientStop { position: 1; color: Theme.raised }
         }
         FighterPortrait {
             id: portrait
             objectName: "versusPortrait"
-            x: 16; y: 16; width: parent.width - 32; height: Math.max(80, parent.height - identity.height - 40)
+            anchors.fill: parent
             source: fighter.person.render || fighter.person.art || ""; mirrored: !fighter.person.render && fighter.mirror
             showcase: true
             color: "transparent"
         }
+        Rectangle {
+            objectName: "versusIdentityGradient"
+            anchors.bottom: parent.bottom; width: parent.width; height: Math.min(parent.height, identity.height + 100)
+            gradient: Gradient {
+                GradientStop { position: 0; color: "transparent" }
+                GradientStop { position: .45; color: "#D908090C" }
+                GradientStop { position: 1; color: "#FA08090C" }
+            }
+        }
         Column {
-            id: identity; x: 16; anchors.bottom: parent.bottom; anchors.bottomMargin: 16; width: parent.width - 32; spacing: 4
-            OnlineStyle.SectionHeader { objectName: "versusPlayerName"; width: parent.width; text: parent.parent.person.name || ""; font.pixelSize: Theme.onlinePx(40); maximumLineCount: 2; elide: Text.ElideRight; Accessible.name: text }
-            Image { visible: !!parent.parent.person.plate; source: parent.parent.person.plate || ""; width: parent.width; height: visible ? 32 : 0; fillMode: Image.PreserveAspectFit }
-            OnlineStyle.Value { objectName: "versusPlayerRank"; width: parent.width; text: [parent.parent.person.rank || "", parent.parent.person.rating || "", parent.parent.person.region || ""].filter(s => s).join(" · "); font.pixelSize: Theme.onlinePx(30) }
-            OnlineStyle.HelpText { width: parent.width; text: parent.parent.person.fighter || "" }
-            OnlineStyle.HelpText { objectName: "versusMain"; width: parent.width; visible: !!parent.parent.person.picked && !!parent.parent.person.main; text: visible ? (parent.parent.person.mainLabel || "") + ": " + parent.parent.person.main : "" }
+            id: identity; x: 18; anchors.bottom: parent.bottom; anchors.bottomMargin: 16; width: parent.width - 36; spacing: 3
+            OnlineStyle.SectionHeader { objectName: "versusPlayerName"; width: parent.width; text: fighter.person.name || ""; font.family: page.root.display; font.weight: Font.Black; font.pixelSize: Theme.onlinePx(40); maximumLineCount: 1; elide: Text.ElideRight; Accessible.name: text }
+            Image { objectName: "versusRankPlate"; visible: !!fighter.person.plate; source: fighter.person.plate || ""; width: Math.min(parent.width, 180); height: visible ? 30 : 0; fillMode: Image.PreserveAspectFit; horizontalAlignment: Image.AlignLeft }
+            OnlineStyle.Value { objectName: "versusPlayerRank"; width: parent.width; text: [fighter.person.rank || "", fighter.person.rating || ""].filter(s => s).join(" \u00b7 "); font.pixelSize: Theme.onlinePx(30); maximumLineCount: 1; elide: Text.ElideRight }
+            OnlineStyle.HelpText { width: parent.width; text: [fighter.person.fighter || "", fighter.person.region || ""].filter(s => s).join(" \u00b7 "); maximumLineCount: 1; elide: Text.ElideRight }
+            OnlineStyle.HelpText { objectName: "versusMain"; width: parent.width; visible: !!fighter.person.picked && !!fighter.person.main; text: visible ? (fighter.person.mainLabel || "") + ": " + fighter.person.main : ""; maximumLineCount: 1; elide: Text.ElideRight }
         }
     }
-    OnlineStyle.SectionCard {
-        objectName: "matchVersusCard"
+    Item {
+        id: matchPresentation
+        objectName: "matchPresentation"
         visible: page.versus
-        x: 24; y: 16; width: parent.width - 48; height: parent.height - 32
-        Column {
-            id: versusHeading; x: 24; y: 16; width: parent.width - 48; spacing: 4
-            OnlineStyle.PageTitle { width: parent.width; text: (page.vs.game || "") + " · " + (page.o.title || "") }
-            OnlineStyle.HelpText { width: parent.width; text: (page.vs.details || []).map(r => r.k + ": " + r.v).join(" · "); visible: !!text }
-        }
-        Row {
-            id: fighters; x: 24; y: versusHeading.y + versusHeading.height + 12; width: parent.width - 48
-            height: Math.max(140, versusFooter.y - y - 16); spacing: 16
-            FighterSide { width: (parent.width - versusCentre.width - 32) / 2; height: parent.height; person: page.vs.left || ({}) }
-            Column {
-                id: versusCentre; width: Math.max(180, parent.width * .18); anchors.verticalCenter: parent.verticalCenter; spacing: 12
-                OnlineStyle.PageTitle { width: parent.width; text: page.vs.versus || ""; horizontalAlignment: Text.AlignHCenter; font.pixelSize: Theme.onlinePx(64) }
-                Rectangle {
-                    width: Math.min(112, parent.width); height: width; radius: width / 2; anchors.horizontalCenter: parent.horizontalCenter
-                    color: "transparent"; border.width: 4; border.color: Theme.readableAccent(page.root.v.accent)
-                    OnlineStyle.Value { anchors.centerIn: parent; width: parent.width - 12; text: page.vs.seconds === null || page.vs.seconds === undefined ? "—" : page.vs.countdown || ""; horizontalAlignment: Text.AlignHCenter; font.pixelSize: Theme.onlinePx(26) }
-                }
-                OnlineStyle.HelpText { width: parent.width; text: page.vs.seconds === null || page.vs.seconds === undefined ? page.vs.countdown || "" : ""; visible: !!text; horizontalAlignment: Text.AlignHCenter }
-                OnlineStyle.HelpText { width: parent.width; text: page.vs.opponentStatus || ""; visible: !!text; horizontalAlignment: Text.AlignHCenter }
-            }
-            FighterSide { width: (parent.width - versusCentre.width - 32) / 2; height: parent.height; person: page.vs.right || ({}); mirror: true }
-        }
-        Column {
-            id: versusFooter; x: 24; y: parent.height - height - 20; width: parent.width - 48; spacing: 12
-            PeerPing { anchors.horizontalCenter: parent.horizontalCenter; connection: page.vs.connection || ({}); ink: Theme.text; dim: Theme.border }
+        width: parent.width * .64; height: matchCard.height + versusFooter.height + 10
+        anchors.centerIn: parent
+        OnlineStyle.SectionCard {
+            id: matchCard
+            objectName: "matchVersusCard"
+            width: parent.width; height: page.height * .55
+            clip: true; radius: 4
             Row {
-                width: parent.width; spacing: 16
+                objectName: "versusFighters"
+                anchors.fill: parent; anchors.margins: 1; spacing: 2
+                FighterSide { width: (parent.width - 2) / 2; height: parent.height; person: page.vs.left || ({}) }
+                FighterSide { width: (parent.width - 2) / 2; height: parent.height; person: page.vs.right || ({}); mirror: true }
+            }
+            Rectangle {
+                width: parent.width; height: versusHeading.height + 32
+                gradient: Gradient {
+                    GradientStop { position: 0; color: "#ED08090C" }
+                    GradientStop { position: 1; color: "transparent" }
+                }
+            }
+            OnlineStyle.PageTitle {
+                id: versusHeading; objectName: "versusTitle"
+                x: 18; y: 10; width: parent.width - 36
+                text: (page.vs.game || "") + " \u00b7 " + (page.o.title || "")
+                font.pixelSize: Theme.onlinePx(28); horizontalAlignment: Text.AlignHCenter
+                maximumLineCount: 1; elide: Text.ElideRight
+            }
+            Rectangle {
+                id: versusCentre; objectName: "versusCountdownRing"
+                width: 122; height: width; radius: width / 2
+                anchors.centerIn: parent; anchors.verticalCenterOffset: -70
+                color: "#EE0B0C10"; border.width: 4; border.color: Theme.gameAccent
+                Column {
+                    anchors.centerIn: parent; width: parent.width - 16; spacing: 0
+                    OnlineStyle.PageTitle { width: parent.width; text: page.vs.versus || ""; horizontalAlignment: Text.AlignHCenter; font.pixelSize: Theme.onlinePx(46) }
+                    OnlineStyle.Value { objectName: "versusCountdown"; width: parent.width; text: page.accepted ? "\u2026" : page.vs.seconds === null || page.vs.seconds === undefined ? "\u2014" : page.vs.countdown || ""; horizontalAlignment: Text.AlignHCenter; font.pixelSize: Theme.onlinePx(24) }
+                }
+            }
+            Rectangle {
+                objectName: "versusStatusPlate"
+                visible: !!versusStatus.text
+                x: (parent.width - width) / 2; y: versusCentre.y + versusCentre.height + 10
+                width: Math.min(parent.width - 32, Math.max(160, versusStatus.implicitWidth + 24)); height: versusStatus.implicitHeight + 12; radius: 4
+                color: "#ED0B0C10"
+                OnlineStyle.HelpText { id: versusStatus; objectName: "versusStatus"; anchors.centerIn: parent; width: parent.width - 24; text: page.vs.status || (page.starting ? page.vs.startingLabel || page.o.title || "" : page.vs.opponentStatus || (page.vs.seconds === null || page.vs.seconds === undefined ? page.vs.countdown || "" : "")); horizontalAlignment: Text.AlignHCenter; maximumLineCount: 2; elide: Text.ElideRight }
+            }
+        }
+        Column {
+            id: versusFooter; objectName: "versusFooter"
+            y: matchCard.height + 10; width: parent.width; spacing: 10
+            OnlineStyle.HelpText {
+                objectName: "versusInfoLine"
+                width: parent.width
+                text: page.vs.infoLine || (page.vs.details || []).map(r => r.k + ": " + r.v).concat([(page.vs.connection || {}).text || "", (page.vs.connection || {}).path || ""]).filter(s => s).join(" \u00b7 ")
+                horizontalAlignment: Text.AlignHCenter; wrapMode: Text.NoWrap; elide: Text.ElideRight
+            }
+            Row {
+                width: parent.width; spacing: 12
                 OnlineStyle.PrimaryButton {
-                    objectName: "versusReady"; width: (parent.width - 16) * .7; maxW: width; height: Math.max(Theme.target(80), captionHeight + 20) + feedbackHeight
-                    b: Object.assign({}, page.o.primary || {}, {label: page.vs.readyLabel || "", disabled: !!page.vs.disabled || !!(page.o.primary || {}).disabled})
+                    objectName: "versusReady"; width: (parent.width - 12) * .7; maxW: width; height: Math.max(Theme.target(72), captionHeight + 20) + feedbackHeight
+                    fontSize: 22
+                    b: Object.assign({}, page.o.primary || {}, {label: page.starting ? (page.vs.startingLabel || page.o.title || "") : page.vs.readyLabel || "", disabled: page.accepted || !!page.vs.disabled || !!(page.o.primary || {}).disabled})
                     glyph: page.root.v.confirmInk || ({})
-                    accent: Theme.readableAccent(page.root.v.accent); onActivated: i => page.root.backend.clickRow(i)
+                    accent: Theme.gameAccent; onActivated: i => page.root.backend.clickRow(i)
                 }
                 OnlineStyle.SecondaryButton {
-                    objectName: "versusDecline"; width: (parent.width - 16) * .3; maxW: width; height: Math.max(Theme.target(80), captionHeight + 20) + feedbackHeight
-                    b: (page.o.lines || []).filter(r => r.id === "cancel_match")[0] || ({})
+                    objectName: "versusDecline"; width: (parent.width - 12) * .3; maxW: width; height: Math.max(Theme.target(56), captionHeight + 20) + feedbackHeight
+                    anchors.verticalCenter: parent.verticalCenter
+                    b: Object.assign({}, page.decline, {label: page.decline.label || page.vs.declineLabel || "", disabled: page.accepted || !!page.vs.disabled || !!page.decline.disabled})
                     glyph: page.root.v.backG || ({})
                     onActivated: i => page.root.backend.clickRow(i)
                 }

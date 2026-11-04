@@ -4,6 +4,7 @@ import inspect
 import os
 import queue
 import threading
+import time
 
 from .t5_online import Online, SearchRefused, match_identity
 from .t5_coexist import readonly_imports
@@ -150,6 +151,7 @@ class T5Match(Online):
         module = self._online_driver_module()
 
         def launch(env):
+            self._online_starting_pause()
             with self._online_lock:
                 self._online_check_request(generation, client)
                 if not self._online_authorized:
@@ -270,6 +272,7 @@ class T5Match(Online):
         self._online_ready_check = not no_check
         self._online_early_start = None
         self._online_start_seen = None
+        self._online_starting_until = 0
         self._online_match = self._online_match_view(event)
         self._online_set_slot = event.get("slot") if event.get("slot") in (0, 1) else 0
         info = event.get("set")
@@ -359,6 +362,9 @@ class T5Match(Online):
                     return True
             self._online_start_seen = identity
             self._online_started_path = getattr(ticket, "path", None)
+            if previous is None:
+                self._online_starting_until = time.monotonic() + .35
+            self._online_match["opponent_ready"] = True
             self._online_phase = "starting"
             self._online_message = "@online.connection_relay" if self._online_started_path == "relay" else "@online.starting"
         elif kind == "match_result":

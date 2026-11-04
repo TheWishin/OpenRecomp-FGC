@@ -9,12 +9,12 @@ Item {
         anchors.fill: parent
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: "#FA0E0F11" }
-            GradientStop { position: 0.55; color: "#E00E0F11" }
-            GradientStop { position: 1; color: "#D90E0F11" }
+            GradientStop { position: 0; color: Qt.rgba(Theme.ground.r, Theme.ground.g, Theme.ground.b, .98) }
+            GradientStop { position: 0.55; color: Qt.rgba(Theme.ground.r, Theme.ground.g, Theme.ground.b, .88) }
+            GradientStop { position: 1; color: Qt.rgba(Theme.ground.r, Theme.ground.g, Theme.ground.b, .85) }
         }
     }
-    Rectangle { x: parent.width * 0.53; y: 32; width: 3; height: parent.height - 64; color: Theme.readableAccent(menu.root.v.accent) }
+    Rectangle { x: parent.width * 0.53; y: 32; width: 3; height: parent.height - 64; color: Theme.gameAccent }
     Column {
         x: parent.width * 0.53 + 24; y: 64; width: parent.width - x - 32; spacing: 16
         OnlineStyle.HelpText { objectName: "mainMenuStatus"; width: parent.width; text: menu.m.status || ""; color: Theme.value; font.weight: Font.Bold }
@@ -38,7 +38,7 @@ Item {
                 FighterPortrait { required property var modelData; width: (parent.width - 16) / 3; height: parent.height; source: modelData.image || ""; name: modelData.name || "" }
             }
         }
-        OnlineStyle.Value { width: parent.width; text: menu.m.rank || "" }
+        OnlineStyle.Value { width: parent.width; text: menu.m.rank || ""; color: Theme.rankGold }
     }
     OnlineStyle.HelpText { id: caption; x: 32; y: 16; width: parent.width * 0.53 - 64; text: menu.m.kicker || ""; font.weight: Font.Bold; color: Theme.value }
     Flickable {
@@ -67,12 +67,12 @@ Item {
                     readonly property bool matchAction: modelData.id === "ranked" || modelData.id === "quick"
                     readonly property real groupH: modelData.groupStart ? groupLabel.height + 12 : 0
                     width: entries.width - 12; height: Math.max(matchAction ? 80 / Theme.viewportScale : Theme.target(50), label.implicitHeight + (matchAction ? subtitle.height + 18 : 14)) + groupH
-                    radius: 4; color: modelData.id === "ranked" ? Theme.readableAccent(menu.root.v.accent) : matchAction || modelData.focused ? Theme.raised : "transparent"
+                    radius: 4; color: modelData.id === "ranked" ? Theme.primaryFill : matchAction || modelData.focused ? Theme.raised : "transparent"
                     border.width: matchAction ? 1 : 0; border.color: Theme.readableAccent(menu.root.v.accent)
-                    Rectangle { visible: !!entry.modelData.focused; width: 6; height: parent.height; color: Theme.readableAccent(menu.root.v.accent) }
-                    OnlineStyle.HelpText { id: groupLabel; visible: !!entry.modelData.groupStart; x: 22; y: 6; width: parent.width - 40; text: entry.modelData.group || ""; color: entry.modelData.id === "ranked" ? Theme.ground : Theme.value }
-                    Text { id: label; objectName: "mainMenuEntryLabel"; x: 22; y: entry.groupH + (entry.height - entry.groupH - height - (subtitle.visible ? subtitle.height + 2 : 0)) / 2; width: parent.width - 40; text: entry.modelData.label || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: entry.modelData.id === "ranked" ? Theme.ground : entry.matchAction || entry.modelData.focused ? Theme.text : Theme.muted; font.family: menu.root.display; font.weight: entry.modelData.focused ? Font.Black : Font.Bold; font.pixelSize: Theme.px(24) }
-                    Text { id: subtitle; objectName: "mainMenuEntrySubtitle"; visible: entry.matchAction; x: 22; y: label.y + label.height + 2; width: parent.width - 40; text: entry.modelData.subtitle || ""; textFormat: Text.PlainText; elide: Text.ElideRight; color: entry.modelData.id === "ranked" ? Theme.ground : Theme.muted; font.family: menu.root.sans; font.pixelSize: Theme.onlinePx(14) }
+                    Rectangle { visible: !!entry.modelData.focused; width: 6; height: parent.height; color: Theme.gameAccent }
+                    OnlineStyle.HelpText { id: groupLabel; visible: !!entry.modelData.groupStart; x: 22; y: 6; width: parent.width - 40; text: entry.modelData.group || ""; color: entry.modelData.id === "ranked" ? Theme.primaryText : Theme.value }
+                    Text { id: label; objectName: "mainMenuEntryLabel"; x: 22; y: entry.groupH + (entry.height - entry.groupH - height - (subtitle.visible ? subtitle.height + 2 : 0)) / 2; width: parent.width - 40; text: entry.modelData.label || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: entry.modelData.id === "ranked" ? Theme.primaryText : entry.matchAction || entry.modelData.focused ? Theme.text : Theme.muted; font.family: menu.root.display; font.weight: entry.modelData.focused ? Font.Black : Font.Bold; font.pixelSize: Theme.px(24) }
+                    Text { id: subtitle; objectName: "mainMenuEntrySubtitle"; visible: entry.matchAction; x: 22; y: label.y + label.height + 2; width: parent.width - 40; text: entry.modelData.subtitle || ""; textFormat: Text.PlainText; elide: Text.ElideRight; color: entry.modelData.id === "ranked" ? Theme.primaryText : Theme.muted; font.family: menu.root.sans; font.pixelSize: Theme.onlinePx(14) }
                     TapHandler { id: tap; onTapped: menu.root.backend.clickMainEntry(entry.modelData.index) }
                     Interaction { handler: tap; selected: !!entry.modelData.focused; disabled: !!entry.modelData.disabled; disabledReason: entry.modelData.subtitle || ""; name: [entry.modelData.label || "", entry.modelData.subtitle || ""].join(". "); onActivated: menu.root.backend.clickMainEntry(entry.modelData.index) }
                 }

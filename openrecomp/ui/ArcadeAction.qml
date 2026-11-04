@@ -16,14 +16,14 @@ Rectangle {
     implicitHeight: compact ? Math.max(30, caption.implicitHeight + 8) : Math.max(Theme.target(48), caption.implicitHeight + 20)
     width: implicitWidth; height: implicitHeight
     radius: 7
-    color: primary ? Theme.readableAccent(root.v.accent) : Theme.raised
+    color: primary ? Theme.primaryFill : Theme.raised
     border.width: b.focused ? Theme.focusWidth : 1
     border.color: b.focused ? Theme.focus : Theme.border
     opacity: b.disabled ? 0.45 : 1
     property real selectionScale: !compact && (b.focused || hover.hovered) ? 1.025 : 1
     scale: root.reducedMotion ? 1 : selectionScale
     Behavior on selectionScale { enabled: !action.root.reducedMotion; NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
-    readonly property color ink: primary ? Theme.ground : Theme.text
+    readonly property color ink: primary ? Theme.primaryText : Theme.text
     ArcadeIcon { visible: !!action.icon; x: action.iconOnly ? (parent.width - width) / 2 : 12; anchors.verticalCenter: parent.verticalCenter; width: 24; height: 24; kind: action.icon; ink: action.ink }
     Glyph { id: buttonGlyph; objectName: "arcadeActionGlyph"; visible: !!action.glyph.text && !action.icon; x: 10; anchors.verticalCenter: parent.verticalCenter; g: action.glyph; size: 28 }
     Text {

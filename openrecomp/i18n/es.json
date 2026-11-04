@@ -1599,6 +1599,7 @@
  "feedback.no_deadline": "Sin plazo indicado",
  "feedback.vs": "VS",
  "feedback.mode": "Modo",
+ "feedback.delay_short": "Retardo",
  "feedback.rounds": "Asaltos",
  "playtime.minutes": "{minutes} min",
  "playtime.hours": "{hours} h",

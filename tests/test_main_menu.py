@@ -115,17 +115,34 @@ class MainMenuTests(unittest.TestCase):
         self.assertEqual(adapter.calls, [])
 
     def test_game_art_overlay_keeps_help_readable_over_a_white_background(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QGuiApplication
+        from PySide6.QtQml import QQmlComponent, QQmlEngine
         from test_accessibility import contrast
         ui = Path(__file__).parents[1] / "openrecomp" / "ui"
-        overlay = re.search(r'position: 1; color: "#([A-Fa-f0-9]{8})"',
-                            (ui / "MainMenu.qml").read_text(encoding="utf-8")).group(1)
-        alpha = int(overlay[:2], 16) / 255
-        background = "#" + "".join(f"{round(int(overlay[n:n+2], 16) * alpha + 255 * (1-alpha)):02x}"
-                                   for n in (2, 4, 6))
-        theme = (ui / "Theme.qml").read_text(encoding="utf-8")
-        colours = re.search(r'readonly property color muted: (.*)', theme).group(1)
-        for colour in re.findall(r'"(#[A-Fa-f0-9]{6})"', colours):
-            self.assertGreaterEqual(contrast(colour, background), 4.5)
+        stop = re.search(r'GradientStop\s*{\s*position:\s*1;\s*color:\s*([^}\n]+)',
+                         (ui / "MainMenu.qml").read_text(encoding="utf-8"))
+        self.assertIsNotNone(stop)
+        app = QGuiApplication.instance() or QGuiApplication([])
+        engine = QQmlEngine()
+        component = QQmlComponent(engine)
+        source = 'import QtQuick\nimport "."\nQtObject { property var theme: Theme; property color overlay: ' + stop.group(1).strip() + ' }'
+        component.setData(source.encode("utf-8"), QUrl.fromLocalFile(str(ui / "MenuOverlayProbe.qml")))
+        probe = component.create()
+        self.assertIsNotNone(probe, [error.toString() for error in component.errors()])
+        theme = probe.property("theme")
+        for game in ("", "t5dr", "t4"):
+            theme.setProperty("gameKind", game)
+            for high_contrast in (False, True):
+                theme.setProperty("highContrast", high_contrast)
+                overlay = probe.property("overlay")
+                alpha = overlay.alphaF()
+                background = "#" + "".join(f"{round(channel * alpha + 255 * (1-alpha)):02x}"
+                                           for channel in (overlay.red(), overlay.green(), overlay.blue()))
+                with self.subTest(game=game, high_contrast=high_contrast):
+                    self.assertGreaterEqual(contrast(theme.property("muted").name(), background), 4.5)
+        del probe
+        del engine
 
     def test_practice_entry_focuses_the_real_practice_setting(self):
         adapter, nav = self.make()

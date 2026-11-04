@@ -1599,6 +1599,7 @@
  "feedback.no_deadline": "No deadline supplied",
  "feedback.vs": "VS",
  "feedback.mode": "Mode",
+ "feedback.delay_short": "Delay",
  "feedback.rounds": "Rounds",
  "playtime.minutes": "{minutes} min",
  "playtime.hours": "{hours} h",

@@ -362,7 +362,7 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
                     prompt["label"] = "@feedback.offers"
         v["gameTheme"] = self.game.m.get("adapter", "") if self.game and self.screen == "hub" else ""
         if v["gameTheme"] in ("t4", "t5dr"):
-            v["accent"] = "#71CBE5" if v["gameTheme"] == "t4" else "#E99761"
+            v["accent"] = "#71CBE5" if v["gameTheme"] == "t4" else "#D11F3F"
         v["nativeEdit"] = getattr(self, "native_edit", "")
         return i18n.localize(v, self.language)
 

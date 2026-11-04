@@ -4,7 +4,7 @@ Rectangle {
     id: button
     objectName: "onlineSecondaryButton"
     property var b: ({})
-    property color accent: "#BE7449"
+    property color accent: Theme.gameAccent
     property int maxW: 420
     property int fontSize: 16
     property bool strong: false
@@ -18,7 +18,7 @@ Rectangle {
     width: Math.min(maxW, Math.max(100, caption.implicitWidth + glyphWidth + 32))
     height: Math.max(Theme.target(44), captionHeight + 20) + feedbackHeight
     radius: 5
-    color: failed ? "#321B22" : b.focused ? Theme.selected : primary ? Theme.readableAccent(accent) : strong ? "#272B31" : "#1C1F24"
+    color: failed ? "#321B22" : primary ? Theme.primaryFill : b.focused ? Theme.selected : strong ? Theme.raised : Theme.card
     border.width: b.focused ? Theme.focusWidth : 1; border.color: b.focused ? Theme.focus : Theme.border
     opacity: b.disabled ? 0.45 : 1
     Item {
@@ -32,10 +32,10 @@ Rectangle {
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: Theme.onlinePx(button.fontSize)
             text: (button.b.label || "") + (button.b.value ? ": " + button.b.value : "")
-            color: button.failed ? Theme.text : button.b.focused || button.primary ? Theme.ground : Theme.text
+            color: button.failed ? Theme.text : button.primary ? Theme.primaryText : button.b.focused ? Theme.ground : Theme.text
         }
     }
-    ActionReceipt { id: buttonFeedback; x: 14; y: button.height - button.feedbackHeight + 2; width: parent.width - 28; receipt: button.b.feedback || ({}); color: button.failed ? Theme.error : button.b.focused || button.primary ? Theme.ground : Theme.text }
+    ActionReceipt { id: buttonFeedback; x: 14; y: button.height - button.feedbackHeight + 2; width: parent.width - 28; receipt: button.b.feedback || ({}); color: button.failed ? Theme.error : button.primary ? Theme.primaryText : button.b.focused ? Theme.ground : Theme.text }
     TapHandler { id: buttonTap; onTapped: if (!button.b.disabled) button.activated(button.b.index === undefined ? -1 : button.b.index) }
     Interaction { handler: buttonTap; selected: !!button.b.focused; disabled: !!button.b.disabled; name: (button.b.label || "") + ". " + (button.b.value || "") + ". " + (button.b.hint || "") + ". " + ((button.b.feedback || {}).text || ""); onActivated: if (!button.b.disabled) button.activated(button.b.index === undefined ? -1 : button.b.index) }
 

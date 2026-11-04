@@ -28,7 +28,7 @@ Rectangle {
             }
         }
     }
-    Image { id: picture; objectName: "fighterPicture"; anchors.centerIn: parent; width: portrait.showcase ? parent.width : Math.min(parent.width, implicitWidth); height: portrait.showcase ? parent.height : Math.min(parent.height, implicitHeight); source: portrait.source; fillMode: Image.PreserveAspectFit; mirror: portrait.mirrored; asynchronous: true; visible: status === Image.Ready }
+    Image { id: picture; objectName: "fighterPicture"; anchors.centerIn: parent; width: portrait.showcase ? parent.width : Math.min(parent.width, implicitWidth); height: portrait.showcase ? parent.height : Math.min(parent.height, implicitHeight); source: portrait.source; fillMode: portrait.showcase ? Image.PreserveAspectCrop : Image.PreserveAspectFit; verticalAlignment: Image.AlignTop; mirror: portrait.mirrored; asynchronous: true; visible: status === Image.Ready }
     Rectangle { visible: !!portrait.name; anchors.bottom: parent.bottom; width: parent.width; height: caption.height + 12; color: Theme.ground; opacity: .94 }
     Text { id: caption; visible: !!portrait.name; x: 8; anchors.bottom: parent.bottom; anchors.bottomMargin: 6; width: parent.width - 16; text: portrait.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: Theme.text; font.family: "IBM Plex Sans"; font.pixelSize: Theme.onlinePx(14); Accessible.name: text }
 }

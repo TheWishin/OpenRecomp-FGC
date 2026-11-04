@@ -281,7 +281,7 @@ class OfferScene(unittest.TestCase):
         engine.deleteLater()
         gui.processEvents()
 
-    def test_actual_global_popup_and_vs_buttons_load_and_stay_inside_their_cards(self):
+    def test_actual_global_popup_and_vs_actions_stay_inside_their_presentations(self):
         import os
         from pathlib import Path
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -343,11 +343,23 @@ class OfferScene(unittest.TestCase):
         card = window.findChild(QObject, "matchVersusCard")
         self.assertIsNotNone(card)
         self.assertFalse(window.findChild(QObject, "globalOffer").property("visible"))
+        presentation = window.findChild(QObject, "matchPresentation")
+        self.assertIsNotNone(presentation)
+        art_bottom = card.mapToItem(presentation, QPointF()).y() + card.height()
+        positions = []
         for name in ("versusReady", "versusDecline"):
             button = window.findChild(QObject, name)
-            origin = button.mapToItem(card, QPointF())
-            self.assertLessEqual(origin.x() + button.width(), card.width())
-            self.assertLessEqual(origin.y() + button.height(), card.height())
+            origin = button.mapToItem(presentation, QPointF())
+            self.assertGreaterEqual(origin.x(), 0)
+            self.assertGreater(origin.y(), art_bottom)
+            self.assertLessEqual(origin.x() + button.width(), presentation.width())
+            self.assertLessEqual(origin.y() + button.height(), presentation.height())
+            positions.append((origin, button))
+        ready_origin, ready = positions[0]
+        decline_origin, decline = positions[1]
+        self.assertLess(ready_origin.x() + ready.width(), decline_origin.x())
+        self.assertAlmostEqual(ready_origin.y() + ready.height() / 2,
+                               decline_origin.y() + decline.height() / 2, delta=.5)
         self.assertEqual(warnings, [])
         window.setProperty("allowClose", True)
         window.close()
