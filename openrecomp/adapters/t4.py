@@ -53,7 +53,10 @@ def load_core(root):
     """A newly selected install must not reuse the previous install's cached t4core."""
     launcher = os.path.join(os.path.realpath(root), "launcher")
     path = os.path.join(launcher, "t4core.py")
-    if not os.path.isfile(path) and source_root(root):
+    # T4's own core (launcher/t4core.py) builds only with the toolchain a portable release carries. A source tree that
+    # also ships launcher/ for T4's own Tk launcher (T4 release zips since 99b95b9) is built like any source tree.
+    portable = os.path.isfile(os.path.join(os.path.realpath(root), "toolchain", "toolchain.json"))
+    if source_root(root) and not (os.path.isfile(path) and portable):
         from .t4_source import create_core
         return create_core(root)
     name = "_openrecomp_t4core_" + hashlib.sha256(os.path.normcase(path).encode("utf-8")).hexdigest()
