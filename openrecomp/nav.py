@@ -151,7 +151,6 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
     def tick(self, dt):
         """Time passes (the app's timer). -> True when the screen must be redrawn."""
         changed = self.poll_online()
-        changed = self.poll_auto_login() or changed
         changed = self.poll_sources() or changed
         changed = self.poll_tools_install() or changed
         changed = self.poll_build(dt) or changed

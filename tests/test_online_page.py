@@ -223,25 +223,22 @@ class LoginCard(unittest.TestCase):
         self.nav.act("confirm", device="xbox")
         self.assertEqual(self.nav.view()["online"]["page"], "main")
 
-    def test_remembered_login_logs_in_once_by_itself(self):
-        self.a.snapshot.update(saved_available=True)
-        self.nav.tick(0.016)
-        self.nav.tick(0.016)
-        self.assertEqual(self.a.calls.count(("online", "login_saved")), 1)
-
-    def test_no_automatic_login_when_switched_off_or_dry(self):
-        self.a.snapshot.update(saved_available=True)
+    def test_remember_me_off_skips_the_automatic_login(self):
+        shown = []
+        self.a.online_shown = lambda: shown.append(1)
+        self.nav.items()
+        self.assertEqual(len(shown), 1)                       # on (the default): the adapter may log in by itself
         nav = Nav([Game(self.a.m, self.a)], language="en", online_prefs={self.a.m["id"]: dict(auto_login=False)})
         nav.screen = "hub"
         nav.sec[self.a.m["id"]] = "online"
-        nav.tick(0.016)
-        self.assertNotIn(("online", "login_saved"), self.a.calls)
+        nav.items()
+        self.assertEqual(len(shown), 1)
         nav = Nav([Game(self.a.m, self.a)], language="en")
         nav.dry = True
         nav.screen = "hub"
         nav.sec[self.a.m["id"]] = "online"
-        nav.tick(0.016)
-        self.assertNotIn(("online", "login_saved"), self.a.calls)
+        nav.items()
+        self.assertEqual(len(shown), 1)
 
 
 class T4SharesThePage(unittest.TestCase):

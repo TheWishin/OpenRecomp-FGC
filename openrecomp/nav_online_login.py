@@ -7,7 +7,8 @@
 
 The rows stay the adapter's own (same ids, same runs); this module orders them, adds Show password, Remember me and
 Forgot password? / Back, and builds the view. "Forgot password?" opens the account recovery rows as their own page.
-Up/down walks the card; left/right jumps between Log in and Play as guest.
+Up/down walks the card; left/right jumps between Log in and Play as guest. Remember me off: the adapter keeps no login, and the remembered
+one does not log in by itself when Online is shown (the adapter's online_shown is not asked).
 """
 from . import i18n
 from .nav_common import uri
@@ -138,24 +139,6 @@ class OnlineLogin:
         if step < 0 and items[i].get("id") == "login_guest":
             return ids.index("login_account")
         return None
-
-    def poll_auto_login(self):
-        """Remember me: a remembered account logs in by itself once, when its Online section is first shown."""
-        g = self.game
-        if (self.dry or g is None or self.screen != "hub" or self.overlay
-                or not getattr(g.a, "online_supported", lambda: False)() or self.section() != "online"):
-            return False
-        done = self.__dict__.setdefault("auto_login_done", set())
-        if g.id in done:
-            return False
-        done.add(g.id)
-        prefs = (self.__dict__.get("online_prefs") or {}).get(g.id) or {}
-        state = g.a.online_state()
-        if (not prefs.get("auto_login", True) or state.get("phase") != "offline" or not state.get("saved_available")
-                or self._direct_online(g)):
-            return False
-        self._online_action(g, "login_saved")
-        return True
 
     # ---------------------------------------------------------------- view
     def _view_online_login(self, v, g, state, items, fi):
