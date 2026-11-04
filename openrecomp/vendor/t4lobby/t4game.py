@@ -16,6 +16,7 @@ T4 port's netplay environment, read by runtime/tekken4_rollback_overrides.cpp np
                                                 packet, so only the opponent's game takes part (and is followed after
                                                 a NAT rebinding)
     TEKKEN4_NET_SEED     32-bit                 the host's session seed (mixed into the game's srand)
+    TEKKEN4_NET_ROUNDS   1..5                   server-owned rounds to win (ranked: 3)
     TEKKEN4_NET_DELAY    auto | 0..4            rollback input delay: a ranked match's fixed value (match_start
                                                 input_delay), else the player's setting; the host's value wins
     TEKKEN4_NET_TIMEOUT  seconds                the peer silent this long = lost
@@ -69,6 +70,10 @@ def game_env(ticket, delay="auto", bind=None, result_file=None):
         env["TEKKEN4_NET_KEY"] = ticket.key
     env["TEKKEN4_NET_SEED"] = str(int(ticket.seed) & 0xFFFFFFFF)
     env["TEKKEN4_NET_TIMEOUT"] = str(int(ticket.timeout))
+    rounds = ticket.rounds
+    if isinstance(rounds, bool) or not isinstance(rounds, int) or not 1 <= rounds <= 5:
+        raise ValueError("T4 rounds to win must be an integer from 1 to 5")
+    env["TEKKEN4_NET_ROUNDS"] = str(rounds)
     d = ticket.input_delay if ticket.input_delay is not None else delay
     env["TEKKEN4_NET_DELAY"] = "auto" if d in (None, "", "auto") else str(max(0, min(4, int(d))))
     if bind is None:
@@ -288,6 +293,7 @@ class GameSetup:
             env["TEKKEN4_NET_PAD"] = str(self.pad)
         env.update(hud or {})
         env.update(self.extra_env)
+        env["TEKKEN4_NET_ROUNDS"] = str(ticket.rounds)
         with open(os.path.join(run_dir, "lobby_env.json"), "w", encoding="utf-8") as f:
             json.dump({k: ("(secret)" if k == "TEKKEN4_NET_KEY" else v) for k, v in env.items()}, f, indent=1)
         full = dict(os.environ)

@@ -120,10 +120,18 @@ T4's own stage select). The launcher can request automatic VS entry, but a direc
 handoff remains unverified. The T4 server switches unsupported game features off
 (`T5L_GAME_CAPS_OFF`, `T5L_STAGE_CHOICE`), and the launcher does not offer them for T4.
 
+On a server advertising `t4_rounds`, **Rounds to win** in the challenge preferences chooses
+1–5 round wins per match (default 2). The challenger chooses it; incoming challenge details
+show the same count. This is separate from a set's number of matches. The server sends its
+round count to both launchers, which pass `TEKKEN4_NET_ROUNDS` to the game. Both games must
+agree at HELLO. Older servers do not show the choice. The vendored client's room API accepts
+the same optional `rounds` field.
+
 ### Ranked
 
 When the T4 server opens ranked (its welcome says `ranked_queue`), accounts get **Search ranked**;
-guests play casual. Ranked is a set, best of 3, rated once (Glicko-2) when it is decided; the next
+guests play casual. Each ranked match requires **3 round wins**, with three round markers under
+each life bar. Ranked is a set, best of 3, rated once (Glicko-2) when it is decided; the next
 game starts by itself after the server's countdown (no ready vote), **Leave set** between games
 counts as a loss. Only results the two games proved count (the T4 game's own result file on both
 PCs); a game that only has the players' answers does not count ("The games did not prove this

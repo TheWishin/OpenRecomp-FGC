@@ -90,7 +90,7 @@ class Subject(T4):
 def ticket(role="host", path="direct", **values):
     fields = dict(match_id="fake-match", role=role, slot=0 if role == "host" else 1,
                   local_port=30001, peer=("127.0.0.1", 30002), path=path, ranked=False,
-                  build="fake-build", key="fake-key", seed=42, input_delay=None, timeout=20)
+                  build="fake-build", key="fake-key", seed=42, input_delay=None, timeout=20, rounds=2)
     fields.update(values)
     return SimpleNamespace(**fields)
 

@@ -908,6 +908,8 @@
  "online120.account_hint": "Account changes use this install’s lobby client. New recovery codes replace the old codes.",
  "online120.blocks_hint": "Blocked players are not told. Guests remain blocked until logout.",
  "online.challenge_preferences": "Casual match preferences",
+ "online.challenge_rounds": "Rounds to win",
+ "online.challenge_rounds_hint": "Round wins needed to win one match. Ranked always uses 3.",
  "online.challenge_delay": "Challenge input delay",
  "online.challenge_first_to": "Casual first-to set",
  "online.challenge_side": "Preferred side",

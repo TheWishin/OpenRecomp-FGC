@@ -908,6 +908,8 @@
  "online120.account_hint": "As alterações de conta usam o cliente de lobby desta instalação. Os novos códigos de recuperação substituem os antigos.",
  "online120.blocks_hint": "Os jogadores bloqueados não são avisados. Convidados continuam bloqueados até sair.",
  "online.challenge_preferences": "Preferências de partidas casuais",
+ "online.challenge_rounds": "Rounds para vencer",
+ "online.challenge_rounds_hint": "Rounds necessários para vencer uma partida. Partidas ranqueadas sempre usam 3.",
  "online.challenge_delay": "Atraso de entrada em desafios",
  "online.challenge_first_to": "Vitórias necessárias no set casual",
  "online.challenge_side": "Lado preferido",

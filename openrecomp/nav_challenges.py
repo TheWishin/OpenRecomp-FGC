@@ -19,6 +19,10 @@ def rows(nav, g, state, action):
     prefs = state.get("challenge_preferences") or {}
     out = [dict(kind="heading", label="@online.challenge_preferences")]
     hint = "@online.challenge_preferences_hint"
+    if prefs.get("rounds_supported"):
+        choices = [(str(n), str(n)) for n in range(1, 6)]
+        out.append(_cycler(nav, g, "rounds", "@online.challenge_rounds", choices, str(prefs.get("rounds", 2)),
+                           "@online.challenge_rounds_hint"))
     if prefs.get("delay_supported"):
         maximum = 8 if prefs.get("delay_max") == 8 else 2
         choices = [("auto", "@auto")] + [(str(n), str(n)) for n in range(maximum + 1)]
@@ -52,6 +56,8 @@ def rows(nav, g, state, action):
 
 def _details(info):
     details = []
+    if info.get("rounds"):
+        details.append(dict(k="@online.challenge_rounds", v=str(info["rounds"])))
     delay = info.get("delay") or {}
     if "frames" in delay:
         details.append(dict(k="@online.challenge_delay", v=str(delay["frames"])))
@@ -86,6 +92,8 @@ def enhance_rows(out, state):
             details = [dict(k="@online.challenge_delay", v=effective),
                        dict(k="@online.challenge_first_to", v=i18n.message("online.challenge_ft",
                             wins=prefs.get("first_to", 1) if prefs.get("sets_supported") else 1))]
+            if prefs.get("rounds_supported"):
+                details.append(dict(k="@online.challenge_rounds", v=str(prefs.get("rounds", 2))))
         if details:
             detail = item.setdefault("detail", {})
             detail["rows"] = list(detail.get("rows") or []) + details

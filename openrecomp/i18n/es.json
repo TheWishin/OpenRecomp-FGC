@@ -908,6 +908,8 @@
  "online120.account_hint": "Los cambios de cuenta usan el cliente de sala de esta instalación. Los nuevos códigos de recuperación sustituyen a los anteriores.",
  "online120.blocks_hint": "No se notifica a los jugadores bloqueados. Los invitados permanecen bloqueados hasta cerrar sesión.",
  "online.challenge_preferences": "Preferencias de partidas amistosas",
+ "online.challenge_rounds": "Rondas para ganar",
+ "online.challenge_rounds_hint": "Rondas necesarias para ganar un combate. Las clasificatorias siempre usan 3.",
  "online.challenge_delay": "Retraso de entrada en desafíos",
  "online.challenge_first_to": "Set amistoso de victorias necesarias",
  "online.challenge_side": "Lado preferido",

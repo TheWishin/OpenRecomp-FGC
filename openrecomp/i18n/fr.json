@@ -908,6 +908,8 @@
  "online120.account_hint": "Les modifications du compte utilisent le client de salon de cette installation. Les nouveaux codes de récupération remplacent les anciens.",
  "online120.blocks_hint": "Les joueurs bloqués ne sont pas avertis. Les invités restent bloqués jusqu’à la déconnexion.",
  "online.challenge_preferences": "Préférences des matchs amicaux",
+ "online.challenge_rounds": "Rounds pour gagner",
+ "online.challenge_rounds_hint": "Rounds nécessaires pour gagner un match. Le mode classé utilise toujours 3.",
  "online.challenge_delay": "Délai de saisie des défis",
  "online.challenge_first_to": "Victoires nécessaires en amical",
  "online.challenge_side": "Côté préféré",

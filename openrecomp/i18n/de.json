@@ -908,6 +908,8 @@
  "online120.account_hint": "Kontoänderungen erfolgen über den Lobbyclient dieser Installation. Neue Wiederherstellungscodes ersetzen die alten.",
  "online120.blocks_hint": "Blockierte Spieler werden nicht benachrichtigt. Gäste bleiben bis zur Abmeldung blockiert.",
  "online.challenge_preferences": "Einstellungen für Freundschaftsspiele",
+ "online.challenge_rounds": "Runden bis zum Sieg",
+ "online.challenge_rounds_hint": "Benötigte Rundensiege für ein Match. Rangliste verwendet immer 3.",
  "online.challenge_delay": "Eingabeverzögerung bei Herausforderungen",
  "online.challenge_first_to": "Satzlänge für Freundschaftsspiele",
  "online.challenge_side": "Bevorzugte Seite",

@@ -908,6 +908,8 @@
  "online120.account_hint": "계정 변경에는 이 설치의 로비 클라이언트를 사용합니다. 새 복구 코드는 이전 코드를 대체합니다.",
  "online120.blocks_hint": "차단한 플레이어에게 알리지 않습니다. 게스트는 로그아웃할 때까지 차단됩니다.",
  "online.challenge_preferences": "일반 경기 설정",
+ "online.challenge_rounds": "승리에 필요한 라운드",
+ "online.challenge_rounds_hint": "한 경기에서 승리하는 데 필요한 라운드 수입니다. 랭크전은 항상 3입니다.",
  "online.challenge_delay": "도전 입력 지연",
  "online.challenge_first_to": "일반 세트 선승 수",
  "online.challenge_side": "선호 위치",

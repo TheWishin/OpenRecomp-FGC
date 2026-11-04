@@ -562,9 +562,12 @@ def ticket_env(ticket):
     peer = f"{ticket.peer[0]}:{int(ticket.peer[1])}"
     port = str(int(ticket.local_port))
     delay = ticket.input_delay if ticket.input_delay is not None else "auto"
+    rounds = ticket.rounds
+    if type(rounds) is not int or not 1 <= rounds <= 5:
+        raise RuntimeError("@online.refused")
     env = dict(TEKKEN4_NET_BUILD=str(ticket.build), TEKKEN4_NET_KEY=str(ticket.key),
                TEKKEN4_NET_SEED=str(ticket.seed), TEKKEN4_NET_DELAY=str(delay),
-               TEKKEN4_NET_TIMEOUT=str(ticket.timeout))
+               TEKKEN4_NET_TIMEOUT=str(ticket.timeout), TEKKEN4_NET_ROUNDS=str(rounds))
     if ticket.role == "host":
         env.update(TEKKEN4_NET="host:" + port, TEKKEN4_NET_PEER=peer)
     else:
@@ -1331,6 +1334,8 @@ class T4Online(T4Direct, Online):
         return super()._online_error(error, saved)
 
     def _online_completion(self, action, value, error):
+        if action.startswith("feature_challenges:"):
+            return super()._online_completion(action, value, error)
         if action.startswith("login_") and not error:
             self._online_rating = value["me"].get("rating")
         if action in ("rematch", "return_lobby"):

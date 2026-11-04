@@ -908,6 +908,8 @@
  "online120.account_hint": "アカウントの変更はこのインストールのロビークライアントを使用します。新しい復元コードは古いコードを置き換えます。",
  "online120.blocks_hint": "ブロック相手には通知されません。ゲストのブロックはログアウトまで有効です。",
  "online.challenge_preferences": "カジュアルマッチの設定",
+ "online.challenge_rounds": "勝利に必要なラウンド数",
+ "online.challenge_rounds_hint": "1試合の勝利に必要なラウンド数です。ランクマッチは常に3です。",
  "online.challenge_delay": "挑戦の入力遅延",
  "online.challenge_first_to": "カジュアルセットの先取数",
  "online.challenge_side": "希望サイド",
