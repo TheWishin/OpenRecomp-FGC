@@ -1425,5 +1425,9 @@
  "netext.forget_first": "Remove your account and its data from this server? Match results remain as “deleted player”. Your password will be checked before a second confirmation. This PC’s files stay.",
  "netext.forget_review": "Review the server’s counts, then confirm again to remove your account. This cannot be undone.",
  "netext.forget_final": "This cannot be undone. Remove account {name} now? {matches} match(es) and {sets} set(s) keep their results as “deleted player”; {friends} friend(s) lose you from their list.",
- "netext.forgotten": "Your account and its data were removed from the server."
+ "netext.forgotten": "Your account and its data were removed from the server.",
+ "t4.support.save": "Save report",
+ "t4.support.hint": "Saves cleaned T4 logs, build identity and system facts in the launcher data folder. No game files are included.",
+ "t4.support.confirm": "Save cleaned T4 logs, build identity and system facts as a ZIP on this PC? Nothing is sent.",
+ "t4.support.notice": "Cleaned T4 logs, build identity and system facts go to the developer with your lobby name and the optional note and contact. No game files, keys or passwords."
 }

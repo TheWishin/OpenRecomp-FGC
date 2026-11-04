@@ -1425,5 +1425,9 @@
  "netext.forget_first": "¿Eliminar tu cuenta y sus datos de este servidor? Los resultados quedan como «jugador eliminado». Se comprobará tu contraseña antes de la segunda confirmación. Los archivos de este PC se conservan.",
  "netext.forget_review": "Revisa las cifras del servidor y confirma de nuevo para eliminar tu cuenta. No se puede deshacer.",
  "netext.forget_final": "No se puede deshacer. ¿Eliminar ahora la cuenta {name}? {matches} partidas y {sets} series conservan sus resultados como «jugador eliminado»; {friends} amigos te pierden de su lista.",
- "netext.forgotten": "Tu cuenta y sus datos se han eliminado del servidor."
+ "netext.forgotten": "Tu cuenta y sus datos se han eliminado del servidor.",
+ "t4.support.save": "Guardar informe",
+ "t4.support.hint": "Guarda los registros limpios de T4, la identidad de compilación y los datos del sistema en la carpeta del lanzador. Sin archivos del juego.",
+ "t4.support.confirm": "¿Guardar los registros limpios de T4, la identidad de compilación y los datos del sistema en un ZIP en este PC? No se envía nada.",
+ "t4.support.notice": "El desarrollador recibe los registros limpios de T4, la identidad de compilación y los datos del sistema con tu nombre del lobby y la nota y contacto opcionales. Sin archivos del juego, claves ni contraseñas."
 }

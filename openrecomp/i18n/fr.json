@@ -1425,5 +1425,9 @@
  "netext.forget_first": "Supprimer votre compte et ses données de ce serveur ? Les résultats restent sous « joueur supprimé ». Votre mot de passe sera vérifié avant une seconde confirmation. Les fichiers de ce PC restent.",
  "netext.forget_review": "Vérifiez les chiffres du serveur puis confirmez à nouveau la suppression du compte. Cette action est irréversible.",
  "netext.forget_final": "Cette action est irréversible. Supprimer le compte {name} maintenant ? {matches} parties et {sets} séries conservent leurs résultats sous « joueur supprimé » ; {friends} amis vous perdent de leur liste.",
- "netext.forgotten": "Votre compte et ses données ont été supprimés du serveur."
+ "netext.forgotten": "Votre compte et ses données ont été supprimés du serveur.",
+ "t4.support.save": "Enregistrer le rapport",
+ "t4.support.hint": "Enregistre les journaux T4 nettoyés, l’identité de compilation et les données système dans le dossier du lanceur. Aucun fichier du jeu.",
+ "t4.support.confirm": "Enregistrer les journaux T4 nettoyés, l’identité de compilation et les données système dans un ZIP sur ce PC ? Rien ne sera envoyé.",
+ "t4.support.notice": "Les journaux T4 nettoyés, l’identité de compilation et les données système sont envoyés au développeur avec votre nom de lobby et, si fournis, votre note et contact. Aucun fichier du jeu, clé ou mot de passe."
 }

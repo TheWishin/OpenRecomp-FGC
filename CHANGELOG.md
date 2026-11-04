@@ -16,6 +16,8 @@ TheWishin/Tekken4Recomp).
 - Adding or removing a game keeps the other games logged in.
 - **OpenRecomp-FGC Discord** button in the top bar and in Quick access. T5DR's Problem report page gets
   "Send to the developer" (one press) as soon as the lobby server supports it.
+- Tekken 4 gets **Problem report** too: send cleaned diagnostics to the T4 developer with one press, or save a ZIP
+  locally. Older servers offer Save only. Game files and memory cards are never included.
 - Quick access > Test versions re-checks the games right away.
 - Linux / Steam Deck (Proton, Wine): Tekken 4's Build says why it cannot run there (it needs Windows PowerShell)
   instead of failing silently; Japanese and Korean text uses Linux fonts when Windows' are missing.

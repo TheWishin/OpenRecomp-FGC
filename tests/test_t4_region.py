@@ -23,19 +23,11 @@ class Tree(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name) / "T4"
-        # Model the launcher beside the player folder even when TEMP is inside this repository.
-        self.enterContext(mock.patch.object(t4_source, "__file__",
-            str(Path(self.tmp.name) / "launcher/openrecomp/adapters/t4_source.py")))
         for name in ("config", "runtime", "patches", "tools"):
             (self.root / name).mkdir(parents=True)
         self.write("tools/iso_extract.py", us_iso_tool())
         self.write("tools/build_game.ps1", "$ExpectedElfSha1 = '%s'\n# fork into ..\\tekken4-fork-ps2recomp\n" % US)
         self.write("tools/net_preflight.ps1", "# preflight\n")
-        # Model a launcher separate from the fake player's home, even with TEMP inside this checkout.
-        module = mock.patch.object(t4_source, "__file__",
-                                   str(Path(self.tmp.name) / "launcher" / "openrecomp" / "adapters" / "t4_source.py"))
-        module.start()
-        self.addCleanup(module.stop)
 
     def write(self, name, text):
         path = self.root / name
@@ -78,8 +70,10 @@ class Tree(unittest.TestCase):
 
     def test_source_core_refuses_check_build_and_play_for_a_pal_tree(self):
         self.write("tools/iso_extract.py", us_iso_tool(boot="SCES_508.78", sha1=PAL_SHA1))
+        # Model a separate launcher checkout so the fixture home can stay under build/ in hermetic runs.
+        launcher_file = Path(self.tmp.name) / "launcher" / "openrecomp" / "adapters" / "t4_source.py"
         with mock.patch.object(t4_source, "user_dir", return_value=str(Path(self.tmp.name) / "home")), \
-                mock.patch.object(t4_source, "__file__", str(self.root / "launcher/openrecomp/adapters/t4_source.py")):
+                mock.patch.object(t4_source, "__file__", str(launcher_file)):
             core = t4_source.SourceCore(str(self.root))
         iso = self.write("pal.iso", "image")
         with mock.patch.object(t4_source.subprocess, "run") as run:
@@ -90,8 +84,9 @@ class Tree(unittest.TestCase):
         self.assertEqual(core.play_problems({}), [t4_region.NOT_US])
 
     def test_source_core_refuses_an_image_whose_check_names_another_elf(self):
+        launcher_file = Path(self.tmp.name) / "launcher" / "openrecomp" / "adapters" / "t4_source.py"
         with mock.patch.object(t4_source, "user_dir", return_value=str(Path(self.tmp.name) / "home")), \
-                mock.patch.object(t4_source, "__file__", str(self.root / "launcher/openrecomp/adapters/t4_source.py")):
+                mock.patch.object(t4_source, "__file__", str(launcher_file)):
             core = t4_source.SourceCore(str(self.root))
         iso = self.write("x.iso", "image")
         answer = mock.Mock(returncode=0, stdout="BOOT2 SLUS_203.28\nELF_SHA1 %s\nOK\n" % PAL_SHA1)

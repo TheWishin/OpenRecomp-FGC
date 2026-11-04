@@ -1425,5 +1425,9 @@
  "netext.forget_first": "Remover sua conta e seus dados deste servidor? Os resultados ficam como “jogador excluído”. Sua senha será verificada antes da segunda confirmação. Os arquivos deste PC permanecem.",
  "netext.forget_review": "Confira os números do servidor e confirme novamente para remover sua conta. Esta ação não pode ser desfeita.",
  "netext.forget_final": "Esta ação não pode ser desfeita. Remover a conta {name} agora? {matches} partidas e {sets} séries mantêm os resultados como “jogador excluído”; {friends} amigos perdem você da lista.",
- "netext.forgotten": "Sua conta e seus dados foram removidos do servidor."
+ "netext.forgotten": "Sua conta e seus dados foram removidos do servidor.",
+ "t4.support.save": "Salvar relatório",
+ "t4.support.hint": "Salva os registros limpos de T4, a identidade da compilação e os dados do sistema na pasta do inicializador. Sem arquivos do jogo.",
+ "t4.support.confirm": "Salvar os registros limpos de T4, a identidade da compilação e os dados do sistema em um ZIP neste PC? Nada será enviado.",
+ "t4.support.notice": "O desenvolvedor recebe os registros limpos de T4, a identidade da compilação e os dados do sistema com seu nome do lobby e a nota e contato opcionais. Sem arquivos do jogo, chaves ou senhas."
 }

@@ -19,6 +19,7 @@ class BetaPackagingTests(unittest.TestCase):
     def test_current_source_tree_scans_and_includes_runtime_imports_and_beta_guides(self):
         selected = package.source_files(ROOT)
         for name in ("openrecomp/adapters/launch_guard.py", "openrecomp/adapters/t5_match.py",
+                     "openrecomp/adapters/t4_support.py", "openrecomp/t4_report.py",
                      "README.md", "docs/T4_FIRST_RUN.md", "docs/T4_ONLINE.md"):
             self.assertIn(name, selected)
         self.assertEqual(set(selected), package.SOURCE_FILES)
