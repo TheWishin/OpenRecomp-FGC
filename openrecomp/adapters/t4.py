@@ -29,6 +29,9 @@ GRAPHICS_OPTIONS = {
     "hud": [("soft", "@hud.soft"), ("sharp", "@hud.sharp")],
     "anisotropic": [("1", "@off"), ("2", "@anisotropic.two"), ("4", "@anisotropic.four"),
                     ("8", "@anisotropic.eight"), ("16", "@anisotropic.sixteen")],
+    # TEKKEN4_WIDESCREEN: picture only (the game simulates the same either way), so each player picks their own,
+    # online too, with any mix of 4:3 and 16:9 (T4 docs/WIDESCREEN.md).
+    "aspect": [("4:3", "@aspect.4_3"), ("16:9", "@aspect.16_9")],
 }
 BETA_DISABLED_SWITCHES = (
     "TEKKEN4_RUNAHEAD", "TEKKEN4_NET_HASH_PROFILE", "TEKKEN4_NET_COST_PROFILE",
@@ -266,6 +269,7 @@ class T4(T4Support, T4Online, Adapter):
                 env["TEKKEN4_AA"] = graphics["aa"]
             env["TEKKEN4_HUD"] = graphics["hud"]
             env["TEKKEN4_ANISO"] = graphics["anisotropic"]
+            env["TEKKEN4_WIDESCREEN"] = "1" if graphics["aspect"] == "16:9" else "0"
             env.update(extra_env or {})
             env.update(self._beta_env())
             if getattr(self.core, "source_only", False) and (extra_env or {}).get("TEKKEN4_NET"):
@@ -361,7 +365,8 @@ class T4(T4Support, T4Online, Adapter):
         # The core only saves boolean AA; advanced choices belong to this launcher's config.
         saved = self.config.get("t4_graphics") or {}
         defaults = dict(aa=GRAPHICS_OPTIONS["aa"][1 if self.s.get("aa", True) else 0][0],
-                        hud=GRAPHICS_OPTIONS["hud"][0][0], anisotropic=GRAPHICS_OPTIONS["anisotropic"][2][0])
+                        hud=GRAPHICS_OPTIONS["hud"][0][0], anisotropic=GRAPHICS_OPTIONS["anisotropic"][2][0],
+                        aspect=GRAPHICS_OPTIONS["aspect"][0][0])
         return {sid: saved.get(sid, default) if saved.get(sid, default) in [v for v, _label in GRAPHICS_OPTIONS[sid]]
                 else default for sid, default in defaults.items()}
 
@@ -385,6 +390,8 @@ class T4(T4Support, T4Online, Adapter):
                  hint="@hud.hint", lead="@hud.lead"),
             dict(id="anisotropic", label="@anisotropic", options=GRAPHICS_OPTIONS["anisotropic"], value=graphics["anisotropic"],
                  hint="@anisotropic.hint", lead="@anisotropic.lead"),
+            dict(id="aspect", label="@aspect", options=GRAPHICS_OPTIONS["aspect"], value=graphics["aspect"],
+                 hint="@aspect.hint", lead="@aspect.lead"),
             dict(id="progressive", label="@progressive", options=yes_no, value=bool(self.s.get("progressive", True)),
                  hint="@progressive.hint", lead="@progressive.lead"),
             dict(id="unlock_all", label="@unlock_all", options=yes_no, value=bool(self.s.get("unlock_all", True)),

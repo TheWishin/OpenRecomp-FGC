@@ -16,7 +16,7 @@ GROUP_NOTES = {"display": "@settings_ui.note.display", "controls": "@settings_ui
 GROUP_OF = {
     "display": "display", "internal_res": "display", "vsync": "display", "shadows": "display", "effects": "display",
     "stage_blur": "display", "resolution": "display", "fullscreen": "display", "fullscreen_exclusive": "display",
-    "aa": "display", "hud": "display", "anisotropic": "display", "progressive": "display",
+    "aa": "display", "hud": "display", "anisotropic": "display", "aspect": "display", "progressive": "display",
     "pad_bindings": "controls", "screen_side": "controls", "always_left": "controls",
     "input_delay": "online", "spectators": "online", "spectators_ranked": "online", "auto_spectate": "online",
     "mute": "audio", "sound": "audio", "ui_sounds": "audio", "ui_sound_volume": "audio",

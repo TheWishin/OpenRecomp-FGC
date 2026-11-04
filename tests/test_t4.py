@@ -89,6 +89,8 @@ class Graphics(unittest.TestCase):
         self.assertEqual(rows["hud"]["value"], "soft")
         self.assertEqual([value for value, _label in rows["anisotropic"]["options"]], ["1", "2", "4", "8", "16"])
         self.assertEqual(rows["anisotropic"]["value"], "4")
+        self.assertEqual([value for value, _label in rows["aspect"]["options"]], ["4:3", "16:9"])
+        self.assertEqual(rows["aspect"]["value"], "4:3")
         self.assertFalse(any("ahead" in sid for sid in rows))
 
     def test_legacy_aa_boolean_selects_off_or_fxaa(self):
@@ -151,6 +153,23 @@ class Graphics(unittest.TestCase):
         self.adapter.start()
         self.assertEqual(self.core.started[-1]["TEKKEN4_HUD"], "soft")
         self.assertEqual(self.core.started[-1]["TEKKEN4_ANISO"], "4")
+        self.assertEqual(self.core.started[-1]["TEKKEN4_WIDESCREEN"], "0")
+
+    def test_aspect_choice_reaches_the_game_and_persists_in_launcher_config(self):
+        for value, switch in (("16:9", "1"), ("4:3", "0"), ("16:9", "1")):
+            with self.subTest(value=value):
+                self.adapter.set_setting("aspect", value)
+                self.assertEqual(self.config["t4_graphics"]["aspect"], value)
+                self.assertNotIn("aspect", self.core.saved)
+                self.adapter.start()
+                self.assertEqual(self.core.started[-1]["TEKKEN4_WIDESCREEN"], switch)
+        self.adapter.set_setting("aspect", "21:9")
+        self.assertEqual(self.config["t4_graphics"]["aspect"], "16:9")
+        self.adapter = self.make_adapter()
+        self.assertEqual(self.rows()["aspect"]["value"], "16:9")
+        # A widescreen player online: the setting stays (picture only, any mix of 4:3 and 16:9 plays together).
+        self.adapter.start(extra_env=dict(TEKKEN4_NET="host:7000"))
+        self.assertEqual(self.core.started[-1]["TEKKEN4_WIDESCREEN"], "1")
 
     def test_running_child_keeps_reservation_and_refuses_duplicate_launch(self):
         self.adapter.start()
@@ -197,7 +216,7 @@ class Graphics(unittest.TestCase):
         self.thread.assert_not_called()
 
     def test_controller_cycles_every_choice_and_translates_in_all_languages(self):
-        targets = {"aa", "hud", "anisotropic"}
+        targets = {"aa", "hud", "anisotropic", "aspect"}
         for code in i18n.LANGUAGES:
             with self.subTest(language=code):
                 nav = Nav([Game(MANIFEST, self.adapter)], language=code)
