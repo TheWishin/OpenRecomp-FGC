@@ -33,7 +33,7 @@ SOURCE_GROUPS = {
                    "bundled_games.py", "game_manifest.py", "community.py", "report_upload.py", "t4_report.py", "wine.py",
                    "ui_sound.py", "nav_sound.py", "nav_controls_page.py", "pad_glyphs.py", "pad_presets.py"),
     "openrecomp/adapters": ("__init__.py", "base.py", "launch_guard.py", "support.py", "t4.py", "t4_install.py",
-                           "t4_online.py", "t4_support.py", "t4_source.py", "t4_prerequisites.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py",
+                           "t4_online.py", "t4_support.py", "t4_source.py", "t4_prerequisites.py", "build_tool_downloads.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py",
                            "t5_coexist.py", "t5_compatibility.py", "t4_region.py", "other_launchers.py",
                            "t5_accounts.py", "t5_challenges.py", "t5_community.py", "t5_features.py",
                            "t5_moderation.py", "t5_private_chat.py", "t5_profiles.py", "t5_rules.py", "t5_netext.py",

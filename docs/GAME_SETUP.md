@@ -34,7 +34,14 @@ and about how long it still takes (from your last build's step times, else from 
 range). If a step prints nothing for two minutes the card says it is still working on it. X opens the build log.
 
 The build tools are never listed. The launcher checks them by itself; when some are missing, **Build** installs them
-first with winget ("Installing build tools (x of y) ..."), checks again and builds. A failed install shows the error
+first with winget ("Installing build tools (x of y): name ..."), checks again and builds. If winget is missing or fails,
+the launcher downloads only the remaining tools over HTTPS from their official vendors, without Microsoft Store:
+VS 2022 Build Tools from `aka.ms/vs/17/release/vs_BuildTools.exe`, Git from `git-for-windows/git`, CMake from
+`Kitware/CMake`, and Ninja from `ninja-build/ninja` GitHub release assets. Signed installers require WinVerifyTrust
+and the expected publisher; release SHA-256 digests are checked when available and are mandatory for unsigned Ninja.
+The selected digest is pinned before downloading the asset. Unverifiable downloads are never run. The complete
+fallback batch uses one Windows permission prompt, rechecks its staged copies before running silent installers, and
+suppresses automatic restarts. No new package manager or Store component is installed. A failed install shows the error
 with Try again and Help (what is needed, the commands to copy). When Windows needs a restart to finish, the launcher
 remembers it and continues the build after the restart. A T4 disc image that was verified stays verified while it is
 the same file (path, size, time), also after a launcher restart.

@@ -57,11 +57,13 @@ class T4BundleCatalogTests(unittest.TestCase):
             self.assertIn("SLUS-20328 v1.00", i18n.catalog("de")["t4.source." + key])
 
     def test_source_release_catalog_contains_the_source_adapter_dependencies(self):
-        for name in ("t4_source.py", "t4_prerequisites.py"):
+        selected = package.source_files(ROOT)
+        for name in ("t4_source.py", "t4_prerequisites.py", "build_tool_downloads.py"):
             path = "openrecomp/adapters/" + name
             with self.subTest(path=path):
                 self.assertIn(path, package.SOURCE_FILES)
                 self.assertTrue((ROOT / path).is_file())
+                self.assertIn(path, selected)
 
 
 if __name__ == "__main__":

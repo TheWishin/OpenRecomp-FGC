@@ -198,7 +198,8 @@ class BuildPage:
             tools = state.get("tools") or {}
             if state.get("running") and state.get("phase") == "tools":
                 text = i18n.message("build.tools_installing", done=min(tools.get("done", 0) + 1, max(1, tools.get("total", 0))),
-                                    total=max(1, tools.get("total", 0))) if tools.get("total") else "@build.tools_checking"
+                                    total=max(1, tools.get("total", 0)), name=tools.get("current") or "@build.card.tools"
+                                    ) if tools.get("total") else "@build.tools_checking"
                 card("tools", "@build.card.tools", text, "work", by_card.get("tools", []),
                      note="@build.tools_installing_text" if tools.get("total") else "")
             elif state.get("failed") == "tools":
@@ -253,7 +254,10 @@ class BuildPage:
                         progress=-1.0 if tools_phase else float(state.get("fraction") or 0.0))
             if tools_phase:
                 main["stepLine"] = i18n.message("build.tools_installing", done=min(tools.get("done", 0) + 1, max(1, tools.get("total", 0))),
-                                                total=max(1, tools.get("total", 0))) if tools.get("total") else "@build.tools_checking"
+                                                total=max(1, tools.get("total", 0)), name=tools.get("current") or "@build.card.tools"
+                                                ) if tools.get("total") else "@build.tools_checking"
+                if tools.get("total"):
+                    main["progress"] = max(0.0, min(1.0, tools.get("done", 0) / tools["total"]))
             elif state.get("step_no"):
                 n, total = state["step_no"]
                 listed = state.get("steps") or []

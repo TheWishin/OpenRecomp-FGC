@@ -52,7 +52,7 @@ falls back to Noto Sans CJK / Source Han Sans, which most Linux systems (and Ste
 | tasklist / taskkill (is a game running, cancel a build) | Wine's versions; when they cannot answer, the launcher treats it as "unknown" |
 | T5DR's Report a problem / Check my problem | as in T5DR 1.2.0: the zip goes to your Linux Desktop |
 | Tekken 4 Build, online check, log collection (PowerShell) | not possible: "@t4.no_powershell" message |
-| Tekken 4 winget tool installs (source bundle) | no winget under Wine: the existing "winget is not available" message |
+| Tekken 4 tool installs (source bundle) | winget or verified Windows vendor installers; installation and publisher trust under Wine have not been checked |
 | Self-update | replaces files and restarts like on Windows; not tried under Wine |
 
 ## Test checklist
