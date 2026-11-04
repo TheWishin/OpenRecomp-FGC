@@ -13,7 +13,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 from openrecomp import i18n, nav_netext
 from openrecomp.app import UI_DIR
 from test_t5_netext import fake_page
-from test_ui_loads import FakeBackend, spin
+from test_ui_loads import FakeBackend, wait_pages
 from test_ui_polish import items
 
 
@@ -41,7 +41,7 @@ class NetextScene(unittest.TestCase):
             backend._v = nav.view()
             backend._v["reducedMotion"] = True
             backend.viewChanged.emit()
-            spin(1)
+            wait_pages(win)
 
         try:
             for width, height in ((1920, 1080), (1280, 720)):

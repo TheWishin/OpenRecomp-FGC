@@ -89,6 +89,17 @@ def spin(ms=40):
     loop.exec()
 
 
+def wait_pages(window):
+    # Nested asynchronous Loaders must finish before inspecting the scene.
+    for _ in range(200):
+        spin(5)
+        if all(not p.property("active") or p.property("progress") == 1
+               and p.property("item") is not None
+               for p in window.findChildren(QObject, "pageLoader")):
+            return
+    raise AssertionError("A lazy page did not become ready")
+
+
 class Scene(unittest.TestCase):
     def test_every_screen_without_a_warning(self):
         app = QGuiApplication.instance() or QGuiApplication(sys.argv[:1])

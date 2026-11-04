@@ -22,7 +22,7 @@ from test_online_nav import Lobby
 from test_online_page import lobby_snapshot
 from test_t4_online import Subject as T4Subject
 from test_t4_online_nav import T4Lobby
-from test_ui_loads import FakeBackend, spin
+from test_ui_loads import FakeBackend, wait_pages
 from test_ui_polish import items
 
 
@@ -157,6 +157,7 @@ class ChallengePingScene(unittest.TestCase):
             engine.load(QUrl.fromLocalFile(str(Path(UI_DIR) / "Main.qml")))
             self.assertTrue(engine.rootObjects(), warnings)
             win = engine.rootObjects()[0]
+            win.show()
             try:
                 for language in i18n.LANGUAGES:
                     nav.language = language
@@ -173,7 +174,7 @@ class ChallengePingScene(unittest.TestCase):
                                     match=dict(opponent="XERO", **ping))
                                 backend._v = nav.view()
                                 backend.viewChanged.emit()
-                                spin(1)
+                                wait_pages(win)
                                 online = backend._v["online"]
                                 key = "online_ui.ping_ms" if ping.get("ping_measured") else "online_ui.ping_est"
                                 expected = i18n.text(language, key, ping=ping["ping"]) if ping else i18n.text(language, "online_ui.ping_unknown")
