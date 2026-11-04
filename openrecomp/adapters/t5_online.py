@@ -15,7 +15,7 @@ import uuid
 
 from .base import NO_WINDOW, add_path
 from .t5_coexist import readonly_imports
-from . import other_launchers, t5_features
+from . import other_launchers, t5_features, t5_netext
 from .. import i18n
 
 
@@ -806,6 +806,7 @@ class Online:
     def _online_search_submit(self, mode):
         client, generation, char = self._online_client, self._online_generation, self.chosen_fighter()
         strict = bool(getattr(self, "_online_strict", False))
+        options = t5_netext.options(self, client) if t5_features.enabled(self) else {}
 
         def work():
             problem = self._online_game_check()
@@ -814,11 +815,11 @@ class Online:
             with self._online_queue_lock:
                 self._online_check_request(generation, client)
                 if mode == "ranked" and strict:
-                    client.ranked_match(char, strict=True)
+                    client.ranked_match(char, strict=True, **options)
                 elif mode == "ranked":
-                    client.ranked_match(char)
+                    client.ranked_match(char, **options)
                 else:
-                    client.quick_match(char)
+                    client.quick_match(char, **options)
             return mode
         self._online_submit("search_ranked" if mode == "ranked" else "search_casual", work)
 
@@ -865,6 +866,7 @@ class Online:
             rating = None
         out = dict(id=str(player.get("id") or "")[:80], name=str(player.get("name") or "")[:64],
                    rating=rating, rank=self._online_player_rank(rating))
+        out.update(t5_netext.tags(player))
         # What the lobby table shows beside the name (all optional: older servers send less).
         if not out["rank"] and isinstance(player.get("rank"), str):
             out["rank"] = player["rank"][:40]
@@ -905,6 +907,7 @@ class Online:
         out = dict(id=str(room.get("id") or "")[:80], name=str(room.get("name") or "")[:64],
                     host=str(owner.get("name") or "")[:64] if isinstance(owner, dict) else "",
                     status=str(room.get("status") or "")[:20])
+        out.update(t5_netext.tags(room))
         if self._online_social_cap("private_rooms"):
             lock = room.get("lock") or room.get("private") or "none"
             out["lock"] = lock if lock in ("none", "password", "code") else "none"
@@ -1192,6 +1195,9 @@ class Online:
 
     def _online_events(self):
         """Read one queue snapshot. A kick wins over a simultaneous request failure or disconnect."""
+        if getattr(self, "_netext_removing", False):
+            # forget_me closes the connection after its reply. Finish that request before handling the close.
+            return False, False
         client = self._online_client
         if client is None:
             return False, False

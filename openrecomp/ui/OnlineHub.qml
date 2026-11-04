@@ -319,13 +319,27 @@ Item {
                                         }
                                         Image { visible: !!cell.c.plate; source: cell.c.plate || ""; height: 30; width: 60; fillMode: Image.PreserveAspectFit; asynchronous: true; anchors.verticalCenter: parent.verticalCenter }
                                         Image { visible: !!cell.c.face; source: cell.c.face || ""; height: 32; width: 32; fillMode: Image.PreserveAspectCrop; asynchronous: true; anchors.verticalCenter: parent.verticalCenter }
-                                        Text {
+                                        Column {
                                             anchors.verticalCenter: parent.verticalCenter
                                             width: Math.max(0, body.tableW * cell.w - 20 - (cell.c.face ? 40 : 0) - (cell.nb > 0 ? 30 : 0) - (cell.c.plate ? 68 : 0))
-                                            visible: width > 0 && text !== ""
-                                            elide: Text.ElideRight; textFormat: Text.PlainText; text: cell.c.text || ""
-                                            color: page.root.textC; font.family: page.root.sans
-                                            font.weight: cell.c.bold ? Font.DemiBold : Font.Normal; font.pixelSize: 19
+                                            visible: width > 0
+                                            Text {
+                                                width: parent.width
+                                                height: cell.c.tags ? 20 : implicitHeight
+                                                fontSizeMode: cell.c.tags ? Text.Fit : Text.FixedSize; minimumPixelSize: 14
+                                                verticalAlignment: Text.AlignVCenter
+                                                elide: Text.ElideRight; textFormat: Text.PlainText; text: cell.c.text || ""
+                                                color: page.root.textC; font.family: page.root.sans
+                                                font.weight: cell.c.bold ? Font.DemiBold : Font.Normal; font.pixelSize: cell.c.tags ? 17 : 19
+                                            }
+                                            Text {
+                                                objectName: "onlineAreaLanguage"
+                                                visible: !!cell.c.tags; width: parent.width
+                                                height: 14; fontSizeMode: Text.Fit; minimumPixelSize: 10
+                                                verticalAlignment: Text.AlignVCenter
+                                                elide: Text.ElideRight; textFormat: Text.PlainText; text: cell.c.tags || ""
+                                                color: page.root.muted; font.family: page.root.mono; font.pixelSize: 13
+                                            }
                                         }
                                     }
                                 }

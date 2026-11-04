@@ -4,7 +4,7 @@ import inspect
 
 
 MODULES = (".t5_spectating", ".t5_tournaments", ".t5_profiles", ".t5_community",
-           ".t5_accounts", ".t5_rules", ".t5_challenges", ".t5_moderation", ".t5_private_chat")
+           ".t5_accounts", ".t5_rules", ".t5_challenges", ".t5_moderation", ".t5_private_chat", ".t5_netext")
 
 
 def enabled(owner):

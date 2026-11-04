@@ -7,6 +7,7 @@ import threading
 
 from .t5_online import Online, SearchRefused
 from .t5_coexist import readonly_imports
+from . import t5_features, t5_netext
 from .. import i18n
 
 
@@ -156,6 +157,8 @@ class T5Match(Online):
                 problem = self._online_game_check()
                 if problem:
                     raise SearchRefused(problem)
+                if t5_features.enabled(self):
+                    env = dict(env, **t5_netext.launch_env(self))
                 self.start(extra_env=env)
                 return self.game
 

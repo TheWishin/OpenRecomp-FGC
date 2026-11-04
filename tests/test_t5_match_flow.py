@@ -1,5 +1,6 @@
 """T5 match-driver integration with inert clients and game handles only."""
 import unittest
+import os
 from types import SimpleNamespace
 from unittest import mock
 
@@ -338,7 +339,8 @@ class T5MatchTests(unittest.TestCase):
         self.a._online_authorized = True
         with mock.patch.object(self.a, "_online_game_check", return_value=""):
             self.assertIs(launch({"TEST": "fake"}), self.a.game)
-        self.a.start.assert_called_once_with(extra_env={"TEST": "fake"})
+        self.a.start.assert_called_once_with(extra_env=dict(TEST="fake", T5_RB_NET_FEEL="balanced", T5_NET_LINE="0",
+            T5_RB_COST_FILE=os.path.join(self.a._online_out_dir(), "rb_cost.txt")))
         self.a.online_close()
         with self.assertRaisesRegex(RuntimeError, "@online.cancelled"):
             launch({"TEST": "stale"})
