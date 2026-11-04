@@ -24,6 +24,7 @@ from .t5_online import game_process_running
 from .launch_guard import LaunchGuard
 from .t5_coexist import load_settings, readonly_imports
 from .t5_compatibility import build_compatibility
+from .t5_build_runtime import start_build_with_python
 from ..manifest import art_dir
 from ..game_releases import managed as _managed_install
 
@@ -773,8 +774,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         self.last_result = ""
         self.build = self.core.BuildRun(self.s["pkg"], self.s["rap"], self.s.out_dir, force=force, low_priority=bool(self.s["low_priority"]))
         own_python = os.path.join(self.root, "python", "python.exe")      # the build's tools run on the install's Python
-        self.build.cmd[0] = own_python
-        self.build.start()
+        start_build_with_python(self.build, own_python)
 
     def _pump_build(self):
         if not self.build:

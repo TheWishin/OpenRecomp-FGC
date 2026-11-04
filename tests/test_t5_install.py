@@ -146,10 +146,11 @@ class T5InstallChecks(unittest.TestCase):
                     saved.rename(path)
 
     def test_build_always_uses_validated_install_python(self):
-        self.a.build_start(force=True)
+        with mock.patch.object(t5dr, "start_build_with_python") as start:
+            self.a.build_start(force=True)
         run = self.a.core.BuildRun.return_value
-        self.assertEqual(run.cmd[0], str(self.python))
-        run.start.assert_called_once_with()
+        start.assert_called_once_with(run, str(self.python))
+        run.start.assert_not_called()  # real legacy start is covered at the process boundary
         self.a.core.BuildRun.assert_called_once_with(
             "synthetic-package", "synthetic-license", str(self.root / "output"), force=True,
             low_priority=False)
