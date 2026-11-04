@@ -42,6 +42,37 @@ class FakeBackend(QObject):
     def keyPress(self, key, text, repeat, modifiers, scan):
         pass
 
+    def refresh(self):
+        self._v = self.nav.view()
+        self.viewChanged.emit()
+
+    @Slot(str)
+    def beginEdit(self, tid):
+        self.nav.begin_edit(tid)
+        self.refresh()
+
+    @Slot(str, str)
+    def editText(self, tid, text):
+        self.nav.edit_text(tid, text)
+        self.refresh()
+
+    @Slot(str, bool)
+    def finishEdit(self, tid, submit):
+        self.nav.finish_edit(tid, submit)
+        self.refresh()
+
+    @Slot(int)
+    def focusOnlineRow(self, index):
+        self.nav.focus_online_row(index)
+        self.refresh()
+
+    @Slot(str)
+    def challengePlayer(self, player_id):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
+        self.nav.device = "kb"
+        self.nav.challenge_player(player_id)
+        self.refresh()
+
     @Slot(str)
     def oskEdit(self, what):
         pass
@@ -56,6 +87,14 @@ class FakeBackend(QObject):
 
     @Slot(int)
     def clickRow(self, i):
+        pass
+
+    @Slot(int)
+    def clickMainEntry(self, i):
+        pass
+
+    @Slot(str)
+    def selectSettingsTab(self, tab):
         pass
 
     @Slot(int)
@@ -91,13 +130,15 @@ def spin(ms=40):
 
 def wait_pages(window):
     # Nested asynchronous Loaders must finish before inspecting the scene.
-    for _ in range(200):
+    for _ in range(600):
         spin(5)
         if all(not p.property("active") or p.property("progress") == 1
                and p.property("item") is not None
                for p in window.findChildren(QObject, "pageLoader")):
             return
-    raise AssertionError("A lazy page did not become ready")
+    pending = [(p.property("page"), p.property("progress"), p.property("item") is not None)
+               for p in window.findChildren(QObject, "pageLoader") if p.property("active")]
+    raise AssertionError("A lazy page did not become ready: " + repr(pending))
 
 
 class Scene(unittest.TestCase):

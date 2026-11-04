@@ -140,12 +140,78 @@ class Subject(Online, Adapter):
 
 
 class OnlineAdapterTests(unittest.TestCase):
+    def test_t4_reveal_combines_public_details_with_remembered_player_side(self):
+        from test_t4_online import Subject as T4Subject
+
+        adapter = T4Subject(self.directory.name)
+        self.addCleanup(adapter.online_close)
+        adapter._online_init()
+        adapter._online_phase = "matched"
+        adapter._online_match_id = "public-match"
+        adapter._online_match = dict(my_ready=True, peer_ready=False, rounds=2)
+        adapter._t4_you = dict(name="Remembered player", rank="3rd Dan", tier=12)
+        adapter._online_event(dict(t="match_reveal", match="public-match", slot=1,
+            opponent=dict(id="peer", name="Rival", rank="4th Dan", tier=13, token="private-token"),
+            seconds=25, first_to=3))
+        value = adapter._online_match
+        self.assertEqual(value["opponent_info"]["rank"], "4th Dan")
+        self.assertEqual((value["seconds"], value["first_to"], value["rounds"]), (25, 3, 2))
+        self.assertEqual(value["sides"][1]["name"], "Remembered player")
+        self.assertEqual((value["slot"], adapter._t4_slot), (1, 1))
+        self.assertTrue(value["my_ready"])
+        self.assertNotIn("private-token", str(value))
+
+    def test_challenge_completion_preserves_rounds_and_server_expiry(self):
+        from openrecomp.adapters import t5_challenges
+
+        self.a._online_init()
+        self.a._online_phase = "logged_in"
+        with mock.patch.object(t5_challenges.time, "monotonic", return_value=100):
+            t5_challenges.completion(self.a, t5_challenges.PREFIX + "send",
+                dict(reply=dict(challenge="offer", seconds=30), player="peer", name="Rival", first_to=3, rounds=2), None)
+        with mock.patch.object(t5_challenges.time, "monotonic", return_value=110):
+            value = t5_challenges.state(self.a)["open_challenges"][0]
+        self.assertEqual((value["rounds"], value["first_to"], value["seconds"]), (2, 3, 20))
+        self.assertNotIn("_expires", value)
+
+    def test_opponent_ready_updates_both_match_views(self):
+        from openrecomp.adapters.t5_match import T5Match
+
+        self.a._online_init()
+        self.a._online_match_id = "public-match"
+        self.a._online_match = {}
+        T5Match._online_event(self.a, dict(t="opponent_ready", match="public-match"))
+        self.assertIs(self.a._online_match["peer_ready"], True)
+        self.assertIs(self.a._online_match["opponent_ready"], True)
+
     def test_shared_snapshot_exposes_in_flight_request_for_invitation_dialog(self):
         self.a.online_state()
         self.a._online_busy = True
         self.assertIs(self.a.online_state()["busy"], True)
         self.a._online_busy = False
         self.assertIs(self.a.online_state()["busy"], False)
+
+    def test_match_presentation_keeps_only_supplied_bounded_public_fields(self):
+        self.a._online_init()
+        event = dict(match="public-match-1", opponent=dict(id="peer-1", name="Rival", rank="3rd Dan", rating=1610,
+            tier=12, main="fighter-a", region="eu", country="DE", token="private-token", address="private-address"),
+            delay=dict(auto=True, frames=2, secret="private-delay"), first_to=3, rounds=2, seconds=30,
+            ranked=True, opponent_ready=False, ticket="private-ticket", key="private-key")
+        value = self.a._online_match_view(event)
+        self.assertEqual(value["id"], "public-match-1")
+        self.assertEqual(value["opponent_info"], dict(id="peer-1", name="Rival", rank="3rd Dan", rating=1610,
+            tier=12, main="fighter-a", region="eu", country="DE"))
+        self.assertEqual(value["delay"], dict(auto=True, frames=2))
+        self.assertEqual((value["first_to"], value["rounds"], value["seconds"]), (3, 2, 30))
+        self.assertNotIn("private-", str(value))
+        minimal = self.a._online_match_view(dict(match="public-match-2", opponent=dict(name="Rival")))
+        for key in ("delay", "rounds", "first_to", "seconds", "ranked", "opponent_ready"):
+            self.assertNotIn(key, minimal)
+        invalid = self.a._online_match_view(dict(match={"token": "private"}, opponent=dict(name={"token": "private"},
+            rating=float("nan"), tier=True), delay=dict(frames=True), first_to=11, rounds=0, seconds=float("inf")))
+        for key in ("id", "opponent_info", "delay", "first_to", "rounds", "seconds"):
+            self.assertNotIn(key, invalid)
+        self.assertEqual(invalid["opponent"], "")
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(dir=os.getcwd())

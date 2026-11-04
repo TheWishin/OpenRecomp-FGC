@@ -1,9 +1,31 @@
 """Login and search screens through the optional common adapter interface."""
-from . import i18n, ui_sound
+from . import i18n, nav_feedback, ui_sound
 from .nav_keyboard import ONLINE_PASSWORDS
 
 
 class Online:
+    def challenge_player(self, player_id):
+        """Double-click and pad confirmation share one guarded semantic challenge."""
+        if self.screen != "hub" or self.overlay or self.section() != "online":
+            return
+        state = self.game.a.online_state()
+        if state.get("phase") != "logged_in" or state.get("busy"):
+            return
+        player = next((p for p in state.get("players") or [] if str(p.get("id")) == str(player_id)), None)
+        own = str((state.get("me") or {}).get("id") or "self")
+        if not player or str(player_id) == own or player.get("status") not in (None, "idle", "online", "available"):
+            return
+        if (state.get("capabilities") or {}).get("challenges") is False or player.get("challenge") is False:
+            return
+        iid = "challenge:" + str(player_id)
+        if nav_feedback.records(self, self.game.id).get(iid, {}).get("kind") in ("pending", "waiting"):
+            return
+        items = self.items()
+        item = next((it for it in items if it.get("id") == iid), None)
+        if item and not item.get("disabled"):
+            self.focus[self.key()] = items.index(item)
+            self.sounded("confirm", self._activate, item)
+
     @staticmethod
     def _direct_online(g):
         """Direct connection is an explicit adapter mode opened from Advanced settings."""
@@ -90,14 +112,63 @@ class Online:
     def _online_action(self, g, action):
         if self._dry("@online.status"):
             return True
+        try:
+            state = g.a.online_state()
+        except Exception:  # noqa: BLE001 -- snapshot failures use the same safe receipt as action failures
+            self.say("@online.failure", 3)
+            return False
+        switching_chat = action == "private_close" or action.startswith("private_open:")
+        if switching_chat:
+            editing = getattr(self, "native_edit", "")
+            if editing in ("online_chat", "online_private_chat", "online_private_report_reason"):
+                self.finish_edit(editing, False)
+            selected = str((state.get("private_chat") or {}).get("selected") or "")
+            self.__dict__.setdefault("private_drafts", {}).setdefault(g.id, {})[selected] = g.a.text_value("online_private_chat")
+            if action.startswith("private_open:"):
+                self.__dict__.setdefault("closed_chat_tabs", {}).setdefault(g.id, {}).pop(action.partition(":")[2], None)
+        receipt = nav_feedback.records(self, g.id).get(action, {})
+        if action.startswith("challenge:") and receipt.get("kind") == "waiting" and any(offer.get("id") == receipt.get("challenge")
+                                                     for offer in state.get("open_challenges") or []):
+            action = "cancel_challenge:" + receipt["challenge"]
+        tracked = nav_feedback.begin(self, g, action, state)
+        if tracked is None:
+            return True
         success = True
         try:
             g.a.online_action(action)
+            if switching_chat:
+                selected = str((g.a.online_state().get("private_chat") or {}).get("selected") or "")
+                if action.startswith("private_open:"):
+                    self.__dict__.setdefault("closed_chat_tabs", {}).setdefault(g.id, {}).pop(selected, None)
+                g.a.set_text_value("online_private_chat", self.__dict__.get("private_drafts", {}).get(g.id, {}).get(selected, ""))
+            nav_feedback.observe(self, g, g.a.online_state())
         except Exception:  # noqa: BLE001 -- no raw server details or credentials in an error toast
             self.say("@online.failure", 12)
+            nav_feedback.fail(self, g, action)
             success = False
-        self.focus[g.id + ":online"] = 0
+        if not tracked:
+            self.focus[g.id + ":online"] = 0
         return success
+
+    def tick_online_feedback(self, dt):
+        return nav_feedback.tick(self, dt)
+
+    def online_profile_shortcut(self):
+        if self.screen != "hub" or self.section() != "online" or self.overlay:
+            return False
+        if getattr(self, "main_menu_game", "") == self.game.id:
+            return False
+        items = self.items()
+        item = items[self.focus_index(items)] if items else {}
+        group = item.get("group")
+        if not group or item.get("region") != "lobby":
+            return False
+        profile = next((it for it in items if it.get("group") == group
+                        and (it.get("id") or "").startswith("profile_player:")), None)
+        if profile and profile.get("run"):
+            self._guard(self._activate, profile)
+            return True
+        return False
 
     OTHER_TEXTS = {("native", "t5dr"): "@other_launcher.native_t5dr", ("native", "t4"): "@other_launcher.native_t4",
                    "online": "@other_launcher.online", "window": "@other_launcher.window"}
@@ -225,7 +296,7 @@ class Online:
                     value = "•" * len(value)
                 out.append(dict(kind="action", id=tid, label=label, value=i18n.literal(value), verb="@change", hint=message,
                                 detail=dict(kicker="@section.online", title=label, lead=message, leadLines=6, rows=[]),
-                                run=lambda tid=tid: self._open_osk(tid)))
+                                run=lambda tid=tid: self._edit_field(tid)))
             if state.get("saved_available") and state.get("saved_shared"):
                 out.append(action("login_saved", "@t4.saved_shared", "@t4.saved_shared_hint"))
             elif state.get("saved_available"):
@@ -293,8 +364,19 @@ class Online:
             out.append(action("leave_set", "@online.leave_set", "@online.leave_ranked_set" if set_state.get("rated") else "@online.leave_set"))
         if g.a.native_label:
             out.append(self._native_item(g))
+        if phase == "logged_in":
+            delay = next((setting for setting in g.a.settings() if setting.get("id") == "input_delay"), None)
+            if delay and delay.get("options"):
+                control = self._cycler_item(g, delay)
+                control["id"] = "online_input_delay"
+                out.append(control)
+            elif capabilities.get("lobby"):
+                out.append(dict(kind="action", id="online_input_delay", label="@input_delay", value="@official_ui.unavailable",
+                    disabled=True, hint="@official_ui.unavailable", detail=dict(title="@input_delay", lead="@official_ui.unavailable", rows=[])))
         out = self._online_layout_items(g, state, out)
         out = self._login_items(g, state, out)
+        from .nav_lobby_chat import ensure_rows
+        out = ensure_rows(self, g, state, out)
         out = self._remember_online_rows(g, out, state)
         if out and out[0].get("region") == "login":
             self._login_start_focus(g, out)
@@ -314,6 +396,10 @@ class Online:
 
     def _remember_online_rows(self, g, out, state=None):
         state = state or {}
+        editing = getattr(self, "native_edit", "")
+        if editing.startswith("online_") and not any(item.get("id") == editing or item.get("opens") == "text:" + editing
+                                                     for item in out):
+            self.finish_edit(editing, False)
         # A reply can replace Cancel with Search, or reorder lobby targets between
         # input events. Never let the old row index authorize the replacement.
         challenge_id = (state.get("challenge") or {}).get("id")
@@ -343,12 +429,28 @@ class Online:
                                ("decline_challenge", "@online.decline_challenge")):
                 item = action(iid, label)
                 item["detail"]["rows"] = details
+                pending = any(row.get("incoming") == str(challenge.get("id") or "")
+                              and row.get("kind") in ("pending", "waiting")
+                              for row in nav_feedback.records(self, g.id).values())
+                if pending or state.get("busy") or not challenge.get("id"):
+                    item.update(disabled=True, run=None, verb="")
                 out.append(item)
         out.append(dict(kind="heading", label="@online.players"))
         out.append(action("refresh_players", "@online.refresh_players"))
         for player in state.get("players") or []:
             item = action("challenge:" + str(player["id"]), i18n.literal(player["name"]), "@online.challenge_hint")
             item["verb"] = "@online.challenge"
+            own = str((state.get("me") or {}).get("id") or "self")
+            if (str(player.get("id")) == own or player.get("status") not in (None, "idle", "online", "available")
+                    or capabilities.get("challenges") is False or player.get("challenge") is False
+                    or state.get("phase") != "logged_in" or state.get("busy")):
+                item.update(disabled=True, run=None, verb="", hint="@online_ui.status.playing")
+            receipt = nav_feedback.records(self, g.id).get(item["id"], {})
+            if receipt.get("kind") in ("pending", "waiting"):
+                can_cancel = receipt.get("kind") == "waiting" and any(
+                    offer.get("id") == receipt.get("challenge") for offer in state.get("open_challenges") or [])
+                item.update(verb="@cancel" if can_cancel else "", disabled=not can_cancel,
+                            hint=nav_feedback.view(self, g.id, item["id"])["text"])
             item["value"] = i18n.literal(player.get("rank") or "")
             item["detail"]["rows"] = [dict(k="@online.name", v=i18n.literal(player["name"]))]
             if player.get("rank"):
@@ -397,7 +499,9 @@ class Online:
 
     def _online_chat_items(self, g, state, out, action):
         out.append(dict(kind="heading", label="@online.chat"))
-        for index, message in enumerate(state.get("chat") or []):
+        from .nav_lobby_chat import identities
+        messages = state.get("chat") or []
+        for index, message in zip(identities(self, g, messages), messages):
             name = i18n.literal(message["name"]) if message.get("name") else "@online.chat"
             text = i18n.literal(message.get("text") or "")
             out.append(dict(kind="action", id="chat:" + str(index), label=name,
@@ -408,7 +512,7 @@ class Online:
         out.append(dict(kind="action", id="online_chat", label="@online.chat", value=i18n.literal(g.a.text_value("online_chat")),
                         verb="@change", hint="@online.chat_hint",
                         detail=dict(kicker="@online.chat", title="@online.chat", lead="@online.chat_hint", rows=[]),
-                        run=lambda: self._open_osk("online_chat")))
+                        run=lambda: self._edit_field("online_chat")))
         out.append(action("send_chat", "@online.send_chat", "@online.chat_hint"))
 
     def _online_text_item(self, g, tid, label, hint):
@@ -418,9 +522,11 @@ class Online:
         return dict(kind="action", id=tid, label=label, value=i18n.literal(value),
                     verb="@change", hint=hint,
                     detail=dict(kicker="@section.online", title=label, lead=hint, rows=[]),
-                    run=lambda: self._open_osk(tid))
+                    run=lambda: self._edit_field(tid))
 
     def _online_friend_items(self, g, state, out, action):
+        from .nav_profiles import player_art
+
         out.append(dict(kind="heading", label="@online.friends"))
         out.append(action("refresh_friends", "@online.refresh_friends", "@online.friends_hint"))
         out.append(self._online_text_item(g, "online_friend_name", "@online.friend_name", "@online.friends_hint"))
@@ -429,6 +535,7 @@ class Online:
         def friend_action(prefix, label, person):
             name = str(person.get("name") or "")
             item = action(prefix + ":" + name, label, "@online.friends_hint")
+            item.update(player_art(g, person))
             item["value"] = i18n.literal(name)
             item["detail"]["rows"] = [dict(k="@online.name", v=i18n.literal(name))]
             if person.get("status"):
@@ -474,16 +581,17 @@ class Online:
                 if g.a.online_poll():
                     changed = True
                     state = g.a.online_state()
+                    nav_feedback.observe(self, g, state)
                     phase = state.get("phase")
                     seen = self.__dict__.setdefault("_online_seen_phase", {})
                     if phase in ("matched", "result", "result_sent", "kicked", "error"):
-                        # Connection notices keep arriving while a match waits for Start: only a new
-                        # phase moves the focus, or a pad press can land on the status row instead.
+                        # Notifications do not disturb a page's semantic focus. The offer layer owns
+                        # its sound/attention; rebuilding online rows repairs removed destinations.
                         if seen.get(g.id) != phase:
-                            self.focus[g.id + ":online"] = 0
-                            if phase == "matched":
-                                self.note_sound(ui_sound.NOTIFY)      # one per match found (the phase repeats)
-                        self.say(state.get("message") or "@online.status", 12)
+                            if (phase == "matched" and not (state.get("capabilities") or {}).get("match_flow")
+                                    and not any(game.a.running() for game in self.games)):
+                                self.note_sound(ui_sound.NOTIFY)
+                            self.say(state.get("message") or "@online.status", 12)
                     seen[g.id] = phase
             except Exception:  # noqa: BLE001 -- keep the timer alive without exposing login details
                 self.say("@online.failure", 12)

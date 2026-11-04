@@ -175,7 +175,7 @@ class Tools:
             for tid, label, value in (("support_note", "@support.send.note", note),
                                       ("support_contact", "@support.send.contact", contact)):
                 out.append(dict(kind="action", id=tid, label=label, value=value, verb="" if busy else "@support.send.edit",
-                                disabled=busy, run=None if busy else (lambda tid=tid: self._open_osk(tid)),
+                                disabled=busy, run=None if busy else (lambda tid=tid: self._edit_field(tid)),
                                 hint="@support.send.field_hint",
                                 detail=dict(kicker="@section.support", title=label, lead="@support.send.field_hint",
                                             rows=[dict(k=label, v=value or "-")])))

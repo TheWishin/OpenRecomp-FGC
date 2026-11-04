@@ -60,7 +60,7 @@ def untranslated_literals(source):
                 ignore(node.elts[0])
         elif (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)
               and isinstance(node.left, ast.Constant)
-              and node.left.value in ("@t4.tools.", "@t4.network.", "@netext.")):
+              and node.left.value in ("@t4.tools.", "@t4.network.", "@netext.", "@arcade.")):
             ignore(node.left)  # fixed catalog families; complete keys remain checked below
         elif isinstance(node, ast.Compare):
             for child in (node.left, *node.comparators):
@@ -110,8 +110,9 @@ def untranslated_literals(source):
                 if kw.arg in ("label", "hint", "lead", "title", "verb", "kicker", "k", "v", "value", "note", "primary", "status", "version", "players", "last", "result", "empty", "bar"):
                     # Friend snapshots carry a protocol enum; Nav translates that enum.
                     friend_record = (name == "dict" and kw.arg == "status"
-                                     and {item.arg for item in node.keywords}
-                                     == {"name", "status", "activity", "invite", "retry"})
+                                     and {item.arg for item in node.keywords} in
+                                     ({"name", "status", "activity", "invite", "retry"},
+                                      {"name", "status", "activity", "invite", "retry", "main"}))
                     # Source checks return a reload instruction alongside localized errors.
                     source_record = (name == "dict" and kw.arg == "result"
                                      and {item.arg for item in node.keywords}
@@ -123,6 +124,14 @@ def untranslated_literals(source):
 
     # These are filenames, environment variables, technical units, and protocol identifiers.
     technical = {
+        "character", "face", "playerPortrait",  # table-cell metadata keys, never display labels
+        # Shell offer identities and actions; none are presented as copy.
+        "offers", "returnActivity", "match:", "invite:", "/match:", "/cancel", "online_input_delay", "netext_online_feel", "region", "country",
+        r"[A-Za-z0-9_-]{1,48}",
+        "sort_reverse", "arcade_sort:", "arcade_create_room", "arcade_join_code", ":main_chat",
+        "room_create_open", "room_join_code_open", "community_option:size", "community_option:rotation",
+        "community_option:access", "community_option:hidden", "community_option:first_to",
+        "room_watch:", "room_create", "room:",
         "netext_options", "online_feel", "net_line", "netext_forget_confirm", "netext_forget_preview",
         "netext_forget_cancel", "max_ping", "no_wifi", "steady", "responsive", "balanced", "smooth",
         "netext_set:", "netext_", "mm_filters", "forget_me", "feature_", "quick_match", "ranked_match",
@@ -146,7 +155,7 @@ def untranslated_literals(source):
         # the Pad bindings page's row kinds, adapter methods and controls.ini option names (nav_controls_page)
         ":controls", "setting", "slot", "menu", "bindings", "generic", "socd", "stick", "clear_binding", "reset_controls",
         "apply_preset", "set_control_player", "set_control_option", "test", "keyboard", "bindcapture", "attack", "macro", "custom", "game_key",
-        "idle", "waiting", "ready", "conflict", "multi", "timeout", "disconnected", "done", "ok",
+        "idle", "waiting", "ready", "conflict", "multi", "timeout", "disconnected", "done", "ok", "success",
         "check", "report", "problem", "play", "controls", "support", "error", "saved", "none", "sent", "support_note", "support_contact",
         "online_", "online_name", "online_password", "online_server", ":online",
         "offline", "connecting", "logged_in", "searching", "cancelling", "matched", "kicked", "match_found",
@@ -193,7 +202,8 @@ def untranslated_literals(source):
         "ui", "assets", "t4_rank_%02d.svg", "sides",
         # the settings page's group ids and its own rows (nav_settings_page)
         "display", "controls", "online", "audio", "offline", "replays", "updates", "advanced", "pad_bindings",
-        "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",
+        "settings", "quick", "video", "help", "tier",  # menu routes, tab identifiers and rank data
+        "text_size", "high_contrast", "reduced_motion", "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",
         "check_all", "settingsGroup", "groups", "tier_for", "threshold", "field", "login_show_password",
         "login_remember", "login_forgot", "login_back", "login_saved", "login_account", "login_register", "login_guest",
         "online_status", "online_name", "online_password", "online_server", "mode_direct", "native", "auto_login", "recover",
@@ -323,7 +333,7 @@ def untranslated_literals(source):
         "private_rooms_ok", "profile", "profile_", "profile_board:", "profile_char:", "profile_history:",
         "profile_history_next", "profile_history_offset", "profile_history_previous",
         "profile_history_replay:", "profile_load", "profile_player:", "profile_ranked_char:", "profile_self",
-        "profile_stats:", "profile_stats:all", "profile_summary", "profiles", "prompts", "provisional",
+        "profile_stats:", "profile_stats:all", "profile_summary", "profile_playtime", "profiles", "prompts", "provisional",
         "queue", "quit", "qwertyuiop", "rank", "ranked_chars", "ranked_games", "ranked_losses", "ranked_wins",
         "rap", "rated", "rating", "rd", "ready_check", "ready_timeout", "reason", "rebuild", "reconnecting",
         "record", "recover_account", "recovery_codes_left", "refresh", "relay", "relay_full", "rematch_offer",
@@ -372,6 +382,16 @@ def untranslated_literals(source):
     technical.update({
         ".exe", ".png", ".jpg", ".jpeg", ".webp", "preview", "library_repository", "library_folder", "library_source", "library_manage",
         "library_loading", "library_preview", "library_remove", "library_update",
+    })
+    technical.update({
+        # Arcade presentation routes, remembered context, catalog suffixes and glyph-map keys.
+        "recommended", "inf", "pane_back", "latest", "ranked_options", "newest", "opener",
+        "%d.%m.%Y, %H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d",
+        "arcade_options", "arcade_more", "arcade_help", "arcade_", "arcade_watch:",
+        "arcade_room:join_room:", "arcade_room:room_watch:", "arcade_chapter:",
+        "help_context", "cabinets", "quick_note", "ranked_note", "in_room", "empty",
+        "empty_note", "actions", "options_note", "no_matches", "a", "b", "y",
+        "optionsOpen", "moreOpen", "helpOpen",
     })
     technical.update({
         "T4", "tools/build_game.ps1", "tools/iso_extract.py", "tools/net_preflight.ps1", "config", "patches",
@@ -475,7 +495,11 @@ class Catalogs(unittest.TestCase):
     def test_catalogs_keep_controls_t4_and_room_flow_keys_without_duplicates(self):
         required = {"controls.preset.hitbox", "controls.conflict.swap", "t4.side_you_rank",
                     "t4.result_char_lock", "online.room_player_ready", "online.room_apply_lock",
-                    "online.could_not_start_ready", "online.search_separate_guest"}
+                    "online.could_not_start_ready", "online.search_separate_guest",
+                    "ui.loading", "online_hierarchy.create_room", "accessibility.text_size",
+                    "feedback.offers", "official_ui.ranked", "main_menu.controls",
+                    "settings_tabs.controls", "arcade.title", "community_ui.compose",
+                    "playtime.local_only"}
         for code in i18n.LANGUAGES:
             with self.subTest(code=code):
                 pairs = json.loads((ROOT / "openrecomp" / "i18n" / (code + ".json")).read_text(
@@ -642,6 +666,21 @@ class Catalogs(unittest.TestCase):
         for path in paths:
             self.assertEqual(untranslated_literals(path.read_text(encoding="utf-8")), [], path.name)
 
+    def test_global_offer_protocol_tokens_do_not_exempt_display_copy(self):
+        for token in ("offers", "returnActivity", "match:", "invite:", "/match:", "/cancel", "online_input_delay", "netext_online_feel", "region", "country", r"[A-Za-z0-9_-]{1,48}"):
+            self.assertEqual(untranslated_literals(f'token = {token!r}'), [])
+            self.assertTrue(untranslated_literals(f'dict(label={token!r})'))
+            self.assertTrue(untranslated_literals(f'self.say({token!r})'))
+
+    def test_community_protocol_tokens_still_reject_display_literals(self):
+        for value in ("recommended", "inf", "pane_back", "latest", "ranked_options", "newest", "opener",
+                      "%d.%m.%Y, %H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+            self.assertEqual(untranslated_literals(f'token = {value!r}'), [], value)
+            self.assertTrue(untranslated_literals(f'dict(label={value!r})'), value)
+            self.assertTrue(untranslated_literals(f'self.say({value!r})'), value)
+        for value in ("Recommended players", "Latest messages", "Sort your games", "newest_user_message"):
+            self.assertTrue(untranslated_literals(f'token = {value!r}'), value)
+
     def test_python_scan_accepts_setting_ids_and_protocol_defaults(self):
         source = ('def quick_settings(self):\n'
                   '    return ["resolution", "fullscreen", "display", "internal_res"]\n'
@@ -684,6 +723,27 @@ class Catalogs(unittest.TestCase):
                 self.assertTrue(untranslated_literals(f'dict(label={value!r})'))
                 self.assertTrue(untranslated_literals(f'self.say({value!r})'))
         self.assertTrue(untranslated_literals('token = "library_player_warning"'))
+
+    def test_python_scan_accepts_arcade_routes_but_checks_visible_text(self):
+        values = (
+            "sort_reverse", "arcade_sort:", "arcade_create_room", "arcade_join_code", ":main_chat",
+            "room_create_open", "room_join_code_open", "community_option:size", "community_option:rotation",
+            "community_option:access", "community_option:hidden", "community_option:first_to",
+            "arcade_options", "arcade_more", "arcade_help", "arcade_", "arcade_watch:",
+            "arcade_room:join_room:", "arcade_room:room_watch:", "arcade_chapter:",
+            "help_context", "cabinets", "quick_note", "ranked_note", "in_room", "empty",
+            "empty_note", "actions", "options_note", "no_matches", "a", "b", "y",
+            "optionsOpen", "moreOpen", "helpOpen",
+        )
+        for value in values:
+            with self.subTest(value=value):
+                self.assertEqual(untranslated_literals(f'token = {value!r}'), [])
+                self.assertTrue(untranslated_literals(f'dict(label={value!r})'))
+                self.assertTrue(untranslated_literals(f'self.say({value!r})'))
+        self.assertEqual(untranslated_literals('label = "@arcade." + key'), [])
+        self.assertTrue(untranslated_literals('label = "@arcade.unreviewed"'))
+        self.assertTrue(untranslated_literals('token = "@arcade."'))
+        self.assertTrue(untranslated_literals('token = "arcade_player_warning"'))
 
     def test_python_scan_accepts_netext_protocol_but_checks_visible_text(self):
         for value in ("netext_options", "online_feel", "net_line", "max_ping", "no_wifi", "steady",

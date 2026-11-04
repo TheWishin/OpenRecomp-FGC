@@ -101,7 +101,7 @@ def rows(nav, g, state, action):
     prefs = data.get("preferences") or {}
     out.append(dict(kind="heading", label="@online.community"))
     choices = [
-        ("size", "@online.community_size", [(n, str(n)) for n in range(2, data.get("maximum", 8) + 1)]),
+        ("size", "@online.community_size", [(n, str(n)) for n in range(2, min(8, data.get("maximum", 8)) + 1)]),
         ("rotation", "@online.community_rotation", [("winner", "@online.rotation_winner"), ("queue", "@online.rotation_queue")]),
         ("access", "@online.community_access", [("none", "@online.room_open"), ("password", "@online.create_password_room"),
                                                 ("code", "@online.create_code_room")]),
@@ -111,7 +111,7 @@ def rows(nav, g, state, action):
         choices.append(("mode", "@online.community_mode", [("line", "@online.room_line_mode"), ("tables", "@online.room_tables_mode")]))
     if data.get("first_to"):
         choices.append(("first_to", "@online.community_first_to", [(n, i18n.message("online.challenge_ft", wins=n))
-                                                                for n in (1, 2, 3, 5, 10)]))
+                                                                for n in range(1, 11)]))
     if data.get("training"):
         choices.append(("training", "@online.community_training", [(False, "@off"), (True, "@on")]))
     if data.get("rematch_rules") and prefs.get("size") == 2 and prefs.get("mode") != "tables" and not prefs.get("training"):

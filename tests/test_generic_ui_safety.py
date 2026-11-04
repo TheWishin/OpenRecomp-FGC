@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class AuthorTextSafety(unittest.TestCase):
     def test_author_facing_text_items_explicitly_use_plain_text(self):
-        for name in ("Shelf.qml", "Hub.qml", "Main.qml", "Overlays.qml", "BuildPage.qml", "BuildAction.qml"):
+        for name in ("Shelf.qml", "Hub.qml", "Main.qml", "Overlays.qml", "BuildPage.qml", "BuildAction.qml", "SessionPage.qml", "PageLoader.qml"):
             source = (ROOT / "openrecomp" / "ui" / name).read_text(encoding="utf-8")
             blocks = re.findall(r"\bText\s*\{(.*?)\}", source, re.S)
             self.assertTrue(blocks, name)

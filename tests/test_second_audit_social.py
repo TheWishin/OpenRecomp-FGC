@@ -211,7 +211,7 @@ class SpectatorSafetyTests(unittest.TestCase):
 class ProfileSafetyTests(unittest.TestCase):
     def test_oversized_server_number_is_ignored_without_crashing_profile(self):
         self.assertEqual(profiles._profile(dict(name="Peer", rating=10 ** 1000)),
-                         dict(name="Peer", history=[]))
+                         dict(name="Peer", history=[], main=""))
 
 
 class ChallengeSafetyTests(unittest.TestCase):

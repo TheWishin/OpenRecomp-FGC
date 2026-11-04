@@ -3,7 +3,6 @@
 Nothing of it is copied: OpenRecomp-FGC imports it from the player's install. Pictures come from that install's cache
 (read from the player's own built game by fighter_art.py) and stay on the PC.
 """
-import collections
 import glob
 import importlib.util
 import json
@@ -27,6 +26,7 @@ from .t5_compatibility import build_compatibility
 from .t5_build_runtime import start_build_with_python
 from ..manifest import art_dir
 from ..game_releases import managed as _managed_install
+from ..player_main import choose_main, local_main
 
 DISPLAY = [("window", "@display.window"), ("window1080", "@display.1080"), ("window1440", "@display.1440"),
            ("maximized", "@display.max"), ("borderless", "@display.borderless")]
@@ -369,6 +369,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             game = self.core.GameRun(self.s.out_dir, self.s)
             self.game = game
             result = game.start(extra_env=extra_env)
+            self._track_playtime(game.running, process=getattr(game, "proc", None), extra_env=extra_env)
             self._game_guard = guard
             guard.watch(game.running)
         except Exception:
@@ -407,7 +408,8 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         return subprocess.Popen(cmd + list(args), cwd=self.root, creationflags=NO_WINDOW)
 
     def open_native(self):
-        self._exe_launcher()
+        process = self._exe_launcher()
+        self._track_native_playtime(process, ("t5dr.exe",))
 
     # ---------------------------------------------------------------- settings
     def _input_delay_options(self):
@@ -624,13 +626,9 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                 os.unlink(tmp)
 
     def main_id(self):
-        """The fighter of most of this PC's replays (the lobby's "main" needs a login)."""
-        counts = collections.Counter()
-        for e in self.replay_entries():
-            gid = e.p1 if e.slot == 0 else e.p2
-            if isinstance(gid, int):
-                counts[gid] += 1
-        return counts.most_common(1)[0][0] if counts else None
+        """This player's server main, falling back to their local match history."""
+        key = choose_main(getattr(self, "_online_me", {})) or local_main(self)
+        return next((row["id"] for row in self._fighter_table() if row.get("key") == key), None)
 
     def main_fighter(self):
         return self.fighter_name_id(self.main_id())

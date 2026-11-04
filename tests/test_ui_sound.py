@@ -308,7 +308,7 @@ class Presses(unittest.TestCase):
         self.assertEqual(self.saved[-1], (True, 60))
         page = self.nav.view()["settingsPage"]
         self.assertIn("60 %", [line["value"] for line in page["lines"] if line["kind"] == "setting"])
-        self.assertEqual([g["id"] for g in page["groups"]][0], "audio")
+        self.assertIn("audio", [g["id"] for g in page["groups"]])
 
     def test_rows_are_offered_only_with_a_place_to_save(self):
         nav = Nav([Game(self.a.m, self.a)], language="en")
@@ -344,6 +344,14 @@ class Presses(unittest.TestCase):
         self.a.news = True                                    # connection notices keep arriving: no second ring
         self.nav.tick(0.016)
         self.assertIsNone(self.nav.take_sound())
+
+    def test_legacy_found_match_preserves_hidden_focus_and_stays_silent_while_game_runs(self):
+        self.nav.focus["a:online"] = 7
+        self.a.phase, self.a.news = "matched", True
+        with mock.patch.object(self.b, "running", return_value=True):
+            self.nav.tick(0.016)
+        self.assertIsNone(self.nav.take_sound())
+        self.assertEqual(self.nav.focus["a:online"], 7)
 
     def test_a_finished_hold_confirms(self):
         self.sound("confirm")

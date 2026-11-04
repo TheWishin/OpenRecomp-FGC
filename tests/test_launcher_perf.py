@@ -192,7 +192,7 @@ class LauncherPerf(unittest.TestCase):
             settle()
 
         settle()
-        self.assertEqual(len(window.findChildren(QObject, "pageLoader")), 3)
+        self.assertEqual(len(window.findChildren(QObject, "pageLoader")), 4)
         press("confirm")
         visited = set()
         for _ in nav.sections():

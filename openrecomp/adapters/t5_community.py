@@ -4,7 +4,7 @@
 PREFIX = "feature_community:"
 OPTIONS = dict(size=tuple(range(2, 17)), rotation=("winner", "queue"), mode=("line", "tables"),
                access=("none", "password", "code"), hidden=(False, True), training=(False, True),
-               first_to=(1, 2, 3, 5, 10), rematch_policy=("both_confirm", "auto_unless_declined"),
+               first_to=tuple(range(1, 11)), rematch_policy=("both_confirm", "auto_unless_declined"),
                auto_skip_after_round=(False, True))
 
 

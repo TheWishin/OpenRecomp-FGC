@@ -257,6 +257,7 @@ class Replays(Base):
     def test_results_hidden_until_asked(self):
         self.press("confirm", "next", "next", "next")
         self.assertEqual(self.nav.section(), "replays")
+        self.press("down", "down")  # past the local sort and opponent filter
         rows = {r["k"]: r["v"] for r in self.nav.view()["detail"]["rows"]}
         self.assertEqual(rows["Result"], "Hidden")
         self.press("x")
@@ -273,7 +274,7 @@ class Replays(Base):
             self.press("down")
 
     def test_confirm_plays_the_focused_one(self):
-        self.press("confirm", "next", "next", "next", "down", "confirm")
+        self.press("confirm", "next", "next", "next", "down", "down", "down", "confirm")
         self.assertEqual(self.a.calls, [("replay", "1")])
 
 

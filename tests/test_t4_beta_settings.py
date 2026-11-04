@@ -5,6 +5,7 @@ from unittest import mock
 
 from openrecomp.adapters.t4 import BETA_DISABLED_SWITCHES, BETA_HARNESS_SWITCHES, T4
 from openrecomp.nav import Game, Nav
+from pad_step import pad_step
 
 
 MANIFEST = dict(id="t4", short="T4", title="T4", numeral="4", accent="#ffffff",
@@ -106,9 +107,12 @@ class BetaSettings(unittest.TestCase):
     def test_diagnostics_setting_is_reachable_and_toggleable_with_pad(self):
         nav = Nav([Game(MANIFEST, self.adapter)])
         nav.act("confirm", "xbox")
-        rows = self.adapter.settings()
-        for _ in range(next(i for i, row in enumerate(rows) if row["id"] == "net_diagnostics")):
-            nav.act("down", "xbox")
+        target = next(i for i, row in enumerate(nav.items()) if row.get("id") == "net_diagnostics")
+        for _ in range(len(nav.items())):
+            if nav.focus_index(nav.items()) == target:
+                break
+            pad_step(nav, target)
+        self.assertEqual(nav.focus_index(nav.items()), target)
         nav.act("right", "xbox")
         self.assertIs(self.row()["value"], True)
         nav.act("left", "xbox")

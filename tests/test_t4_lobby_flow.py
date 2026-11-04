@@ -124,6 +124,7 @@ class Launcher(Subject):
         self.lobby = lobby
         super().__init__(directory)
         self.core.STEPS = []
+        self.core.RESOLUTIONS = [("auto", "Auto", 1)]
         self.m.update(manifest("t4", sections=("play", "online", "settings"), adapter="t4"))
         self._online_api.update(game_env=t4game.game_env,
                                 game_result=(t4game.read_game_result, t4game.game_result_report))
@@ -258,6 +259,9 @@ class TwoLauncherFlow(unittest.TestCase):
             self.assertEqual(backend._v["online"]["layout"], "lobby")
             self.assertTrue({"search_casual", "search_ranked", "join_room:room", "online_chat"}
                             <= {r.get("id") for r in nav.items()})
+            delay = next(row for row in nav.items() if row.get("id") == "online_input_delay")
+            self.assertTrue(delay["disabled"])
+            self.assertEqual(delay["value"], "@official_ui.unavailable")
         alice, bob = (launcher[0] for launcher in self.launchers)
         self.assertTrue(alice.online_state()["account"])
         self.assertFalse(bob.online_state()["account"])

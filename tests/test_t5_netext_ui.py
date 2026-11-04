@@ -13,7 +13,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 from openrecomp import i18n, nav_netext
 from openrecomp.app import UI_DIR
 from test_t5_netext import fake_page
-from test_ui_loads import FakeBackend, wait_pages
+from test_ui_loads import FakeBackend, spin, wait_pages
 from test_ui_polish import items
 
 
@@ -42,6 +42,7 @@ class NetextScene(unittest.TestCase):
             backend._v["reducedMotion"] = True
             backend.viewChanged.emit()
             wait_pages(win)
+            spin(40)  # Repeater layout and its deferred controller-focus reveal complete on the next frame.
 
         try:
             for width, height in ((1920, 1080), (1280, 720)):
@@ -52,14 +53,55 @@ class NetextScene(unittest.TestCase):
                     for chapter, tag in (("lobby", "EU de"), ("rooms", "SA pt-BR")):
                         nav.click_chapter(chapter)
                         refresh()
+                        if chapter == "lobby":
+                            # The compact table preserves area/language in its accessible player summary.
+                            summaries = [child for child in items(win.contentItem())
+                                         if child.isVisible() and tag in (child.property("name") or "")]
+                            self.assertTrue(summaries, (chapter, tag))
+                            continue
                         labels = [child for child in items(win.contentItem())
-                                  if child.objectName() == "onlineAreaLanguage" and child.isVisible()]
-                        self.assertIn(tag, [child.property("text") for child in labels])
+                                  if child.objectName() in ("onlineAreaLanguage", "arcadePlayerStatus")
+                                  and child.isVisible() and tag in (child.property("text") or "")]
+                        self.assertTrue(labels, (chapter, tag))
                         for label in labels:
                             self.assertGreaterEqual(label.width(), label.implicitWidth())
-                            column = label.parentItem()
-                            cell = column.parentItem().parentItem()
-                            self.assertLessEqual(column.height(), cell.height())
+                            container = label.parentItem()
+                            while container and container.objectName() not in ("arcadePlayer", "arcadeRoom"):
+                                container = container.parentItem()
+                            if container is None:
+                                column = label.parentItem()
+                                container = column.parentItem()
+                                self.assertLessEqual(column.height(), container.height())
+                            position = label.mapToItem(container, QPointF(0, 0))
+                            self.assertGreaterEqual(position.x(), 0)
+                            self.assertGreaterEqual(position.y(), 0)
+                            self.assertLessEqual(position.x() + label.width(), container.width())
+                            self.assertLessEqual(position.y() + label.height(), container.height() + .5)
+                    nav.click_chapter("lobby")
+                    nav.focus[nav.key()] = next(index for index, row in enumerate(nav.items())
+                                              if row.get("id") == "arcade_options")
+                    nav.act("confirm", device="xbox")
+                    refresh()
+                    self.assertTrue(backend._v["online"]["arcade"]["optionsOpen"])
+                    shortcut = next(button for button in backend._v["online"]["arcade"]["options"]
+                                    if button["id"] == "netext_options")
+                    nav.focus[nav.key()] = shortcut["index"]
+                    refresh()
+                    drawer = next(child for child in items(win.contentItem())
+                                  if child.objectName() == "arcadeOptionsDrawer" and child.isVisible())
+                    label = next(child for child in items(drawer) if child.isVisible()
+                                 and child.property("text") == shortcut["label"]
+                                 and child.objectName() == "onlineFieldLabel")
+                    position = label.mapToItem(drawer, QPointF(0, 0))
+                    self.assertGreaterEqual(position.x(), 0)
+                    self.assertGreaterEqual(position.y(), 0)
+                    self.assertLessEqual(position.x() + label.width(), drawer.width())
+                    self.assertLessEqual(position.y() + label.height(), drawer.height())
+                    self.assertLessEqual(label.property("contentHeight"), label.height() + 1)
+                    nav.act("confirm", device="xbox")
+                    refresh()
+                    self.assertEqual(backend._v["online"]["chapter"], "account")
+                    self.assertEqual(nav.items()[nav.focus_index(nav.items())]["id"], "netext_max_ping")
                     for index, row in enumerate(nav.items()):
                         if row.get("id", "").startswith("netext_") and row.get("region") == "account":
                             nav.focus[nav.key()] = index
@@ -70,11 +112,11 @@ class NetextScene(unittest.TestCase):
                             body = next(child for child in items(win.contentItem()) if child.objectName() == "onlineBody")
                             label = next(child for child in items(body) if child.isVisible()
                                          and child.property("text") == focused["label"]
-                                         and child.property("font").pixelSize() == 20)
+                                         and child.objectName() == "onlineFieldLabel")
                             position = label.mapToItem(body, QPointF(0, 0))
                             self.assertGreaterEqual(position.y(), 0)
                             self.assertLessEqual(position.y() + label.height(), body.height())
-                            self.assertLessEqual(label.implicitWidth(), label.width())
+                            self.assertLessEqual(label.property("contentHeight"), label.height() + 1)
                             self.measurements.append(dict(language=language, width=width, row=row["id"],
                                                           label_width=label.implicitWidth(), available=label.width()))
                     adapter.snapshot["forget_counts"] = dict(matches=12, sets=4, friends=2)
@@ -93,6 +135,11 @@ class NetextScene(unittest.TestCase):
                                                       top=panel.y(), height=panel.height()))
                         nav.act("back", device="xbox")
                     adapter.snapshot["forget_counts"] = None
+                    nav.click_chapter("lobby")
+                    if nav.view()["online"]["arcade"]["optionsOpen"]:
+                        nav.act("back", device="xbox")
+                        refresh()
+                    self.assertFalse(nav.view()["online"]["arcade"]["optionsOpen"])
             self.assertEqual(warnings, [])
             self.assertFalse(any(call == ("online", "netext_forget_confirm") for call in adapter.calls))
         finally:

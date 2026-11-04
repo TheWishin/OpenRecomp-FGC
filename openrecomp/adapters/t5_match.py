@@ -7,7 +7,7 @@ import queue
 import threading
 import time
 
-from .t5_online import Online, SearchRefused
+from .t5_online import Online, SearchRefused, match_identity
 from .t5_coexist import readonly_imports
 from . import t5_features, t5_netext
 from .. import i18n
@@ -186,6 +186,9 @@ class T5Match(Online):
 
     def online_state(self):
         state = super().online_state()
+        mid = match_identity(getattr(self, "_online_match_id", None))
+        if mid:
+            state["match"]["id"] = mid
         state["capabilities"]["rematch"] = bool(getattr(self, "_online_rematch", False))
         info = getattr(self, "_online_set", {})
         state["set"] = dict(info, wins=list(info.get("wins", []))) if info else {}
@@ -441,6 +444,7 @@ class T5Match(Online):
                 self._online_message = "@online.rematch_declined"
         elif kind == "opponent_ready":
             self._online_match["peer_ready"] = True
+            self._online_match["opponent_ready"] = True
             self._online_message = "@online.waiting_peer_ready"
         elif kind.startswith("nat"):
             path = event.get("path")

@@ -15,8 +15,9 @@ import uuid
 
 from .base import NO_WINDOW, add_path
 from .t5_coexist import readonly_imports
-from . import other_launchers, t5_features, t5_netext
+from . import other_launchers, t5_challenges, t5_features, t5_netext
 from .. import i18n
+from ..player_main import choose_main, local_main
 
 
 SERVERS_FORMAT = "t5dr-servers/1"
@@ -31,6 +32,13 @@ def close_client(client):
         client.close()
     except Exception:  # noqa: BLE001 -- an incompatible client must still leave our UI disconnected
         pass
+
+
+def match_identity(value):
+    """An opaque public match identifier, never an event payload or connection credential."""
+    if isinstance(value, str) and 0 < len(value) <= 128 and all(ch.isascii() and (ch.isalnum() or ch in "_.:-") for ch in value):
+        return value
+    return ""
 
 
 def game_process_running(image="t5dr.exe"):
@@ -175,6 +183,7 @@ class Online:
         self._online_chat = []
         self._online_challenge = {}
         self._online_outgoing_challenge = {}
+        self._online_challenge_updates = []
         self._online_room = {}
         self._online_friends = []
         self._online_friend_incoming = []
@@ -454,7 +463,8 @@ class Online:
                     capabilities=capabilities,
                     players=[dict(p) for p in self._online_players], rooms=[dict(r) for r in self._online_rooms],
                     chat=[dict(line) for line in self._online_chat], challenge=dict(self._online_challenge),
-                    outgoing_challenge=dict(self._online_outgoing_challenge),
+                    outgoing_challenge=t5_challenges.offer_snapshot(self._online_outgoing_challenge),
+                    challenge_updates=[dict(row) for row in self._online_challenge_updates],
                     room=dict(self._online_room), friends=[dict(f) for f in self._online_friends],
                     friend_incoming=[dict(f) for f in self._online_friend_incoming],
                     friend_outgoing=[dict(f) for f in self._online_friend_outgoing],
@@ -481,7 +491,11 @@ class Online:
                 snapshot["build_id"] = build[:24]
             if isinstance(getattr(self, "root", None), str) and self.root:
                 snapshot["game_folder"] = self.root[-120:]
-        return t5_features.state(self, snapshot)
+        snapshot = t5_features.state(self, snapshot)
+        me = snapshot.setdefault("me", {})
+        if not me.get("main"):
+            me["main"] = local_main(self)
+        return snapshot
 
     def _online_search_state(self):
         started = getattr(self, "_online_search_started", None)
@@ -681,6 +695,7 @@ class Online:
         name = self.online_text_value("online_name").strip()
         password = self._online_fields["online_password"]
         self._online_fields["online_password"] = ""
+        self._online_challenge_updates = []
         saved = self._online_saved() if action == "login_saved" else None
         if action == "login_saved" and saved is None:
             self._online_message = "@online.saved_missing"
@@ -912,8 +927,10 @@ class Online:
         if (isinstance(placement, (list, tuple)) and len(placement) == 2
                 and all(isinstance(n, int) and not isinstance(n, bool) and 0 <= n < 100 for n in placement)):
             out["placement"] = list(placement)
-        if isinstance(player.get("main"), str) and player["main"]:
-            out["main"] = player["main"][:40]
+        out["main"] = choose_main(player)
+        opponent = player.get("opponent_name") or player.get("opponent")
+        if isinstance(opponent, str):
+            out["opponent"] = opponent[:64]
         ping_to = getattr(self._online_client, "ping_to", None)
         if callable(ping_to):
             try:
@@ -933,6 +950,23 @@ class Online:
                     host=str(owner.get("name") or "")[:64] if isinstance(owner, dict) else "",
                     status=str(room.get("status") or "")[:20])
         out.update(t5_netext.tags(room))
+        from . import arcade_metadata
+        people = room.get("players")
+        if isinstance(people, list):
+            out["players"] = len(people)
+            out["members"] = arcade_metadata.players(people)
+        elif isinstance(people, int) and not isinstance(people, bool) and 0 <= people <= 200:
+            out["players"] = people
+        for key in ("size", "maximum"):
+            if isinstance(room.get(key), int) and not isinstance(room[key], bool) and 0 < room[key] <= 200:
+                out[key] = room[key]
+        if room.get("mode") in ("line", "tables"):
+            out["mode"] = room["mode"]
+        public_match = arcade_metadata.match(room)
+        if public_match.get("players"):
+            out["match_players"] = public_match["players"]
+        if public_match.get("score"):
+            out["score"] = public_match["score"]
         if self._online_social_cap("private_rooms"):
             lock = room.get("lock") or room.get("private") or "none"
             out["lock"] = lock if lock in ("none", "password", "code") else "none"
@@ -959,10 +993,11 @@ class Online:
             retry = self._online_invite_wait(friend["name"], retry)
             self._online_friends.append(dict(name=str(friend["name"])[:64],
                 status=friend.get("status") if friend.get("status") in ("online", "in_match", "offline") else "offline",
-                activity=str(friend.get("activity") or "")[:64], invite=friend.get("invite") == "ok", retry=retry))
+                activity=str(friend.get("activity") or "")[:64], invite=friend.get("invite") == "ok", retry=retry,
+                main=choose_main(friend)))
         for field in ("incoming", "outgoing"):
             entries = event.get(field) or []
-            setattr(self, "_online_friend_" + field, [dict(name=str(entry["name"])[:64])
+            setattr(self, "_online_friend_" + field, [dict(name=str(entry["name"])[:64], main=choose_main(entry))
                 for entry in entries[:200] if isinstance(entry, dict) and entry.get("name")]
                 if isinstance(entries, list) else [])
 
@@ -1265,8 +1300,64 @@ class Online:
     def _online_match_view(self, event):
         opponent = event.get("opponent")
         opponent = opponent if isinstance(opponent, dict) else {}
-        out = dict(opponent=str(opponent.get("name") or "")[:64], ping=None)
+        name = opponent.get("name")
+        out = dict(opponent="".join(ch for ch in name if ch.isprintable())[:64] if isinstance(name, str) else "", ping=None)
         out.update(self._online_ping_view(event, "opponent"))
+        mid = match_identity(event.get("match"))
+        if mid:
+            out["id"] = mid
+        person = {}
+        for key, maximum in (("name", 64), ("rank", 40), ("fighter", 40), ("region", 16), ("country", 2)):
+            value = opponent.get(key)
+            if isinstance(value, str) and value:
+                person[key] = "".join(ch for ch in value if ch.isprintable())[:maximum]
+        main = choose_main(opponent)
+        if main:
+            person["main"] = main
+        pid = match_identity(opponent.get("id"))
+        if pid:
+            person["id"] = pid
+        rating = opponent.get("rating")
+        if type(rating) in (int, float) and 0 <= rating <= 10 ** 7 and math.isfinite(rating):
+            person["rating"] = rating
+        if type(opponent.get("tier")) is int and 0 <= opponent["tier"] < 64:
+            person["tier"] = opponent["tier"]
+        if person:
+            out["opponent_info"] = person
+        fight = event.get("fight") if isinstance(event.get("fight"), dict) else {}
+        chars = event.get("chars", fight.get("chars"))
+        slot = event.get("slot")
+        picks = chars if (isinstance(chars, (list, tuple)) and len(chars) == 2
+                          and type(slot) is int and slot in (0, 1)) else (None, None)
+        slot = slot if type(slot) is int and slot in (0, 1) else 0
+        own = event.get("you") or event.get("self")
+        own = own if isinstance(own, dict) else {}
+        for key, value in (("you_char", event.get("you_char") or own.get("fighter") or own.get("char") or picks[slot]),
+                           ("opp_char", event.get("opp_char") or opponent.get("fighter") or opponent.get("char") or picks[1 - slot])):
+            if (isinstance(value, str) and 0 < len(value) <= 80 and value.isprintable()
+                    and value.casefold() not in ("random", "none")):
+                out[key] = value
+        for key, maximum in (("rounds", 9), ("first_to", 10)):
+            value = event.get(key, fight.get(key))
+            if type(value) is int and 1 <= value <= maximum:
+                out[key] = value
+        seconds = event.get("seconds")
+        if type(seconds) in (int, float) and 0 <= seconds <= 3600 and math.isfinite(seconds):
+            out["seconds"] = seconds
+        delay = event.get("delay", fight.get("delay"))
+        if type(delay) is int and 0 <= delay <= 8:
+            out["delay"] = dict(frames=delay)
+        elif isinstance(delay, dict):
+            public = {}
+            if type(delay.get("frames")) is int and 0 <= delay["frames"] <= 8:
+                public["frames"] = delay["frames"]
+            if type(delay.get("auto")) is bool:
+                public["auto"] = delay["auto"]
+            if public:
+                out["delay"] = public
+        for key in ("ranked", "opponent_ready"):
+            if type(event.get(key)) is bool:
+                out[key] = event[key]
         return out
 
     def _online_completion(self, action, value, error):
@@ -1381,8 +1472,18 @@ class Online:
                                               name=str(sender.get("name") or "")[:64]
                                               if isinstance(sender, dict) else "",
                                               **self._online_ping_view(event))
+                if isinstance(sender, dict):
+                    if sender.get("id"):
+                        self._online_challenge["player"] = str(sender["id"])[:80]
+                    if choose_main(sender):
+                        self._online_challenge["main"] = choose_main(sender)
                 changed = True
             elif self.online_lobby and event.get("t") == "challenge_update":
+                cid, outcome = event.get("challenge"), event.get("state")
+                if isinstance(cid, str) and outcome in ("accepted", "declined", "expired", "cancelled"):
+                    self._online_challenge_updates.append(dict(id=cid[:80], state=outcome))
+                    self._online_challenge_updates = self._online_challenge_updates[-16:]
+                    changed = True
                 if event.get("challenge") == self._online_outgoing_challenge.get("id"):
                     self._online_outgoing_challenge = {}
                     changed = True
@@ -1521,8 +1622,9 @@ class Online:
                 if isinstance(cid, str) and cid and self._online_phase == "logged_in":
                     event = dict(value) if isinstance(value, dict) else {}
                     event["to"] = player
-                    self._online_outgoing_challenge = dict(id=cid[:80], name=player.get("name", ""),
-                                                          **self._online_ping_view(event, "to"))
+                    self._online_outgoing_challenge = dict(id=cid[:80], player=target, name=player.get("name", ""),
+                                                          **self._online_ping_view(event, "to"),
+                                                          **t5_challenges.offer_deadline(value))
                 self._online_message = "@online.challenge_sent"
             elif action in ("accept_challenge", "decline_challenge"):
                 self._online_challenge = {}
@@ -1844,6 +1946,7 @@ class Online:
         self._online_invites = []
         self._online_outgoing_invite = {}
         self._online_fields["online_password"] = ""
+        self._online_challenge_updates = []
         self._online_fields["online_chat"] = ""
         self._online_fields["online_room_password"] = ""
         self._online_fields["online_room_code"] = ""

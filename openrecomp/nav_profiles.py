@@ -1,7 +1,8 @@
 """Controller rows for the installed client's public records and statistics."""
 from datetime import datetime
 
-from . import i18n
+from . import i18n, nav_playtime
+from .nav_common import uri
 
 
 _COUNT_LABELS = (("games", "@online.games"), ("wins", "@online.wins"), ("losses", "@online.losses"),
@@ -52,6 +53,15 @@ def _fighter(g, key):
     return next((fighter.get("name") or key for fighter in g.a.fighters() if fighter.get("key") == key), key)
 
 
+def _fighter_art(g, key):
+    return dict(character=i18n.literal(_fighter(g, key)), face=uri(g.a.fighter_image(key)))
+
+
+def player_art(g, player):
+    main = player.get("main") or ""
+    return dict(playerPortrait=True, face=uri(g.a.fighter_image(main)) if main else "")
+
+
 def _profile_rows(nav, g, state, action):
     profile = state.get("profile") or {}
     title = i18n.literal(profile.get("name") or state.get("name") or "")
@@ -69,6 +79,10 @@ def _profile_rows(nav, g, state, action):
     record = profile.get("record") or []
     details += [dict(k=label, v=str(value)) for value, label in zip(record, ("@online.wins", "@online.losses", "@online.draws"))]
     out = [_detail("profile_summary", title, "@online.profile", details)]
+    out[0].update(player_art(g, profile))
+    if nav is not None and profile.get("self") is True:
+        out.append(_detail("profile_playtime", nav_playtime.profile(nav.games, nav.language), "@playtime.label",
+                           nav_playtime.details(g, nav.language), hint="@playtime.local_only"))
     stats = profile.get("stats") or {}
     if stats:
         total = {key: sum(mode.get(key, 0) for mode in stats.values()) for key in ("games", "wins", "losses", "draws")}
@@ -77,12 +91,16 @@ def _profile_rows(nav, g, state, action):
         if mode in stats:
             out.append(_detail("profile_stats:" + mode, label, "@online.profile", _counts(stats[mode])))
     for row in profile.get("chars") or []:
-        out.append(_detail("profile_char:" + row["char"], i18n.literal(_fighter(g, row["char"])), "@online.profile", _counts(row)))
+        item = _detail("profile_char:" + row["char"], i18n.literal(_fighter(g, row["char"])), "@online.profile", _counts(row))
+        item.update(_fighter_art(g, row["char"]))
+        out.append(item)
     if "ranked_chars" in profile:
         out.append(dict(kind="heading", label="@online.ranked_chars"))
         for row in profile["ranked_chars"]:
-            out.append(_detail("profile_ranked_char:" + row["char"], i18n.literal(_fighter(g, row["char"])),
-                               "@online.ranked_chars", _counts(row)))
+            item = _detail("profile_ranked_char:" + row["char"], i18n.literal(_fighter(g, row["char"])),
+                           "@online.ranked_chars", _counts(row))
+            item.update(_fighter_art(g, row["char"]))
+            out.append(item)
         if not profile["ranked_chars"]:
             out.append(_detail("no_ranked_chars", "@online.no_ranked_chars", "@online.ranked_chars", []))
     out.append(dict(kind="heading", label="@online.history"))
@@ -99,7 +117,7 @@ def _profile_rows(nav, g, state, action):
         for key in ("you_char", "opp_char"):
             if row.get(key):
                 details.append(dict(k="@fighter" if key == "you_char" else "@online.opponent",
-                                    v=i18n.literal(_fighter(g, row[key]))))
+                                    v=i18n.literal(_fighter(g, row[key])), **_fighter_art(g, row[key])))
         score = row.get("score")
         if score:
             details.append(dict(k="@online.score", v=" : ".join(str(n) for n in score)))
@@ -131,6 +149,24 @@ def _profile_rows(nav, g, state, action):
 def _board_rows(nav, g, state, action):
     board = state.get("leaderboard") or {}
     out = [dict(kind="heading", label="@online.leaderboard")]
+    prefs = nav.__dict__.setdefault("board_filters", {}).setdefault(g.id, dict(mode="ranked", fighter=""))
+    podium = nav.__dict__.setdefault("board_podium", {})
+    out.append(dict(kind="action", id="leaderboard_podium", label="@official_ui.podium",
+                    value="@on" if podium.get(g.id, False) else "@off", verb="@open",
+                    run=lambda: podium.__setitem__(g.id, not podium.get(g.id, False))))
+    fighters = sorted({row["main"] for row in board.get("rows") or [] if row.get("main")})
+    specs = (("mode", "@official_ui.mode", [("ranked", "@online.ranked_mode"), ("casual", "@online.casual_mode")]),
+             ("fighter", "@fighter", [("", "@online.all")] + [(key, i18n.literal(_fighter(g, key))) for key in fighters]))
+    for key, label, options in specs:
+        current = prefs.get(key, options[0][0])
+        if current not in [value for value, _ in options]:
+            current = options[0][0]
+            prefs[key] = current
+        out.append(dict(kind="cycler", id="leaderboard_" + key, label=label, options=options, current=current,
+                        value=next(text for value, text in options if value == current),
+                        set=lambda value, key=key: prefs.__setitem__(key, value), verb="@change",
+                        hint="@official_ui.page_filter",
+                        detail=dict(kicker="@online.leaderboard", title=label, lead="@official_ui.page_filter", rows=[])))
     for key, label in (("place", "@online.place"), ("name", "@online.name"), ("rating", "@rating"),
                        ("rank", "@online.rank"), ("main", "@fighter"),
                        ("ranked_wins", "@online.ranked_wins"), ("ranked_losses", "@online.ranked_losses"),
@@ -147,8 +183,10 @@ def _board_rows(nav, g, state, action):
         if key == "main":
             value = _fighter(g, value or "")
         return (0, value) if isinstance(value, (int, float)) else (1, str(value or "").casefold())
-    for row in sorted(board.get("rows") or [], key=sort_key, reverse=bool(board.get("descending"))):
+    visible = [row for row in board.get("rows") or [] if not prefs.get("fighter") or row.get("main") == prefs["fighter"]]
+    for row in sorted(visible, key=sort_key, reverse=bool(board.get("descending"))):
         item = action("profile_board:" + row["name"], i18n.literal(row["name"]))
+        item.update(player_art(g, row))
         item["value"] = str(row.get("place", ""))
         item["detail"]["rows"] = [dict(k=label, v=i18n.literal(row[field])) for field, label in _BOARD_LABELS if field in row]
         if row.get("main"):

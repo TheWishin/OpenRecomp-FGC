@@ -186,6 +186,22 @@ class T4(T4Support, T4Online, Adapter):
         self._art_busy = True
         threading.Thread(target=self._make_art, args=(iso, path), daemon=True).start()
 
+    def fighter_image(self, key):
+        """Optional per-fighter user cache; unknown keys never read outside that cache.
+
+        The verified disc extractor currently identifies only Jin's portrait. Other
+        fighters need a verified entry mapping before extraction can be enabled.
+        """
+        if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,48}", key):
+            return ""
+        path = os.path.join(art_dir("t4"), "fighters", key + ".png")
+        if os.path.isfile(path):
+            return path
+        if key.casefold() == "jin":
+            path = os.path.join(art_dir("t4"), t4_art.FILE_NAME)
+            return path if os.path.isfile(path) else ""
+        return ""
+
     def _make_art(self, iso, path):
         try:
             t4_art.make_hero(iso, path)
@@ -288,6 +304,7 @@ class T4(T4Support, T4Online, Adapter):
                 run.start()
             finally:
                 self.core.game_env = real_env
+            self._track_playtime(lambda: run.proc.poll() is None, process=run.proc, extra_env=extra_env)
             self.run = run
             self.core.take_run_lock("openrecomp")
             lock_acquired = True
@@ -348,7 +365,13 @@ class T4(T4Support, T4Online, Adapter):
             raise RuntimeError("@no_native")
         script = os.path.join(self.root, "launcher", "t4_launcher.pyw")
         python = self.core.find_python()
-        self.core.subprocess.Popen([python, script], cwd=self.root, creationflags=self.core.NO_WINDOW)
+        process = self.core.subprocess.Popen([python, script], cwd=self.root, creationflags=self.core.NO_WINDOW)
+        if getattr(self, "playtime_store", None) is not None:
+            try:
+                exe, _why = self.core.find_runtime(self.s)
+                self._track_native_playtime(process, (os.path.basename(exe),) if exe else ())
+            except (OSError, RuntimeError):
+                pass
 
     # ---------------------------------------------------------------- settings
     def _net_diagnostics(self):

@@ -1136,12 +1136,9 @@ class T4Online(T4Direct, Online):
                 self._online_message = "@online.connection_relay" if path == "relay" else "@online.connection_direct"
             return True
         if kind == "match_reveal":
-            opponent = event.get("opponent") or {}
-            opponent = opponent if isinstance(opponent, dict) else {}
-            self._online_match["opponent"] = str(opponent.get("name") or "")
+            view = self._online_match_view(dict(event, you=getattr(self, "_t4_you", None) or event.get("you")))
+            self._online_match.update(view)
             if event.get("slot") in (0, 1):
-                view = self._online_match_view(dict(event, you=getattr(self, "_t4_you", None) or event.get("you")))
-                self._online_match.update({k: view[k] for k in ("slot", "sides") if k in view})
                 self._t4_slot = event["slot"]
             return True
         if kind == "match_start":

@@ -2,7 +2,7 @@
 import os
 
 from . import manifest as mf
-from . import i18n
+from . import i18n, nav_playtime
 from .nav_common import GAP, SCREEN_W, SECTION_TITLES, SPINE_GAME, SPINE_SLOT, WIDE, badge, uri
 
 
@@ -109,6 +109,10 @@ class Shelf:
             self.start_focus = max(0, self.start_focus - 1)
         elif a == "right":
             self.start_focus = min(len(ids) - 1, self.start_focus + 1)
+        elif a in ("up", "down"):
+            scroll = self.__dict__.setdefault("shelf_scroll", {})
+            tid = ids[self.start_focus]
+            scroll[tid] = max(0, min(1000, scroll.get(tid, 0) + (1 if a == "down" else -1)))
         elif a == "switchGame":
             if self.games:
                 self._select_game(self.games[(self.start_focus + 1) % len(self.games)])
@@ -137,6 +141,8 @@ class Shelf:
                     self._open_source_picker(source, source.get("title") or "@onboarding.choose_folder")
                 else:
                     self.screen = "hub"
+                    if self.has_main_menu(g) and g.a.ready():
+                        self.open_main_menu(g)
             elif a == "x" and self.setup_update_needed(g):
                 self._select_game(g)
                 self.setup_offer_update(g)
@@ -161,12 +167,18 @@ class Shelf:
         for j, tid in enumerate(ids):
             g = self.game_by_id(tid)
             foc = j == focus
-            t = dict(id=tid, focused=foc, w=wide if foc else widths[j], free=g is None)
+            t = dict(id=tid, focused=foc, w=wide if foc else widths[j], free=g is None,
+                     scrollStep=self.__dict__.get("shelf_scroll", {}).get(tid, 0) if foc else 0)
             if g:
                 st = g.a.status()
                 ready = g.a.ready()
                 missing = not g.a.found()
+                update = self.setup_update_needed(g)
+                required = update and self._setup(g.id).get("required")
+                status = "@ui.shelf.update_required" if required else "@ui.shelf.update" if update else "@ready" if ready else "@ui.shelf.build_needed"
                 t.update(badge=badge(g), num=i18n.literal(g.m["numeral"]), name=i18n.literal(g.m["title"]), subtitle=i18n.literal(g.m["subtitle"]) if foc else st["status"], accent=g.accent, hero=uri(g.a.hero()),
+                         ready=ready, status=status, statusKind="update" if update else "ready" if ready else "build", play="@play", playG=self.glyph("play", True),
+                         playtime=nav_playtime.summary(g, self.language),
                          rows=[dict(k="@status", v=st["status"]), dict(k="@version", v=st["version"]), dict(k="@section.online", v=st["players"]), dict(k="@last_played", v=st["last"])],
                          results=self._cells(g.a.recent_results()), empty="@no_sets", sections=["@" + SECTION_TITLES[s] for s in g.m["sections"]],
                          bar="@onboarding.choose_folder" if self._folder_source(g) else ("@open" if ready else "@go_build"))

@@ -72,6 +72,24 @@ class CommunityTests(unittest.TestCase):
         self.assertEqual(self.owner.submitted, [])
         self.client.create_room.assert_not_called()
 
+    def test_every_room_first_to_choice_reaches_the_existing_client(self):
+        self.assertEqual(feature.OPTIONS["first_to"], tuple(range(1, 11)))
+        for wins in range(1, 11):
+            with self.subTest(wins=wins):
+                self.action("community_option:first_to:" + str(wins))
+                self.assertEqual(feature.state(self.owner)["community"]["preferences"]["first_to"], wins)
+                self.action("community_create")
+                self.perform()
+                self.assertEqual(self.client.create_room.call_args.kwargs["first_to"], wins)
+
+    def test_room_capacity_choices_respect_eight_player_ui_and_server_limit(self):
+        from tools.online_shots import scene
+        nav = scene("t5", "rooms_create", "en")
+        for maximum, expected in ((16, range(2, 9)), (6, range(2, 7))):
+            nav.game.a.snapshot["community"]["maximum"] = maximum
+            row = next(item for item in nav.items() if item.get("id") == "community_option:size")
+            self.assertEqual([value for value, _ in row["options"]], list(expected))
+
     def test_configured_private_community_room_uses_installed_client(self):
         for key, value in (("size", "4"), ("mode", "tables"), ("rotation", "queue"),
                            ("first_to", "3"), ("access", "password"), ("hidden", "True")):

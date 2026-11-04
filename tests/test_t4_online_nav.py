@@ -43,6 +43,9 @@ class T4OnlineNavigation(unittest.TestCase):
         actions = ("refresh_players", "challenge:player-2", "accept_challenge", "decline_challenge",
                    "refresh_rooms", "create_room", "join_room:room-1", "leave_room")
         for action in actions:
+            if action == "decline_challenge":
+                # The prior offer is pending after Accept; a new server offer has its own answer controls.
+                self.a.snapshot["challenge"] = dict(id="next-incoming", name="Another challenger")
             self.choose(action)
         self.assertTrue(all(("online", action) in self.a.calls for action in actions))
         self.choose("online_chat")

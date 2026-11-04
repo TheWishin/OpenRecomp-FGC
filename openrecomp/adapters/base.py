@@ -82,6 +82,31 @@ class Adapter:
     def open_native(self):
         raise RuntimeError("@no_native")
 
+    def playtime(self):
+        """Local totals only; never included in the game's online client state."""
+        store = getattr(self, "playtime_store", None)
+        if store is None:
+            return dict(offline_seconds=0.0, online_seconds=0.0, last_played="", sessions=0)
+        return store.snapshot(self.m["id"])
+
+    def _track_playtime(self, running, process=None, extra_env=None):
+        store = getattr(self, "playtime_store", None)
+        if store is not None:
+            from ..playtime import online_environment
+            try:
+                store.watch(self.m["id"], running, process=process,
+                            online=bool(getattr(self, "_playtime_online_launch", False)) or online_environment(extra_env))
+            except (OSError, RuntimeError):
+                pass
+
+    def _track_native_playtime(self, process, images):
+        store = getattr(self, "playtime_store", None)
+        if store is not None:
+            try:
+                store.watch_native(self.m["id"], process, images)
+            except (OSError, RuntimeError):
+                pass
+
     # ---------------------------------------------------------------- settings: dict(id, label, hint, lead, options, value)
     def settings(self):
         return []
@@ -170,8 +195,14 @@ class Adapter:
         Playable clients add capabilities, players, rooms, chat, challenge, room and a text rank.
         Optional social capabilities add friends, friend_incoming, friend_outgoing,
         invites and outgoing_invite. Rematch is offered only while its capability is true.
+        Player main keys describe each player's most-played fighter (games, wins,
+        then latest play); missing usage gives an empty key and silhouette. Only the
+        local player may fall back to local match history. Match you_char/opp_char
+        are explicit known picks, separate from each player's main.
         Installed T5DR clients can add capability-gated tournaments, profile, leaderboard,
         community_stats, spectating, community and challenge_preferences snapshots.
+        Outgoing offers may include server supplied remaining seconds. challenge_updates
+        contains only opaque offer ids and accepted/declined/expired/cancelled outcomes.
         Ranked sets expose set and character_locked; optional account tools expose blocks.
         Negotiated chat tools add moderation (mute rows and server notices) and private_chat
         (session threads, unread counts and explicitly selected report lines). Private-message
@@ -455,6 +486,8 @@ class Generic(Adapter):
             cwd = os.path.expandvars(self.m.get("cwd") or os.path.dirname(self.exe()))
         self.proc = subprocess.Popen([self.exe()] + [str(a) for a in self.m.get("args") or []], cwd=cwd, env=env,
                                      shell=False)
+        proc = self.proc
+        self._track_playtime(lambda: proc.poll() is None, process=proc, extra_env=extra_env)
         return self.proc.pid
 
     def running(self):
@@ -600,7 +633,11 @@ class Generic(Adapter):
 
     def run_online(self, item_id):
         if item_id == "own" and (self.m.get("online") or {}).get("mode") == "own":
-            self.start()
+            self._playtime_online_launch = True
+            try:
+                self.start()
+            finally:
+                self._playtime_online_launch = False
         return ""
 
 

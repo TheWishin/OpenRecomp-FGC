@@ -1,6 +1,9 @@
 """Read-only profile, leaderboard and community views through the installed client."""
 import copy
 import math
+import time
+
+from ..player_main import choose_main, local_main
 
 
 PAGE = 20
@@ -93,6 +96,7 @@ def _profile(source):
             out[key] = [dict(char=row["char"][:80], **_counts(row)) for row in source[key][:100]
                         if isinstance(row, dict) and isinstance(row.get("char"), str)]
     out["history"] = _history(source.get("history"))
+    out["main"] = choose_main(source)
     return out
 
 
@@ -121,9 +125,10 @@ def _board(rows):
     out = []
     for source in rows[:PAGE] if isinstance(rows, list) else ():
         row = _fields(source, texts=("name", "rank", "main"),
-                      numbers=("place", "rating", "wins", "losses", "ranked_wins", "ranked_losses", "casual_wins", "casual_losses"),
+                      numbers=("place", "rating", "tier", "wins", "losses", "ranked_wins", "ranked_losses", "casual_wins", "casual_losses"),
                       flags=("online", "provisional"))
         if row.get("name"):
+            row["main"] = choose_main(source)
             if source.get("badge") == "dev":
                 row["badge"] = "dev"
             out.append(row)
@@ -248,6 +253,8 @@ def completion(owner, operation, value, error):
     if verb == "load":
         target, source = value
         owner._t5_profile = _profile(source)
+        if owner._t5_profile.get("self") is True and not owner._t5_profile.get("main"):
+            owner._t5_profile["main"] = local_main(owner)
         owner._t5_profile_target = target
         owner._t5_profile_offset = 0
         _link_replays(owner)
@@ -259,7 +266,7 @@ def completion(owner, operation, value, error):
     elif verb == "board":
         offset, source = value
         owner._t5_board.update(rows=_board(source), offset=offset,
-                               has_next=isinstance(source, list) and len(source) >= PAGE)
+                               has_next=isinstance(source, list) and len(source) >= PAGE, updated=time.time())
     elif verb == "stats":
         owner._t5_stats.update(_stats(value))
     owner._online_message = "@online.profile_updated"

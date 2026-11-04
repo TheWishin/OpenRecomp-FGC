@@ -23,12 +23,13 @@ AREAS = {
     "picker": ("_open_picker", "_picker_first_file", "_picker_entries", "_picker", "_picked", "_view_picker"),
 }
 VIEW_FIELDS = {
-    "screen", "overlay", "toast", "device", "trail", "social", "prevG", "nextG", "confirmInk",
+    "screen", "overlay", "toast", "device", "inputMode", "nativeEdit", "nativeField", "trail", "social", "prevG", "nextG", "confirmInk", "backG",
     "shelf", "tabs", "rows", "detail", "hint", "prompts", "accent", "badge", "gameShort", "numeral",
     "topline", "hold", "more", "grid", "osk", "dialog", "picker", "drawer", "quickAccess", "recentSets",
     "folder", "file", "pick", "mainLabel", "fighterTitle", "fighterMain", "fullscreen", "reducedMotion", "build", "online", "settingsPage",
     "bindingsPage", "bindCapture", "ctlPreset",
-    "discord",
+    "discord", "sessionPage", "loading", "loadError", "textScale", "highContrast", "mainMenu",
+    "globalOffers", "activity", "matchVersus", "gameTheme",
 }
 
 

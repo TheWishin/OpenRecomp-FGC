@@ -41,7 +41,7 @@ Item {
             text: glyph.g.text || ""
             color: glyph.shape === "face" ? glyph.ink : glyph.bone
             font.family: "IBM Plex Sans"; font.weight: Font.Bold
-            font.pixelSize: glyph.size * ((glyph.g.text || "").length > 2 ? 0.3 : (glyph.shape === "click" ? 0.3 : 0.5))
+            font.pixelSize: Theme.px(glyph.size * ((glyph.g.text || "").length > 2 ? 0.3 : (glyph.shape === "click" ? 0.3 : 0.5)))
         }
     }
     // stick direction: an arrow on the ring's edge
@@ -49,7 +49,7 @@ Item {
         visible: glyph.shape === "stick"
         anchors.centerIn: parent
         textFormat: Text.PlainText; text: "▲"; color: glyph.bone
-        font.pixelSize: glyph.size * 0.26
+        font.pixelSize: Theme.px(glyph.size * 0.26)
         rotation: ({ up: 0, right: 90, down: 180, left: 270 })[glyph.g.dir || "up"]
         transform: Translate {
             x: ({ left: -1, right: 1 })[glyph.g.dir || ""] * glyph.size * 0.36 || 0
@@ -114,7 +114,7 @@ Item {
             anchors.verticalCenterOffset: glyph.shape === "trigger" ? glyph.size * 0.06 : 0
             textFormat: Text.PlainText; text: glyph.g.text || ""; color: glyph.bone
             font.family: "IBM Plex Sans"; font.weight: Font.Bold
-            font.pixelSize: glyph.size * (glyph.shape === "menu" || glyph.shape === "touch" ? 0.3 : 0.38)
+            font.pixelSize: Theme.px(glyph.size * (glyph.shape === "menu" || glyph.shape === "touch" ? 0.3 : 0.38))
         }
     }
 
@@ -149,7 +149,7 @@ Item {
             anchors.centerIn: parent; anchors.verticalCenterOffset: -glyph.size / 20
             textFormat: Text.PlainText; text: glyph.g.text || ""; color: glyph.ink
             font.family: "IBM Plex Sans"; font.weight: Font.Bold
-            font.pixelSize: glyph.size * ((glyph.g.text || "").length > 2 ? 0.34 : 0.48)
+            font.pixelSize: Theme.px(glyph.size * ((glyph.g.text || "").length > 2 ? 0.34 : 0.48))
         }
     }
 }

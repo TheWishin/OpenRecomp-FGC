@@ -48,8 +48,11 @@ class SocialNavigation(unittest.TestCase):
         actions = ("create_password_room", "create_code_room", "join_room_code", "join_room:locked",
                    "refresh_friends", "add_friend", "remove_friend:Rival", "invite_friend:Rival", "invite_room:Rival",
                    "accept_friend:New friend", "decline_friend:New friend", "cancel_friend:Pending",
-                   "accept_invite:incoming", "decline_invite:incoming", "cancel_invite")
+                   "accept_invite:incoming", "decline_invite:incoming-decline", "cancel_invite")
         for action in actions:
+            if action == "decline_invite:incoming-decline":
+                # Accept and Decline are independently reachable responses to distinct offers.
+                self.a.snapshot["invites"] = [dict(id="incoming-decline", name="Rival")]
             self.choose(action)
         self.assertTrue(all(("online", action) in self.a.calls for action in actions))
         self.choose("room_invite_code")
@@ -85,6 +88,8 @@ class SocialNavigation(unittest.TestCase):
                     self.nav.act("play", device="xbox")
                 elif self.nav.overlay == "fighters":
                     self.nav.act("confirm", device="xbox")
+                if self.nav.__dict__.get("room_flow", {}).get(self.nav.game.id):
+                    self.nav.act("back", device="xbox")
                 self.assertIsNone(self.nav.overlay, iid)
         self.nav.tick(.016)
         self.assertEqual(self.a.calls, [])

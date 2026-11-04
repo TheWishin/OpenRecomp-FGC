@@ -18,6 +18,7 @@ from .nav_drawer import Drawer
 from .nav_game_setup import GameSetupNav
 from .nav_grid import Grid
 from .nav_hub import Hub
+from .nav_main_menu import MainMenu
 from .nav_keyboard import Keyboard
 from .nav_library import Library
 from .nav_online import Online
@@ -40,13 +41,14 @@ class Game:
         self.accent = manifest["accent"]
 
 
-class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, ControlsPage, Online, OnlineLayout, OnlineLogin, SettingsPage, Library, Sound):
+class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, ControlsPage, Online, OnlineLayout, OnlineLogin, SettingsPage, Library, Sound):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None,
                  on_update_check=None, on_update_install=None, on_game_preview=None, on_game_accept=None,
                  on_game_remove=None, on_game_update_check=None, on_game_update_install=None, on_setup=None,
                  game_prereleases=False, on_prereleases=None, native_picker=False, picker_dirs=None, on_picker_dir=None,
-                 online_prefs=None, on_online_prefs=None, ui_sounds=True, ui_sound_volume=None, on_ui_sound=None):
+                 online_prefs=None, on_online_prefs=None, ui_sounds=True, ui_sound_volume=None, on_ui_sound=None,
+                 text_size=100, high_contrast=False, on_accessibility=None):
         self.games = games
         self.ui_sounds = bool(ui_sounds)                  # the launcher's menu sounds (Settings > Audio)
         self.ui_sound_volume = ui_sound.clean_volume(ui_sound_volume)
@@ -61,6 +63,9 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
         self.on_game = on_game or (lambda _game: None)
         self.fullscreen = bool(fullscreen)
         self.reduced_motion = bool(reduced_motion)
+        self.text_size = text_size if type(text_size) is int and text_size in (100, 115, 130) else 100
+        self.high_contrast = bool(high_contrast)
+        self.on_accessibility = on_accessibility or (lambda _size, _contrast: None)
         self.on_preferences = on_preferences or (lambda _fullscreen, _reduced_motion: None)
         self.dry = False                    # test runs: nothing starts, nothing is written, only a message
         self.pending_clipboard = None
@@ -161,6 +166,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
     def tick(self, dt):
         """Time passes (the app's timer). -> True when the screen must be redrawn."""
         changed = self.poll_online()
+        changed = self.tick_online_feedback(dt) or changed
         changed = self.poll_sources() or changed
         changed = self.poll_tools_install() or changed
         changed = self.poll_build(dt) or changed
@@ -177,7 +183,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
                 self.sounded("confirm", self._finish_hold, item)
         return changed
 
-    def say(self, message, seconds=4.5):
+    def say(self, message, seconds=3):
         self.toast = message
         self.toast_left = seconds
 
@@ -194,6 +200,8 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
         self.say("@community.opening")
 
     def _handle(self, a):
+        if getattr(self, "native_edit", ""):
+            return self._native_action(a)
         if self.library_busy:
             if (self.overlay == "dialog" and self.confirm_kind.startswith("library_")
                     and (a == "back" or a == "confirm" and self.confirm_kind == "library_loading")):
@@ -209,6 +217,12 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
             return self.open_discord()
         if self.overlay == "binding":
             return self._binding(a)
+        from . import nav_feedback
+        if not self.overlay or self.overlay not in ("osk", "native"):
+            if nav_feedback.global_action(self, "offers" if a == "social" and nav_feedback.global_view(self) else a):
+                return None
+            if a == "returnActivity":
+                return nav_feedback.return_activity(self)
         if self.overlay == "dialog":
             return self._dialog(a)
         if self.overlay == "ctlpreset":
@@ -222,6 +236,11 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
         if self.overlay == "drawer":
             return self._drawer(a)
         if a == "social":
+            from . import nav_arcade
+            if nav_arcade.action(self, a):
+                return None
+            if self.online_profile_shortcut():
+                return None
             self.overlay = "drawer"
             self.drawer_focus = min(self.drawer_focus, len(self._drawer_items()) - 1)
             return None
@@ -245,6 +264,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
         self._cancel_hold()
         self.overlay = None
         self._select_game(game)
+        self.main_menu_game = ""
         self.screen = "hub"
         self.sec[game.id] = "online" if online else "play"
         self.focus[game.id + ":" + self.sec[game.id]] = 0
@@ -321,10 +341,12 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
 
     def view(self):
         v = dict(screen=self.screen, overlay=self.overlay or "", toast=self.toast, fullscreen=self.fullscreen, reducedMotion=self.reduced_motion,
+                 textScale=self.text_size / 100, highContrast=self.high_contrast,
+                 inputMode=self.device, nativeEdit=getattr(self, "native_edit", ""), nativeField={},
                  device="@" + DEVICE_LABEL["kb" if self.device == "kb" else self.pad_kind],
-                 trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True),
+                 trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True), backG=self.glyph("back"),
                  shelf=dict(tiles=[], x=0, w=SCREEN_W), tabs=[], rows=[], detail=dict(rows=[], results=[], images=[]), hint="", prompts=[], accent="#ECE9E1", badge="", gameShort="", numeral="",
-                 topline="", hold=0, more=dict(up=False, down=False), grid=dict(cells=[], main=""), osk=dict(rows=[], text="", title="", selected=False, paste="", copy="", canCopy=False), dialog=dict(title="", text="", options=[]),
+                 topline="", hold=0, mainMenu=dict(show=False), sessionPage=dict(show=False), loading="@ui.loading", loadError="@ui.load_error", more=dict(up=False, down=False), grid=dict(cells=[], main=""), osk=dict(rows=[], text="", title="", selected=False, paste="", copy="", canCopy=False), dialog=dict(title="", text="", options=[]),
                  picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]), build=dict(show=False, cards=[], main=dict(button={}, logLines=[]), more=[]), online=dict(layout=""), settingsPage=dict(layout=""), bindingsPage=dict(layout="", tabs=[], lines=[]), bindCapture=dict(options=[], glyphs=[]), ctlPreset=dict(rows=[]), quickAccess="@quick_access", discord="@community.discord", recentSets="@recent_sets", folder="@folder", file="@file", pick="@picker.pick", mainLabel="@main", fighterTitle="@fighter.choose", fighterMain="@fighter.main")
         if self.screen == "start":
             self._view_start(v)
@@ -333,6 +355,18 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
         over = getattr(self, "_view_" + self.overlay, None) if self.overlay else None
         if over:
             over(v)
+        from . import nav_feedback
+        v["globalOffers"] = nav_feedback.global_view(self)
+        v["activity"] = nav_feedback.activity_view(self)
+        v["matchVersus"] = nav_feedback.match_view(self, self.game) if self.game else {}
+        if v["globalOffers"]:
+            for prompt in v["prompts"]:
+                if prompt.get("action") == "social":
+                    prompt["label"] = "@feedback.offers"
+        v["gameTheme"] = self.game.m.get("adapter", "") if self.game and self.screen == "hub" else ""
+        if v["gameTheme"] in ("t4", "t5dr"):
+            v["accent"] = "#71CBE5" if v["gameTheme"] == "t4" else "#E99761"
+        v["nativeEdit"] = getattr(self, "native_edit", "")
         return i18n.localize(v, self.language)
 
     def _trail(self):

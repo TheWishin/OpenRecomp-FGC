@@ -8,7 +8,7 @@ import sys
 import threading
 
 from PySide6.QtCore import QObject, QTimer, Property, Qt, QUrl, Signal, Slot
-from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QIcon, QWindow
+from PySide6.QtGui import QAccessible, QAccessibleAnnouncementEvent, QFont, QFontDatabase, QGuiApplication, QIcon, QWindow
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401 -- so the scene's root comes back as a QQuickWindow
 
@@ -23,7 +23,7 @@ from .adapters import other_launchers
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right", Qt.Key_Return: "confirm", Qt.Key_Enter: "confirm",
         Qt.Key_Escape: "back", Qt.Key_Space: "play", Qt.Key_X: "x", Qt.Key_F: "social", Qt.Key_G: "switchGame", Qt.Key_Q: "prev", Qt.Key_E: "next",
-        Qt.Key_PageUp: "chapterPrev", Qt.Key_PageDown: "chapterNext"}
+        Qt.Key_PageUp: "chapterPrev", Qt.Key_PageDown: "chapterNext", Qt.Key_F8: "offers"}
 KEYS = {int(k): v for k, v in KEYS.items()}   # by number: an unknown key (any layout's letter) is no ValueError
 TICK_MS = 16
 # Windows' CJK fonts first (unchanged order), then the Linux ones Wine/Proton list (make_engine)
@@ -88,11 +88,15 @@ def picker_dirs(config):
 
 
 def load_games(config):
+    from .playtime import shared_store
+
     manifests, problems = mf.load_all()
     games = [Game(m, adapters.make(m, config)) for m in manifests]
     # A manifest game with "shelf": "found" shows only on a PC that has it (games/tag2.json: no tile for everyone)
     games = [g for g in games if g.m.get("shelf") != "found" or g.a.found()]
+    playtime_store = shared_store()
     for game in games:
+        game.a.playtime_store = playtime_store
         # T4 Online may offer a T5DR remembered login (one account for both); each adapter decides what it reads.
         game.a.account_peers = tuple(other.a for other in games if other is not game)
     problems += [g.a.problem for g in games if g.a.problem]
@@ -131,6 +135,8 @@ class Backend(QObject, GameSetupBackend):
                        last_game=self.config.get("last_game"), on_game=self._save_game,
                        fullscreen=self.config.get("fullscreen", True) and not windowed,
                        reduced_motion=self.config.get("reduced_motion", False), on_preferences=self._save_preferences,
+                       text_size=self.config.get("text_size", 100), high_contrast=self.config.get("high_contrast", False),
+                       on_accessibility=self._save_accessibility,
                        on_update_check=self._check_updates, on_update_install=self._install_update,
                        on_game_preview=self._preview_game, on_game_accept=self._accept_game,
                        on_game_remove=self._remove_game, on_game_update_check=self._check_game_update,
@@ -218,6 +224,9 @@ class Backend(QObject, GameSetupBackend):
     def _quit(self):
         if getattr(self, "_save_timer", None) is not None and self._save_timer.isActive():
             self._flush_config()
+        stores = {getattr(g.a, "playtime_store", None) for g in getattr(getattr(self, "nav", None), "games", [])}
+        for store in stores - {None}:
+            store.checkpoint()
         if self.window is not None:
             self.window.setProperty("allowClose", True)
         QGuiApplication.quit()
@@ -473,6 +482,10 @@ class Backend(QObject, GameSetupBackend):
             if changed and not self.window.windowState() & Qt.WindowMinimized:
                 self.window.showFullScreen() if fullscreen else self.window.showNormal()
 
+    def _save_accessibility(self, text_size, high_contrast):
+        self.config.update(text_size=text_size, high_contrast=bool(high_contrast))
+        self._save_config()
+
     def _save_ui_sound(self, on, volume):
         self.config.update(ui_sounds=bool(on), ui_sound_volume=ui_sound.clean_volume(volume))
         self.sounds.configure(on, volume)
@@ -546,12 +559,57 @@ class Backend(QObject, GameSetupBackend):
             Backend._play_sound(self)
         previous = getattr(self, "_view", None)
         self._view = self.nav.view()
+        if getattr(self.nav, "pending_attention", False):
+            self.nav.pending_attention = False
+            Backend._offer_attention(self)
         if not hasattr(self, "_wordmark"):
             wordmark = os.path.join(UI_DIR, "assets", "logo-wordmark.svg")
             self._wordmark = QUrl.fromLocalFile(wordmark).toString() if os.path.isfile(wordmark) else ""
         self._view["wordmark"] = self._wordmark
         if self._view != previous:
             self.viewChanged.emit()
+            Backend._announce_view(self, previous)
+
+    def _offer_attention(self):
+        """Flash an inactive launcher; the game keeps OS focus and its own notification panel."""
+        window = getattr(self, "window", None)
+        if window is None or any(g.a.running() for g in self.nav.games):
+            return
+        try:
+            if not window.isActive():
+                window.alert(0)
+        except (AttributeError, RuntimeError):
+            pass
+
+    def _announce_view(self, previous):
+        """One polite announcement for a result or phase; elapsed clocks and selection never speak."""
+        window = getattr(self, "window", None)
+        if window is None or not QAccessible.isActive():
+            return
+        before = previous or {}
+        current = self._view
+        message = current.get("toast") if current.get("toast") != before.get("toast") else ""
+        online, old_online = current.get("online") or {}, before.get("online") or {}
+        if not message and before and online.get("phase") and online.get("phase") != old_online.get("phase"):
+            message = online.get("message") or (online.get("find") or {}).get("message") or online.get("title")
+        if not message and online.get("phase") in ("error", "kicked", "result", "result_sent") and online.get("message") != old_online.get("message"):
+            message = online.get("message")
+        if not message:
+            offers = current.get("globalOffers") or []
+            old_ids = {row.get("identity") for row in before.get("globalOffers") or []}
+            incoming_offer = next((row for row in offers if row.get("identity") not in old_ids), None)
+            if incoming_offer:
+                message = ". ".join(str(incoming_offer.get(key) or "") for key in ("title", "name", "rank"))
+        if not message:
+            incoming = (online.get("find") or {}).get("incoming") or {}
+            old_incoming = (old_online.get("find") or {}).get("incoming") or {}
+            if incoming.get("text") != old_incoming.get("text"):
+                message = incoming.get("text")
+        if not isinstance(message, str) or not message.strip():
+            return
+        event = QAccessibleAnnouncementEvent(window, message)
+        event.setPoliteness(QAccessible.AnnouncementPoliteness.Polite)
+        QAccessible.updateAccessibility(event)
 
     def _open_pending(self):
         """nav.pending_url (the OpenRecomp-FGC Discord) in the default browser."""
@@ -687,6 +745,15 @@ class Backend(QObject, GameSetupBackend):
                 if snapshot != cache.get(g.id):
                     cache[g.id] = snapshot
                     changed = True
+            playtime = getattr(g.a, "playtime", None)
+            if playtime is not None:
+                cache = self.__dict__.setdefault("_last_playtime", {})
+                snapshot = playtime()
+                snapshot = {**snapshot, **{key: int(snapshot.get(key, 0) // 60)
+                                          for key in ("offline_seconds", "online_seconds")}}
+                if snapshot != cache.get(g.id):
+                    cache[g.id] = snapshot
+                    changed = True
             hero = g.a.hero()
             if hero != self._last_hero.get(g.id):
                 self._last_hero[g.id] = hero
@@ -708,7 +775,14 @@ class Backend(QObject, GameSetupBackend):
         """A key of a real keyboard. modifiers/scan (the key's position) find Ctrl+V & co. on any layout."""
         action = KEYS.get(key)
         nav = self.nav
+        if getattr(nav, "native_edit", ""):
+            return                    # QML TextInput owns every physical key while focused, including IME preedit.
         if nav.overlay == "osk":
+            if key in (Qt.Key_Return, Qt.Key_Enter):
+                if not repeat:
+                    nav.act("play", device="kb")
+                    self.refresh()
+                return
             edit = edit_shortcut(key, text, modifiers, scan)
             if edit:
                 if not repeat or edit == "paste":
@@ -729,6 +803,28 @@ class Backend(QObject, GameSetupBackend):
         if repeat and action not in ("up", "down", "left", "right"):
             return
         nav.act(action, device="kb")
+        self.refresh()
+
+    @Slot(str)
+    def beginEdit(self, tid):
+        self.nav.begin_edit(tid)
+        self.refresh()
+
+    @Slot(str, str)
+    def editText(self, tid, text):
+        self.nav.edit_text(tid, text)
+        self.refresh()
+
+    @Slot(str, bool)
+    def finishEdit(self, tid, submit):
+        self.nav.finish_edit(tid, submit)
+        self.refresh()
+
+    @Slot(str)
+    def challengePlayer(self, player_id):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
+        self.nav.device = "kb"
+        self.nav.challenge_player(player_id)
         self.refresh()
 
     @Slot(str)
@@ -763,10 +859,43 @@ class Backend(QObject, GameSetupBackend):
             self.nav.release("confirm")
         self.refresh()
 
+    @Slot(str, bool)
+    def respondOffer(self, identity, accept):
+        from . import nav_feedback
+        nav_feedback.click_global(self.nav, identity, accept)
+        self.refresh()
+
     @Slot(int)
     def clickRow(self, i):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
         self.nav.device = "kb"
         click(self.nav, "confirm", "click_row", i)
+        self.refresh()
+
+    @Slot(int)
+    def clickMainEntry(self, i):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
+        self.nav.device = "kb"
+        click(self.nav, "confirm", "click_main_entry", i)
+        self.refresh()
+
+    @Slot(str)
+    def selectSettingsTab(self, tab):
+        self.nav.device = "kb"
+        self.nav.select_settings_tab(tab)
+        self.refresh()
+
+    @Slot(int)
+    def focusOnlineRow(self, i):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
+        self.nav.device = "kb"
+        self.nav.focus_online_row(i)
+        self.refresh()
+
+    @Slot(int, int)
+    def selectOnlineOption(self, i, option):
+        self.nav.device = "kb"
+        self.nav.select_online_option(i, option)
         self.refresh()
 
     @Slot(int)
@@ -777,12 +906,14 @@ class Backend(QObject, GameSetupBackend):
 
     @Slot(str)
     def clickTab(self, s):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
         self.nav.device = "kb"
         click(self.nav, ui_sound.CLICK_TAB, "click_tab", s)
         self.refresh()
 
     @Slot(str)
     def clickChapter(self, chapter):
+        self.nav.finish_edit(getattr(self.nav, "native_edit", ""))
         self.nav.device = "kb"
         click(self.nav, ui_sound.CLICK_TAB, "click_chapter", chapter)
         self.refresh()

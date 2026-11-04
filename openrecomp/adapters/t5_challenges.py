@@ -1,10 +1,27 @@
 """Casual preferences and challenge choices delegated to the installed lobby client."""
 import copy
 import inspect
+import math
+import time
 
 
 PREFIX = "feature_challenges:"
 FIRST_TO = (1, 2, 3, 5, 10)
+
+
+def offer_deadline(reply):
+    """Only use a server supplied duration; legacy clients do not promise an expiry."""
+    seconds = reply.get("seconds") if isinstance(reply, dict) else None
+    if type(seconds) in (int, float) and 0 <= seconds <= 3600:
+        return dict(_expires=time.monotonic() + seconds)
+    return {}
+
+
+def offer_snapshot(offer):
+    out = {key: value for key, value in offer.items() if key != "_expires"}
+    if "_expires" in offer:
+        out["seconds"] = max(0, math.ceil(offer["_expires"] - time.monotonic()))
+    return out
 
 
 def init(owner):
@@ -81,7 +98,7 @@ def state(owner):
                  peer_delay_max={str(p["id"]): _maximum(client, p["id"])
                                  for p in owner._online_players if p.get("id")})
     return dict(capabilities=dict(challenge_preferences=ready), challenge_preferences=prefs,
-                open_challenges=[dict(value, id=key) for key, value in owner._t5_open_challenges.items()])
+                open_challenges=[dict(offer_snapshot(value), id=key) for key, value in owner._t5_open_challenges.items()])
 
 
 def client_options(owner):
@@ -264,7 +281,7 @@ def completion(owner, operation, value, error):
             ping = get_ping(event, "to") if callable(get_ping) else {}
             owner._t5_open_challenges[cid[:80]] = dict(player=value["player"], name=value["name"],
                 first_to=value["first_to"], delay=_delay(reply.get("delay")) if isinstance(reply, dict) else {},
-                **ping)
+                **ping, **offer_deadline(reply))
             if value.get("rounds") is not None:
                 owner._t5_open_challenges[cid[:80]]["rounds"] = value["rounds"]
         owner._online_message = "@online.challenge_sent"

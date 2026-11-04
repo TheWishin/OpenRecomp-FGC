@@ -32,8 +32,8 @@ Item {
                 Rectangle { visible: !!tab.tb.active; anchors.bottom: parent.bottom; width: parent.width; height: 5; color: page.acc }
                 Column {
                     x: 20; anchors.verticalCenter: parent.verticalCenter
-                    Text { id: tabLabel; width: Math.min(implicitWidth, 380); elide: Text.ElideRight; textFormat: Text.PlainText; text: tab.tb.label || ""; color: tab.tb.active ? page.ink : page.root.textC; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: 22 }
-                    Text { id: tabType; textFormat: Text.PlainText; text: tab.tb.typeLabel || ""; color: tab.tb.active ? "#3A3D44" : page.root.muted; font.family: page.root.mono; font.pixelSize: 15 }
+                    Text { id: tabLabel; width: Math.min(implicitWidth, 380); elide: Text.ElideRight; textFormat: Text.PlainText; text: tab.tb.label || ""; color: tab.tb.active ? page.ink : page.root.textC; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(22) }
+                    Text { id: tabType; textFormat: Text.PlainText; text: tab.tb.typeLabel || ""; color: tab.tb.active ? "#3A3D44" : page.root.muted; font.family: page.root.mono; font.pixelSize: Theme.px(15) }
                 }
                 TapHandler { onTapped: page.root.backend.clickChapter(tab.tb.id) }
             }
@@ -60,7 +60,7 @@ Item {
                     Text {
                         visible: line.l.kind === "group"
                         y: 12; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: line.l.label || ""
-                        color: page.root.muted; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 22
+                        color: page.root.muted; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(22)
                     }
                     Rectangle {
                         objectName: line.slot ? "bindingsSlot" : "bindingsSetting"
@@ -77,12 +77,12 @@ Item {
                             x: 16; anchors.verticalCenter: parent.verticalCenter
                             width: Math.max(56, notation.implicitWidth + 20); height: 34; radius: 4
                             color: line.l.lit ? page.acc : (line.l.focused ? page.ink : "#2A2D33")
-                            Text { id: notation; anchors.centerIn: parent; textFormat: Text.PlainText; text: page.arrow(line.l.notation || ""); color: line.l.lit ? page.ink : (line.l.focused ? page.root.bone : page.root.textC); font.family: page.root.mono; font.weight: Font.Bold; font.pixelSize: 20 }
+                            Text { id: notation; anchors.centerIn: parent; textFormat: Text.PlainText; text: page.arrow(line.l.notation || ""); color: line.l.lit ? page.ink : (line.l.focused ? page.root.bone : page.root.textC); font.family: page.root.mono; font.weight: Font.Bold; font.pixelSize: Theme.px(20) }
                         }
                         Text {
                             x: line.slot ? chip.x + Math.max(80, chip.width) + 18 : 18; anchors.verticalCenter: parent.verticalCenter; width: parent.width * 0.62 - x
                             elide: Text.ElideRight; textFormat: Text.PlainText; text: line.l.label || ""
-                            color: line.l.focused ? page.ink : page.root.textC; font.family: page.root.sans; font.weight: Font.Medium; font.pixelSize: 22
+                            color: line.l.focused ? page.ink : page.root.textC; font.family: page.root.sans; font.weight: Font.Medium; font.pixelSize: Theme.px(22)
                         }
                         Row {
                             anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; spacing: 10
@@ -91,7 +91,7 @@ Item {
                                 visible: !line.slot && !!line.l.value
                                 width: Math.min(implicitWidth, listBox.width * 0.4); elide: Text.ElideMiddle; anchors.verticalCenter: parent.verticalCenter
                                 textFormat: Text.PlainText; text: line.l.cycler ? "‹  " + (line.l.value || "") + "  ›" : (line.l.value || "")
-                                color: line.l.focused ? page.ink : page.acc; font.family: page.root.mono; font.weight: Font.DemiBold; font.pixelSize: 20
+                                color: line.l.focused ? page.ink : page.acc; font.family: page.root.mono; font.weight: Font.DemiBold; font.pixelSize: Theme.px(20)
                             }
                             // an action: the buttons that do it, as the controller draws them
                             Repeater {
@@ -102,9 +102,9 @@ Item {
                                 visible: line.slot && page.list(line.l.glyphs).length === 0
                                 anchors.verticalCenter: parent.verticalCenter
                                 textFormat: Text.PlainText; text: line.l.value || ""; color: line.l.focused ? "#5A5D64" : page.root.muted
-                                font.family: page.root.sans; font.italic: true; font.pixelSize: 19
+                                font.family: page.root.sans; font.italic: true; font.pixelSize: Theme.px(19)
                             }
-                            Text { visible: !!line.l.verb; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: line.l.verb || ""; color: page.ink; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: 19 }
+                            Text { visible: !!line.l.verb; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: line.l.verb || ""; color: page.ink; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(19) }
                             Glyph { visible: !!line.l.verb; g: page.root.v.confirmInk || ({}); size: 30; anchors.verticalCenter: parent.verticalCenter }
                         }
                         TapHandler { onTapped: page.root.backend.clickRow(line.l.index) }
@@ -112,8 +112,8 @@ Item {
                 }
             }
         }
-        Text { visible: !!page.b.up; x: listBox.width - 26; y: 2; textFormat: Text.PlainText; text: "▲"; color: page.root.muted; font.pixelSize: 16 }
-        Text { visible: !!page.b.down; x: listBox.width - 26; anchors.bottom: parent.bottom; anchors.bottomMargin: 2; textFormat: Text.PlainText; text: "▼"; color: page.root.muted; font.pixelSize: 16 }
+        Text { visible: !!page.b.up; x: listBox.width - 26; y: 2; textFormat: Text.PlainText; text: "▲"; color: page.root.muted; font.pixelSize: Theme.px(16) }
+        Text { visible: !!page.b.down; x: listBox.width - 26; anchors.bottom: parent.bottom; anchors.bottomMargin: 2; textFormat: Text.PlainText; text: "▼"; color: page.root.muted; font.pixelSize: Theme.px(16) }
     }
 
     // ---------------------------------------------------------------- the focused row
@@ -124,23 +124,23 @@ Item {
         clip: true
         Column {
             x: 36; y: 28; width: parent.width - 72; spacing: 12
-            Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.d.kicker || ""; color: page.acc; font.family: page.root.mono; font.weight: Font.Medium; font.pixelSize: 20 }
+            Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.d.kicker || ""; color: page.acc; font.family: page.root.mono; font.weight: Font.Medium; font.pixelSize: Theme.px(20) }
             Row {
                 spacing: 18
                 Rectangle {
                     visible: !!page.d.slot
                     width: Math.max(84, bigNotation.implicitWidth + 28); height: 84; radius: 6; color: page.acc
                     anchors.verticalCenter: parent.verticalCenter
-                    Text { id: bigNotation; anchors.centerIn: parent; textFormat: Text.PlainText; text: page.arrow(page.d.notation || ""); color: page.ink; font.family: page.root.mono; font.weight: Font.Black; font.pixelSize: 40 }
+                    Text { id: bigNotation; anchors.centerIn: parent; textFormat: Text.PlainText; text: page.arrow(page.d.notation || ""); color: page.ink; font.family: page.root.mono; font.weight: Font.Black; font.pixelSize: Theme.px(40) }
                 }
                 Text {
                     width: 712 - 72 - (page.d.slot ? bigNotation.implicitWidth + 60 : 0)
                     anchors.verticalCenter: parent.verticalCenter
                     wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.d.title || ""
-                    color: page.root.textC; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 46; lineHeight: 0.95
+                    color: page.root.textC; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(46); lineHeight: 0.95
                 }
             }
-            Text { width: parent.width; visible: text !== ""; wrapMode: Text.Wrap; maximumLineCount: 5; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.d.lead || ""; color: page.root.textC; font.family: page.root.sans; font.pixelSize: 22; lineHeight: 1.1 }
+            Text { width: parent.width; visible: text !== ""; wrapMode: Text.Wrap; maximumLineCount: 5; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.d.lead || ""; color: page.root.textC; font.family: page.root.sans; font.pixelSize: Theme.px(22); lineHeight: 1.1 }
             // the buttons that do the focused action, large
             Flow {
                 visible: !!page.d.slot
@@ -151,7 +151,7 @@ Item {
                 }
                 Text {
                     visible: page.list(page.d.glyphs).length === 0
-                    textFormat: Text.PlainText; text: page.b.unbound || ""; color: page.root.muted; font.family: page.root.sans; font.italic: true; font.pixelSize: 26
+                    textFormat: Text.PlainText; text: page.b.unbound || ""; color: page.root.muted; font.family: page.root.sans; font.italic: true; font.pixelSize: Theme.px(26)
                 }
             }
             Flow {
@@ -165,7 +165,7 @@ Item {
                         readonly property var o: page.root.ok(page.d.options, index)
                         width: Math.min(optionText.implicitWidth + 28, parent.width); height: 40; radius: 4
                         color: o.current ? page.acc : "transparent"; border.width: o.current ? 0 : 1; border.color: page.root.line
-                        Text { id: optionText; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 20); elide: Text.ElideRight; textFormat: Text.PlainText; text: option.o.label || ""; color: option.o.current ? page.ink : page.root.muted; font.family: page.root.sans; font.weight: Font.Medium; font.pixelSize: 19 }
+                        Text { id: optionText; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 20); elide: Text.ElideRight; textFormat: Text.PlainText; text: option.o.label || ""; color: option.o.current ? page.ink : page.root.muted; font.family: page.root.sans; font.weight: Font.Medium; font.pixelSize: Theme.px(19) }
                     }
                 }
             }
@@ -174,8 +174,8 @@ Item {
         Column {
             x: 36; anchors.bottom: parent.bottom; anchors.bottomMargin: 24; width: parent.width - 72; spacing: 4
             Rectangle { width: parent.width; height: 1; color: page.root.line }
-            Text { topPadding: 10; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.b.typeLabel || ""; color: page.root.muted; font.family: page.root.mono; font.pixelSize: 18 }
-            Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.b.preset || ""; color: page.root.textC; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: 22 }
+            Text { topPadding: 10; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.b.typeLabel || ""; color: page.root.muted; font.family: page.root.mono; font.pixelSize: Theme.px(18) }
+            Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.b.preset || ""; color: page.root.textC; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(22) }
         }
     }
 
@@ -188,20 +188,20 @@ Item {
         Text {
             x: 28; anchors.verticalCenter: parent.verticalCenter; width: 220
             textFormat: Text.PlainText; text: page.t.label || ""; color: page.acc
-            font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 34
+            font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(34)
         }
         Text {
             objectName: "bindingsNotation"
             x: 260; anchors.verticalCenter: parent.verticalCenter; width: 900; elide: Text.ElideRight
             textFormat: Text.PlainText; text: page.t.notation || page.t.idle || ""
             color: page.t.notation ? page.root.textC : page.root.muted
-            font.family: page.root.mono; font.weight: Font.Bold; font.pixelSize: page.t.notation ? 54 : 30
+            font.family: page.root.mono; font.weight: Font.Bold; font.pixelSize: Theme.px(page.t.notation ? 54 : 30)
         }
         Text {
             anchors.right: parent.right; anchors.rightMargin: 28; anchors.verticalCenter: parent.verticalCenter; width: 660
             horizontalAlignment: Text.AlignRight; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight
             textFormat: Text.PlainText; text: page.t.hint || ""; color: page.t.active ? page.root.textC : page.root.muted
-            font.family: page.root.sans; font.pixelSize: 20
+            font.family: page.root.sans; font.pixelSize: Theme.px(20)
         }
     }
 }
