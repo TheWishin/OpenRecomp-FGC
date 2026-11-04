@@ -548,6 +548,11 @@ class T4Direct:
                                 "@t4.returning" if self._direct_stopping else "@t4.direct_hint")
 
 
+def _is_set(info):
+    """A ranked set (best of 3, rated once) or a casual first-to-N set (t4-parity): every game a new T4 game."""
+    return isinstance(info, dict) and bool(info.get("rated") or info.get("casual")) and bool(info.get("id"))
+
+
 def ticket_env(ticket):
     """Only the ticket fields documented by the T4 lobby handoff; no T5 game driver. Ranked tickets too (T4 ranked:
     the game writes its own proven result, docs/T4_ONLINE.md "Ranked")."""
@@ -975,10 +980,11 @@ class T4Online(T4Direct, Online):
     def _online_match_found(self, event):
         self._online_reap_owned()
         info = event.get("set") if isinstance(event.get("set"), dict) else None
-        if (event.get("origin") == "set" and info and info.get("rated")
+        if (event.get("origin") == "set" and _is_set(info)
                 and self._online_phase in ("result", "result_sent")
                 and info.get("id") == getattr(self, "_online_set", {}).get("id")):
-            # The next game of this ranked set: no vote, it starts by itself (the previous game is stopped first).
+            # The next game of this set (ranked, or a casual first-to-N set): no vote, it starts by itself (the
+            # previous game is stopped first).
             self._online_ticket = None
             self._online_match_id = event.get("match")
             self._online_authorized = True
@@ -1024,8 +1030,7 @@ class T4Online(T4Direct, Online):
         info = event.get("set")
         slot = event.get("slot") if event.get("slot") in (0, 1) else 0
         self._t4_slot = slot
-        rated = isinstance(info, dict) and info.get("rated")
-        self._online_set = T5Match._online_set_view(self, info, slot) if rated else {}
+        self._online_set = T5Match._online_set_view(self, info, slot) if _is_set(info) else {}
 
     def _online_match_view(self, event):
         """The found match: the ping, and who plays which side with name and rank (and badge) -- P1 = the host."""
@@ -1175,7 +1180,7 @@ class T4Online(T4Direct, Online):
                 me = event.get("you") or {}
                 self._online_rating = me.get("rating") if isinstance(me, dict) else None
                 info = event.get("set")
-                if isinstance(info, dict) and info.get("rated"):
+                if _is_set(info):
                     self._online_set = T5Match._online_set_view(self, info, getattr(self, "_t4_slot", 0))
             return True
         if kind == "set_end":
