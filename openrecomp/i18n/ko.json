@@ -1,4 +1,9 @@
 {
+ "t5.install_incomplete_python": "이 Tekken 5 DR 설치가 불완전합니다. Python(python 폴더)이 없거나 손상되었습니다. T5DR을 다시 설치하세요(게임 파일과 저장 데이터는 유지됩니다).",
+ "t5.install_incomplete_tools": "이 Tekken 5 DR 설치가 불완전합니다. 빌드 도구가 없거나 손상되었습니다. T5DR을 다시 설치하세요(게임 파일과 저장 데이터는 유지됩니다).",
+ "t5.reinstall": "T5DR 다시 설치",
+ "t5.choose_install": "다른 폴더 선택",
+ "support.finding.t5_install.title": "불완전한 Tekken 5 DR 설치",
  "section.play": "오프라인 플레이",
  "section.online": "온라인",
  "section.build": "빌드",

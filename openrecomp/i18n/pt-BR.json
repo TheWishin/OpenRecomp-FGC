@@ -1,4 +1,9 @@
 {
+ "t5.install_incomplete_python": "Esta instalação do Tekken 5 DR está incompleta: o Python (pasta python) está ausente ou danificado. Reinstale o T5DR (seus arquivos do jogo e dados salvos serão mantidos).",
+ "t5.install_incomplete_tools": "Esta instalação do Tekken 5 DR está incompleta: as ferramentas de compilação estão ausentes ou danificadas. Reinstale o T5DR (seus arquivos do jogo e dados salvos serão mantidos).",
+ "t5.reinstall": "Reinstalar T5DR",
+ "t5.choose_install": "Escolher outra pasta",
+ "support.finding.t5_install.title": "Instalação do Tekken 5 DR incompleta",
  "section.play": "Jogar sem conexão",
  "section.online": "Pela internet",
  "section.build": "Compilar",

@@ -1,4 +1,9 @@
 {
+ "t5.install_incomplete_python": "このTekken 5 DRのインストールは不完全です。Python（pythonフォルダー）が見つからないか、破損しています。T5DRを再インストールしてください（ゲームファイルとセーブデータは保持されます）。",
+ "t5.install_incomplete_tools": "このTekken 5 DRのインストールは不完全です。ビルドツールが見つからないか、破損しています。T5DRを再インストールしてください（ゲームファイルとセーブデータは保持されます）。",
+ "t5.reinstall": "T5DRを再インストール",
+ "t5.choose_install": "別のフォルダーを選択",
+ "support.finding.t5_install.title": "Tekken 5 DRのインストールが不完全",
  "section.play": "オフライン",
  "section.online": "オンライン",
  "section.build": "ビルド",

@@ -163,7 +163,10 @@ class BuildPage:
         # 1 -- the game itself: install / choose its folder, an update, or the install borrowed from T5DR's launcher
         game_items = by_card.get("game", [])
         if game_items or not found:
-            if not found:
+            install_problem = next((it["install_problem"] for _i, it in game_items if it.get("install_problem")), "")
+            if install_problem:
+                card("game", "@build.card.game", install_problem, "error", game_items)
+            elif not found:
                 installing = setup.get("phase") == "installing"
                 text = "@build.game_text" if self._setup_supported(g) else "@build.game_folder_text"
                 card("game", "@build.card.game", text, "work" if installing else "todo", game_items,
@@ -230,6 +233,9 @@ class BuildPage:
                                 disabled=bool(it.get("disabled")) or index < 0, blocked=bool(it.get("blocked")),
                                 g=self.glyph("confirm", index == fi)),
                     canLog=bool(lines), logOpen=log_open and bool(lines), logLines=lines[-8:] if log_open else [])
+        if it.get("install_problem"):
+            main.update(kicker="@build.kicker.error", tone="error", lead=it["install_problem"])
+            return main
         if not g.a.found():
             installing = setup.get("phase") == "installing"
             main.update(kicker="@setup.kicker", lead="@setup.install_lead" if it.get("id") == "game_setup" else it.get("hint", ""),

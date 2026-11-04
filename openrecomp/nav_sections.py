@@ -137,6 +137,18 @@ class Sections:
     # ---- build: every row names its card on the Build page (nav_build): game, files, tools, main (the big
     # button: primary=True), more
     def _items_build(self, g):
+        problem = g.a.build_install_problem() if g.a.found() else ""
+        if problem and not g.a.build_state().get("running"):
+            busy = self._setup(g.id).get("phase") in ("checking", "installing", "updating")
+            return [dict(kind="action", id="build_reinstall", label="@t5.reinstall", verb="@t5.reinstall",
+                         card="main", primary=True, install_problem=problem,
+                         disabled=busy or not self._setup_supported(g), hint=problem,
+                         run=lambda: self.setup_reinstall(g),
+                         detail=dict(kicker="@section.build", title="@t5.reinstall", lead=problem, rows=[])),
+                    dict(kind="action", id="build_choose_install", label="@t5.choose_install", verb="@choose",
+                         card="game", install_problem=problem, disabled=busy, hint=problem,
+                         run=lambda: self._open_picker("source:folder", "@t5.choose_install", [], [], "folder"),
+                         detail=dict(kicker="@section.build", title="@t5.choose_install", lead=problem, rows=[]))]
         setup = [dict(it, card="game", primary=it.get("id") == "game_setup") for it in self._setup_items(g, "build")]
         return setup + self._items_build_rows(g)
 
