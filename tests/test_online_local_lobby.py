@@ -14,6 +14,7 @@ import sys
 import tempfile
 import threading
 import time
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -178,7 +179,7 @@ class LocalAdapter(T5Match, Adapter):
 
     def __init__(self, directory, build):
         super().__init__(dict(id="local", short="Local", title="Local lobby", accent="#112233",
-                              sections=["online"]))
+                              numeral="1", sections=["online"]))
         self.root = str(SOURCE)
         self.directory = str(directory)
         self.build = build
@@ -188,6 +189,11 @@ class LocalAdapter(T5Match, Adapter):
 
     def online_cfg_path(self):
         return os.path.join(self.directory, "online.json")
+
+    def _online_default_server(self):
+        # Initialization must not consult a published catalog before the test
+        # assigns the ephemeral loopback server's actual port.
+        return LOOPBACK + ":1"
 
     def _online_out_dir(self):
         return self.directory
@@ -278,7 +284,9 @@ class LocalLobbyTests(unittest.TestCase):
 
     def setUp(self):
         self.assertEqual(self.guard.violations, [])
-        directory = tempfile.TemporaryDirectory(prefix="local-lobby-", dir=REPO)
+        home = REPO / "build" / "tmp-home"
+        home.mkdir(parents=True, exist_ok=True)
+        directory = tempfile.TemporaryDirectory(prefix="local-lobby-", dir=home)
         self.addCleanup(directory.cleanup)
         self.directory = Path(directory.name)
         self.baseline_threads = set(threading.enumerate())
@@ -463,7 +471,7 @@ class LocalLobbyTests(unittest.TestCase):
         self.assertIsInstance(client, self.client_module.LobbyClient)
         self.assertEqual(client.host, LOOPBACK)
         self.assertEqual(client.port, self.server.port)
-        self.assertEqual(client.reconnect_window, 60)
+        self.assertEqual(client.reconnect_window, adapter.RECONNECT_SECONDS)
         self.assertEqual(client._writer.get_extra_info("peername")[0], LOOPBACK)
         self.assertEqual(self.state(index)["account"], action != "login_guest")
         if action == "login_register":
@@ -474,6 +482,33 @@ class LocalLobbyTests(unittest.TestCase):
 
     def both(self, phase):
         return all(self.state(i)["phase"] == phase for i in range(2))
+
+    def assert_offscreen_views(self, indexes):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QGuiApplication
+        from PySide6.QtQml import QQmlApplicationEngine
+        from openrecomp.app import UI_DIR
+        from test_ui_loads import FakeBackend
+        self.assertEqual(os.environ.get("QT_QPA_PLATFORM"), "offscreen")
+        app = QGuiApplication.instance() or QGuiApplication([])
+        views, warnings = [], []
+        try:
+            for index in indexes:
+                backend = FakeBackend(self.navs[index])
+                engine = QQmlApplicationEngine()
+                views.append((engine, backend))
+                engine.warnings.connect(lambda rows: warnings.extend(row.toString() for row in rows))
+                engine.setInitialProperties({"backend": backend, "wantFull": False})
+                engine.load(QUrl.fromLocalFile(str(Path(UI_DIR) / "Main.qml")))
+                self.assertTrue(engine.rootObjects(), warnings)
+            app.processEvents()
+            self.assertEqual(warnings, [])
+        finally:
+            for engine, backend in views:
+                for window in engine.rootObjects():
+                    window.close()
+                engine.deleteLater()
+            app.processEvents()
 
     def test_guest_search_cancel_and_second_login_kick(self):
         self.login(0, "GuestLocal")
@@ -520,9 +555,77 @@ class LocalLobbyTests(unittest.TestCase):
         self.assertIs(self.adapters[0]._online_client, first)
         self.assertIs(self.adapters[1]._online_client, second)
         self.assertTrue(first.connected and second.connected)
-        # 1.2.0 casual games are sets of one: the set's end follows the cancel.
-        self.assertIn(self.state(0)["message"], ("@online.peer_declined", "@online.set_ended"))
-        self.assertIn(self.state(1)["message"], ("@online.cancelled", "@online.set_ended"))
+        # 1.2.0 sends set_end after match_cancel even though no game was played.
+        # Neither event may present that empty set as a completed match result.
+        self.assertTrue(self.state(0).get("match_failure"))
+        self.assertEqual(self.state(1)["message"], "@online.cancelled")
+        for index in range(2):
+            self.assertFalse(self.state(index)["set"])
+            self.assertNotIn("rematch", {item.get("id") for item in self.navs[index].items()})
+        self.assertTrue(all(not a.starts for a in self.adapters))
+
+    def test_guest_casual_and_account_ranked_explain_separate_queues(self):
+        self.login(0, "CasualGuest")
+        self.login(1, "RankedAccount", "login_register")
+        ranked = next(item for item in self.navs[0].items() if item.get("id") == "search_ranked")
+        self.assertTrue(ranked["disabled"])
+        self.assertEqual(ranked["hint"], "@online_ui.ranked_account")
+        self.choose(0, "search_casual")
+        self.choose(1, "search_ranked")
+        self.wait(lambda: self.both("searching") and all(self.state(i)["search"].get("reason") for i in range(2)),
+                  "separate queues did not report why they are waiting")
+        from openrecomp import i18n
+        for index in range(2):
+            self.assertIn("casual", i18n.localize(self.state(index)["search"]["reason"], "en").lower())
+            page = self.navs[index].view()["online"]
+            self.assertTrue(page["search"]["active"])
+            self.assertTrue(page["search"]["cancel"])
+        self.assertEqual({mode: len(queue) for mode, queue in self.server.queues.items()}, dict(quick=1, ranked=1))
+        self.assertTrue(all(not a.starts for a in self.adapters))
+        self.assert_offscreen_views(range(2))
+
+    def test_different_build_searchers_explain_why_no_match_is_found(self):
+        self.adapters[1].build = self.build_module.BuildInfo("1" * 40, "other-local-protocol-fixture", "test")
+        self.login(0, "BuildOne")
+        self.login(1, "BuildTwo")
+        self.choose(0, "search_casual")
+        self.choose(1, "search_casual")
+        self.wait(lambda: self.both("searching") and all(self.state(i)["search"].get("reason") for i in range(2)),
+                  "different build reason did not arrive from lobby snapshots")
+        from openrecomp import i18n
+        for index in range(2):
+            self.assertIn("build", i18n.localize(self.state(index)["search"]["reason"], "en").lower())
+        self.assertEqual(len(self.server.queues["quick"]), 2)
+        self.assertFalse(self.server.matches)
+        self.assertTrue(all(not a.starts for a in self.adapters))
+
+    def test_room_ready_timeout_has_notice_then_returns_without_empty_result(self):
+        self.server.cfg.ready_timeout = 0.8
+        self.login(0, "ReadyHost")
+        self.login(1, "WaitingGuest")
+        self.choose(0, "create_room")
+        self.wait(lambda: bool(self.state(0)["room"]), "classic room not created")
+        rid = self.state(0)["room"]["id"]
+        self.choose(1, "refresh_rooms")
+        self.wait(lambda: any(row["id"] == rid for row in self.state(1)["rooms"]), "room not listed")
+        self.choose(1, "join_room:" + rid)
+        self.wait(lambda: self.both("matched"), "classic room join did not offer ready controls")
+        for nav in self.navs:
+            self.assertIn("start_match", {item.get("id") for item in nav.items()})
+        self.choose(0, "start_match")
+        self.wait(lambda: self.state(0)["match"].get("my_ready"), "host ready not visible")
+        self.wait(lambda: self.state(1)["match"].get("peer_ready"), "guest cannot see host's ready state")
+        self.wait(lambda: self.both("logged_in"), "ready timeout did not return to the room")
+        for index in range(2):
+            state = self.state(index)
+            self.assertTrue(state.get("match_failure"))
+            self.assertFalse(state["set"])
+            self.assertFalse(state["capabilities"]["rematch"])
+            self.assertNotIn("rematch", {item.get("id") for item in self.navs[index].items()})
+        self.assertTrue(all(not a.starts for a in self.adapters))
+        self.wait(lambda: all(not self.state(i).get("match_failure") for i in range(2)),
+                  "failure notice did not expire automatically", timeout=5)
+        self.assertTrue(self.both("logged_in"))
 
     def test_quick_match_ready_result_and_rematch(self):
         self.login(0, "QuickOne")
@@ -567,6 +670,31 @@ class LocalLobbyTests(unittest.TestCase):
                   "real rematch did not launch the stub", timeout=20)
         self.assertEqual(self.adapters[0]._online_match_id, self.adapters[1]._online_match_id)
         self.assertTrue(all(len(a.starts) == 2 for a in self.adapters))
+
+    def test_native_no_peer_exit_before_fight_never_shows_match_result(self):
+        self.login(0, "NoPeerOne")
+        self.login(1, "NoPeerTwo")
+        self.choose(0, "search_casual")
+        self.wait(lambda: self.state(0)["phase"] == "searching", "first client did not queue")
+        self.choose(1, "search_casual")
+        self.wait(lambda: self.both("matched"), "no-peer pair did not match")
+        self.choose(0, "start_match")
+        self.choose(1, "start_match")
+        self.wait(lambda: self.both("playing"), "stub process boundary did not start", timeout=20)
+        drivers = [adapter._online_driver for adapter in self.adapters]
+        for adapter in self.adapters:
+            # Exit 4 is the native process contract for a peer unreachable
+            # before FIGHT. The installed driver/server decide every event.
+            adapter.game.proc = SimpleNamespace(returncode=4)
+            adapter.game.alive = False
+        self.wait(lambda: self.both("logged_in") and all(self.state(i).get("match_failure") for i in range(2)),
+                  "native no-peer result was presented as a finished match")
+        for driver in drivers:
+            self.assertEqual(driver.history[-1][1]["source"], "disconnect")
+        for index in range(2):
+            self.assertFalse(self.state(index)["set"])
+            self.assertFalse(self.state(index)["capabilities"]["rematch"])
+        self.assert_offscreen_views(range(2))
 
     def test_rooms_password_and_invite_code(self):
         self.login(0, "CodeOne")
@@ -866,6 +994,47 @@ class LocalLobbyTests(unittest.TestCase):
         self.assertTrue(self.both("logged_in"))
         self.assertTrue(all(not adapter.starts for adapter in self.adapters))
 
+    def test_three_player_room_explains_current_pair_next_and_place(self):
+        out = self.directory / "2"
+        out.mkdir()
+        adapter = LocalAdapter(out, self.adapters[0].build)
+        adapter.set_text_value("online_server", self.address)
+        nav = Nav([Game(adapter.m, adapter)], language="en")
+        nav.screen = "hub"
+        nav.sec[adapter.m["id"]] = "online"
+        self.adapters.append(adapter)
+        self.navs.append(nav)
+        for index, name in enumerate(("LineHost", "LineFirst", "LineSecond")):
+            self.login(index, name, "login_register")
+        self.choose(0, "community_option:size", "right")
+        self.choose(0, "community_option:size", "right")
+        self.choose(0, "community_create")
+        self.wait(lambda: bool(self.state(0)["community"]["room"]), "line room not created")
+        rid = self.state(0)["community"]["room"]["id"]
+        self.choose(0, "community_sit_out")
+        self.wait(lambda: not self.state(0)["community"]["room"]["in_line"], "host did not sit out")
+        for index in (1, 2):
+            self.choose(index, "refresh_rooms")
+            self.wait(lambda: any(row["id"] == rid for row in self.state(index)["rooms"]), "line room not listed")
+            self.choose(index, "join_room:" + rid)
+            self.wait(lambda: bool(self.state(index)["community"]["room"]), "line room join did not finish")
+        self.wait(lambda: self.state(1)["phase"] == self.state(2)["phase"] == "matched", "line did not pair first two")
+        self.choose(0, "community_back_in_line")
+        self.wait(lambda: self.state(0)["community"]["room"]["in_line"], "host did not return to line")
+        from openrecomp import i18n
+        rows = {row.get("id"): row for row in self.navs[0].items()}
+        self.assertEqual(i18n.localize(rows["community_line:now"]["value"], "en"), "LineFirst / LineSecond")
+        self.assertEqual(i18n.localize(rows["community_line:next"]["value"], "en"), "LineHost")
+        self.assertEqual(rows["community_line:place"]["value"], "3")
+        self.assertIn("community_sit_out", rows)
+        self.assertIn("community_option:access", rows)
+        peers = [member["id"] for member in self.state(0)["community"]["room"]["members"]
+                 if member["name"] != "LineHost"]
+        for peer in peers:
+            self.assertIn("community_kick:" + peer, rows)
+        self.assertTrue(all(not adapter.starts for adapter in self.adapters))
+        self.assert_offscreen_views(range(3))
+
     def test_server_dev_badge_and_pad_mention(self):
         self.login(0, "BadgeOne", "login_register")
         self.login(1, "BadgeTwo", "login_register")
@@ -957,10 +1126,11 @@ class LocalLobbyTests(unittest.TestCase):
             self.assertTrue(snapshot["character_locked"])
         self.assertTrue(all(not adapter.starts for adapter in self.adapters))
         self.choose(0, "cancel_match")
-        # Back in the lobby, still logged in; the set is over (its end is shown) and the character free again.
-        self.wait(lambda: self.state(0)["phase"] == "logged_in" and self.state(0)["message"] == "@online.set_ended",
+        # An unplayed ranked set is cancelled without presenting a match result.
+        self.wait(lambda: self.state(0)["phase"] == "logged_in" and self.state(0)["message"] == "@online.cancelled",
                   "ranked ready check did not cancel")
         self.assertTrue(self.adapters[0]._online_client.connected)
+        self.assertFalse(self.state(0)["set"])
         self.assertFalse(self.state(0)["character_locked"])
         self.assertTrue(all(not adapter.starts for adapter in self.adapters))
 

@@ -16,6 +16,8 @@ Item {
     readonly property color card: "#16181C"
     readonly property color raised: "#202328"
     readonly property color ink: "#0E0F11"
+    readonly property bool hasBanner: !!(o.search && o.search.active) || !!o.notice
+    readonly property int bannerH: hasBanner ? 96 : 0
 
     function click(i) { if (i !== undefined && i >= 0) root.backend.clickRow(i) }
     function list(a) { return a || [] }
@@ -56,11 +58,41 @@ Item {
         TapHandler { onTapped: page.click(chip.b.index) }
     }
 
+    Rectangle {
+        id: searchBanner
+        objectName: "onlineSearchBanner"
+        visible: page.hasBanner
+        x: 24; y: 14; width: 1920 - 48; height: page.bannerH
+        color: page.raised; border.width: 2; border.color: page.acc
+        Column {
+            x: 20; anchors.verticalCenter: parent.verticalCenter; width: parent.width - cancelSearch.width - 60; spacing: 6
+            Text {
+                width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText
+                wrapMode: page.o.notice ? Text.Wrap : Text.NoWrap; maximumLineCount: page.o.notice ? 2 : 1
+                text: page.o.notice || (((page.o.search || {}).label || "") + "  " + ((page.o.search || {}).elapsed || ""))
+                color: page.root.textC; font.family: page.root.sans; font.weight: Font.DemiBold; font.pixelSize: page.o.notice ? 24 : 30
+            }
+            Text {
+                visible: !page.o.notice && !!(page.o.search && page.o.search.reason)
+                width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText
+                text: page.o.search ? (page.o.search.reason || "") : ""
+                color: page.root.muted; font.family: page.root.sans; font.pixelSize: 19
+            }
+        }
+        Chip {
+            id: cancelSearch
+            visible: !!(page.o.search && page.o.search.active) && !page.o.notice
+            anchors.right: parent.right; anchors.rightMargin: 20; anchors.verticalCenter: parent.verticalCenter
+            b: page.o.search ? (page.o.search.cancel || ({})) : ({})
+            strong: true; maxW: 360; height: 52
+        }
+    }
+
     // ================================================================ profile card: who you are, your ranked standing
     Rectangle {
         id: profile
         objectName: "onlineProfile"
-        x: 24; y: 14; width: 640; height: page.topH
+        x: 24; y: 14 + (page.hasBanner ? page.bannerH + 10 : 0); width: 640; height: page.topH
         color: page.card; border.width: 1; border.color: page.prof.focused ? page.acc : page.root.line
         Rectangle {
             id: face
@@ -129,7 +161,7 @@ Item {
     Rectangle {
         id: find
         objectName: "onlineFind"
-        x: profile.x + profile.width + 16; y: 14; width: 1920 - 24 - x; height: page.topH
+        x: profile.x + profile.width + 16; y: profile.y; width: 1920 - 24 - x; height: page.topH
         color: page.card; border.width: 1; border.color: page.root.line
         Text { x: 20; y: 10; textFormat: Text.PlainText; text: page.o.findTitle || ""; color: page.root.muted; font.family: page.root.mono; font.weight: Font.Medium; font.pixelSize: 17; font.capitalization: Font.AllUppercase }
         Row {
@@ -224,7 +256,7 @@ Item {
     Item {
         id: chapters
         objectName: "onlineChapters"
-        x: 24; y: 14 + page.topH + 10; width: 1920 - 48 - page.chatW - page.gap; height: 46
+        x: 24; y: profile.y + page.topH + 10; width: 1920 - 48 - page.chatW - page.gap; height: 46
         Row {
             anchors.verticalCenter: parent.verticalCenter; spacing: 4
             Glyph { g: page.o.prevG || ({}); size: 30; anchors.verticalCenter: parent.verticalCenter }
