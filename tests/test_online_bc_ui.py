@@ -6,7 +6,7 @@ import unittest
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ.setdefault("QT_QUICK_BACKEND", "software")
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QObject, QUrl
 from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -57,7 +57,16 @@ class OnlineMatchSocialScene(unittest.TestCase):
                             backend._v = nav.view()
                             backend._v["reducedMotion"] = True
                             backend.viewChanged.emit()
-                            spin(1)
+                            # Geometry is meaningful once the active asynchronous pages are ready.
+                            for _ in range(200):
+                                spin(5)
+                                if all(not p.property("active") or p.property("progress") == 1
+                                       and p.property("item") is not None
+                                       for p in win.findChildren(QObject, "pageLoader")):
+                                    break
+                            else:
+                                self.fail("Online page did not load")
+                            spin(20)
                             scene_items = list(items(win.contentItem()))
                             area = next(child for child in scene_items if child.objectName() == "hubList")
                             content = next(child for child in scene_items if child.objectName() == "detailContent")

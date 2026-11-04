@@ -61,37 +61,37 @@ Column {
         }
     }
 
-    OnlineHub {
-        objectName: "onlineHub"
-        visible: hub.v.online.layout === "lobby"
+    PageLoader {
+        page: "OnlineHub.qml"; pageName: "onlineHub"
+        active: hub.v.online.layout === "lobby"
         width: 1920; height: parent.height - 64
         root: hub.root
     }
 
-    OnlineCard {
-        objectName: "onlineCardPage"
-        visible: hub.v.online.layout === "card"
+    PageLoader {
+        page: "OnlineCard.qml"; pageName: "onlineCardPage"
+        active: hub.v.online.layout === "card"
         width: 1920; height: parent.height - 64
         root: hub.root
     }
 
-    OnlineLogin {
-        objectName: "onlineLoginPage"
-        visible: hub.v.online.layout === "login"
+    PageLoader {
+        page: "OnlineLogin.qml"; pageName: "onlineLoginPage"
+        active: hub.v.online.layout === "login"
         width: 1920; height: parent.height - 64
         root: hub.root
     }
 
-    SettingsHub {
-        objectName: "settingsHub"
-        visible: hub.v.settingsPage.layout === "groups"
+    PageLoader {
+        page: "SettingsHub.qml"; pageName: "settingsHub"
+        active: hub.v.settingsPage.layout === "groups"
         width: 1920; height: parent.height - 64
         root: hub.root
     }
 
-    BuildPage {
-        objectName: "buildPage"
-        visible: !!(hub.v.build && hub.v.build.show)
+    PageLoader {
+        page: "BuildPage.qml"; pageName: "buildPage"
+        active: !!(hub.v.build && hub.v.build.show)
         width: 1920; height: parent.height - 64
         root: hub.root
     }

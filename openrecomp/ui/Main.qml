@@ -55,7 +55,7 @@ Window {
                 width: 1920; height: 72; color: win.bar
                 Row {
                     anchors.left: parent.left; anchors.leftMargin: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 28
-                    Image { visible: !!source; source: win.v.wordmark || ""; height: 44; fillMode: Image.PreserveAspectFit; sourceSize.height: 88; smooth: true; anchors.verticalCenter: parent.verticalCenter }
+                    Image { visible: !!source; source: win.v.wordmark || ""; asynchronous: true; cache: true; height: 44; fillMode: Image.PreserveAspectFit; sourceSize.height: 88; smooth: true; anchors.verticalCenter: parent.verticalCenter }
                     Text { objectName: "brandFallback"; visible: !win.v.wordmark; textFormat: Text.PlainText; text: "OpenRecomp-FGC"; color: win.textC; font.family: win.display; font.weight: Font.Black; font.pixelSize: 40; anchors.verticalCenter: parent.verticalCenter }
                     Row {
                         visible: win.v.screen === "hub"; spacing: 12; anchors.verticalCenter: parent.verticalCenter
@@ -96,8 +96,8 @@ Window {
             Item {
                 id: body
                 width: 1920; height: 1080 - 72 - 48 - 60
-                Shelf { anchors.fill: parent; visible: win.v.screen === "start"; root: win }
-                Hub { anchors.fill: parent; visible: win.v.screen === "hub"; root: win }
+                PageLoader { anchors.fill: parent; active: win.v.screen === "start"; page: "Shelf.qml"; root: win }
+                PageLoader { anchors.fill: parent; active: win.v.screen === "hub"; page: "Hub.qml"; root: win }
             }
 
             // ---------------------------------------------------------------- focused hint and last input device
@@ -139,7 +139,7 @@ Window {
             }
         }
 
-        Overlays { anchors.fill: parent; root: win }
+        PageLoader { anchors.fill: parent; active: !!win.v.overlay; page: "Overlays.qml"; root: win }
 
         // ---------------------------------------------------------------- one toast, never a stack of banners
         Rectangle {

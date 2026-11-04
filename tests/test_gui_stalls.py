@@ -74,6 +74,8 @@ class StallWatchTests(unittest.TestCase):
                 time.sleep(0.2)
 
             watch.beat()
+            # Scheduling before the initial beat is outside the controlled pause below.
+            watch.stalls.clear()
             slow_disk_read()
             watch.beat()
             self.assertEqual(len(watch.stalls), 1)
