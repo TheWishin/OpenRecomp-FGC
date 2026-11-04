@@ -196,6 +196,31 @@ class SetFlowTest(Base):
         self.assertTrue(self.a._online_authorized)
         self.assertFalse(any(c == ("ready", True) for c in client.calls))       # no ready vote between set games
 
+    def test_the_next_casual_first_to_game_starts_without_a_decline(self):
+        client = self.login()
+        info = dict(id="s1", rated=False, casual=True, first_to=2, wins_needed=2, number=1, wins=[0, 0])
+        self.found(client, ranked=False, set=info)
+        initial = self.a.online_state()["set"]
+        self.a._online_phase = "result_sent"
+        next_info = dict(info, number=2, wins=[0, 1], next=dict(number=2, **{"in": 6}))
+        client.events.put(dict(t="match_result", match="fake-match", status="confirmed", winner=1,
+                               set=next_info))
+        self.a.online_poll()
+        result = self.a.online_state()
+        self.found(client, match="fake-match-2", ranked=False, origin="set", ready_check=False, set=next_info)
+        state = self.a.online_state()
+        self.assertEqual(state["phase"], "starting")
+        self.assertEqual(self.a._online_match_id, "fake-match-2")
+        self.assertTrue(self.a._online_authorized)
+        self.assertFalse(self.a._online_ready_check)
+        self.assertNotIn(("ready", False), client.calls)     # do not decline the next game as an unsolicited offer
+        self.assertNotIn(("ready", True), client.calls)      # no ready vote between set games
+        self.assertEqual((initial["id"], initial["first_to"], initial["wins"]), ("s1", 2, [0, 0]))
+        self.assertFalse(initial["rated"])
+        self.assertTrue(initial["casual"])
+        self.assertEqual(result["set"]["wins"], [1, 0])      # P2 won game 1, from this player's side
+        self.assertEqual((state["set"]["number"], state["set"]["wins"]), (2, [1, 0]))
+
     def test_leave_set(self):
         client = self.login()
         self.found(client)
