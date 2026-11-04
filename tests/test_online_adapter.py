@@ -218,7 +218,9 @@ class OnlineAdapterTests(unittest.TestCase):
     def test_guest_casual_cancel_and_secure_runtime_options(self):
         client = self.login()
         self.assertFalse(client.kwargs["auto_ready"])
-        self.assertEqual(client.kwargs["reconnect"], 60)       # a short drop resumes the session (no logout)
+        # A drop resumes the session (no logout) for as long as the lobby keeps it (600 s).
+        self.assertEqual(client.kwargs["reconnect"], Online.RECONNECT_SECONDS)
+        self.assertLess(Online.RECONNECT_SECONDS, 600)
         self.assertTrue(client.kwargs["blind_ready"])
         self.assertFalse(client.kwargs["port_mapping"])
         self.assertNotIn("plain_passwords", client.kwargs)
@@ -325,8 +327,28 @@ class OnlineAdapterTests(unittest.TestCase):
         self.a._online_guard_at = 0
         self.a.online_poll()
         self.a.online_poll()
-        self.assertTrue(client.closed.wait(1))
+        # The search stops (the queue is left); the player stays logged in.
+        self.assertFalse(client.closed.is_set())
+        self.assertIn("cancel", client.calls)
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
         self.assertEqual(self.a.online_state()["message"], "@online.game_running")
+
+    def test_one_failed_process_check_while_searching_keeps_the_search(self):
+        client = self.login()
+        self.a.online_action("search_casual")
+        self.a.online_poll()
+        self.scan.return_value = None              # tasklist busy on a loaded PC
+        for n in range(2):
+            self.a._online_guard_at = 0
+            self.a.online_poll()
+            self.a.online_poll()
+            self.assertEqual(self.a.online_state()["phase"], "searching", n)
+        self.a._online_guard_at = 0
+        self.a.online_poll()
+        self.a.online_poll()
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+        self.assertEqual(self.a.online_state()["message"], "@online.process_unknown")
+        self.assertFalse(client.closed.is_set())
 
     def test_kick_is_terminal_even_when_disconnect_and_success_are_pending(self):
         client = self.login(account=True)
@@ -362,30 +384,52 @@ class OnlineAdapterTests(unittest.TestCase):
         self.assertNotIn("not-for-the-view", json.dumps(state))
 
     def test_cancel_before_queue_reply_is_not_lost(self):
+        # Cancel pressed while the search request is still on its way (owner: "cancel search, logged out"): the
+        # leave goes out after the search, and the player stays logged in.
         client = self.login()
         self.a.online_action("search_casual")
         self.a.online_action("cancel")
         self.assertEqual(self.a.online_state()["message"], "@online.cancelled")
         self.a.online_poll()
         self.a.online_poll()
-        self.assertTrue(client.closed.wait(1))
-        self.assertEqual(self.a.online_state()["phase"], "offline")
+        self.assertFalse(client.closed.is_set())
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+        self.assertLess(client.calls.index(("quick", "random")), client.calls.index("cancel"))
+        self.assertEqual(client.calls.count("connect"), 1)
 
-    def test_lost_queue_ack_disconnects_to_stop_a_possible_search(self):
+    def test_lost_queue_ack_leaves_the_queue_and_stays_logged_in(self):
+        # The answer never came, so the server may have queued the player: leave the queue again (closing the
+        # connection here was a logout).
         client = self.login()
         def quick(char):
             client.calls.append(("quick", char))
             raise LobbyError("timeout")
         client.quick_match = quick
         self.a.online_action("search_casual")
-        self.a.online_poll()
-        self.assertTrue(client.closed.wait(1))
-        self.assertEqual(self.a.online_state()["phase"], "offline")
-        self.assertEqual(self.a.online_state()["message"], "@online.unavailable")
-        self.assertIsNone(self.a._online_client)
         for _ in range(3):
             self.a.online_poll()
+        self.assertFalse(client.closed.is_set())
+        self.assertIs(self.a._online_client, client)
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+        self.assertEqual(self.a.online_state()["message"], "@online.unavailable")
+        self.assertIn("cancel", client.calls)
         self.assertEqual(client.calls.count(("quick", "random")), 1)
+
+    def test_refused_or_cut_queue_request_stays_logged_in_without_a_leave(self):
+        # A refusal (rate limited: fast search/cancel presses) queued nothing; a cut connection took the player out
+        # of the queue on the server and the client resumes it.
+        for error, message in ((LobbyError("rate_limited"), "@online.rate_limited"),
+                               (LobbyError("not_connected"), "@online.unavailable")):
+            with self.subTest(code=error.code):
+                client = self.login()
+                client.quick_match = mock.Mock(side_effect=error)
+                self.a.online_action("search_casual")
+                self.a.online_poll()
+                self.assertFalse(client.closed.is_set())
+                self.assertEqual(self.a.online_state()["phase"], "logged_in")
+                self.assertEqual(self.a.online_state()["message"], message)
+                self.assertNotIn("cancel", client.calls)
+                self.a.online_close()
 
     def test_queued_kick_wins_over_a_failed_queue_request_and_disconnect(self):
         client = self.login(account=True)

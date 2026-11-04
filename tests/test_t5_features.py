@@ -147,8 +147,10 @@ class FeatureBridgeTests(unittest.TestCase):
                 self.module.completion.reset_mock()
                 self.a._online_results.put((self.a._online_generation, operation, None, OSError("fake lost reply")))
                 self.a.online_poll()
-                self.assertIsNone(self.a._online_client)
-                self.assertTrue(client.closed.wait(1))
+                # A cut connection: the server dropped the request's queue/room itself; the login stays.
+                self.assertIs(self.a._online_client, client)
+                self.assertFalse(client.closed.is_set())
+                self.assertEqual(self.a._online_phase, "logged_in")
                 self.assertEqual(self.a._online_message, "@online.unavailable")
                 self.module.completion.assert_not_called()
 

@@ -305,8 +305,9 @@ class T4OnlineTests(unittest.TestCase):
         client.events.put(dict(t="match_start", ticket=ticket()))
         self.a.online_poll()
         self.a.online_poll()
-        self.assertTrue(client.closed.wait(1))
-        self.assertEqual(self.a.online_state()["phase"], "offline")
+        # The game could not start: back to the lobby, still logged in, the match left.
+        self.assertFalse(client.closed.is_set())
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
         self.assertNotIn("private", json.dumps(self.a.online_state()))
 
     def test_disconnect_stops_owned_game_and_closes_client(self):
@@ -314,7 +315,8 @@ class T4OnlineTests(unittest.TestCase):
         client.events.put(dict(t="disconnected"))
         self.a.online_poll()
         self.assertEqual(len(self.a.stops), 1)
-        self.assertEqual(self.a.online_state()["phase"], "offline")
+        self.assertTrue(client.closed.wait(1))
+        self.assertIn(self.a.online_state()["phase"], ("offline", "connecting"))
 
     def settle(self, client, call):
         for _ in range(200):
@@ -347,17 +349,33 @@ class T4OnlineTests(unittest.TestCase):
         self.assertEqual(self.a.online_state()["message"], "@online.peer_declined")
         self.assertEqual([c for c in client.calls if c == "connect"], [])
 
-    def test_failed_unqueue_after_cancel_still_detaches(self):
+    def test_unanswered_unqueue_after_cancel_still_detaches(self):
+        # Asked three times and never answered: the connection is closed (a launcher saying "in the lobby" must not
+        # stay queued on the server).
         client = self.found()
-        client.cancel_queue = mock.Mock(side_effect=OSError("lost"))
+        client.cancel_queue = mock.Mock(side_effect=type("Timeout", (Exception,), {"code": "timeout"})())
         self.a.online_action("cancel_match")
-        for _ in range(200):
+        for _ in range(300):
             self.a.online_poll()
             if client.closed.is_set():
                 break
             threading.Event().wait(0.01)
         self.assertTrue(client.closed.is_set())
+        self.assertEqual(client.cancel_queue.call_count, 3)
         self.assertEqual(self.a.online_state()["phase"], "offline")
+
+    def test_unqueue_on_a_cut_connection_stays_logged_in(self):
+        # The connection broke: the server already took the player out of its queue, and the client resumes.
+        client = self.found()
+        client.cancel_queue = mock.Mock(side_effect=type("Cut", (Exception,), {"code": "not_connected"})())
+        self.a.online_action("cancel_match")
+        for _ in range(100):
+            self.a.online_poll()
+            if not self.a._online_busy:
+                break
+            threading.Event().wait(0.01)
+        self.assertFalse(client.closed.is_set())
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
 
     def test_closing_without_an_online_owned_game_does_not_stop_offline_game(self):
         self.a.start()
@@ -389,8 +407,15 @@ class T4OnlineTests(unittest.TestCase):
         client = self.playing()
         client.events.put(dict(t="match_found", match="other-match"))
         self.a.online_poll()
-        self.assertEqual(len(self.a.stops), 1)
-        self.assertEqual(self.a.online_state()["phase"], "offline")
+        # The second offer is declined; the owned game and the login stay.
+        for _ in range(100):
+            if ("ready", False) in client.calls:
+                break
+            threading.Event().wait(0.01)
+        self.assertIn(("ready", False), client.calls)
+        self.assertEqual(self.a.stops, [])
+        self.assertEqual(self.a.online_state()["phase"], "playing")
+        self.assertFalse(client.closed.is_set())
 
     def test_server_result_status_is_distinct_from_report_acknowledgement(self):
         client = self.playing()

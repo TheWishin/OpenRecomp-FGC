@@ -36,7 +36,9 @@ shares T5DR Online's accounts) and the default. The launcher uses the first of:
 Without any of these, Online opens on Direct IP / VPN; **T4 Online lobby** switches to
 the lobby screen, which says that no server is set up and lets the player type the
 address under Lobby address. The choice between lobby and direct IP is remembered.
-Login, search and chat are always explicit actions; opening the page connects nowhere.
+Search and chat are always explicit actions. Opening the page connects nowhere, except that a login this
+launcher saved itself (account, `online-t4.json`) logs in by itself once per launcher start when the page is
+first shown; a shared T5DR login is used only when chosen. See "Staying logged in" in T5DR_ONLINE.md.
 
 The lobby client ships inside the launcher (client modules of T5DR Online's open-source
 lobby, renamed for Tekken 4; no server code, certificates or server list). T4's own

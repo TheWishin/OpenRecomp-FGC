@@ -313,9 +313,10 @@ class T5Match(Online):
         if current and event.get("match") not in (None, current) and kind != "set_end":
             return True
         if kind == "notice":
-            self.online_close()
-            self._online_message = ("@online.game_build_mismatch" if event.get("code") == "version_mismatch"
-                                    else "@online.connection_failed")
+            # This match cannot be played (the games cannot reach each other, or another game build): leave it and
+            # stay in the lobby (closing here was a logout).
+            self._online_to_lobby("@online.game_build_mismatch" if event.get("code") == "version_mismatch"
+                                  else "@online.connection_failed", leave=current)
             return True
         if kind == "match_reveal":
             self._online_match.update(self._online_match_view(event))
@@ -425,6 +426,11 @@ class T5Match(Online):
         elif action == "cancel_match" and phase == "matched" and self._online_client is not None:
             # Declined at the ready check: say no and stay in the lobby.
             self._online_to_lobby("@online.cancelled", decline=getattr(self, "_online_match_id", None) or "")
+        elif action == "cancel_match" and phase == "starting" and self._online_client is not None:
+            # Cancelled after Start, before the game: leave the match (the server cancels it for both players; in a
+            # running set it starts that game again later) and stay in the lobby. The match reset stops a game the
+            # driver may already have started.
+            self._online_to_lobby("@online.cancelled", leave=getattr(self, "_online_match_id", None) or None)
         elif action == "cancel_match" and phase in ("matched", "starting"):
             self.online_close()
             self._online_message = "@online.cancelled"
@@ -473,6 +479,9 @@ class T5Match(Online):
         else:
             super().online_action(action)
 
+    def _online_match_started(self):
+        return getattr(self, "_online_start_seen", None) is not None
+
     def _online_driver_call(self, driver, work):
         with self._online_driver_lock:
             if driver is not getattr(self, "_online_driver", None) or self._online_client is None:
@@ -484,9 +493,19 @@ class T5Match(Online):
         if not action.startswith("t5_"):
             return super()._online_completion(action, value, error)
         if error:
+            # The match could not go on (the game did not start, a request was refused or lost): back to the lobby,
+            # logged in. A match that has not started is left; the match reset stops the driver and its game.
             message = self._online_error(error)
-            self.online_close()
-            self._online_message = message
+            if action in ("t5_answer", "t5_rematch", "t5_return", "t5_leave_set") and self._online_client is not None:
+                # After a game (result, rematch, leaving the set): the request can be made again from the same
+                # screen. The set the server still runs stays as it is.
+                self._online_leaving_set = False
+                self._online_message = message
+                return True
+            mid = getattr(self, "_online_match_id", None)
+            pending = self._online_phase in ("matched", "starting") and not self._online_match_started()
+            self._online_to_lobby(message, decline=mid if self._online_phase == "matched" and mid else None,
+                                  leave=mid if pending and self._online_phase == "starting" else None)
             return True
         if action == "t5_driver":
             driver, notes = value

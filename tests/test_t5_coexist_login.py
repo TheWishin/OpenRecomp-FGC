@@ -72,6 +72,23 @@ class CoexistingLoginTests(unittest.TestCase):
         self.assertFalse(os.path.exists(self.a.online_cfg_path()))
         self.assert_native_unchanged()
 
+    def test_showing_online_never_logs_in_with_the_native_launchers_token(self):
+        # Beside the native launcher its remembered login is used only when the player chooses it: logging in with
+        # it by itself would push the native launcher out ("logged in from another place").
+        self.a.online_shown()
+        self.a.online_poll()
+        self.assertEqual(self.a.clients, [])
+        self.assertEqual(self.a.online_state()["phase"], "offline")
+        self.assert_native_unchanged()
+
+    def test_showing_online_logs_in_with_this_launchers_own_saved_login(self):
+        self.write(self.a.online_cfg_path(), dict(sessions={"local:7781": dict(name="Own", token="fake-own-token")}))
+        self.a.online_shown()
+        self.a.online_poll()
+        self.assertIn(("session", "fake-own-token"), self.a.clients[-1].calls)
+        self.assertEqual(self.a.online_state()["phase"], "logged_in")
+        self.assert_native_unchanged()
+
     def test_expired_borrowed_session_is_not_removed_or_copied(self):
         def make_client(**kwargs):
             client = type(self.a).make_client(self.a, **kwargs)

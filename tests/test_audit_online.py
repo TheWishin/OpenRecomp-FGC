@@ -31,6 +31,17 @@ class OnlineAuditTests(unittest.TestCase):
         adapter._online_submit = Online._online_submit.__get__(adapter)
         return adapter, adapter.clients[-1]
 
+    def settle(self, adapter, client):
+        """Every worker of the cancelled request and of the leave has finished and been read."""
+        for _ in range(300):
+            adapter.online_poll()
+            if not adapter._online_busy and not any(
+                    t.name == "openrecomp-lobby" and t.is_alive() for t in threading.enumerate()):
+                adapter.online_poll()
+                return
+            threading.Event().wait(0.01)
+        self.fail("workers did not finish")
+
     def finish(self, adapter):
         result = adapter._online_results.get(timeout=2)
         adapter._online_results.put(result)
@@ -53,13 +64,14 @@ class OnlineAuditTests(unittest.TestCase):
                 self.assertTrue(entered.wait(1))
                 try:
                     adapter.online_action("cancel")
-                    self.assertTrue(client.closed.wait(1))
-                    client.events.put(dict(t="match_found", match="late"))
+                    self.assertEqual(adapter.online_state()["phase"], "logged_in")
                 finally:
                     release.set()
-                    self.finish(adapter)
+                    self.settle(adapter, client)
+                # Cancelled before the search was sent: it never is; the player stays logged in.
                 self.assertFalse(any(isinstance(call, tuple) and call[0] == "quick" for call in client.calls))
-                self.assertEqual(adapter.online_state()["phase"], "offline")
+                self.assertFalse(client.closed.is_set())
+                self.assertEqual(adapter.online_state()["phase"], "logged_in")
                 self.assertEqual(adapter.online_state()["message"], "@online.cancelled")
 
     def test_cancel_disconnects_before_blocked_queue_reply_and_discards_offer(self):
@@ -77,12 +89,20 @@ class OnlineAuditTests(unittest.TestCase):
         self.assertTrue(entered.wait(1))
         try:
             adapter.online_action("cancel")
-            self.assertTrue(client.closed.wait(1))
-            self.assertEqual(adapter.online_state()["phase"], "offline")
+            self.assertEqual(adapter.online_state()["phase"], "logged_in")
         finally:
             release.set()
-            self.finish(adapter)
-        self.assertEqual(adapter.online_state()["phase"], "offline")
+            self.settle(adapter, client)
+        # The search was already on its way: the leave goes out after it, and the offer the server made before
+        # the leave arrived is declined -- never shown, never started; the player stays logged in.
+        self.assertEqual(adapter.online_state()["phase"], "logged_in")
+        self.assertFalse(client.closed.is_set())
+        self.assertIn("cancel", client.calls)
+        for _ in range(100):
+            if ("ready", False) in client.calls:
+                break
+            threading.Event().wait(0.01)
+        self.assertIn(("ready", False), client.calls)
         self.assertEqual(adapter.starts, [])
         self.assertNotIn(("ready", True), client.calls)
 
@@ -130,12 +150,14 @@ class OnlineAuditTests(unittest.TestCase):
         self.assertTrue(entered.wait(1))
         try:
             adapter.online_action("cancel_match")
-            self.assertTrue(client.closed.wait(1))
+            self.assertEqual(adapter.online_state()["phase"], "logged_in")
         finally:
             release.set()
-            self.finish(adapter)
+            self.settle(adapter, client)
         self.assertNotIn(("ready", True), client.calls)
         self.assertEqual(adapter.starts, [])
+        self.assertFalse(client.closed.is_set())
+        self.assertEqual(adapter.online_state()["phase"], "logged_in")
 
     def test_cached_client_from_another_install_is_refused_before_import(self):
         adapter = Subject(self.directory)

@@ -170,7 +170,11 @@ class SharedLobbyTests(unittest.TestCase):
         client.events.put(dict(t="match_found"))
         client.events.put(dict(t="disconnected"))
         self.a.online_poll()
-        self.assertEqual(self.a.online_state()["phase"], "offline")
+        # The connection is gone for good: no match; the same guest name logs in again by itself.
+        self.assertEqual(self.a.online_state()["phase"], "connecting")
+        self.assertEqual(self.a.online_state()["message"], "@online.reconnecting")
+        self.assertEqual(self.a.online_state()["match"], {})
+        self.assertTrue(client.closed.wait(1))
 
     def test_retained_match_wins_over_lost_queue_acknowledgement(self):
         client = self.login()

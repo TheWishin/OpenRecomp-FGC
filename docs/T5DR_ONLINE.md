@@ -51,6 +51,34 @@ capabilities that their client or server lacks.
 | Auto-spectate and spectator permissions (`tk_spectate`, `launcher/core`) | Auto-spectate, spectator permission and ranked spectator permission are offered only when supported by the selected install. |
 | Developer badge and mentions (`tk_tab`) | Developer marks come from authoritative lobby data. Mention insertion is controller-selectable, and incoming mention highlighting uses the server's mention metadata. A name or chat message cannot grant a developer badge. |
 
+## Staying logged in
+
+Owner: "make sure you are NOT logged out when you cancel the search etc." The same rules hold for T5DR and T4
+(both use `adapters/t5_online.py`):
+
+- Cancelling a search, declining or cancelling a match (also after Start, before the game), a ready check that
+  runs out, an opponent who leaves, a refused or unanswered lobby request, a game found running while searching:
+  back to the lobby, still logged in, same session. The launcher leaves the queue (`unqueue`, `leave_match`,
+  `ready` no) instead of closing the connection. A Cancel pressed while the search request is still on its way is
+  sent after it; an offer the server made before the leave arrived is declined, never shown. Only a leave that
+  the server does not answer three times closes the connection (a launcher that says "in the lobby" must not
+  stay queued).
+- A dropped connection resumes the same session in the background for up to 540 s (the lobby keeps it 600 s,
+  `T5L_RESUME_WINDOW`). A search goes on after the resume (the server took the player out of its queue while the
+  connection was gone); a ready check or a room ends with "Back in the lobby".
+- A connection that cannot be resumed (the lobby restarted, or was away longer): the account's remembered login,
+  or the same guest name, logs in again by itself: after 3 s, then every 10 s for 10 minutes (as the T5DR
+  launcher). Never after "logged in from another place" (a second launcher with the same account: the older one
+  says so and stays out, no login loop), a logout, a login by hand or an expired saved login.
+- Launcher start: a login this launcher saved itself logs in by itself once when the Online section is first
+  shown. Only the saved session token is used, never a password (none is stored).
+- After a game (result, rematch, leaving a set) a refused request keeps the result screen; it can be pressed again.
+
+Checked with `tests/test_online_stay_logged_in.py` and with two scripted launchers (real Nav and adapters) against
+local T5DR and T4 lobbies behind a proxy that drops, blocks and restarts (both games, account and guest).
+The T4 lobby server forgot an idle player's session on every drop until its resume fix: with an older T4 server a
+drop logs in again by itself (still logged in, but a new session).
+
 ## Remaining differences and limits
 
 The native launcher's optional local-server hosting, firewall helper,

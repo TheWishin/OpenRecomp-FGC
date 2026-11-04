@@ -85,6 +85,9 @@ class Sections:
         if self._direct_online(g):
             return self._direct_online_items(g)
         if getattr(g.a, "online_supported", lambda: False)():
+            if not self.dry:
+                # Shown: the remembered login logs in by itself once (adapters decide; never a password).
+                getattr(g.a, "online_shown", lambda: None)()
             return self._online_items(g)
         out = []
         for it in g.a.online_items():
