@@ -1340,5 +1340,7 @@
     "online_ui.forgot": "Mot de passe oublié ?",
     "online_ui.login_back": "Retour à la connexion",
     "online_ui.server_line": "Serveur",
-    "online_ui.or": "ou"
+    "online_ui.or": "ou",
+    "online_ui.ranked_account": "Le classé exige un compte (les invités jouent en amical)",
+    "online_ui.build_line": "Build {build}"
 }

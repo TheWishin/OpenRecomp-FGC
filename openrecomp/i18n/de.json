@@ -1340,5 +1340,7 @@
     "online_ui.forgot": "Passwort vergessen?",
     "online_ui.login_back": "Zurück zur Anmeldung",
     "online_ui.server_line": "Server",
-    "online_ui.or": "oder"
+    "online_ui.or": "oder",
+    "online_ui.ranked_account": "Ranked braucht ein Konto (Gäste spielen Casual)",
+    "online_ui.build_line": "Build {build}"
 }

@@ -1340,5 +1340,7 @@
     "online_ui.forgot": "¿Olvidaste la contraseña?",
     "online_ui.login_back": "Volver al inicio de sesión",
     "online_ui.server_line": "Servidor",
-    "online_ui.or": "o"
+    "online_ui.or": "o",
+    "online_ui.ranked_account": "Ranked necesita una cuenta (los invitados juegan casual)",
+    "online_ui.build_line": "Build {build}"
 }

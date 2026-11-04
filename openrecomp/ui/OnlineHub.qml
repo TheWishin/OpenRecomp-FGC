@@ -113,6 +113,7 @@ Item {
                 }
             }
             Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.list(page.prof.conn).join("  ·  "); color: page.root.muted; font.family: page.root.sans; font.pixelSize: 17 }
+            Text { objectName: "profileBuild"; visible: text !== ""; width: parent.width - 230; elide: Text.ElideMiddle; textFormat: Text.PlainText; text: page.list(page.prof.build).join("  ·  "); color: page.root.muted; font.family: page.root.mono; font.pixelSize: 14 }
         }
         Row {
             anchors.right: parent.right; anchors.rightMargin: 14; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; spacing: 8
@@ -157,7 +158,7 @@ Item {
                     }
                     Text {
                         y: 54; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText
-                        text: big.index === 0 ? (page.fnd.rankedNote || "") : (page.fnd.quickNote || "")
+                        text: big.index === 0 ? (big.b.disabled && big.b.value ? big.b.value : (page.fnd.rankedNote || "")) : (page.fnd.quickNote || "")
                         color: page.root.muted; font.family: page.root.sans; font.pixelSize: 16
                     }
                 }

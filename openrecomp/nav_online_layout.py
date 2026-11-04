@@ -118,6 +118,12 @@ class OnlineLayout:
                               detail=dict(kicker="@section.online", title="@online_ui.strict",
                                           lead="@online_ui.strict_hint", rows=[]),
                               run=lambda: self._online_action(g, "ranked_strict")))
+        if not state.get("account"):
+            # Ranked needs an account: a guest sees the button greyed with the reason, never a refusal after it
+            for item in out:
+                if item.get("id") == "search_ranked":
+                    item.update(disabled=True, run=None, verb="", hint="@online_ui.ranked_account",
+                                value="@online_ui.ranked_account")
         toggle = dict(kind="action", id="chat_toggle", label="@online_ui.chat_hide" if open_chat else "@online_ui.chat_show",
                       verb="@change", hint="@online_ui.chat_toggle_hint",
                       detail=dict(kicker="@online.chat", title="@online.chat", lead="@online_ui.chat_toggle_hint", rows=[]),
@@ -465,7 +471,12 @@ class OnlineLayout:
             recent = self._cells(g.a.recent_results() or [])[:8]
         except Exception:  # noqa: BLE001 -- the card shows no results then
             recent = []
-        return dict(name=i18n.literal(state.get("name") or ""), rank=rank, plate=uri(g.a.rank_plate(me.get("tier"))) if me else "",
+        build = []
+        if state.get("build_id"):
+            build.append(i18n.message("online_ui.build_line", build=i18n.literal(state["build_id"])))
+        if state.get("game_folder"):
+            build.append(i18n.literal(state["game_folder"]))
+        return dict(name=i18n.literal(state.get("name") or ""), rank=rank, build=build, plate=uri(g.a.rank_plate(me.get("tier"))) if me else "",
                     face=face, main=i18n.literal(g.a.fighter_label(main)) if main else "", rows=rows, conn=conn,
                     index=n, focused=n == fi, guest=not state.get("account"),
                     progress=progress, progressText=progress_text, recent=recent, recentLabel="@recent_sets",

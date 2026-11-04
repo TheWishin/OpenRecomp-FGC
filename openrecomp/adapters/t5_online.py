@@ -321,6 +321,12 @@ class Online:
             if isinstance(rtt, (int, float)) and not isinstance(rtt, bool) and 0 <= rtt < 100000:
                 snapshot["server_ping"] = round(rtt)
             snapshot["secure"] = bool(getattr(self._online_client, "tls", False))
+            # Two players can compare at a glance: a match needs the same build (and the same game folder's build).
+            build = getattr(getattr(self._online_client, "build", None), "build_id", None)
+            if isinstance(build, str) and build:
+                snapshot["build_id"] = build[:24]
+            if isinstance(getattr(self, "root", None), str) and self.root:
+                snapshot["game_folder"] = self.root[-120:]
         return t5_features.state(self, snapshot)
 
     def _online_social_cap(self, capability):

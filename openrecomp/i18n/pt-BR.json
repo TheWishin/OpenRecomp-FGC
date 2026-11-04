@@ -1340,5 +1340,7 @@
     "online_ui.forgot": "Esqueceu a senha?",
     "online_ui.login_back": "Voltar ao login",
     "online_ui.server_line": "Servidor",
-    "online_ui.or": "ou"
+    "online_ui.or": "ou",
+    "online_ui.ranked_account": "Ranqueada exige conta (convidados jogam casual)",
+    "online_ui.build_line": "Build {build}"
 }

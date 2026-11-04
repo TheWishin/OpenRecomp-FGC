@@ -121,6 +121,20 @@ class LobbyPage(unittest.TestCase):
         self.a.snapshot["players"] = [p for p in self.a.snapshot["players"] if p["id"] != "p2"]
         self.assertEqual(self.nav.focus_index(self.items()), 0)
 
+    def test_guest_sees_ranked_greyed_with_the_reason(self):
+        self.a.snapshot.update(account=False)
+        ranked = self.page()["find"]["ranked"]
+        self.assertTrue(ranked["disabled"])
+        self.assertEqual(ranked["value"], "Ranked needs an account (guests play casual)")
+        items = self.items()
+        self.nav.focus[self.nav.key()] = next(i for i, it in enumerate(items) if it.get("id") == "search_ranked")
+        self.nav.act("confirm", device="xbox")
+        self.assertNotIn(("online", "search_ranked"), self.a.calls)
+
+    def test_profile_card_names_the_build_and_game_folder(self):
+        self.a.snapshot.update(build_id="1a82466271e3b256", game_folder="C:/Games/T4")
+        self.assertEqual(self.page()["profile"]["build"], ["Build 1a82466271e3b256", "C:/Games/T4"])
+
     def test_strict_ranked_option_is_a_find_card_chip(self):
         options = [o["label"] for o in self.page()["find"]["options"]]
         self.assertIn("Strict (Ranked: ±150 rating)", options)

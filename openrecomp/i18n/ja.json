@@ -1340,5 +1340,7 @@
     "online_ui.forgot": "パスワードを忘れた?",
     "online_ui.login_back": "ログインに戻る",
     "online_ui.server_line": "サーバー",
-    "online_ui.or": "または"
+    "online_ui.or": "または",
+    "online_ui.ranked_account": "ランクマッチにはアカウントが必要です (ゲストはカジュアル)",
+    "online_ui.build_line": "ビルド {build}"
 }

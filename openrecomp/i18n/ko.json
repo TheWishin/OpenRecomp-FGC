@@ -1340,5 +1340,7 @@
     "online_ui.forgot": "비밀번호를 잊으셨나요?",
     "online_ui.login_back": "로그인으로 돌아가기",
     "online_ui.server_line": "서버",
-    "online_ui.or": "또는"
+    "online_ui.or": "또는",
+    "online_ui.ranked_account": "랭크는 계정이 필요합니다 (게스트는 캐주얼)",
+    "online_ui.build_line": "빌드 {build}"
 }
