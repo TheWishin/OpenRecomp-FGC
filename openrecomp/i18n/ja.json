@@ -1395,5 +1395,9 @@
  "support.send.failed": "レポートを送信できませんでした: {error}",
  "support.finding.wine_graphics.title": "WineまたはProtonでゲームのグラフィックが起動しませんでした",
  "support.finding.wine_graphics.fix": "Steamで別のProtonを試してください（Proton Experimental、GE-Proton、proton-cachyos）。それでも直らない場合は、protontricks d3dcompiler_47でMicrosoftのシェーダーコンパイラーをゲームのPrefixに入れてください。ゲームのLinux・Steam Deckのヘルプを参照してください。",
- "t4.no_powershell": "Tekken 4のビルドとオンライン確認はPowerShellスクリプトですが、WineやProtonには動作するPowerShellがありません。Windowsでゲームをビルドするか、このPrefixにPowerShell 7を入れてください（未検証）。オフラインプレイには影響しません。"
+ "t4.no_powershell": "Tekken 4のビルドとオンライン確認はPowerShellスクリプトですが、WineやProtonには動作するPowerShellがありません。Windowsでゲームをビルドするか、このPrefixにPowerShell 7を入れてください（未検証）。オフラインプレイには影響しません。",
+ "t4.support.save": "レポートを保存",
+ "t4.support.hint": "個人情報を除去したT4ログ、ビルド識別情報、システム情報をランチャーのデータフォルダーに保存します。ゲームファイルは含みません。",
+ "t4.support.confirm": "個人情報を除去したT4ログ、ビルド識別情報、システム情報をこのPCにZIPで保存しますか？何も送信されません。",
+ "t4.support.notice": "個人情報を除去したT4ログ、ビルド識別情報、システム情報をロビー名と任意のメモ・連絡先とともに開発者へ送信します。ゲームファイル、キー、パスワードは含みません。"
 }

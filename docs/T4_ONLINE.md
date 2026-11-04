@@ -191,6 +191,32 @@ in the intended network setup.
 
 ## Settings
 
+### Report a problem
+
+T4's **Problem report** page works before building or logging in, in both lobby and
+direct-IP modes. **Send to the developer** sends a cleaned diagnostic ZIP over a
+separate connection to the selected T4 lobby, using its usual TLS certificate
+policy. The optional note, contact and lobby name accompany it. Opening the page
+only checks whether that server accepts reports; an older server hides Send.
+
+**Save report** works offline and writes the same cleaned diagnostics under
+`reports/` in the launcher's data folder. The saved file path appears on the page.
+Both actions work with a controller, including the optional text fields.
+
+The archive contains `contents.txt`, `system.txt`, `build_identity.json` (or an
+unavailable marker), launcher logs, the latest game/net logs from the install's
+`logs/` and its immediate run folders, fixed runtime diagnostic logs, and build
+logs. Input sizes and file counts are capped; older logs may be omitted and long
+logs keep their tail. Archive names contain no original filenames or paths.
+User/profile/computer names, email and network addresses, passwords and tokens
+are removed from diagnostic text. The note and contact deliberately supplied
+for Send accompany the report as entered. No ISO, game files, memory cards,
+generated code, pictures or account/settings files are collected. Links and
+junctions in diagnostic paths are rejected; no installed collector is executed.
+
+Upload failures leave Save available. Sending uses a temporary ZIP that is
+removed after success or failure; saving keeps the ZIP on this PC.
+
 **Connection diagnostics** is an opt-in switch, **off by default**. It sets
 `TEKKEN4_NET_DIAG` for online play and may add timing/logging overhead. Enable it
 before a test when the maintainer asks, then collect the diagnostic zip files.

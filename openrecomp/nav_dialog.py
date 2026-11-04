@@ -60,6 +60,7 @@ class Dialog:
             title, text = "@dialog.rebuild.title", "@dialog.rebuild.text"
         elif self.confirm_kind == "support_report":
             title, text = "@support.report.confirm.title", "@support.report.confirm.text"
+            text = self.game.a.support_state().get("confirm_text", text)
         elif self.confirm_kind == "update":
             title = "@updates.confirm.title"
             text = i18n.message("updates.confirm.text", version=self.update_version,

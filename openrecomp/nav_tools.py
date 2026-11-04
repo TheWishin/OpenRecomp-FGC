@@ -136,7 +136,7 @@ class Tools:
                             disabled=busy, run=None if busy else (lambda: self._start_support(g, "send")),
                             hint="@support.send.sending" if sending else "@support.send.hint",
                             detail=dict(kicker="@section.support", title="@support.send",
-                                        lead="@support.send.sending" if sending else "@support.send.notice", rows=rows,
+                                        lead="@support.send.sending" if sending else state.get("send_notice", "@support.send.notice"), rows=rows,
                                         primary="" if busy else "@support.send.verb")))
             for tid, label, value in (("support_note", "@support.send.note", note),
                                       ("support_contact", "@support.send.contact", contact)):
@@ -146,6 +146,10 @@ class Tools:
                                 detail=dict(kicker="@section.support", title=label, lead="@support.send.field_hint",
                                             rows=[dict(k=label, v=value or "-")])))
         for kind, label, hint in (("check", "@support.check", "@support.check.hint"), ("report", "@support.report", "@support.report.hint")):
+            if kind == "check" and state.get("check_available") is False:
+                continue
+            if kind == "report":
+                label, hint = state.get("report_label", label), state.get("report_hint", hint)
             run = (lambda: self._ask("support_report")) if kind == "report" else (lambda: self._start_support(g, "check"))
             out.append(dict(kind="action", id=kind, label=label, verb="" if busy else "@start", disabled=busy,
                             run=None if busy else run, hint="@support.running" if busy else hint,
@@ -161,7 +165,8 @@ class Tools:
         if state["report"]:
             out.append(self._support_finding("saved", "@support.report_ready", state["report"], "@support.local_only"))
         elif not state["findings"] and not busy and not state.get("sent"):
-            label = "@support.no_findings" if state["checked"] else "@support.not_checked"
+            label = (state.get("report_hint") if state.get("check_available") is False else
+                     "@support.no_findings" if state["checked"] else "@support.not_checked")
             out.append(self._support_finding("none", label, "", "@support.check.hint"))
         out.append(dict(kind="action", id="discord", label="@community.discord", verb="@open", run=self.open_discord,
                         hint="@community.hint",

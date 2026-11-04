@@ -1395,5 +1395,9 @@
  "support.send.failed": "보고서를 보낼 수 없습니다: {error}",
  "support.finding.wine_graphics.title": "Wine 또는 Proton에서 게임 그래픽이 시작되지 않았습니다",
  "support.finding.wine_graphics.fix": "Steam에서 다른 Proton 버전을 사용해 보세요(Proton Experimental, GE-Proton 또는 proton-cachyos). 그래도 안 되면 protontricks d3dcompiler_47로 Microsoft 셰이더 컴파일러를 게임 prefix에 설치하세요. 게임의 Linux 및 Steam Deck 도움말을 참고하세요.",
- "t4.no_powershell": "Tekken 4의 빌드와 온라인 확인은 PowerShell 스크립트인데 Wine이나 Proton에는 제대로 동작하는 PowerShell이 없습니다. Windows에서 게임을 빌드하거나 이 prefix에 PowerShell 7을 설치하세요(테스트되지 않음). 오프라인 플레이에는 영향이 없습니다."
+ "t4.no_powershell": "Tekken 4의 빌드와 온라인 확인은 PowerShell 스크립트인데 Wine이나 Proton에는 제대로 동작하는 PowerShell이 없습니다. Windows에서 게임을 빌드하거나 이 prefix에 PowerShell 7을 설치하세요(테스트되지 않음). 오프라인 플레이에는 영향이 없습니다.",
+ "t4.support.save": "보고서 저장",
+ "t4.support.hint": "개인정보를 제거한 T4 로그, 빌드 식별 정보와 시스템 정보를 런처 데이터 폴더에 저장합니다. 게임 파일은 포함하지 않습니다.",
+ "t4.support.confirm": "개인정보를 제거한 T4 로그, 빌드 식별 정보와 시스템 정보를 이 PC에 ZIP으로 저장할까요? 아무것도 전송하지 않습니다.",
+ "t4.support.notice": "개인정보를 제거한 T4 로그, 빌드 식별 정보와 시스템 정보를 로비 이름 및 선택한 메모와 연락처와 함께 개발자에게 보냅니다. 게임 파일, 키, 비밀번호는 포함하지 않습니다."
 }

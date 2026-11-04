@@ -1395,5 +1395,9 @@
  "support.send.failed": "Le rapport n'a pas pu être envoyé : {error}",
  "support.finding.wine_graphics.title": "Les graphismes du jeu n’ont pas démarré sous Wine ou Proton",
  "support.finding.wine_graphics.fix": "Essayez une autre version de Proton dans Steam (Proton Experimental, GE-Proton ou proton-cachyos). Si cela ne suffit pas, installez le compilateur de shaders de Microsoft dans le préfixe du jeu avec protontricks d3dcompiler_47. Consultez l’aide Linux et Steam Deck du jeu.",
- "t4.no_powershell": "La compilation et la vérification en ligne de Tekken 4 sont des scripts PowerShell, et Wine ou Proton n’a pas de PowerShell fonctionnel. Compilez le jeu sous Windows ou installez PowerShell 7 dans ce préfixe (non testé). Le jeu hors ligne n’est pas concerné."
+ "t4.no_powershell": "La compilation et la vérification en ligne de Tekken 4 sont des scripts PowerShell, et Wine ou Proton n’a pas de PowerShell fonctionnel. Compilez le jeu sous Windows ou installez PowerShell 7 dans ce préfixe (non testé). Le jeu hors ligne n’est pas concerné.",
+ "t4.support.save": "Enregistrer le rapport",
+ "t4.support.hint": "Enregistre les journaux T4 nettoyés, l’identité de compilation et les données système dans le dossier du lanceur. Aucun fichier du jeu.",
+ "t4.support.confirm": "Enregistrer les journaux T4 nettoyés, l’identité de compilation et les données système dans un ZIP sur ce PC ? Rien ne sera envoyé.",
+ "t4.support.notice": "Les journaux T4 nettoyés, l’identité de compilation et les données système sont envoyés au développeur avec votre nom de lobby et, si fournis, votre note et contact. Aucun fichier du jeu, clé ou mot de passe."
 }

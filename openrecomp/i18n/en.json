@@ -1395,5 +1395,9 @@
  "support.send.failed": "The report could not be sent: {error}",
  "support.finding.wine_graphics.title": "The game's graphics did not start under Wine or Proton",
  "support.finding.wine_graphics.fix": "Try another Proton build in Steam (Proton Experimental, GE-Proton or proton-cachyos). If that does not help, install Microsoft's shader compiler into the game's prefix with protontricks d3dcompiler_47. See the game's Linux and Steam Deck help.",
- "t4.no_powershell": "Tekken 4's build and online check are PowerShell scripts, and Wine or Proton has no working PowerShell. Build the game on Windows, or install PowerShell 7 into this prefix (untested). Offline play is not affected."
+ "t4.no_powershell": "Tekken 4's build and online check are PowerShell scripts, and Wine or Proton has no working PowerShell. Build the game on Windows, or install PowerShell 7 into this prefix (untested). Offline play is not affected.",
+ "t4.support.save": "Save report",
+ "t4.support.hint": "Saves cleaned T4 logs, build identity and system facts in the launcher data folder. No game files are included.",
+ "t4.support.confirm": "Save cleaned T4 logs, build identity and system facts as a ZIP on this PC? Nothing is sent.",
+ "t4.support.notice": "Cleaned T4 logs, build identity and system facts go to the developer with your lobby name and the optional note and contact. No game files, keys or passwords."
 }

@@ -1395,5 +1395,9 @@
  "support.send.failed": "Não foi possível enviar o relatório: {error}",
  "support.finding.wine_graphics.title": "Os gráficos do jogo não iniciaram no Wine ou no Proton",
  "support.finding.wine_graphics.fix": "Tente outra versão do Proton na Steam (Proton Experimental, GE-Proton ou proton-cachyos). Se não ajudar, instale o compilador de shaders da Microsoft no prefixo do jogo com protontricks d3dcompiler_47. Veja a ajuda de Linux e Steam Deck do jogo.",
- "t4.no_powershell": "A compilação e a verificação online do Tekken 4 são scripts do PowerShell, e o Wine ou o Proton não tem um PowerShell que funcione. Compile o jogo no Windows ou instale o PowerShell 7 neste prefixo (não testado). O jogo offline não é afetado."
+ "t4.no_powershell": "A compilação e a verificação online do Tekken 4 são scripts do PowerShell, e o Wine ou o Proton não tem um PowerShell que funcione. Compile o jogo no Windows ou instale o PowerShell 7 neste prefixo (não testado). O jogo offline não é afetado.",
+ "t4.support.save": "Salvar relatório",
+ "t4.support.hint": "Salva os registros limpos de T4, a identidade da compilação e os dados do sistema na pasta do inicializador. Sem arquivos do jogo.",
+ "t4.support.confirm": "Salvar os registros limpos de T4, a identidade da compilação e os dados do sistema em um ZIP neste PC? Nada será enviado.",
+ "t4.support.notice": "O desenvolvedor recebe os registros limpos de T4, a identidade da compilação e os dados do sistema com seu nome do lobby e a nota e contato opcionais. Sem arquivos do jogo, chaves ou senhas."
 }
