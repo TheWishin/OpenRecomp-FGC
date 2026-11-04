@@ -118,8 +118,9 @@ PCs); a game that only has the players' answers does not count ("The games did n
 result") and is played again. The set's fighters are the ones game 1 was fought with: a later game
 fought with another fighter goes to the other player.
 
-T4 uses the same rank names in the same order as T5DR. Ratings and player records remain
-separate for each game. When the launcher knows a T5DR install, T4 uses its rank plates through
+T4 uses the same rank names in the same order as T5DR: 37 ranks, from Beginner to
+Tekken Lord (Kirin). The launcher's vendored table matches the T4 server's rating bands.
+Ratings and player records remain separate for each game. When the launcher knows a T5DR install, T4 uses its rank plates through
 the same runtime cache as the T5DR pages. These pictures come from the player's own game data
 and stay on their PC. If a plate is unavailable, T4 uses our own drawn badge
 (`tools/make_rank_badges.py`, one SVG per rank in `openrecomp/ui/assets/ranks`). They show in
@@ -128,7 +129,7 @@ rank and badge (P1 = the host).
 In the game each player's name and badge sit on their side at character select and under the
 life bars (Settings: **Name plates in the game**, on by default; nothing changes in the match).
 The game uses the drawn badges. See [T4 ranked assets](T4_RANKED.md) for regeneration and the
-coordinator's game-header handoff. The T4 server's ladder update is handled separately.
+coordinator's game-header handoff.
 
 ### End-to-end check on one PC
 

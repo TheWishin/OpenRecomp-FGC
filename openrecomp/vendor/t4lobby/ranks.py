@@ -1,15 +1,13 @@
-"""Rank tiers on top of Glicko-2: Tekken 7's rank names, in Tekken 7's order (Tekken 4 Online).
+"""Rank tiers on top of Glicko-2, shared with Tekken 5 DR (docs/T4_RANKED.md).
 
-The owner's choice (2026-11-04): T4 ranked uses Tekken 7's ranks. The list is Tekken 7's final one (Season 4
-on: Tekken God Omega added above Tekken God Prime; source and check in docs/T4_RANKED.md): Beginner, 9th Kyu ..
-1st Kyu, 1st Dan .. 3rd Dan, then the named Dan ranks Initiate .. Tekken God Omega -- 47 tiers. Only the NAMES are
-Tekken 7's; the badges are our own pictures (tools/make_rank_badges.py in the launcher and the game), never
-Namco's emblems. Index = tier: TEKKEN4_HUD_RANKS hands the tier to the game's name plates as is. T4 ratings and
-ranks are separate from T5DR's (shared accounts, a profile per game).
+Owner decision (2026-11-04): Tekken 4 uses T5DR's rank names, order, rating
+bands and progression rules. The table and code below come from T5DR 1.2.0's
+lobby/t5lobby/ranks.py. Ratings and rank state remain in each game's own
+profile. TEKKEN4_HUD_RANKS uses these T5DR tier indices, 0 through 36.
 
-Thresholds: like T5DR's (docs/RANKED.md "Ranks"): 8th Kyu at 1150, 50 points per Kyu step, 40 from 2nd Kyu to 3rd
-Dan; then 30 points per named rank up to Tekken King (2500) -- Tekken 7 has more ranks than Tekken 5 DR in the same
-rating range -- and 50 per god rank above (Tekken God Omega 2700).
+The last two T5DR plates also say "Tekken Lord"; their distinct names here
+are "Tekken Lord (Kouryu)" and "Tekken Lord (Kirin)". index() also accepts
+the older T5DR names "Kouryu" and "Kirin".
 
 How a player moves through the tiers (all numbers in RankRules):
 
@@ -39,25 +37,25 @@ RANKS = [
     ("Beginner", None),
     ("9th Kyu", None), ("8th Kyu", 1150), ("7th Kyu", 1200), ("6th Kyu", 1250), ("5th Kyu", 1300),
     ("4th Kyu", 1350), ("3rd Kyu", 1400), ("2nd Kyu", 1440), ("1st Kyu", 1480),
-    ("1st Dan", 1520), ("2nd Dan", 1560), ("3rd Dan", 1600),
-    ("Initiate", 1630), ("Mentor", 1660), ("Expert", 1690), ("Grand Master", 1720), ("Brawler", 1750),
-    ("Marauder", 1780), ("Fighter", 1810), ("Vanguard", 1840), ("Warrior", 1870), ("Vindicator", 1900),
-    ("Juggernaut", 1930), ("Usurper", 1960), ("Vanquisher", 1990), ("Destroyer", 2020), ("Savior", 2050),
-    ("Overlord", 2080), ("Genbu", 2110), ("Byakko", 2140), ("Seiryu", 2170), ("Suzaku", 2200),
-    ("Mighty Ruler", 2230), ("Revered Ruler", 2260), ("Divine Ruler", 2290), ("Eternal Ruler", 2320), ("Fujin", 2350),
-    ("Raijin", 2380), ("Yaksa", 2410), ("Ryujin", 2440), ("Emperor", 2470), ("Tekken King", 2500),
-    ("Tekken God", 2550), ("True Tekken God", 2600), ("Tekken God Prime", 2650), ("Tekken God Omega", 2700),
+    ("1st Dan", 1520), ("2nd Dan", 1560), ("3rd Dan", 1600), ("4th Dan", 1640), ("5th Dan", 1680),
+    ("6th Dan", 1720), ("7th Dan", 1760),
+    ("Shihan", 1800), ("Expert", 1840), ("Warrior", 1880), ("Master", 1920), ("Virtuoso", 1960),
+    ("Champion", 2000), ("Lone Wolf", 2040), ("Destroyer", 2080), ("Berserker", 2120), ("Sage", 2160),
+    ("Legend", 2200), ("Fujin", 2240), ("Raijin", 2280), ("Deity", 2320), ("Lord of War", 2360),
+    ("Dragon Lord", 2400), ("Tekken Lord", 2450), ("Dark Lord", 2500), ("Tekken Lord (Kouryu)", 2550),
+    ("Tekken Lord (Kirin)", 2600),
 ]
 BEGINNER = 0
 FIRST_DAN = 10
 NAMES = [n for n, _ in RANKS]
-OLD_NAMES = {}                  # (T5DR's servers before 1.1.4 sent other words for two tiers; T4 never did)
+OLD_NAMES = {"kouryu": 35, "kirin": 36}      # names sent by T5DR servers before 1.1.4
 
 
-# Tekken 7's colour groups (first tier, last tier, key): the badges' colours and shapes (make_rank_badges.py).
+# Our drawn fallback badges' colour groups (first tier, last tier, key; make_rank_badges.py).
 GROUPS = [
-    (0, 0, "beginner"), (1, 9, "kyu"), (10, 12, "dan"), (13, 16, "lightblue"), (17, 20, "green"), (21, 24, "yellow"),
-    (25, 28, "orange"), (29, 32, "red"), (33, 36, "ruler"), (37, 40, "blue"), (41, 42, "purple"), (43, 46, "gold"),
+    (0, 0, "beginner"), (1, 9, "kyu"), (10, 16, "dan"), (17, 18, "lightblue"), (19, 21, "green"),
+    (22, 23, "yellow"), (24, 25, "orange"), (26, 27, "red"), (28, 29, "blue"), (30, 32, "purple"),
+    (33, 36, "gold"),
 ]
 
 

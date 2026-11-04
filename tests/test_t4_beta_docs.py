@@ -61,10 +61,16 @@ class T4BetaDocsTests(unittest.TestCase):
         self.assertNotIn("Tekken 7", text)
         assets = self.read("docs/T4_RANKED.md")
         for phrase in ("T5DR's rank names in T5DR's order", "T5DR adapter", "own drawn SVG badge",
-                       "build/out_badges/tekken4_rank_badges.h", "runtime/tekken4_rank_badges.h",
-                       "coordinator must copy", "handled separately"):
+                       "37 ranks", "indices 0 through 36", "openrecomp/vendor/t4lobby/ranks.py",
+                       "names and rating bands", "single source",
+                       "T4_SERVER_RANKS", "T5DR_LOBBY_RANKS",
+                       "build/out_badges/runtime/tekken4_rank_badges.h", "runtime/tekken4_rank_badges.h",
+                       "coordinator must copy"):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, assets)
+        for guide in (text, assets):
+            self.assertNotIn("ladder update is handled separately", guide)
+            self.assertNotIn("ladder change is handled separately", guide)
 
 
 if __name__ == "__main__":

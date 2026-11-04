@@ -223,6 +223,7 @@ def _rgb(h):
 
 
 def header(path):
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     rows = []
     for tier in range(len(NAMES)):
         s = spec(tier)

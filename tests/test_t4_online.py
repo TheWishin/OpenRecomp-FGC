@@ -441,8 +441,8 @@ class T4OnlineTests(unittest.TestCase):
         self.login()
         self.a._online_rating = 1500
         self.assertEqual(self.a.online_state()["rank"], "")
-        self.a._online_me = dict(name="Fake", rank="Initiate", tier=13, rating=1640)
-        self.assertEqual(self.a.online_state()["rank"], "Initiate")        # Tekken 7's names, from the T4 server
+        self.a._online_me = dict(name="Fake", rank="4th Dan", tier=13, rating=1640)
+        self.assertEqual(self.a.online_state()["rank"], "4th Dan")         # Tekken 5 DR's names, from the T4 server
         self.a._online_me = dict(name="Fake", rank="Beginner", tier=0, guest=True)
         self.assertEqual(self.a.online_state()["rank"], "")
 
