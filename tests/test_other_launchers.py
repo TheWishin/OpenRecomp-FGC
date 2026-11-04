@@ -179,6 +179,20 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(a.clients[-1].calls[-1], ("session", "fake-remembered-session"))
         self.assertEqual(a.online_state()["message"], "@other_launcher.logged_in_here")
 
+    def test_use_here_after_keep_or_a_kick_logs_in_with_the_remembered_login(self):
+        # found in the real run: Keep the other one, then Use OpenRecomp here left the player at the login card
+        a = self.remembered()
+        count = len(a.clients)
+        self.detector.found["native"] = True
+        a.online_action("other_keep")
+        a.online_shown()
+        self.assertEqual(len(a.clients), count)
+        a.online_action("other_here")
+        a.online_shown()
+        a.online_poll()
+        self.assertEqual(len(a.clients), count + 1)
+        self.assertEqual(a.online_state()["phase"], "logged_in")
+
     def test_without_another_launcher_the_remembered_login_still_logs_in_by_itself(self):
         a = self.remembered()
         count = len(a.clients)

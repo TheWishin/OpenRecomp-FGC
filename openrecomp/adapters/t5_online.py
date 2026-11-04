@@ -103,8 +103,11 @@ class Online:
             return False
         self._online_init()
         if action == "other_here":
-            self._other_choice = "here"         # the next redraw's online_shown may log in with the saved login now
+            self._other_choice = "here"
             if self._online_phase in ("offline", "error", "kicked") and self._online_client is None:
+                # The player's own choice: the next redraw's online_shown logs in with this launcher's remembered
+                # login (Remember me on), as at the start; else the login rows are there.
+                self._online_auto_tried = False
                 self._online_message = "@other_launcher.chosen_here"
             return True
         self._other_choice = "other"
