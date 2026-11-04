@@ -78,7 +78,8 @@ class Tree(unittest.TestCase):
 
     def test_source_core_refuses_check_build_and_play_for_a_pal_tree(self):
         self.write("tools/iso_extract.py", us_iso_tool(boot="SCES_508.78", sha1=PAL_SHA1))
-        with mock.patch.object(t4_source, "user_dir", return_value=str(Path(self.tmp.name) / "home")):
+        with mock.patch.object(t4_source, "user_dir", return_value=str(Path(self.tmp.name) / "home")), \
+                mock.patch.object(t4_source, "__file__", str(self.root / "launcher/openrecomp/adapters/t4_source.py")):
             core = t4_source.SourceCore(str(self.root))
         iso = self.write("pal.iso", "image")
         with mock.patch.object(t4_source.subprocess, "run") as run:
@@ -89,7 +90,8 @@ class Tree(unittest.TestCase):
         self.assertEqual(core.play_problems({}), [t4_region.NOT_US])
 
     def test_source_core_refuses_an_image_whose_check_names_another_elf(self):
-        with mock.patch.object(t4_source, "user_dir", return_value=str(Path(self.tmp.name) / "home")):
+        with mock.patch.object(t4_source, "user_dir", return_value=str(Path(self.tmp.name) / "home")), \
+                mock.patch.object(t4_source, "__file__", str(self.root / "launcher/openrecomp/adapters/t4_source.py")):
             core = t4_source.SourceCore(str(self.root))
         iso = self.write("x.iso", "image")
         answer = mock.Mock(returncode=0, stdout="BOOT2 SLUS_203.28\nELF_SHA1 %s\nOK\n" % PAL_SHA1)

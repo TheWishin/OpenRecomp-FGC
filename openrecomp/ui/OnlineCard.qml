@@ -20,13 +20,16 @@ Item {
         clip: true
         Rectangle { width: 6; height: 96; y: 28; color: page.acc }
         Column {
+            id: cardHeader
             x: 36; y: 22; width: parent.width - 72; spacing: 4
             Text { objectName: "onlineCardTitle"; width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.o.title || ""; color: page.root.textC; font.family: page.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: 52 }
             Text { width: parent.width; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight; textFormat: Text.PlainText; text: page.o.message || ""; color: page.o.error ? page.acc : page.root.muted; font.family: page.root.sans; font.weight: page.o.error ? Font.DemiBold : Font.Normal; font.pixelSize: 21 }
+            PeerPing { visible: !!page.o.connection; connection: page.o.connection || ({}); ink: page.root.textC; dim: page.root.muted }
         }
         TapHandler { onTapped: if (page.o.statusIndex >= 0) page.root.backend.clickRow(page.o.statusIndex) }
         Column {
-            x: 28; y: 150; width: parent.width - 56
+            objectName: "onlineCardRows"
+            x: 28; y: Math.max(150, cardHeader.y + cardHeader.implicitHeight + 16); width: parent.width - 56
             Repeater {
                 model: page.list(page.o.lines).length
                 Item {

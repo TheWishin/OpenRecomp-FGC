@@ -12,6 +12,8 @@ def _cycler(nav, g, field, label, choices, current, hint):
 
 
 def rows(nav, g, state, action):
+    from .nav_online_layout import connection
+
     if not (state.get("capabilities") or {}).get("challenge_preferences"):
         return []
     prefs = state.get("challenge_preferences") or {}
@@ -41,7 +43,8 @@ def rows(nav, g, state, action):
         for challenge in state["open_challenges"]:
             item = action("cancel_challenge:" + challenge["id"], i18n.literal(challenge.get("name") or ""))
             item["verb"] = "@online.cancel_challenge"
-            item["detail"]["rows"] = _details(challenge)
+            item["value"] = connection(challenge)["text"]
+            item["detail"]["rows"] = [dict(k="@online.ping", v=item["value"])] + _details(challenge)
             out.append(item)
     return out
 
@@ -58,8 +61,9 @@ def _details(info):
     wish = info.get("wish") or {}
     if wish.get("side") in (0, 1):
         details.append(dict(k="@online.challenge_side", v="@online.challenge_p1" if wish["side"] == 0 else "@online.challenge_p2"))
-    if wish.get("stage") and wish["stage"] != "random":
-        details.append(dict(k="@online.challenge_stage", v=i18n.literal(wish["stage"])))
+    if wish.get("stage"):
+        details.append(dict(k="@online.challenge_stage", v="@online.challenge_random_stage" if wish["stage"] == "random"
+                            else i18n.literal(wish["stage"])))
     return details
 
 

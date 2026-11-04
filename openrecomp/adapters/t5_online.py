@@ -171,6 +171,7 @@ class Online:
         self._online_rooms = []
         self._online_chat = []
         self._online_challenge = {}
+        self._online_outgoing_challenge = {}
         self._online_room = {}
         self._online_friends = []
         self._online_friend_incoming = []
@@ -450,6 +451,7 @@ class Online:
                     capabilities=capabilities,
                     players=[dict(p) for p in self._online_players], rooms=[dict(r) for r in self._online_rooms],
                     chat=[dict(line) for line in self._online_chat], challenge=dict(self._online_challenge),
+                    outgoing_challenge=dict(self._online_outgoing_challenge),
                     room=dict(self._online_room), friends=[dict(f) for f in self._online_friends],
                     friend_incoming=[dict(f) for f in self._online_friend_incoming],
                     friend_outgoing=[dict(f) for f in self._online_friend_outgoing],
@@ -1184,11 +1186,60 @@ class Online:
     def _online_match_found(self, event):
         return False
 
-    def _online_match_view(self, event):
-        opponent, ping = event.get("opponent"), event.get("ping")
-        opponent = opponent if isinstance(opponent, dict) else {}
+    def _online_ping_view(self, event, who="from"):
+        """Use the client's local peer estimate/cache, exposing only display fields."""
+        ping = event.get("ping")
+        get_info = getattr(self._online_client, "ping_info", None)
+        if callable(get_info):
+            try:
+                info = get_info(event, who)
+                local = get_info(dict(event, ping=None), who)
+                if local and local.get("known") and (local.get("kind") == "measured"
+                        or not isinstance(ping, dict) or ping.get("kind") != "measured"):
+                    # Match the lobby table's best relay sum or remembered pair RTT.
+                    path = ping.get("path") if isinstance(ping, dict) else None
+                    ping = dict(local)
+                    if path and not ping.get("path"):
+                        ping["path"] = path
+                else:
+                    ping = info or ping
+            except Exception:  # noqa: BLE001 -- older installed clients may not know this event
+                pass
         ping = ping if isinstance(ping, dict) else {}
-        return dict(opponent=str(opponent.get("name") or "")[:64], ping=ping.get("ms"))
+        ms = ping.get("ms")
+        known = ping.get("known", True)
+        measured = ping.get("kind") == "measured" if "kind" in ping else None
+        path = ping.get("path")
+        peer = event.get(who)
+        if isinstance(peer, dict):
+            get = getattr(self._online_client, "ping_to", None)
+            if callable(get):
+                try:
+                    # A measured pair RTT is preferable to a server estimate.
+                    value, seen = get(peer)
+                    if seen or not known or ms is None:
+                        ms, measured, known = value, bool(seen), value is not None
+                except Exception:  # noqa: BLE001 -- retain event data with older clients
+                    pass
+            if ms is None or not known:
+                player = next((p for p in self._online_players if p.get("id") == peer.get("id")), {})
+                ms, measured = player.get("ping"), player.get("ping_measured")
+                known = ms is not None
+        out = {}
+        if known and isinstance(ms, (int, float)) and not isinstance(ms, bool) and 0 <= ms < 100000:
+            out["ping"] = round(ms)
+            if measured is not None:
+                out["ping_measured"] = bool(measured)
+        if path in ("direct", "lan", "relay"):
+            out["ping_path"] = path
+        return out
+
+    def _online_match_view(self, event):
+        opponent = event.get("opponent")
+        opponent = opponent if isinstance(opponent, dict) else {}
+        out = dict(opponent=str(opponent.get("name") or "")[:64], ping=None)
+        out.update(self._online_ping_view(event, "opponent"))
+        return out
 
     def _online_completion(self, action, value, error):
         return t5_features.completion(self, action, value, error)
@@ -1235,6 +1286,7 @@ class Online:
                 retained = True
                 break
             name, account = self._online_name, self._online_account
+            match = self._online_match_view(event) if kind == "match_found" else {}
             self.online_close()
             if kind == "kicked":
                 reason = str(event.get("reason") or "").lower()
@@ -1245,7 +1297,7 @@ class Online:
             elif kind == "match_found":
                 # Closing also prevents the server requeueing this client after a ready timeout.
                 self._online_phase = "matched"
-                self._online_match = self._online_match_view(event)
+                self._online_match = match
                 self._online_name, self._online_account = name, account
                 self._online_message = "@online.matched"
             else:
@@ -1266,11 +1318,13 @@ class Online:
                 self._online_invites = []
                 self._online_outgoing_invite = {}
                 self._online_challenge = {}
+                self._online_outgoing_challenge = {}
                 if not self._online_match_found(event):
                     name, account = self._online_name, self._online_account
+                    match = self._online_match_view(event)
                     self.online_close()
                     self._online_phase, self._online_message = "matched", "@online.matched"
-                    self._online_match = self._online_match_view(event)
+                    self._online_match = match
                     self._online_name, self._online_account = name, account
                     return True, True
                 changed = True
@@ -1297,9 +1351,13 @@ class Online:
                 sender = event.get("from") or {}
                 self._online_challenge = dict(id=str(event.get("challenge") or "")[:80],
                                               name=str(sender.get("name") or "")[:64]
-                                              if isinstance(sender, dict) else "")
+                                              if isinstance(sender, dict) else "",
+                                              **self._online_ping_view(event))
                 changed = True
             elif self.online_lobby and event.get("t") == "challenge_update":
+                if event.get("challenge") == self._online_outgoing_challenge.get("id"):
+                    self._online_outgoing_challenge = {}
+                    changed = True
                 if event.get("challenge") == self._online_challenge.get("id"):
                     self._online_challenge = {}
                     changed = True
@@ -1429,6 +1487,14 @@ class Online:
                     self._online_lobby_snapshot(value)
                 self._online_message = "@online.lobby_updated"
             elif action.startswith("challenge:"):
+                target = action.partition(":")[2]
+                player = next((p for p in self._online_players if p["id"] == target), {})
+                cid = value.get("challenge") if isinstance(value, dict) else value
+                if isinstance(cid, str) and cid and self._online_phase == "logged_in":
+                    event = dict(value) if isinstance(value, dict) else {}
+                    event["to"] = player
+                    self._online_outgoing_challenge = dict(id=cid[:80], name=player.get("name", ""),
+                                                          **self._online_ping_view(event, "to"))
                 self._online_message = "@online.challenge_sent"
             elif action in ("accept_challenge", "decline_challenge"):
                 self._online_challenge = {}
@@ -1737,6 +1803,7 @@ class Online:
         self._online_rooms = []
         self._online_chat = []
         self._online_challenge = {}
+        self._online_outgoing_challenge = {}
         self._online_room = {}
         self._online_friends = []
         self._online_friend_incoming = []
