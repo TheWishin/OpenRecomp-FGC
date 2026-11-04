@@ -1,5 +1,5 @@
 """Login and search screens through the optional common adapter interface."""
-from . import i18n
+from . import i18n, ui_sound
 from .nav_keyboard import ONLINE_PASSWORDS
 
 
@@ -429,6 +429,8 @@ class Online:
                         # phase moves the focus, or a pad press can land on the status row instead.
                         if seen.get(g.id) != phase:
                             self.focus[g.id + ":online"] = 0
+                            if phase == "matched":
+                                self.note_sound(ui_sound.NOTIFY)      # one per match found (the phase repeats)
                         self.say(state.get("message") or "@online.status", 12)
                     seen[g.id] = phase
             except Exception:  # noqa: BLE001 -- keep the timer alive without exposing login details

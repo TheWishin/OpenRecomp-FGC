@@ -1,5 +1,5 @@
 """Hub navigation, focused rows, and the hub view."""
-from . import i18n
+from . import i18n, ui_sound
 from .nav_common import ROWS_VISIBLE, SECTION_TITLES, badge, uri, window
 
 
@@ -95,9 +95,11 @@ class Hub:
         pos = next((i for i, value in enumerate(values)
                     if type(value) is type(it["current"]) and value == it["current"]), 0)
         it["set"](values[(pos + step) % len(values)])
+        self.hint_toggle(values[(pos + step) % len(values)], step)
 
     def _activate(self, it):
         if it.get("disabled"):
+            self.hint_sound(ui_sound.ERROR)
             return
         kind = it.get("kind")
         if kind == "cycler":
@@ -113,6 +115,7 @@ class Hub:
             try:
                 it["run"]()
             except Exception as e:  # noqa: BLE001 -- as in act()
+                self.hint_sound(ui_sound.ERROR)
                 self.say(i18n.error_message(e))
 
     def _view_hub(self, v):

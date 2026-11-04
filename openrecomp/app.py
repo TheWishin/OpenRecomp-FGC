@@ -12,7 +12,7 @@ from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QIcon, QWindow
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401 -- so the scene's root comes back as a QQuickWindow
 
-from . import adapters, file_dialog, i18n, manifest as mf, stall
+from . import adapters, file_dialog, i18n, manifest as mf, stall, ui_sound
 from .nav import Game, Nav
 from .pad import Pads, PlayStationReader, WinMMPlayStationReader, XInputReader
 from .update_service import UpdateService
@@ -51,6 +51,24 @@ def edit_shortcut(key, text, modifiers, scan):
         if int(key) == letter or text == control or (not latin and (int(scan) & 0xFF) == position):
             return edit
     return None
+
+
+def click(nav, action, method, *args):
+    """A mouse click on nav: the same menu sound as the pad's press (nav_sound.Sound.sounded)."""
+    if isinstance(nav, Nav):
+        nav.sounded(action, getattr(nav, method), *args)
+    else:
+        getattr(nav, method)(*args)
+
+
+def real_audio():
+    """Menu sounds reach the speakers only in a real window: never offscreen (tests) or with OPENRECOMP_UI_SOUND=0."""
+    if os.environ.get("OPENRECOMP_UI_SOUND") == "0" or QGuiApplication.instance() is None:
+        return False
+    try:
+        return QGuiApplication.platformName() not in ("offscreen", "minimal")
+    except RuntimeError:
+        return False
 
 
 def native_picker_available():
@@ -99,6 +117,9 @@ class Backend(QObject, GameSetupBackend):
         self.choose_file = file_dialog.choose     # (owner, title, kind, filters, start) -> path; tests put a fake here
         self._native_queued = False
         self._native_open = False
+        self.sounds = ui_sound.UiSounds(enabled=self.config.get("ui_sounds", ui_sound.DEFAULT_ON) is not False,
+                                        volume=self.config.get("ui_sound_volume", ui_sound.DEFAULT_VOLUME),
+                                        output=None if real_audio() else ui_sound.NullOutput())
         self.nav = Nav(games, on_quit=self._quit, install=self._install, launch_env=launch_env,
                        native_picker=native_picker_available(), picker_dirs=picker_dirs(self.config),
                        on_picker_dir=self._save_picker_dir,
@@ -110,7 +131,9 @@ class Backend(QObject, GameSetupBackend):
                        on_update_check=self._check_updates, on_update_install=self._install_update,
                        on_game_preview=self._preview_game, on_game_accept=self._accept_game,
                        on_game_remove=self._remove_game, on_game_update_check=self._check_game_update,
-                       on_game_update_install=self._install_game_update, **self._setup_kwargs())
+                       on_game_update_install=self._install_game_update,
+                       ui_sounds=self.sounds.enabled, ui_sound_volume=self.sounds.volume, on_ui_sound=self._save_ui_sound,
+                       **self._setup_kwargs())
         times = self.config.get("build_times")
         self.nav.build_history = {k: v for k, v in times.items() if isinstance(v, dict)} if isinstance(times, dict) else {}
         self.nav.on_build_history = self._save_build_history      # the Build page's "about N min left" next time
@@ -415,6 +438,30 @@ class Backend(QObject, GameSetupBackend):
             if changed and not self.window.windowState() & Qt.WindowMinimized:
                 self.window.showFullScreen() if fullscreen else self.window.showNormal()
 
+    def _save_ui_sound(self, on, volume):
+        self.config.update(ui_sounds=bool(on), ui_sound_volume=ui_sound.clean_volume(volume))
+        self.sounds.configure(on, volume)
+        self._save_config()
+
+    def _sound_active(self):
+        """Menu sounds only while the player looks at the launcher: its window in front, no game running."""
+        if any(g.a.running() for g in self.nav.games):
+            return False
+        if self.window is None:
+            return True
+        try:
+            return bool(self.window.isActive()) and not self.window.windowState() & Qt.WindowMinimized
+        except (AttributeError, RuntimeError):
+            return False
+
+    def _play_sound(self):
+        name = self.nav.take_sound()
+        if name:
+            try:
+                self.sounds.play(name, active=Backend._sound_active(self))
+            except Exception:  # noqa: BLE001 -- a sound never breaks the screen
+                pass
+
     def _load_pads(self, games):
         t5 = next((g.a for g in games if g.id == "t5dr" and g.a.found()), None)
         root = os.path.normcase(os.path.realpath(t5.root)) if t5 is not None else ""
@@ -460,6 +507,8 @@ class Backend(QObject, GameSetupBackend):
             self._open_pending()
         if getattr(self.nav, "pending_native", None) is not None:
             self._queue_native()
+        if getattr(self, "sounds", None) is not None:
+            Backend._play_sound(self)
         self._view = self.nav.view()
         wordmark = os.path.join(UI_DIR, "assets", "logo-wordmark.svg")
         self._view["wordmark"] = QUrl.fromLocalFile(wordmark).toString() if os.path.isfile(wordmark) else ""
@@ -652,49 +701,49 @@ class Backend(QObject, GameSetupBackend):
     @Slot(int)
     def clickRow(self, i):
         self.nav.device = "kb"
-        self.nav.click_row(i)
+        click(self.nav, "confirm", "click_row", i)
         self.refresh()
 
     @Slot(int)
     def clickTile(self, i):
         self.nav.device = "kb"
-        self.nav.click_tile(i)
+        click(self.nav, "confirm", "click_tile", i)
         self.refresh()
 
     @Slot(str)
     def clickTab(self, s):
         self.nav.device = "kb"
-        self.nav.click_tab(s)
+        click(self.nav, ui_sound.CLICK_TAB, "click_tab", s)
         self.refresh()
 
     @Slot(str)
     def clickChapter(self, chapter):
         self.nav.device = "kb"
-        self.nav.click_chapter(chapter)
+        click(self.nav, ui_sound.CLICK_TAB, "click_chapter", chapter)
         self.refresh()
 
     @Slot()
     def clickPrimary(self):
         self.nav.device = "kb"
-        self.nav.click_primary()
+        click(self.nav, "confirm", "click_primary")
         self.refresh()
 
     @Slot(int)
     def clickCell(self, i):
         self.nav.device = "kb"
-        self.nav.click_cell(i)
+        click(self.nav, "confirm", "click_cell", i)
         self.refresh()
 
     @Slot(int)
     def clickEntry(self, i):
         self.nav.device = "kb"
-        self.nav.click_entry(i)
+        click(self.nav, "confirm", "click_entry", i)
         self.refresh()
 
     @Slot(int, int)
     def clickKey(self, r, c):
         self.nav.device = "kb"
-        self.nav.click_key(r, c)
+        click(self.nav, "confirm", "click_key", r, c)
         self.refresh()
 
 
@@ -739,6 +788,7 @@ def main(argv=None):
     app.aboutToQuit.connect(backend.nav.close_online)
     app.aboutToQuit.connect(other_launchers.DETECTOR.disable)
     app.aboutToQuit.connect(backend.setup.shutdown)      # an install/update stops or finishes before the exit
+    app.aboutToQuit.connect(backend.sounds.close)
     engine = make_engine(backend, full=backend.nav.fullscreen)
     # A broken QML scene must never acknowledge an update. The old helper owns rollback.
     QTimer.singleShot(updater.CONFIRM_AFTER_MS, lambda: updater.confirm_startup(backend.updates.root))

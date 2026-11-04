@@ -109,6 +109,13 @@ a game install; an installed T5DR Online can also supply its HID reader. Real US
 Normal launcher navigation pauses while a game runs. During T4, hold View + Menu (Share + Options) on one controller
 for two seconds to stop the game and return to the launcher.
 
+**Menu sounds.** Moving, confirming, going back, switching sections, toggling a setting, opening and closing a panel,
+a refused press and a found match each have a short sound (40-150 ms); the pad, the keyboard and the mouse make the
+same one. They play only while the launcher's window is in front and no game runs, follow Windows' default output
+device, and stay silent without one. Settings > Audio: **Menu sounds** On/Off and **Menu sound volume** (default On,
+50 %). The sounds are synthesized by `tools/make_ui_sounds.py` (no sound pack, nothing from a game);
+`openrecomp/ui_sound.py` says which press makes which sound and plays them (`OPENRECOMP_UI_SOUND=0` = silent).
+
 ## Community and problem reports
 
 **OpenRecomp-FGC Discord** (top bar, and Quick access for pads) opens the players' one Discord server for T5DR
@@ -144,18 +151,21 @@ Tournament 2 has a placeholder in the small known-games catalog until its reposi
 | `openrecomp/nav_dialog.py`, `openrecomp/nav_drawer.py`, `openrecomp/nav_grid.py`, `openrecomp/nav_keyboard.py`, `openrecomp/nav_picker.py` | Each overlay's input and view |
 | `openrecomp/file_dialog.py` | The Windows Explorer open dialog (ctypes, no Qt Widgets) for mouse and keyboard |
 | `openrecomp/pad.py` | Controllers to actions |
+| `openrecomp/ui_sound.py`, `openrecomp/nav_sound.py` | Menu sounds: which press makes which sound, the player |
 | `openrecomp/app.py` | Window, QML scene, timers |
 | `openrecomp/adapters/` | One per kind of game |
-| `openrecomp/ui/` | The QML screens and the bundled fonts |
+| `openrecomp/ui/` | The QML screens, the bundled fonts and the menu sounds (`ui/sounds`) |
 | `games/` | The manifests that ship |
 | `tests/` | `python -m unittest discover tests` |
 | `tools/make_logo.py` | Draws the logo files in `openrecomp/ui/assets` |
+| `tools/make_ui_sounds.py` | Synthesizes the menu sounds in `openrecomp/ui/sounds` |
 | `tools/shots.py` | Manual screenshot helper using the real backend and installed artwork; not an isolated test |
 
 ## Licences
 
 OpenRecomp-FGC is MIT licensed (`LICENSE`). The fonts in `openrecomp/ui/fonts` are under the SIL Open Font License (the
-`OFL-*.txt` files next to them). OpenRecomp-FGC starts the games as separate programs and loads their launcher code from
+`OFL-*.txt` files next to them). The menu sounds in `openrecomp/ui/sounds` are made by `tools/make_ui_sounds.py` and
+are part of this repository's MIT licence. OpenRecomp-FGC starts the games as separate programs and loads their launcher code from
 your install at run time; none of that code is part of this repository, and each game keeps its own licence.
 
 Tekken is a trademark of Bandai Namco Entertainment. This project is not affiliated with or endorsed by them.

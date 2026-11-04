@@ -1,5 +1,5 @@
 """Quick access drawer actions and view."""
-from . import i18n
+from . import i18n, ui_sound
 
 
 class Drawer:
@@ -70,6 +70,7 @@ class Drawer:
                 return True
             self.game_prereleases = not self.game_prereleases
             self.on_prereleases(self.game_prereleases)
+            self.hint_toggle(self.game_prereleases)
         elif item.get("fullscreen") or item.get("motion"):
             if self._dry(i18n.message("dry_change", name=item["label"])):
                 return True
@@ -78,6 +79,7 @@ class Drawer:
             else:
                 self.reduced_motion = not self.reduced_motion
             self.on_preferences(self.fullscreen, self.reduced_motion)
+            self.hint_toggle(self.fullscreen if item.get("fullscreen") else not self.reduced_motion)
         else:
             return False
         return True
@@ -88,6 +90,7 @@ class Drawer:
         codes = i18n.LANGUAGES
         self.language = codes[(codes.index(self.language) + step) % len(codes)]
         self.on_language(self.language)
+        self.hint_toggle(self.language, step)
 
     def _update_busy(self):
         if getattr(self, "library_busy", False):
@@ -125,6 +128,7 @@ class Drawer:
             return False
         self.update_offered = self.update_version = version
         self._ask("update")
+        self.note_sound(ui_sound.NOTIFY)
         return True
 
     def _view_drawer(self, v):

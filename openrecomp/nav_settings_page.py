@@ -1,7 +1,7 @@
 """The Settings section as grouped cards: Display & graphics, Controls, Online, Audio, Offline & training, Replays,
 Updates, Advanced. No Qt. The rows stay the adapter's own settings (same ids, same setters); this module only sorts
 them into groups, adds the group headings and the launcher's update rows, and builds the page's view."""
-from . import i18n
+from . import i18n, ui_sound
 
 GROUPS = ("display", "controls", "online", "audio", "offline", "replays", "updates", "advanced")
 GROUP_LABELS = {"display": "@settings_ui.group.display", "controls": "@settings_ui.group.controls",
@@ -19,7 +19,7 @@ GROUP_OF = {
     "aa": "display", "hud": "display", "anisotropic": "display", "progressive": "display",
     "pad_bindings": "controls", "screen_side": "controls", "always_left": "controls",
     "input_delay": "online", "spectators": "online", "spectators_ranked": "online", "auto_spectate": "online",
-    "mute": "audio", "sound": "audio",
+    "mute": "audio", "sound": "audio", "ui_sounds": "audio", "ui_sound_volume": "audio",
     "training": "offline", "practice": "offline", "unlock_stages": "offline", "unlock_items": "offline",
     "unlock_all": "offline",
     "replays": "replays", "replay_names": "replays", "replay_dir": "replays", "reset:replay_dir": "replays",
@@ -57,6 +57,8 @@ class SettingsPage:
                               hint="@setup.test_versions_hint",
                               detail=dict(kicker="@section.settings", title="@setup.test_versions",
                                           lead="@setup.test_versions_hint", rows=[])))
+        if getattr(self, "on_ui_sound", None) is not None:
+            extra += self._ui_sound_rows()
         by_group = {group: [] for group in GROUPS}
         for item in out + extra:
             if item.get("kind") == "heading":
@@ -72,6 +74,28 @@ class SettingsPage:
                                  settingsGroup=group))
                 page += by_group[group]
         return page
+
+    def _ui_sound_rows(self):
+        """The launcher's own menu sounds (ui_sound.py): the same two rows in every game's Settings > Audio."""
+        percent = {v: i18n.message("ui_sound.percent", value=v) for v in ui_sound.VOLUMES}
+        on = bool(self.ui_sounds)
+        return [dict(kind="cycler", id="ui_sounds", label="@ui_sound.label", value="@on" if on else "@off",
+                     options=[(False, "@off"), (True, "@on")], current=on, set=self._set_ui_sounds,
+                     hint="@ui_sound.hint",
+                     detail=dict(kicker="@section.settings", title="@ui_sound.label", lead="@ui_sound.hint", rows=[])),
+                dict(kind="cycler", id="ui_sound_volume", label="@ui_sound.volume",
+                     value=percent[self.ui_sound_volume], options=[(v, percent[v]) for v in ui_sound.VOLUMES],
+                     current=self.ui_sound_volume, set=self._set_ui_sound_volume, hint="@ui_sound.volume_hint",
+                     detail=dict(kicker="@section.settings", title="@ui_sound.volume", lead="@ui_sound.volume_hint",
+                                 rows=[]))]
+
+    def _set_ui_sounds(self, value):
+        self.ui_sounds = bool(value)
+        self.on_ui_sound(self.ui_sounds, self.ui_sound_volume)
+
+    def _set_ui_sound_volume(self, value):
+        self.ui_sound_volume = ui_sound.clean_volume(value)
+        self.on_ui_sound(self.ui_sounds, self.ui_sound_volume)
 
     def _settings_game_check(self):
         if not self._dry("@setup.check"):

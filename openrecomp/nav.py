@@ -4,7 +4,7 @@ Actions: up down left right confirm back x social prev next play switchGame. The
 press goes through act(), so the whole launcher can be driven and checked without a window.
 Section and overlay mixins keep their input and view code together; Nav owns the shared state and dispatch.
 """
-from . import i18n
+from . import i18n, ui_sound
 from .community import DISCORD_URL
 from .nav_common import (
     DEVICE_LABEL, FRIENDLY_RESULT, GAP, GLYPHS, GRID_COLS, HOLD_SECONDS, OSK,
@@ -26,6 +26,7 @@ from .nav_settings_page import SettingsPage
 from .nav_picker import Picker
 from .nav_sections import Sections
 from .nav_shelf import Shelf
+from .nav_sound import Sound
 from .nav_tools import Tools
 
 
@@ -38,14 +39,17 @@ class Game:
         self.accent = manifest["accent"]
 
 
-class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online, OnlineLayout, OnlineLogin, SettingsPage, Library):
+class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, Online, OnlineLayout, OnlineLogin, SettingsPage, Library, Sound):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None,
                  on_update_check=None, on_update_install=None, on_game_preview=None, on_game_accept=None,
                  on_game_remove=None, on_game_update_check=None, on_game_update_install=None, on_setup=None,
                  game_prereleases=False, on_prereleases=None, native_picker=False, picker_dirs=None, on_picker_dir=None,
-                 online_prefs=None, on_online_prefs=None):
+                 online_prefs=None, on_online_prefs=None, ui_sounds=True, ui_sound_volume=None, on_ui_sound=None):
         self.games = games
+        self.ui_sounds = bool(ui_sounds)                  # the launcher's menu sounds (Settings > Audio)
+        self.ui_sound_volume = ui_sound.clean_volume(ui_sound_volume)
+        self.on_ui_sound = on_ui_sound                    # (on, volume) -> None; None = the rows are not offered
         self.online_prefs = dict(online_prefs or {})   # per game: {auto_login} (Remember me on the login card)
         self.on_online_prefs = on_online_prefs
         self.on_quit = on_quit or (lambda: None)
@@ -120,6 +124,9 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
         self.setup_waiting = False
 
     def act(self, action, device=None):
+        self.sounded(action, self._act, action, device)
+
+    def _act(self, action, device):
         if device:
             self.device = device
             if device in ("xbox", "ps"):
@@ -130,6 +137,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
         try:
             self._handle(action)
         except Exception as e:  # noqa: BLE001 -- a game's core saying no is a message, never a dead launcher
+            self.hint_sound(ui_sound.ERROR)
             self.say(i18n.error_message(e) or e.__class__.__name__)
 
     def release(self, action):
@@ -165,7 +173,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
             changed = True
             if self.hold >= 1.0:
                 item, self.holding, self.hold = self.holding, None, 0.0
-                self._finish_hold(item)
+                self.sounded("confirm", self._finish_hold, item)
         return changed
 
     def say(self, message, seconds=4.5):
