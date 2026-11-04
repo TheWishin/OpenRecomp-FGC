@@ -167,8 +167,9 @@ class BuildPage:
             if install_problem:
                 card("game", "@build.card.game", install_problem, "error", game_items)
             elif not found:
-                installing = setup.get("phase") == "installing"
-                text = "@build.game_text" if self._setup_supported(g) else "@build.game_folder_text"
+                installing = setup.get("phase") in ("installing", "updating")
+                text = ("@t5.folder_old" if g.a.setup_root() else
+                        ("@build.game_text" if self._setup_supported(g) else "@build.game_folder_text"))
                 card("game", "@build.card.game", text, "work" if installing else "todo", game_items,
                      note=self._setup_progress_text(setup) if installing else "")
             elif any(it.get("id") == "coexistence" for _i, it in game_items):

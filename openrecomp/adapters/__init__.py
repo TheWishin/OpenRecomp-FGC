@@ -34,9 +34,11 @@ def make(manifest, config):
             return missing
     try:
         if kind == "t5dr":
-            from .t5dr import T5DR, find_root
+            from .t5dr import T5DR, LegacyT5DR, find_root, legacy_install
             root = find_root(manifest, config)
             if root:
+                if legacy_install(root):
+                    return LegacyT5DR(manifest, config, root)
                 return T5DR(manifest, config, root)
         elif kind == "t4":
             from .t4 import T4, find_root

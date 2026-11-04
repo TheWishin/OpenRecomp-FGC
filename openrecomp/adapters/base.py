@@ -43,6 +43,14 @@ class Adapter:
     def found(self):
         return False
 
+    def setup_root(self):
+        """An installed release that can be updated, even if its old runtime cannot load."""
+        return getattr(self, "root", None) if self.found() else None
+
+    def existing_installs(self, parent=""):
+        """Read-only install preflight; never loads another launcher's runtime."""
+        return []
+
     def ready(self):
         return False
 
@@ -267,6 +275,10 @@ class Adapter:
     def set_source(self, sid, path):
         return ""
 
+    def source_choices(self, sid, path):
+        """None for ordinary sources; a list of nearby valid folders for a folder choice."""
+        return None
+
     def source_state(self):
         """Optional background source check/import; result may be 'reload' after registration."""
         return dict(running=False, result="", id="", ok=False)
@@ -318,6 +330,12 @@ class Missing(Adapter):
         super().__init__(manifest, config)
         self._source_state = dict(running=False, result="", id="", ok=False)
 
+    def existing_installs(self, parent=""):
+        if self.m.get("adapter") == "t5dr":
+            from .t5_discovery import existing_installs
+            return existing_installs(self.m, self.config, parent)
+        return []
+
     def sources(self):
         t4 = self.m.get("adapter") == "t4"
         if t4:
@@ -326,6 +344,12 @@ class Missing(Adapter):
                          note=self._source_state["result"] if self._source_state["result"] != "reload" else "")]
         return [dict(id="folder", label="@game_folder", value="@missing", ok=False, kind="folder", exts=[], dirs=[],
                      hint="@folder_hint", note="")]
+
+    def source_choices(self, sid, path):
+        if self.m.get("adapter") == "t5dr" and sid == "folder":
+            from .t5dr import root_candidates
+            return root_candidates(path)
+        return None
 
     def set_source(self, sid, path):
         if self.m.get("adapter") == "t4":
@@ -349,10 +373,11 @@ class Missing(Adapter):
                 return "@t4.install_failed"
             return "@t4.installing"
         if self.m.get("adapter") == "t5dr":
-            from .t5dr import find_root
-            root = find_root(self.m, {"roots": {self.m["id"]: path}})
-            if not root:
-                return "@t5.coexist.install_invalid"
+            from .t5dr import root_candidates
+            choices = root_candidates(path)
+            if len(choices) != 1:
+                return "@t5.install_incomplete_python"
+            root = choices[0]
             previous = (self.config.get("roots") or {}).get(self.m["id"])
             if not previous or os.path.normcase(os.path.realpath(previous)) != os.path.normcase(os.path.realpath(root)):
                 self.config.pop("t5dr_settings_copy", None)

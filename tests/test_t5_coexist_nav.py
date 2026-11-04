@@ -57,20 +57,20 @@ class CoexistenceNavigation(unittest.TestCase):
 
     def test_missing_install_rejects_invalid_folder_without_changing_selection(self):
         adapter = Missing(manifest("t5dr", adapter="t5dr"), {"roots": {"t5dr": "previous"}})
-        with mock.patch("openrecomp.adapters.t5dr.find_root", return_value=None):
-            self.assertEqual(adapter.set_source("folder", "invalid"), "@t5.coexist.install_invalid")
+        with mock.patch("openrecomp.adapters.t5dr.root_candidates", return_value=[]):
+            self.assertEqual(adapter.set_source("folder", "invalid"), "@t5.install_incomplete_python")
         self.assertEqual(adapter.config["roots"]["t5dr"], "previous")
 
     def test_missing_install_registers_validated_root_without_copy(self):
         adapter = Missing(manifest("t5dr", adapter="t5dr"), {})
-        with mock.patch("openrecomp.adapters.t5dr.find_root", return_value="validated"):
+        with mock.patch("openrecomp.adapters.t5dr.root_candidates", return_value=["validated"]):
             self.assertEqual(adapter.set_source("folder", "wrapper"), "reload")
         self.assertEqual(adapter.config["roots"]["t5dr"], "validated")
 
     def test_changing_missing_install_clears_previous_settings_copy(self):
         adapter = Missing(manifest("t5dr", adapter="t5dr"),
                           {"roots": {"t5dr": "previous"}, "t5dr_settings_copy": "previous-copy"})
-        with mock.patch("openrecomp.adapters.t5dr.find_root", return_value="validated"):
+        with mock.patch("openrecomp.adapters.t5dr.root_candidates", return_value=["validated"]):
             self.assertEqual(adapter.set_source("folder", "new"), "reload")
         self.assertNotIn("t5dr_settings_copy", adapter.config)
 

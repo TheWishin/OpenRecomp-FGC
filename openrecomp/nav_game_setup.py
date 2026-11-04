@@ -36,7 +36,14 @@ class GameSetupNav:
         if not self._setup_supported(g):
             return []
         st = self._setup(g.id)
-        if not g.a.found():
+        if not g.a.found() and g.a.setup_root() and st.get("phase") != "updated":
+            label = "@t5.update_here"
+            return [dict(kind="action", id="game_update", label=label, verb="@setup.update",
+                         value=self._setup_progress_text(st) if st.get("phase") == "updating" else "",
+                         run=lambda: self.setup_offer_update(g), hint="@t5.folder_old",
+                         detail=dict(kicker="@setup.kicker", title=label, lead="@t5.folder_old",
+                                     rows=[dict(k="@game_folder", v=i18n.literal(g.a.setup_root()))], primary=label))]
+        if not g.a.found() and not g.a.setup_root():
             from .game_releases import SOURCES
             if section == "online":
                 return []
@@ -87,12 +94,29 @@ class GameSetupNav:
             return
         self.setup_game = g.id
         self.setup_parent = getattr(self, "setup_parent", "") or ""
-        st = self._setup(g.id)
+        self.setup_new_roots = set()
+        if self._setup_existing(g.id):
+            return
+        self._setup_begin_release(g.id)
+
+    def _setup_existing(self, gid):
+        g = self.game_by_id(gid)
+        declined = getattr(self, "setup_new_roots", set())
+        roots = g.a.existing_installs(getattr(self, "setup_parent", "")) if g is not None else []
+        roots = [root for root in roots if root not in declined]
+        if not roots:
+            return False
+        self.setup_existing_root = roots[0]
+        self._ask("setup_existing")
+        return True
+
+    def _setup_begin_release(self, gid):
+        st = self._setup(gid)
         if st.get("phase") == "ready" and st.get("latest"):
-            self._setup_where(g.id)
+            self._setup_where(gid)
         else:
             self.setup_waiting = True
-            self.on_setup("check", g.id, True)
+            self.on_setup("check", gid, True)
             self._ask("setup_loading")
 
     def _setup_where(self, gid):
@@ -102,16 +126,27 @@ class GameSetupNav:
             return
         if not self.setup_parent:
             self.setup_parent = self.on_setup("default_parent", gid, None) or ""
+        if self._setup_existing(gid):
+            return
         self.setup_space = self.on_setup("space", gid, self.setup_parent) or {}
         self._ask("setup_install")
 
     def setup_offer_update(self, g):
         if self._dry("@setup.update"):
             return
-        if self._update_busy() or self._setup(g.id).get("phase") in ("installing", "updating", "checking"):
+        if self._update_busy() or self._setup(g.id).get("phase") in ("installing", "updating"):
             self.say("@setup.busy")
             return
         self.setup_game = g.id
+        st = self._setup(g.id)
+        if st.get("phase") != "ready" or not st.get("latest"):
+            self.setup_waiting = self.setup_update_waiting = True
+            if st.get("phase") != "checking" and not self.on_setup("check", g.id, True):
+                self.setup_waiting = self.setup_update_waiting = False
+                self.say("@setup.busy")
+                return
+            self._ask("setup_loading")
+            return
         self._ask("setup_update")
 
     def setup_reinstall(self, g):
@@ -153,12 +188,16 @@ class GameSetupNav:
                 self.setup_waiting = False
                 reinstall = getattr(self, "setup_reinstall_waiting", False)
                 self.setup_reinstall_waiting = False
+                update = getattr(self, "setup_update_waiting", False)
+                self.setup_update_waiting = False
                 if self.overlay == "dialog" and self.confirm_kind == "setup_loading":
                     if error:
                         self.overlay = None
                         self.say(error[0], 10)
                     elif reinstall:
                         self._setup_reinstall_start(gid)
+                    elif update:
+                        self._ask("setup_update" if self._setup(gid).get("latest") else "setup_none")
                     else:
                         self._setup_where(gid)
             elif kind == "install":
@@ -187,7 +226,7 @@ class GameSetupNav:
     def setup_installed(self, gid):
         """After the launcher attached the new install: straight to the game's Build section."""
         g = self.game_by_id(gid)
-        if g is None or not g.a.found():
+        if g is None or not (g.a.found() or g.a.setup_root()):
             return
         self._select_game(g)
         self.screen = "hub"
@@ -217,15 +256,25 @@ class GameSetupNav:
             return
         if a == "back":
             if kind == "setup_loading":
-                self.setup_waiting = self.setup_reinstall_waiting = False
+                self.setup_waiting = self.setup_reinstall_waiting = self.setup_update_waiting = False
             self.overlay = None
             return
         if a != "confirm":
             return
         yes = self.exit_focus == 1
-        if kind in ("setup_loading", "setup_none"):
+        if kind == "setup_existing":
+            if not yes:
+                self.overlay = None
+                if self.on_setup("use_existing", gid, self.setup_existing_root):
+                    self.say(i18n.message("t5.folder_taken", folder=i18n.literal(self.setup_existing_root)), 15)
+            else:
+                self.setup_new_roots.add(self.setup_existing_root)
+                if not self._setup_existing(gid):
+                    self._setup_begin_release(gid)
+        elif kind in ("setup_loading", "setup_none"):
             self.setup_waiting = False
             self.setup_reinstall_waiting = False
+            self.setup_update_waiting = False
             self.overlay = None
             source = self._setup_none_folder() if kind == "setup_none" and yes else None
             if source:              # nothing published yet: the folder the player already has
@@ -236,6 +285,10 @@ class GameSetupNav:
                 self._open_picker("setup_folder", "@setup.choose_folder", [], [self.setup_parent, os.path.expanduser("~")], "folder")
             elif (self.setup_space or {}).get("problem"):
                 self.say(self.setup_space["problem"], 10)
+            elif self._setup_existing(gid):
+                return
+            elif not self.on_setup("allow_new", gid, sorted(getattr(self, "setup_new_roots", set()))):
+                self.say("@setup.busy")
             elif self.on_setup("install", gid, self.setup_parent):
                 self.setup_cancelling = False
                 self._ask("setup_progress")
@@ -274,7 +327,11 @@ class GameSetupNav:
         name = i18n.literal(SOURCES[gid].title if gid in SOURCES else gid)
         title, text, labels = "@setup.kicker", "", ["@cancel"]
         offer = st.get("offer") or {}
-        if kind == "setup_loading":
+        if kind == "setup_existing":
+            title = "@setup.install_t5dr"
+            text = i18n.message("t5.existing_prompt", folder=i18n.literal(self.setup_existing_root))
+            labels = ["@t5.existing_use", "@t5.existing_new"]
+        elif kind == "setup_loading":
             text = "@setup.looking"
         elif kind == "setup_none":
             source = self._setup_none_folder()
@@ -306,6 +363,11 @@ class GameSetupNav:
                                 new=i18n.literal(st.get("latest", "")), mb=self._mb(st.get("size")),
                                 notes=i18n.literal(str(offer.get("notes", ""))[:300]))
             labels = ["@no", "@setup.update"]
+            game = self.game_by_id(gid)
+            if game is not None and not game.a.found() and game.a.setup_root():
+                title = "@t5.update_here"
+                text = i18n.message("t5.folder_update", text=text, folder=i18n.literal(game.a.setup_root()))
+                labels = ["@cancel", "@t5.update_here"]
         elif kind == "setup_restart":
             title = "@setup.updated"
             text = i18n.message("setup.restart_text", name=name, version=i18n.literal(st.get("installed", "")))

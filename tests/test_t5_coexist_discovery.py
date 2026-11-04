@@ -208,11 +208,11 @@ class BorrowedInstall(unittest.TestCase):
         adapter = self.adapter()
         adapter.config["roots"] = dict(t5dr="previous")
         adapter.config["t5dr_settings_copy"] = "previous-settings-copy"
-        with mock.patch.object(t5dr, "find_root", return_value=None):
-            self.assertEqual(adapter.set_source("folder", "invalid"), "@t5.coexist.install_invalid")
+        with mock.patch.object(t5dr, "root_candidates", return_value=[]):
+            self.assertEqual(adapter.set_source("folder", "invalid"), "@t5.install_incomplete_python")
         self.assertEqual(adapter.config["roots"]["t5dr"], "previous")
         self.assertEqual(adapter.config["t5dr_settings_copy"], "previous-settings-copy")
-        with mock.patch.object(t5dr, "find_root", return_value="validated"):
+        with mock.patch.object(t5dr, "root_candidates", return_value=["validated"]):
             self.assertEqual(adapter.set_source("folder", "chosen"), "reload")
         self.assertEqual(adapter.config["roots"]["t5dr"], "validated")
         self.assertNotIn("t5dr_settings_copy", adapter.config)
@@ -220,7 +220,7 @@ class BorrowedInstall(unittest.TestCase):
     def test_same_install_reselection_keeps_its_explicit_settings_copy(self):
         adapter = self.adapter()
         adapter.config["t5dr_settings_copy"] = "same-install-copy"
-        with mock.patch.object(t5dr, "find_root", return_value=adapter.root):
+        with mock.patch.object(t5dr, "root_candidates", return_value=[adapter.root]):
             self.assertEqual(adapter.set_source("folder", adapter.root), "reload")
         self.assertEqual(adapter.config["t5dr_settings_copy"], "same-install-copy")
 

@@ -45,7 +45,7 @@ class GameSetupBackend:
 
     def _setup_root(self, gid):
         game = self.nav.game_by_id(gid)
-        return getattr(game.a, "root", None) if game is not None and game.a.found() else None
+        return game.a.setup_root() if game is not None else None
 
     def _setup_check_all(self, force=False):
         for gid in SETUP_GAMES:
@@ -72,9 +72,23 @@ class GameSetupBackend:
             return default_parent()
         if action == "space":
             return self.setup.space(gid, arg)
+        if action == "allow_new":
+            self._setup_new_roots = {gid: set(arg)}
+            return True
+        if action == "use_existing":
+            game = self.nav.game_by_id(gid)
+            if game is None or arg not in game.a.existing_installs(getattr(self.nav, "setup_parent", "")):
+                self.nav.say("@t5.install_incomplete_python", 12)
+                return False
+            return self._setup_attach(gid, arg)
         if action == "install":
             if self._update_busy() or self._setup_root(gid):
                 return False
+            game = self.nav.game_by_id(gid)
+            allowed = getattr(self, "_setup_new_roots", {}).get(gid, set())
+            if game is not None and any(root not in allowed for root in game.a.existing_installs(arg)):
+                return False
+            self._setup_new_roots = {}
             return self.setup.install(gid, arg)
         if action in ("update", "reinstall"):
             root = self._setup_root(gid)
@@ -99,16 +113,23 @@ class GameSetupBackend:
         return False
 
     def _setup_attach(self, gid, root):
-        roots = self.config.setdefault("roots", {})
+        previous = dict(self.config)
+        roots = dict(self.config.get("roots") or {})
+        self.config["roots"] = roots
         roots[gid] = root
         if gid == "t5dr":
             self.config.pop("t5dr_settings_copy", None)
         try:
             mf.save_config(self.config)
         except (OSError, ValueError):
+            self.config.clear()
+            self.config.update(previous)
             self.nav.say("@preferences.save_failed", 8)
+            return False
         message = self._reload_library()
         self.nav.say(message)
+        if message not in ("@library.saved", "@folder_saved", "@t5.folder_old"):
+            return False
         self.nav.setup_installed(gid)
         return True
 
