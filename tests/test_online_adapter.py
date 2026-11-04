@@ -140,6 +140,13 @@ class Subject(Online, Adapter):
 
 
 class OnlineAdapterTests(unittest.TestCase):
+    def test_shared_snapshot_exposes_in_flight_request_for_invitation_dialog(self):
+        self.a.online_state()
+        self.a._online_busy = True
+        self.assertIs(self.a.online_state()["busy"], True)
+        self.a._online_busy = False
+        self.assertIs(self.a.online_state()["busy"], False)
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(dir=os.getcwd())
         self.addCleanup(self.directory.cleanup)

@@ -20,6 +20,9 @@ def init(owner):
         stage=str(cfg.get("casual_stage") or "random")[:80],
         first_to=target if type(target) is int and target in FIRST_TO else 1,
         auto_skip=bool(cfg.get("auto_skip_after_round", False)))
+    if getattr(owner, "online_game", None) == "t4":
+        rounds = cfg.get("t4_rounds", 2)
+        owner._t5_challenge_prefs["rounds"] = rounds if type(rounds) is int and 1 <= rounds <= 5 else 2
     owner._t5_open_challenges = {}
     owner._t5_ended_challenges = {}
     owner._t5_incoming_challenge = {}
@@ -71,6 +74,7 @@ def state(owner):
     ready = _sender(client) is not None
     prefs = dict(owner._t5_challenge_prefs)
     prefs.update(delay_max=_maximum(client), delay_supported=_ok(client, "multi_challenge_ok"),
+                 rounds_supported=getattr(owner, "online_game", None) == "t4" and _ok(client, "rounds_ok"),
                  casual_supported=_ok(client, "casual_ok"), sets_supported=_ok(client, "casual_sets_ok"),
                  auto_skip_supported=_ok(client, "auto_skip_ok"), stages=_stages(client),
                  incoming=copy.deepcopy(owner._t5_incoming_challenge),
@@ -114,6 +118,10 @@ def _preferences(owner, action, client):
         if value not in tuple(str(n) for n in FIRST_TO):
             return None
         prefs[field] = int(value)
+    elif field == "rounds" and getattr(owner, "online_game", None) == "t4" and _ok(client, "rounds_ok"):
+        if value not in tuple(str(n) for n in range(1, 6)):
+            return None
+        prefs[field] = int(value)
     elif field == "side" and _ok(client, "casual_ok"):
         if value not in ("any", "0", "1"):
             return None
@@ -131,7 +139,7 @@ def _preferences(owner, action, client):
     return prefs
 
 
-def _send(client, target, delay, first_to):
+def _send(client, target, delay, first_to, rounds=None):
     send = _sender(client)
     parameters = inspect.signature(send).parameters
     kwargs = {}
@@ -139,6 +147,8 @@ def _send(client, target, delay, first_to):
         kwargs["delay"] = delay
     if "first_to" in parameters:
         kwargs["first_to"] = first_to
+    if rounds is not None and "rounds" in parameters:
+        kwargs["rounds"] = rounds
     return send(target, **kwargs)
 
 
@@ -159,9 +169,12 @@ def action(owner, action, client):
 
         def work():
             owner._online_check_request(generation, client)
-            owner._online_write_preferences(dict(challenge_delay=prefs["delay"], casual_side=prefs["side"],
+            changes = dict(challenge_delay=prefs["delay"], casual_side=prefs["side"],
                 casual_stage=prefs["stage"], casual_first_to=prefs["first_to"],
-                auto_skip_after_round=prefs["auto_skip"]))
+                auto_skip_after_round=prefs["auto_skip"])
+            if "rounds" in prefs:
+                changes["t4_rounds"] = prefs["rounds"]
+            owner._online_write_preferences(changes)
             owner._online_check_request(generation, client)
             _apply(client, prefs, previous)
             return prefs
@@ -185,6 +198,7 @@ def action(owner, action, client):
         choice = prefs["delay"]
         delay = int(choice) if choice != "auto" and int(choice) <= _maximum(client, target) and _ok(client, "multi_challenge_ok") else None
         first_to = prefs["first_to"] if _ok(client, "casual_sets_ok") else 1
+        rounds = prefs.get("rounds", 2) if getattr(owner, "online_game", None) == "t4" and _ok(client, "rounds_ok") else None
         name = str(player.get("name") or "")[:64]
 
         def work():
@@ -198,8 +212,8 @@ def action(owner, action, client):
             owner._online_check_request(generation, client)
             if owner._online_phase != "logged_in":
                 raise SearchRefused("@online.cancelled")
-            return dict(reply=_send(client, target, delay, first_to), player=target, name=name,
-                        first_to=first_to, delay=delay)
+            return dict(reply=_send(client, target, delay, first_to, rounds), player=target, name=name,
+                        first_to=first_to, delay=delay, rounds=rounds)
         owner._online_submit(PREFIX + "send", work)
     return True
 
@@ -251,6 +265,8 @@ def completion(owner, operation, value, error):
             owner._t5_open_challenges[cid[:80]] = dict(player=value["player"], name=value["name"],
                 first_to=value["first_to"], delay=_delay(reply.get("delay")) if isinstance(reply, dict) else {},
                 **ping)
+            if value.get("rounds") is not None:
+                owner._t5_open_challenges[cid[:80]]["rounds"] = value["rounds"]
         owner._online_message = "@online.challenge_sent"
     return True
 
@@ -261,6 +277,8 @@ def event(owner, event):
     if kind == "challenged":
         cid = event.get("challenge")
         info = dict(id=cid[:80] if isinstance(cid, str) else "", delay=_delay(event.get("delay")))
+        if type(event.get("rounds")) is int and 1 <= event["rounds"] <= 5:
+            info["rounds"] = event["rounds"]
         if type(event.get("first_to")) is int and event["first_to"] in FIRST_TO:
             info["first_to"] = event["first_to"]
         wish = event.get("wish")

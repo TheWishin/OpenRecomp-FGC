@@ -257,7 +257,7 @@ def untranslated_literals(source):
         "account_change_password", "account_new_codes", "account_recovery", "account_tools",
         "account_unblock:", "accounts", "accounts_refresh_blocks", "active", "activity", "adapter", "after",
         "all", "always_left", "any", "asdfghjkl-", "ask_result", "attention", "auto_skip",
-        "auto_skip_after_round", "auto_skip_ok", "auto_skip_supported", "auto_spectate",
+        "auto_skip_after_round", "auto_skip_ok", "auto_skip_supported", "auto_spectate", "rounds_ok",
         "auto_unless_declined", "automatic", "away", "back", "badge", "badges_ok", "before", "best_of",
         "block", "blocks", "board", "borderless", "boss", "both_confirm", "both_left", "bracket",
         "build_failed", "build_ok", "built", "bumped", "busy", "call", "called", "can_create", "can_manage",

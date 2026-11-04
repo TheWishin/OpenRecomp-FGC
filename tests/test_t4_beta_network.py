@@ -70,6 +70,7 @@ class DirectBetaTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(dir=os.getcwd())
         self.addCleanup(self.temp.cleanup)
         self.a = Subject(self.temp.name)
+        self.a.online_action("mode_direct")
         self.a.online_state()
         self.stamps = self.enterContext(mock.patch.object(self.a, "_direct_stamp", side_effect=lambda p: (p, 1, 1)))
         self.scan = self.enterContext(mock.patch.object(self.a, "_online_game_check", return_value=""))

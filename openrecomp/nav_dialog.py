@@ -10,6 +10,8 @@ class Dialog:
         self.exit_focus = 0
 
     def _dialog(self, a):
+        if self.confirm_kind == "online_challenge":
+            return self._online_challenge_dialog(a)
         if self.confirm_kind == "netext_forget":
             from . import nav_netext
             return nav_netext.dialog(self, a)
@@ -51,6 +53,8 @@ class Dialog:
                         self.on_update_install()
 
     def _view_dialog(self, v):
+        if self.confirm_kind == "online_challenge":
+            return self._view_online_challenge(v)
         if self.confirm_kind == "netext_forget":
             from . import nav_netext
             return nav_netext.view_dialog(self, v)

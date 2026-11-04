@@ -1,12 +1,17 @@
-# T4 Online: lobby and direct IP / VPN beta
+# T4 Online: shared lobby flow and advanced direct IP / VPN
 
-The beta plays T4 online in two ways (ranked on a T4 server that opens it, see "Ranked" below):
+T4 Online opens the same login and lobby screens as T5DR (ranked on a T4 server that opens it,
+see "Ranked" below):
 
-- **T4 lobby:** through a T4 lobby server. Guest or account login, the player list,
-  lobby chat, quick match and challenges (accept or decline), then the same explicit
-  Start game, a result report and back to the lobby. The server pairs only players
-  with the same T4 build and finds the connection (direct, or through its relay).
-- **Direct IP / VPN:** Host and Join by address, as described below. No server.
+- **Normal Online entry:** guest or account login through a T4 lobby server, the player
+  list, rooms, chat, quick match and ranked when enabled. Challenge a player; an incoming
+  challenge pop-up offers Accept and Decline with ping and connection path. The match-found
+  card leads to launch; supported games report results automatically, followed by rematch,
+  next set game or return to the lobby. The server pairs compatible T4 builds and negotiates
+  NAT punching with relay fallback.
+- **Settings > Advanced > Direct connection (LAN / no server):** optional direct IP / VPN
+  Host and Join by address, as described below. This is a temporary selection for the current
+  launcher session. Old saved mode choices are ignored on the next start.
 
 Both players need compatible locally built T4 runtimes and their own supported
 USA SLUS-20328 ISO. T5DR Online uses its installed lobby client; the old T5DR Online
@@ -16,7 +21,7 @@ launcher remains available. Its separate checks are in [T5DR_ONLINE.md](T5DR_ONL
 
 The launcher ships one server entry, **T4 Online** (`openrecomp\vendor\servers.json`):
 the beta lobby on the central server (TLS, certificate pinned, UDP 7791 + NAT probe 7792,
-casual only, T5DR Online's accounts). As a placeholder (no host, no fingerprint) the
+server-enabled ranked, T5DR Online's accounts). As a placeholder (no host, no fingerprint) the
 launcher has no T4 server. The maintainer sets or clears it with the address and the
 certificate fingerprint the server install printed:
 
@@ -33,9 +38,9 @@ shares T5DR Online's accounts) and the default. The launcher uses the first of:
    `t5dr-servers/1`) in `%LOCALAPPDATA%\OpenRecomp\t4-online\`, else the shipped
    **T4 Online** once it is filled in.
 
-Without any of these, Online opens on Direct IP / VPN; **T4 Online lobby** switches to
-the lobby screen, which says that no server is set up and lets the player type the
-address under Lobby address. The choice between lobby and direct IP is remembered.
+Without any of these, Online still opens the login screen, which says that no server
+is set up and lets the player type the address under Lobby address. The advanced direct
+connection screen is never selected by a missing server or an old saved mode preference.
 Search and chat are always explicit actions. Opening the page connects nowhere, except that a login this
 launcher saved itself (account, `online-t4.json`) logs in by itself once per launcher start when the page is
 first shown; a shared T5DR login is used only when chosen. See "Staying logged in" in T5DR_ONLINE.md.
@@ -81,19 +86,25 @@ the launcher picks; nothing needs forwarding.
 
 ### Controller walk (lobby)
 
-1. Select T4, then Online with LB/RB. If Direct IP / VPN shows, choose **T4 Online lobby**.
+1. Select T4, then Online with LB/RB. The shared login screen appears even without a configured server.
 2. Enter Player name with the **on-screen keyboard**, check Lobby address, then choose
    **Guest login** (or enter a password for Account login or Register).
-3. The lobby lists the other players and the chat. **Refresh players**, choose a player
-   to challenge them, or **Quick match**. An incoming challenge shows Accept and Decline.
-   Chat: choose the chat field, type with the keyboard, then **Send chat**.
-4. When a match is found, choose **Start match**. T4 starts with the lobby's connection;
-   pick characters and stage in T4's own VS menus. View + Menu held two seconds ends the
-   game (as for direct IP).
+3. The lobby lists the other players, rooms and chat. **Refresh players**, choose a player
+   to challenge them, or search **Quick match**; **Ranked** requires an account and an enabled
+   server. An incoming challenge opens a pop-up with Accept, Decline, ping and connection
+   path. LT/RT changes chapters; X opens the chat panel. Choose the chat field, type with
+   the keyboard, then **Send chat**.
+4. When a match is found, choose **Start match**. T4 starts with the lobby's connection
+   and `TEKKEN4_NET_AUTO_VS=1`. This requests automatic VS entry; direct entry into a fight
+   and the runtime's fighter/stage selection contract are not verified against a real
+   build. Complete any menus the runtime still presents. View + Menu held two seconds
+   ends the owned game (as for direct IP).
 5. When the game decided the match itself, the launcher reports it, closes the game and shows
    the lobby's verdict. Otherwise (an older T4 build, a game closed before the match ended)
    report **I won**, **I lost** or **No result** after the game; the lobby's verdict appears,
-   then **Back to lobby**. **Direct IP / VPN** on the login screen goes back.
+   then request **Rematch** or **Back to lobby**. A server-managed next set game starts
+   after its countdown; **Leave set** returns to the lobby subject to ranked forfeits.
+   The optional direct IP route is only under Settings > Advanced.
 
 ### What T4 Online has (t4-parity)
 
@@ -105,13 +116,22 @@ Tournaments, Account (password, recovery codes, blocks, mutes). An older T4 serv
 
 Not yet, because the T4 game needs them first: spectating and replays, training rooms and the health
 handicap, the in-game rematch question and automatic skips, choosing the stage in the lobby (pick it on
-T4's own stage select), direct entry into a fight. The T4 server switches them off
+T4's own stage select). The launcher can request automatic VS entry, but a direct-to-fight
+handoff remains unverified. The T4 server switches unsupported game features off
 (`T5L_GAME_CAPS_OFF`, `T5L_STAGE_CHOICE`), and the launcher does not offer them for T4.
+
+On a server advertising `t4_rounds`, **Rounds to win** in the challenge preferences chooses
+1–5 round wins per match (default 2). The challenger chooses it; incoming challenge details
+show the same count. This is separate from a set's number of matches. The server sends its
+round count to both launchers, which pass `TEKKEN4_NET_ROUNDS` to the game. Both games must
+agree at HELLO. Older servers do not show the choice. The vendored client's room API accepts
+the same optional `rounds` field.
 
 ### Ranked
 
 When the T4 server opens ranked (its welcome says `ranked_queue`), accounts get **Search ranked**;
-guests play casual. Ranked is a set, best of 3, rated once (Glicko-2) when it is decided; the next
+guests play casual. Each ranked match requires **3 round wins**, with three round markers under
+each life bar. Ranked is a set, best of 3, rated once (Glicko-2) when it is decided; the next
 game starts by itself after the server's countdown (no ready vote), **Leave set** between games
 counts as a loss. Only results the two games proved count (the T4 game's own result file on both
 PCs); a game that only has the players' answers does not count ("The games did not prove this
@@ -120,7 +140,9 @@ fought with another fighter goes to the other player.
 
 T4 uses the same rank names in the same order as T5DR: 37 ranks, from Beginner to
 Tekken Lord (Kirin). The launcher's vendored table matches the T4 server's rating bands.
-Ratings and player records remain separate for each game. When the launcher knows a T5DR install, T4 uses its rank plates through
+Ratings and player records remain separate for each game. The launcher uses the shared 37-rank
+table for tier labels and retains server-supplied rank labels when no known tier is available.
+When the launcher knows a T5DR install, T4 uses its rank plates through
 the same runtime cache as the T5DR pages. These pictures come from the player's own game data
 and stay on their PC. If a plate is unavailable, T4 uses our own drawn badge
 (`tools/make_rank_badges.py`, one SVG per rank in `openrecomp/ui/assets/ranks`). They show in
@@ -143,7 +165,10 @@ Its docstring names the three one-PC allowances it needs. `--accounts --t5dr-lob
 accounts (TLS, pinned): both players are registered in T5DR first, Alice logs into T4
 with her T5DR name and password, Bob with one press on **Use your T5DR login**.
 
-## Internet vorbereiten: auf beiden PCs
+## Internet vorbereiten: auf beiden PCs (advanced direct IP / VPN)
+
+Die folgenden Schritte gelten nur fuer Einstellungen > Erweitert > **Direktverbindung
+(LAN / ohne Server)**. Die normale Online-Seite verwendet die Lobby mit NAT-Punching und Relay.
 
 Fuer das Quelltext-Testbundle zuerst den [Startweg](T4_FIRST_RUN.md) abschliessen:
 Python 3.12, Werkzeugpruefung, eigene USA SLUS-20328 v1.00, erfolgreicher Build.
@@ -194,10 +219,10 @@ beweist keine UDP-Erreichbarkeit. Nach Spielende **Collect logs** waehlen und
 das ZIP am angezeigten Dateipfad im Explorer suchen. Die Sammlung erfolgt lokal;
 vor privater Weitergabe den Inhalt pruefen.
 
-## Controller walk
+## Controller walk (advanced direct connection)
 
-1. Select T4, then Online with LB/RB. One player chooses **Host** (P1); the
-   other chooses **Join** (P2).
+1. Select T4, then Settings > Advanced > **Direct connection (LAN / no server)**.
+   One player chooses **Host** (P1); the other chooses **Join** (P2).
 2. The joining player enters the host's IPv4 address using the **on-screen
    keyboard**. Use the host's VPN address when both PCs use the same VPN.
    The default UDP port is 7400. Arrange the address with the other player

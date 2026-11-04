@@ -91,6 +91,30 @@ class BadgesTest(Base):
         self.assertEqual([side["rank"] for side in self.a.online_state()["match"]["sides"]],
                          [vranks.NAMES[10], vranks.NAMES[13]])
 
+    def test_player_rank_preserves_the_shared_ladders_server_label(self):
+        self.login()
+        player = self.a._online_player(dict(name="Other", tier=13, rank="4th Dan", rating=1640))
+        self.assertEqual(player["rank"], "4th Dan")
+        self.a._online_me = dict(name="FakePlayer", tier=13, rank="4th Dan")
+        state = self.a.online_state()
+        self.assertEqual(state["rank"], "4th Dan")
+        self.assertEqual(state["me"]["rank"], "4th Dan")
+        for tier in (None, -1, 99):
+            with self.subTest(tier=tier):
+                player = dict(name="Other", tier=tier, rank="Shared ladder rank")
+                self.assertEqual(self.a._online_player(player)["rank"], "Shared ladder rank")
+                self.a._online_me = dict(player)
+                state = self.a.online_state()
+                self.assertEqual(state["rank"], "Shared ladder rank")
+                self.assertEqual(state["me"]["rank"], "Shared ladder rank")
+
+    def test_match_sides_preserve_the_shared_ladders_server_labels(self):
+        client = self.login()
+        self.found(client, you=dict(name="FakePlayer", tier=13, rank="4th Dan"),
+                   opponent=dict(name="Other", tier=10, rank="1st Dan"))
+        self.assertEqual([side["rank"] for side in self.a.online_state()["match"]["sides"]],
+                         ["1st Dan", "4th Dan"])
+
     def test_every_tier_has_our_own_badge(self):
         names = sorted(p.name for p in BADGES.iterdir())
         self.assertEqual(names, ["t4_rank_%02d.svg" % t for t in range(37)])
@@ -116,6 +140,16 @@ class BadgesTest(Base):
         self.enterContext(mock.patch.dict(sys.modules, {"t4lobby.ranks": vranks}))
         self.assertEqual(self.a.rank_progress(1640), (1640.0, 1680.0, "5th Dan"))
         self.assertIsNone(self.a.rank_progress(2600))         # Tekken Lord (Kirin): no next rank
+
+    def test_rank_progress_uses_the_shared_ladder_when_available(self):
+        with mock.patch.dict(sys.modules, {"t4lobby.ranks": None}):
+            self.assertIsNone(self.a.rank_progress(1640))  # no shared ladder table available
+        peer = mock.Mock(m=dict(id="t5dr"))
+        peer.rank_progress.return_value = (1600.0, 1700.0, "Mentor")
+        self.a.account_peers = (peer,)
+        with mock.patch.dict(sys.modules, {"t4lobby.ranks": vranks}):
+            self.assertEqual(self.a.rank_progress(1640), peer.rank_progress.return_value)
+        peer.rank_progress.assert_called_once_with(1640)
 
 
 class FoundMatchTest(Base):

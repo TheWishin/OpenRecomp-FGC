@@ -18,6 +18,7 @@ class BundleOnlineTests(unittest.TestCase):
         self.addCleanup(self.folder.cleanup)
         self.root = Path(self.folder.name)
         self.a = Subject(str(self.root))
+        self.a.online_action("mode_direct")
         self.a.online_state()
 
     def stamp(self, value):

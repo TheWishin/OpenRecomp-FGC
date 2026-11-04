@@ -57,8 +57,8 @@ class BetaSettings(unittest.TestCase):
     def row(self):
         return next(row for row in self.adapter.settings() if row["id"] == "net_diagnostics")
 
-    def test_shelf_describes_available_direct_ip_online(self):
-        self.assertEqual(self.adapter.status()["players"], "@t4.direct_title")
+    def test_shelf_describes_the_default_online_lobby(self):
+        self.assertEqual(self.adapter.status()["players"], "@t4.lobby_mode")
 
     def test_diagnostics_are_explicit_opt_in_and_stay_in_launcher_settings(self):
         self.assertIs(self.row()["value"], False)

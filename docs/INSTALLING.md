@@ -17,8 +17,15 @@ no native `OpenRecomp.exe`; see [PACKAGING.md](PACKAGING.md) and the German
 [test-bundle walk](T4_FIRST_RUN.md).
 
 This release candidate is a T4 beta: offline play plus online through a T4 lobby
-server or by direct IP or VPN; no ranked. The launcher ships the **T4 Online** lobby
-server; T5DR Online accounts log in there too (see [T4_ONLINE.md](T4_ONLINE.md)). T5DR's Online section uses its installed lobby client; the
+server using the shared T5DR login, lobby, rooms, chat and challenge screens. Online
+opens login even when the shipped **T4 Online** server entry is a placeholder; enter
+the server address there. T5DR Online accounts log in when the server shares those accounts;
+guests can also play. Ranked requires an account and a server that enables it.
+The result is reported automatically by supported games, followed by rematch or return
+to the lobby. Direct IP or VPN is under Settings > Advanced >
+**Direct connection (LAN / no server)**, selected only for the current launcher session.
+See [T4_ONLINE.md](T4_ONLINE.md) for the handoff limits and controller walk.
+T5DR's Online section uses its installed lobby client; the
 old T5DR Online launcher remains available. See [T5DR_ONLINE.md](T5DR_ONLINE.md)
 for its controller screens and acceptance checks. A Sunday release depends on the owner's successful
 two-PC test; see [T4_ONLINE.md](T4_ONLINE.md).

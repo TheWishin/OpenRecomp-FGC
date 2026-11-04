@@ -1582,12 +1582,14 @@ class LobbyClient(TourCalls, SpectateClientMixin):
 
     def create_room(self, name=None, ranked=False, size=2, rotation="winner", private=None, password=None,
                     hidden=False, training=False, first_to=1, mode="line", rematch_policy=None,
-                    auto_skip_after_round=False):
+                    auto_skip_after_round=False, rounds=None):
         """A room. size 2 = a classic room; 3.. = a community room whose members take turns (rotation "winner":
         winner stays, "queue": everyone in turn). private "password" (with `password`) or "code" (the server makes
         an invite code: .room_code, the reply's "code"); hidden: not in the room list. -> the room (a member's view).
         The password goes to the server only, over this connection; nothing here keeps or logs it."""
         msg = {"t": "room_create", "name": name, "ranked": ranked}
+        if rounds is not None:
+            msg["rounds"] = self._t4_rounds(rounds)
         # (each rule on its own: the round skip does not need the in-game rematch question)
         if rematch_policy is not None:
             if not self.ingame_rematch_ok():
@@ -1802,15 +1804,27 @@ class LobbyClient(TourCalls, SpectateClientMixin):
                 msg["auto_skip_after_round"] = self.skip_after_round
             await self._safe(self._send(msg))
 
-    def challenge(self, player_id, delay=None, first_to=1):
-        """-> the challenge's id (send_challenge: the whole reply)."""
-        return self.send_challenge(player_id, delay, first_to)["challenge"]
+    def _t4_rounds(self, rounds):
+        if isinstance(rounds, bool) or not isinstance(rounds, int) or not 1 <= rounds <= 5:
+            raise LobbyError(proto.E_BAD_REQUEST, "bad field: rounds")
+        if not self.rounds_ok():
+            raise LobbyError(proto.E_NOT_ALLOWED, "this server has no T4 round choices")
+        return rounds
 
-    def send_challenge(self, player_id, delay=None, first_to=1):
+    def rounds_ok(self):
+        return "t4_rounds" in ((self.welcome or {}).get("features") or ())
+
+    def challenge(self, player_id, delay=None, first_to=1, rounds=None):
+        """-> the challenge's id (send_challenge: the whole reply)."""
+        return self.send_challenge(player_id, delay, first_to, rounds)["challenge"]
+
+    def send_challenge(self, player_id, delay=None, first_to=1, rounds=None):
         """-> the server's reply: {"challenge": id, "ping": ..., and from a 1.1.9 server "delay": {"frames", "auto"},
         "to": the player}. `delay`: the input delay the challenger chose (frames 0-8 with input_delay8, otherwise
         0-2), None = auto -- sent only to a server that takes it (multi_challenge_ok)."""
         msg = {"t": "challenge", "player": player_id}
+        if rounds is not None:
+            msg["rounds"] = self._t4_rounds(rounds)
         if self.casual_sets_ok():
             msg["first_to"] = proto.casual_first_to(first_to)
         frames = int(delay) if delay is not None else None
