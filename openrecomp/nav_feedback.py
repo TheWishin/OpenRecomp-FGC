@@ -371,7 +371,7 @@ def global_view(nav):
                 fighter=i18n.literal(g.a.fighter_label(info["main"])) if info.get("main") else "",
                 selfArt=uri(g.a.fighter_image(state["me"]["main"])) if (state.get("me") or {}).get("main") else "",
                 connection=connection(info), details=details, seconds=seconds,
-                countdown=f"{seconds // 60}:{seconds % 60:02}" if seconds is not None else "@feedback.no_deadline",
+                countdown=f"{seconds // 60}:{seconds % 60:02}" if seconds is not None else "",
                 disabled=pending, focused=nav.__dict__.get("_global_offer_focus") == identity,
                 acceptLabel="@feedback.ready" if key.startswith("match:") else "@online.accept_invite" if key.startswith("invite:") else "@online.accept_challenge",
                 declineLabel="@online.cancel_match" if key.startswith("match:") else "@online.decline_invite" if key.startswith("invite:") else "@online.decline_challenge",
@@ -503,6 +503,6 @@ def match_view(nav, g):
     ready = match.get("opponent_ready")
     return dict(gameId=g.id, left=player(me, me.get("name") or state.get("name") or "", you_char),
                 right=player(opponent_info, opponent or "", opp_char), connection=connection(match), details=details,
-                game=i18n.literal(g.short), versus="@feedback.vs", countdown=row.get("countdown", "@feedback.no_deadline"),
+                game=i18n.literal(g.short), versus="@feedback.vs", countdown=row.get("countdown", ""),
                 seconds=row.get("seconds"), readyLabel="@feedback.ready", disabled=bool(state.get("busy")),
                 opponentStatus="@feedback.opponent_ready" if ready is True else "@feedback.opponent_waiting" if ready is False else "")

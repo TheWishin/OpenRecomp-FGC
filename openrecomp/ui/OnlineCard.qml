@@ -9,22 +9,22 @@ Item {
     readonly property var vs: root.v.matchVersus || ({})
     readonly property bool versus: o.phase === "matched" && !!vs.left
     component FighterSide: Rectangle {
+        id: fighter
         property var person: ({})
         property bool mirror: false
         color: Theme.raised; radius: 6; border.width: 1; border.color: Theme.border
-        Item {
+        FighterPortrait {
             id: portrait
+            objectName: "versusPortrait"
             x: 16; y: 16; width: parent.width - 32; height: Math.max(80, parent.height - identity.height - 40)
-            // Independently drawn silhouettes are the complete fallback when the adapter has no image.
-            Rectangle { visible: !fighterImage.visible; width: Math.min(parent.width * .24, parent.height * .3); height: width; radius: width / 2; anchors.horizontalCenter: parent.horizontalCenter; y: 8; color: Theme.muted; opacity: .4 }
-            Rectangle { visible: !fighterImage.visible; width: Math.min(parent.width * .6, parent.height * .7); height: parent.height * .55; radius: width * .26; anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; color: Theme.muted; opacity: .3; rotation: parent.parent.mirror ? -8 : 8 }
-            Image { id: fighterImage; anchors.fill: parent; source: parent.parent.person.art || ""; visible: status === Image.Ready; mirror: parent.parent.mirror; fillMode: Image.PreserveAspectFit; asynchronous: true }
+            source: fighter.person.art || ""; mirrored: fighter.mirror
+            color: "transparent"
         }
         Column {
             id: identity; x: 16; anchors.bottom: parent.bottom; anchors.bottomMargin: 16; width: parent.width - 32; spacing: 4
-            OnlineStyle.SectionHeader { width: parent.width; text: parent.parent.person.name || ""; maximumLineCount: 2; elide: Text.ElideRight; Accessible.name: text }
+            OnlineStyle.SectionHeader { objectName: "versusPlayerName"; width: parent.width; text: parent.parent.person.name || ""; font.pixelSize: Theme.onlinePx(32); maximumLineCount: 2; elide: Text.ElideRight; Accessible.name: text }
             Image { visible: !!parent.parent.person.plate; source: parent.parent.person.plate || ""; width: parent.width; height: visible ? 32 : 0; fillMode: Image.PreserveAspectFit }
-            OnlineStyle.Value { width: parent.width; text: [parent.parent.person.rank || "", parent.parent.person.rating || "", parent.parent.person.region || ""].filter(s => s).join(" · ") }
+            OnlineStyle.Value { objectName: "versusPlayerRank"; width: parent.width; text: [parent.parent.person.rank || "", parent.parent.person.rating || "", parent.parent.person.region || ""].filter(s => s).join(" · "); font.pixelSize: Theme.onlinePx(26) }
             OnlineStyle.HelpText { width: parent.width; text: parent.parent.person.fighter || "" }
             OnlineStyle.HelpText { objectName: "versusMain"; width: parent.width; visible: !!parent.parent.person.picked && !!parent.parent.person.main; text: visible ? (parent.parent.person.mainLabel || "") + ": " + parent.parent.person.main : "" }
         }

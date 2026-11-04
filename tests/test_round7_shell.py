@@ -213,6 +213,7 @@ class RoundSevenScene(unittest.TestCase):
         spin(30)
         popup = self.named("globalOffer")[0]
         toast = self.named("resultToast")[0]
+        toast.setY(popup.y() + 20)
         def rect(item):
             return item.mapRectToScene(QRectF(0, 0, item.width(), item.height()))
         overlap = rect(popup).intersected(rect(toast))

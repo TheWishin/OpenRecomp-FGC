@@ -119,6 +119,7 @@ class GlobalOffers(unittest.TestCase):
         nav_feedback.observe(self.nav, self.nav.games[0], self.a.online_state())
         row = nav_feedback.global_view(self.nav)[0]
         self.assertIsNone(row["seconds"])
+        self.assertEqual(row["countdown"], "")
         nav_feedback.click_global(self.nav, row["identity"], True)
         self.a.snapshot.update(busy=False, message="@online.failure")
         nav_feedback.observe(self.nav, self.nav.games[0], self.a.online_state())
@@ -220,11 +221,13 @@ class OfferScene(unittest.TestCase):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         os.environ.setdefault("QT_QUICK_BACKEND", "software")
         from PySide6.QtCore import QObject, QPointF, QUrl
-        from PySide6.QtGui import QGuiApplication
+        from PySide6.QtGui import QFontDatabase, QGuiApplication
         from PySide6.QtQml import QQmlApplicationEngine
         from openrecomp.app import UI_DIR
         from test_ui_loads import FakeBackend, spin, wait_pages
         gui = QGuiApplication.instance() or QGuiApplication([])
+        for path in (Path(UI_DIR) / "fonts").glob("*.ttf"):
+            QFontDatabase.addApplicationFont(str(path))
         adapter = FeedbackLobby()
         nav = Nav([Game(adapter.m, adapter)], language="en")
         adapter.snapshot["challenge"] = dict(id="incoming", name="Synthetic challenger", rank="3rd Dan", ping=42, seconds=30)
@@ -246,6 +249,12 @@ class OfferScene(unittest.TestCase):
             popup = window.findChild(QObject, "globalOffer")
             self.assertIsNotNone(popup)
             self.assertGreater(popup.property("height"), 0)
+            self.assertLess(popup.width(), 900)
+            self.assertAlmostEqual(popup.x() + popup.width() / 2, popup.parentItem().width() / 2, delta=.5)
+            self.assertAlmostEqual(popup.y() + popup.height() / 2, popup.parentItem().height() / 2, delta=.5)
+            countdown = window.findChild(QObject, "globalOfferCountdown")
+            self.assertTrue(countdown.property("visible"))
+            self.assertEqual(countdown.property("text"), "0:30")
             for name in ("globalOfferAccept", "globalOfferDecline", "globalOfferReview"):
                 button = window.findChild(QObject, name)
                 origin = button.mapToItem(popup, QPointF())
@@ -253,6 +262,12 @@ class OfferScene(unittest.TestCase):
                 self.assertGreaterEqual(origin.y(), 0)
                 self.assertLessEqual(origin.x() + button.width(), popup.width())
                 self.assertLessEqual(origin.y() + button.height(), popup.height())
+        adapter.snapshot["challenge"].pop("seconds")
+        adapter.snapshot["challenge"]["id"] = "no-deadline"
+        nav_feedback.observe(nav, nav.game, adapter.online_state())
+        backend.refresh()
+        spin()
+        self.assertFalse(window.findChild(QObject, "globalOfferCountdown").property("visible"))
         adapter.snapshot.update(challenge={}, phase="matched", match=dict(opponent="Rival", ping=42, delay=dict(frames=2), first_to=2))
         nav.sec[nav.game.id] = "online"
         nav_feedback.observe(nav, nav.game, adapter.online_state())

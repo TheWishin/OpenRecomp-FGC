@@ -114,6 +114,9 @@ class T4(T4Support, T4Online, Adapter):
         self._prerequisite_worker = None
         self._art_busy = False
         self._art_tried = None
+        self._fighter_art_lock = threading.Lock()
+        self._fighter_art_busy = set()
+        self._fighter_art_tried = {}
         self.art_note = ""
         self._tool_install = dict(running=False, done=0, total=0, current="", result="")
         # Build pressed with tools missing: install them, check again, then build (one worker; see build_start).
@@ -184,20 +187,46 @@ class T4(T4Support, T4Online, Adapter):
         threading.Thread(target=self._make_art, args=(iso, path), daemon=True).start()
 
     def fighter_image(self, key):
-        """Optional per-fighter user cache; unknown keys never read outside that cache.
-
-        The verified disc extractor currently identifies only Jin's portrait. Other
-        fighters need a verified entry mapping before extraction can be enabled.
-        """
-        if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,48}", key):
+        """A square select portrait, decoded once from the player's built game's own data."""
+        if not isinstance(key, str) or key not in t4_art.FIGHTER_PORTRAITS:
             return ""
         path = os.path.join(art_dir("t4"), "fighters", key + ".png")
         if os.path.isfile(path):
             return path
-        if key.casefold() == "jin":
-            path = os.path.join(art_dir("t4"), t4_art.FILE_NAME)
-            return path if os.path.isfile(path) else ""
+        try:
+            if self._building() or not self.ready():
+                return ""
+            source = os.path.join(self.root, "game", "disc")
+            stamp = t4_art.source_stamp(source)
+            if stamp is None:
+                effective = getattr(self.core, "effective_iso", None)
+                source = effective(self.s) if callable(effective) else ""
+                stamp = t4_art.source_stamp(source) if source else None
+            if stamp is None:
+                return ""
+            with self._fighter_art_lock:
+                if key in self._fighter_art_busy or self._fighter_art_tried.get(key) == stamp:
+                    return ""
+                self._fighter_art_tried[key] = stamp
+                self._fighter_art_busy.add(key)
+            try:
+                threading.Thread(target=self._make_fighter_art, args=(source, key, path), daemon=True).start()
+            except Exception:
+                with self._fighter_art_lock:
+                    self._fighter_art_busy.discard(key)
+                raise
+        except Exception as error:  # noqa: BLE001 -- optional art never stops a screen
+            self.art_note = str(error) or error.__class__.__name__
         return ""
+
+    def _make_fighter_art(self, source, key, path):
+        try:
+            t4_art.make_fighter(source, key, path)
+        except Exception as error:  # noqa: BLE001 -- a missing picture must never stop the launcher
+            self.art_note = str(error) or error.__class__.__name__
+        finally:
+            with self._fighter_art_lock:
+                self._fighter_art_busy.discard(key)
 
     def _make_art(self, iso, path):
         try:
