@@ -67,7 +67,7 @@ def untranslated_literals(source):
                 if isinstance(child, (ast.Constant, ast.Tuple, ast.List)):
                     ignore(child)  # action IDs and core protocol values
         elif isinstance(node, ast.Assign):
-            if any(isinstance(t, ast.Name) and t.id in ("GLYPHS", "TRAIL", "OSK", "ONLINE_KEYS", "__all__") for t in node.targets):
+            if any(isinstance(t, ast.Name) and t.id in ("GLYPHS", "TRAIL", "OSK", "ONLINE_KEYS", "BACK_SOURCE", "__all__") for t in node.targets):
                 ignore(node.value)  # physical button names, keyboard keys, exports
             if any(isinstance(t, ast.Name) and t.id == "PREFLIGHT_SCRIPT" for t in node.targets):
                 ignore(node.value)  # internal PowerShell wrapper, never screen copy
@@ -135,6 +135,9 @@ def untranslated_literals(source):
         "Context", "settings_lines", "build_info_for", "discover", "build", "desktop_dir",
         "controls_path", "DeviceRef", "load", "sources", "table", "bind", "save", "mask_text",
         "default_sources", "step", "drain", "update",
+        # the Pad bindings page's row kinds, adapter methods and controls.ini option names (nav_controls_page)
+        ":controls", "setting", "slot", "menu", "bindings", "generic", "socd", "stick", "clear_binding", "reset_controls",
+        "apply_preset", "set_control_player", "set_control_option", "test", "keyboard", "bindcapture", "attack", "macro", "custom", "game_key",
         "idle", "waiting", "ready", "conflict", "multi", "timeout", "disconnected", "done", "ok",
         "check", "report", "problem", "play", "controls", "support", "error", "saved", "none", "sent", "support_note", "support_contact",
         "online_", "online_name", "online_password", "online_server", ":online",

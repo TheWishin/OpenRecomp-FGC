@@ -62,8 +62,9 @@ class ControlsNavigation(unittest.TestCase):
             self.nav.act(action, device="xbox")
         self.assertTrue(self.nav.binding_active())
         self.assertEqual(self.a.calls, [("bind", "pad1", "cross")])
-        self.assertEqual(self.nav.view()["overlay"], "dialog")
-        self.assertEqual(self.nav.view()["dialog"]["options"], [])
+        self.assertEqual(self.nav.view()["overlay"], "bindcapture")
+        self.assertEqual(self.nav.view()["bindCapture"]["options"], [])
+        self.assertTrue(self.nav.view()["bindCapture"]["waiting"])
 
     def test_conflict_requires_explicit_yes_and_default_is_cancel(self):
         self.begin()

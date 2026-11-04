@@ -1,41 +1,35 @@
 """Optional controls and local problem reports, through the common game interface."""
-from . import i18n
+from . import i18n, ui_sound
 from .community import DISCORD_URL
+
+CAPTURE_SECONDS = 5
 
 
 class Tools:
-    def _items_controls(self, g):
-        if self.controls_game and self.controls_game is not g:
-            self.controls_game.a.controls_close()
-        self.controls_game = g
-        out = []
-        for pad in g.a.controls():
-            name = pad["label"]
-            out.append(dict(kind="heading", label=name))
-            for slot in pad["slots"]:
-                disabled = pad.get("disabled", False)
-                out.append(dict(kind="action", id=str(pad["id"]) + ":" + slot["id"], label=slot["label"],
-                                value=slot["value"], verb="" if disabled else "@controls.bind", hint="@controls.hint", disabled=disabled,
-                                run=None if disabled else lambda pid=pad["id"], sid=slot["id"]: self._begin_binding(g, pid, sid),
-                                detail=dict(kicker=name, title=slot["label"], lead="@controls.hint",
-                                            rows=[dict(k="@controls.current", v=slot["value"])], primary="" if disabled else "@controls.bind")))
-        return out or [dict(kind="action", id="none", label="@controls.empty", hint="@controls.hint",
-                            detail=dict(kicker="@section.controls", title="@controls.empty", lead="@controls.hint", rows=[]))]
-
     def _begin_binding(self, g, pad, slot):
         if self._dry("@controls.bind"):
             return
         g.a.begin_binding(pad, slot)
+        item = next((it for it in self.items() if it.get("slot") == slot), {})
+        self.binding_info = dict(label=item.get("label", slot), notation=slot, glyphs=item.get("glyphs") or [])
         self.binding_game = g
-        self.binding_result = dict(state="waiting")
+        self.binding_result = dict(state="waiting", left=CAPTURE_SECONDS)
+        self.overlay = "binding"
+
+    def _begin_input_test(self, g, pad):
+        g.a.begin_input_test(pad)
+        self.binding_info = dict(label="@controls.test", notation="", glyphs=[])
+        self.binding_game = g
+        self.binding_result = dict(state="test")
         self.overlay = "binding"
 
     def binding_active(self):
-        return self.overlay == "binding" and self.binding_result.get("state") == "waiting"
+        """A capture or the input test: every pad button belongs to the controller being set up, not the launcher."""
+        return self.overlay == "binding" and self.binding_result.get("state") in ("waiting", "test")
 
     def _binding(self, action):
         if self.binding_active():
-            # Every pad button is a binding candidate, including the usual Back button.
+            # Every pad button is a binding candidate, including the usual Back button (held: cancel).
             if action == "back" and self.device == "kb":
                 self._cancel_binding()
             return
@@ -58,15 +52,34 @@ class Tools:
         self.binding_game = None
 
     def _view_binding(self, v):
-        waiting = self.binding_active()
         result = self.binding_result
-        text = "@controls.waiting.text" if waiting else i18n.message(
-            "controls.conflict.text", source=result.get("source", ""),
-            slots=", ".join(i18n.localize(s, self.language) for s in result.get("conflicts", [])))
-        v["overlay"] = "dialog"
-        v["dialog"] = dict(title="@controls.waiting.title" if waiting else "@controls.conflict.title", text=text,
-                           options=[] if waiting else [dict(label="@no", index=0, focused=self.exit_focus == 0),
-                                                       dict(label="@yes", index=1, focused=self.exit_focus == 1)])
+        info = getattr(self, "binding_info", None) or {}
+        if result.get("state") == "test":
+            v["overlay"] = ""           # the page itself shows the test: lit actions and the notation strip
+            return
+        waiting = self.binding_active()
+        swap = result.get("swap") or {}
+        if waiting:
+            text = "@controls.waiting.text"
+        elif swap:
+            text = i18n.message("controls.conflict.swap", source=result.get("source", ""),
+                                slots=", ".join(i18n.localize(s, self.language) for s in result.get("conflicts", [])),
+                                slot=swap.get("slot", ""), given=" / ".join(swap.get("sources") or []))
+        else:
+            text = i18n.message("controls.conflict.text", source=result.get("source", ""),
+                                slots=", ".join(i18n.localize(s, self.language) for s in result.get("conflicts", [])))
+        left = max(0, min(CAPTURE_SECONDS, int(result.get("left", 0) + 0.999)))
+        v["overlay"] = "bindcapture"
+        v["bindCapture"] = dict(
+            title="@controls.waiting.title" if waiting else "@controls.conflict.title", text=text,
+            action=info.get("label", ""), notation=info.get("notation", ""), glyphs=info.get("glyphs") or [],
+            waiting=waiting, left=left, progress=max(0.0, min(1.0, float(result.get("left", 0)) / CAPTURE_SECONDS)),
+            holding=bool(result.get("holding")), cancel="@controls.waiting.cancel",
+            options=[] if waiting else [dict(label="@no", index=0, focused=self.exit_focus == 0),
+                                        dict(label="@controls.swap" if swap else "@yes", index=1,
+                                             focused=self.exit_focus == 1)])
+        # the old dialog fields stay filled for screens that only know the dialog
+        v["dialog"] = dict(title=v["bindCapture"]["title"], text=text, options=v["bindCapture"]["options"])
         v["hint"] = "@controls.waiting.hint" if waiting else "@dialog_hint"
         v["prompts"] = [] if waiting else [self.prompt("confirm", "@confirm"), self.prompt("right", "@switch"), self.prompt("back", "@cancel")]
 
@@ -86,9 +99,23 @@ class Tools:
             changed = True
         if self.binding_active():
             try:
+                testing = self.binding_result.get("state") == "test"
                 result = self.binding_game.a.poll_binding(active=active)
                 state = result.get("state", "waiting")
-                if state != "waiting":
+                if result != self.binding_result:
+                    changed = True
+                if testing and state == "test":
+                    self.binding_result = result
+                    changed = True                  # the live input strip follows every poll
+                elif testing:
+                    self._cancel_binding()
+                    self.binding_result = {}
+                    if state == "disconnected":
+                        self.say("@controls.disconnected")
+                    changed = True
+                elif state == "waiting":
+                    self.binding_result = result
+                else:
                     changed = True
                     self.binding_result = result
                     if state == "ready":
@@ -100,7 +127,11 @@ class Tools:
                         self.exit_focus = 0
                     else:
                         self._cancel_binding()
-                        messages = dict(timeout="@controls.timeout", multi="@controls.multi", disconnected="@controls.disconnected")
+                        messages = dict(timeout="@controls.timeout", multi="@controls.multi",
+                                        disconnected="@controls.disconnected", cancelled="@controls.cancelled",
+                                        game_key="@controls.game_key")
+                        if state == "cancelled":
+                            self.note_sound(ui_sound.BACK)
                         self.say(result.get("error") or messages.get(state, "@controls.failed"))
             except Exception as e:  # noqa: BLE001 -- unplugging a pad must leave navigation usable
                 self._cancel_binding()

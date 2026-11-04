@@ -31,7 +31,7 @@ SOURCE_GROUPS = {
                    "game_library.py", "game_updates.py", "nav_library.py",
                    "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py", "t4_art.py",
                    "bundled_games.py", "game_manifest.py", "community.py", "report_upload.py", "wine.py",
-                   "ui_sound.py", "nav_sound.py"),
+                   "ui_sound.py", "nav_sound.py", "nav_controls_page.py", "pad_glyphs.py", "pad_presets.py"),
     "openrecomp/adapters": ("__init__.py", "base.py", "launch_guard.py", "support.py", "t4.py", "t4_install.py",
                            "t4_online.py", "t4_source.py", "t4_prerequisites.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py",
                            "t5_coexist.py", "t5_compatibility.py", "t4_region.py", "other_launchers.py",
@@ -47,7 +47,7 @@ SOURCE_GROUPS = {
                                   "i18n_known.py", "nat.py", "portmap.py", "proto.py", "servers.py", "spectate.py",
                                   "t4game.py", "tour_client.py"),
     "openrecomp/i18n": ("__init__.py", "de.json", "en.json", "es.json", "fr.json", "ja.json", "ko.json", "pt-BR.json"),
-    "openrecomp/ui": ("BuildAction.qml", "BuildPage.qml", "Glyph.qml", "Hub.qml", "Main.qml", "OnlineCard.qml", "OnlineHub.qml", "OnlineLogin.qml", "Overlays.qml", "ResultCell.qml", "SettingsHub.qml", "Shelf.qml"),
+    "openrecomp/ui": ("BindingsPage.qml", "BuildAction.qml", "BuildPage.qml", "Glyph.qml", "Hub.qml", "Main.qml", "OnlineCard.qml", "OnlineHub.qml", "OnlineLogin.qml", "Overlays.qml", "PadGlyph.qml", "ResultCell.qml", "SettingsHub.qml", "Shelf.qml"),
     "openrecomp/ui/assets": ("icon.ico", "icon.svg", "logo-mark-light.svg", "logo-mark.svg", "logo-wordmark-light.svg", "logo-wordmark.svg"),
     # The menu sounds, made by tools/make_ui_sounds.py (synthesized: nothing from a game or a sound pack)
     "openrecomp/ui/sounds": ("back.wav", "close.wav", "confirm.wav", "error.wav", "move.wav", "notify.wav",

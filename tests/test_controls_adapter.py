@@ -139,12 +139,16 @@ class PadBindings(unittest.TestCase):
 
     def test_conflict_is_shown_before_explicit_accept_and_saved_for_selected_port(self):
         result = self.capture("A")
-        self.assertEqual(result, dict(state="conflict", source="A", conflicts=["@controls.slot.1"]))
+        # the action that had A gets this action's old button (B) when the player swaps
+        self.assertEqual(result, dict(state="conflict", source="A", conflicts=["@controls.slot.1"],
+                                      swap=dict(slot="@controls.slot.1", sources=["B"])))
         editor = Editor.loaded[0]
         self.assertEqual(editor.calls, [])
         self.adapter.accept_binding()
-        self.assertEqual(editor.calls, [(Ref("xinput", 0, 0, 0), "port", "2", ["A"]), "saved"])
+        ref = Ref("xinput", 0, 0, 0)
+        self.assertEqual(editor.calls, [(ref, "port", "2", ["A"]), (ref, "port", "1", ["B"]), "saved"])
         self.assertEqual(editor.binds[(1, "A")], 2)
+        self.assertEqual((editor.binds[(0, "A")], editor.binds[(0, "B")]), (2, 1))
         self.assertEqual(self.adapter.poll_binding()["state"], "done")
 
     def test_unused_source_is_ready_and_cancel_never_writes(self):
@@ -158,7 +162,7 @@ class PadBindings(unittest.TestCase):
         self.adapter.begin_binding("pad-one", "2")
         capture = self.adapter._controls_session["capture"]
         self.assertEqual(capture.held, frozenset({"A"}))
-        self.assertEqual(capture.timeout_s, 8.0)
+        self.assertEqual(capture.timeout_s, 5.0)
         self.bus.edges = [SimpleNamespace(key="pad-two", source="X"), SimpleNamespace(key="pad-one", source="Y")]
         self.adapter.poll_binding()
         self.assertEqual([edge.source for edge in capture.edges], ["Y"])
@@ -200,10 +204,10 @@ class PadBindings(unittest.TestCase):
             self.adapter.begin_binding("pad-one", "1")
         session = self.adapter._controls_session
         session["capture"].result = ("multi", ["A", "B"])
-        with mock.patch("openrecomp.adapters.t5_controls.time.monotonic", return_value=107.0):
+        with mock.patch("openrecomp.adapters.t5_controls.time.monotonic", return_value=104.0):
             self.assertEqual(self.adapter.poll_binding()["state"], "multi")
         self.assertEqual(session["capture"].timeout_s, 1.0)
-        with mock.patch("openrecomp.adapters.t5_controls.time.monotonic", return_value=108.1):
+        with mock.patch("openrecomp.adapters.t5_controls.time.monotonic", return_value=105.1):
             self.assertEqual(self.adapter.poll_binding()["state"], "timeout")
         self.assertEqual(Editor.loaded[0].calls, [])
 

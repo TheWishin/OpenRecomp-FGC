@@ -89,6 +89,13 @@ Column {
         root: hub.root
     }
 
+    BindingsPage {
+        objectName: "bindingsPage"
+        visible: hub.v.bindingsPage.layout === "bindings"
+        width: 1920; height: parent.height - 64
+        root: hub.root
+    }
+
     BuildPage {
         objectName: "buildPage"
         visible: !!(hub.v.build && hub.v.build.show)
@@ -97,7 +104,7 @@ Column {
     }
 
     Row {
-        visible: !(hub.v.build && hub.v.build.show) && ["lobby", "card", "login"].indexOf(hub.v.online.layout) < 0 && hub.v.settingsPage.layout !== "groups"
+        visible: !(hub.v.build && hub.v.build.show) && ["lobby", "card", "login"].indexOf(hub.v.online.layout) < 0 && hub.v.settingsPage.layout !== "groups" && hub.v.bindingsPage.layout !== "bindings"
         width: 1920; height: parent.height - 64
         // ---------------------------------------------------------------- the list
         Item {

@@ -52,6 +52,8 @@ class Hub:
             self._online_chapter(items, i, -1 if a == "chapterPrev" else 1)
         elif page and a == "x" and it.get("replay") is None and it.get("region") != "login":
             self._chat_jump(items, i)
+        elif self.section() == "controls" and self._controls_key(a, items, i):
+            pass
         elif a in ("up", "down"):
             step = -1 if a == "up" else 1
             j = i + step
@@ -88,7 +90,7 @@ class Hub:
             self._activate(it)
 
     def _cycle(self, it, step):
-        if self._dry(i18n.message("dry_change", name=it["label"])):
+        if not it.get("local") and self._dry(i18n.message("dry_change", name=it["label"])):
             return
         options = it["options"]
         values = [o[0] for o in options]
@@ -180,6 +182,8 @@ class Hub:
             prompts.append(self.prompt("play", "@play"))
         prompts += [self.prompt("social", "@quick_access"), self.prompt("switchGame", "@switch_game")]
         v["prompts"] = prompts
+        if sec == "controls" and items:
+            self._view_controls_page(v, items, fi)
         if sec == "build":
             self._view_build_page(v, g, items, fi)
 
