@@ -15,6 +15,7 @@ FINDINGS = {
     "gpu_tier1": ("@support.finding.gpu_tier1.title", "@support.finding.gpu_tier1.fix"),
     "two_cores": ("@support.finding.two_cores.title", "@support.finding.two_cores.fix"),
     "wine": ("@support.finding.wine.title", "@support.finding.wine.fix"),
+    "wine_graphics": ("@support.finding.wine_graphics.title", "@support.finding.wine_graphics.fix"),
     "firewall": ("@support.finding.firewall.title", "@support.finding.firewall.fix"),
 }
 

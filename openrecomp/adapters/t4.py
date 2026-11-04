@@ -15,7 +15,7 @@ from . import t4_region
 from .t4_online import T4Online
 from .t5_online import game_process_running
 from .t4_install import install_root, install_source, source_root
-from .. import t4_art
+from .. import t4_art, wine
 from ..manifest import art_dir, save_config
 from ..game_releases import clear_rebuild, rebuild_required
 
@@ -747,6 +747,8 @@ class T4(T4Online, Adapter):
     def build_start(self, force=False):
         if self._online_work_active() or self.running() or self._building():
             raise RuntimeError("@t4.work_busy")
+        if not wine.powershell_works():          # Wine/Proton: build_game.ps1 cannot run there (always True on Windows)
+            raise RuntimeError("@t4.no_powershell")
         problem = self.build_ready()
         if problem and problem not in self.build_prepares():
             raise RuntimeError(problem)

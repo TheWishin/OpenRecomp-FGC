@@ -15,6 +15,7 @@ import zipfile
 from .base import NO_WINDOW
 from .t5_online import Online, SearchRefused, entry_tls, game_process_running
 from ..manifest import save_config, user_dir
+from .. import wine
 from ..ranks import t4_rank_name
 
 
@@ -244,6 +245,8 @@ class T4Direct:
     def _direct_process(self, command, cancel, env=None):
         if cancel.is_set():
             raise RuntimeError("@online.cancelled")
+        if command[:1] == ["powershell.exe"] and not wine.powershell_works():
+            raise DirectCheckError("@t4.no_powershell")     # Wine/Proton only (always works on Windows)
         proc = subprocess.Popen(command, cwd=self.root, env=env, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
         try:

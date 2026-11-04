@@ -29,7 +29,7 @@ SOURCE_GROUPS = {
                    "nav_rules.py", "nav_spectating.py", "nav_tournaments.py",
                    "pad.py", "ranks.py", "stall.py", "updater.py", "update_service.py", "file_dialog.py",
                    "game_library.py", "game_updates.py", "nav_library.py",
-                   "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py", "t4_art.py"),
+                   "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py", "t4_art.py", "wine.py"),
     "openrecomp/adapters": ("__init__.py", "base.py", "launch_guard.py", "support.py", "t4.py", "t4_install.py",
                            "t4_online.py", "t4_source.py", "t4_prerequisites.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py",
                            "t5_coexist.py", "t5_compatibility.py", "t4_region.py",

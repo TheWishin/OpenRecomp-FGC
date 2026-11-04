@@ -27,6 +27,9 @@ KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right:
         Qt.Key_PageUp: "chapterPrev", Qt.Key_PageDown: "chapterNext"}
 KEYS = {int(k): v for k, v in KEYS.items()}   # by number: an unknown key (any layout's letter) is no ValueError
 TICK_MS = 16
+# Windows' CJK fonts first (unchanged order), then the Linux ones Wine/Proton list (make_engine)
+CJK_FALLBACKS = ["Yu Gothic UI", "Malgun Gothic", "Noto Sans CJK JP", "Noto Sans CJK KR", "Source Han Sans",
+                 "Noto Sans JP", "Noto Sans KR"]
 CTRL, SHIFT, ALT = int(Qt.ControlModifier.value), int(Qt.ShiftModifier.value), int(Qt.AltModifier.value)
 # Ctrl+letter edits by the letter Qt reports, the control character Windows types (Ctrl+V = \x16 on every layout) or,
 # for a non-Latin layout's letter, the key's position (PC scan code): a Russian or Greek layout's Ctrl+V still pastes.
@@ -667,9 +670,11 @@ class Backend(QObject, GameSetupBackend):
 
 
 def make_engine(backend, full):
-    # Windows supplies these CJK fonts; Qt falls back to them when a catalog needs them.
+    # Windows supplies these CJK fonts; Qt falls back to them when a catalog needs them. Under Wine/Proton (Linux,
+    # Steam Deck) there are none of them: Wine lists the Linux fonts instead, where Noto Sans CJK / Source Han Sans
+    # carry the glyphs (SteamOS ships Noto). Families a PC does not have are skipped, so Windows is unchanged.
     for family in ("Big Shoulders", "IBM Plex Sans"):
-        QFont.insertSubstitutions(family, ["Yu Gothic UI", "Malgun Gothic"])
+        QFont.insertSubstitutions(family, CJK_FALLBACKS)
     for name in os.listdir(os.path.join(UI_DIR, "fonts")):
         if name.lower().endswith(".ttf"):
             QFontDatabase.addApplicationFont(os.path.join(UI_DIR, "fonts", name))
