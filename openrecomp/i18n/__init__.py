@@ -1,6 +1,7 @@
 """Small JSON catalog loader used by the launcher and its controller."""
 import json
 import locale
+import os
 from functools import cache
 from pathlib import Path
 
@@ -8,22 +9,45 @@ _HERE = Path(__file__).parent
 LANGUAGES = ("en", "de", "es", "fr", "ja", "ko", "pt-BR")
 
 
+# Windows' locale.getlocale() gives English names ("German_Switzerland"), not codes: every player started in English.
+_NAMES = {"english": "en", "german": "de", "spanish": "es", "french": "fr", "japanese": "ja", "korean": "ko"}
+
+
+def _ui_locale():
+    """Windows' display language as a locale name ("de_DE"), the language Setup speaks too; None elsewhere."""
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+        return locale.windows_locale.get(ctypes.windll.kernel32.GetUserDefaultUILanguage())
+    except (AttributeError, OSError, ValueError):
+        return None
+
+
+def _code(name):
+    """A catalog code for a locale name ("de_DE", "pt-BR", "German_Switzerland"), else None."""
+    low = str(name or "").strip().replace("-", "_").lower()
+    if not low:
+        return None
+    if low.startswith(("pt_br", "portuguese_brazil")):
+        return "pt-BR"
+    first = low.split("_", 1)[0]
+    if first in _NAMES:
+        return _NAMES[first]
+    return first if first in LANGUAGES else None
+
+
 def system_language():
-    """One of our catalog codes, based on the current locale."""
-    name = "en"
-    for get_locale in (locale.getlocale, locale.getdefaultlocale):
+    """One of our catalog codes: Windows' display language first, then the current locale; English otherwise."""
+    detectors = (_ui_locale, lambda: locale.getlocale()[0], lambda: locale.getdefaultlocale()[0])
+    for detect in detectors:
         try:
-            detected = get_locale()[0]
+            code = _code(detect())
         except (ValueError, OSError):
             continue
-        if detected:
-            name = detected
-            break
-    name = name.replace("_", "-")
-    if name.lower().startswith("pt-br"):
-        return "pt-BR"
-    code = name.split("-", 1)[0].lower()
-    return code if code in LANGUAGES else "en"
+        if code:
+            return code
+    return "en"
 
 
 def normalize(code):

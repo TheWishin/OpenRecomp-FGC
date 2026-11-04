@@ -72,14 +72,32 @@ class CatalogAudit(unittest.TestCase):
                 self.assertEqual(i18n.localize(message, code), expected)
 
     def test_unparseable_locale_uses_the_next_detection_method(self):
-        with mock.patch.object(i18n.locale, "getlocale", side_effect=ValueError("unknown locale")), \
+        with mock.patch.object(i18n, "_ui_locale", return_value=None), \
+                mock.patch.object(i18n.locale, "getlocale", side_effect=ValueError("unknown locale")), \
                 mock.patch.object(i18n.locale, "getdefaultlocale", return_value=("de_DE", "UTF-8")):
             self.assertEqual(i18n.system_language(), "de")
 
     def test_unavailable_locale_detection_falls_back_to_english(self):
-        with mock.patch.object(i18n.locale, "getlocale", side_effect=ValueError("unknown locale")), \
+        with mock.patch.object(i18n, "_ui_locale", return_value=None), \
+                mock.patch.object(i18n.locale, "getlocale", side_effect=ValueError("unknown locale")), \
                 mock.patch.object(i18n.locale, "getdefaultlocale", side_effect=ValueError("unknown locale")):
             self.assertEqual(i18n.normalize(None), "en")
+
+    def test_windows_locale_names_find_the_language(self):
+        # QA run on a German Windows: Python's getlocale() says "German_Switzerland", and the launcher started in
+        # English for every Windows player (only codes like "de_DE" were understood).
+        for name, code in (("German_Switzerland", "de"), ("German_Germany", "de"), ("French_France", "fr"),
+                           ("Spanish_Spain", "es"), ("Japanese_Japan", "ja"), ("Korean_Korea", "ko"),
+                           ("Portuguese_Brazil", "pt-BR"), ("English_United States", "en"), ("de_CH", "de"),
+                           ("pt_BR", "pt-BR")):
+            with self.subTest(name=name), mock.patch.object(i18n, "_ui_locale", return_value=None), \
+                    mock.patch.object(i18n.locale, "getlocale", return_value=(name, "1252")):
+                self.assertEqual(i18n.system_language(), code)
+
+    def test_windows_display_language_comes_first(self):
+        with mock.patch.object(i18n, "_ui_locale", return_value="fr_FR"), \
+                mock.patch.object(i18n.locale, "getlocale", return_value=("German_Switzerland", "1252")):
+            self.assertEqual(i18n.system_language(), "fr")
 
 
 if __name__ == "__main__":
