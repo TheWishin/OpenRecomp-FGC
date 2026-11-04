@@ -43,7 +43,10 @@ class QtApiCompatibility(unittest.TestCase):
                     mock.patch.object(app.os, "listdir", return_value=[]):
                 self.assertIs(app.make_engine(backend, full=False), engine)
             for family in families:
+                # Windows' CJK fonts first (as before), then the Linux ones Wine/Proton list (docs/LINUX_STEAM_DECK.md)
                 self.assertEqual([name.casefold() for name in QFont.substitutes(family)],
+                                 [name.casefold() for name in app.CJK_FALLBACKS])
+                self.assertEqual([name.casefold() for name in QFont.substitutes(family)][:2],
                                  ["yu gothic ui", "malgun gothic"])
             self.assertIs(backend.window, root)
         finally:

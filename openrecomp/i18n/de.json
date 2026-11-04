@@ -1392,5 +1392,8 @@
  "support.send.rate": "Für heute sind genug Berichte von diesem PC gekommen. Speichere den Bericht und schick ihn selbst.",
  "support.send.too_big": "Der Bericht ist zu groß zum Senden. Speichere ihn und schick ihn selbst.",
  "support.send.offline": "Der Server war nicht erreichbar. Prüfe die Internetverbindung oder speichere den Bericht.",
- "support.send.failed": "Der Bericht konnte nicht gesendet werden: {error}"
+ "support.send.failed": "Der Bericht konnte nicht gesendet werden: {error}",
+ "support.finding.wine_graphics.title": "Die Grafik des Spiels ist unter Wine oder Proton nicht gestartet",
+ "support.finding.wine_graphics.fix": "Probiere in Steam eine andere Proton-Version (Proton Experimental, GE-Proton oder proton-cachyos). Hilft das nicht, installiere Microsofts Shader-Compiler mit protontricks d3dcompiler_47 in das Prefix des Spiels. Siehe die Linux- und Steam-Deck-Hilfe des Spiels.",
+ "t4.no_powershell": "Der Build und die Online-Prüfung von Tekken 4 sind PowerShell-Skripte, und Wine oder Proton hat kein funktionierendes PowerShell. Baue das Spiel unter Windows oder installiere PowerShell 7 in dieses Prefix (ungetestet). Offline spielen ist nicht betroffen."
 }

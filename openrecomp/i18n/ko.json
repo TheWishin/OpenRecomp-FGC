@@ -1392,5 +1392,8 @@
  "support.send.rate": "오늘은 이 PC에서 보낸 보고서가 충분합니다. 보고서를 저장해서 직접 보내 주세요.",
  "support.send.too_big": "보고서가 너무 커서 보낼 수 없습니다. 저장해서 직접 보내 주세요.",
  "support.send.offline": "서버에 연결할 수 없습니다. 인터넷 연결을 확인하거나 보고서를 저장하세요.",
- "support.send.failed": "보고서를 보낼 수 없습니다: {error}"
+ "support.send.failed": "보고서를 보낼 수 없습니다: {error}",
+ "support.finding.wine_graphics.title": "Wine 또는 Proton에서 게임 그래픽이 시작되지 않았습니다",
+ "support.finding.wine_graphics.fix": "Steam에서 다른 Proton 버전을 사용해 보세요(Proton Experimental, GE-Proton 또는 proton-cachyos). 그래도 안 되면 protontricks d3dcompiler_47로 Microsoft 셰이더 컴파일러를 게임 prefix에 설치하세요. 게임의 Linux 및 Steam Deck 도움말을 참고하세요.",
+ "t4.no_powershell": "Tekken 4의 빌드와 온라인 확인은 PowerShell 스크립트인데 Wine이나 Proton에는 제대로 동작하는 PowerShell이 없습니다. Windows에서 게임을 빌드하거나 이 prefix에 PowerShell 7을 설치하세요(테스트되지 않음). 오프라인 플레이에는 영향이 없습니다."
 }
