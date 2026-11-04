@@ -1,9 +1,11 @@
 """Controller-facing lifecycle around the installed T5DR client's own match driver."""
 import importlib
 import inspect
+import math
 import os
 import queue
 import threading
+import time
 
 from .t5_online import Online, SearchRefused
 from .t5_coexist import readonly_imports
@@ -39,11 +41,14 @@ class _DriverClient:
             owner._online_check_request(self.generation, self.client)
             if getattr(owner, "_online_leaving_set", False):
                 raise SearchRefused("@online.cancelled")
+            old_ready = owner._online_match.get("my_ready", False)
             old = (getattr(owner, "_online_authorized", False),
                    getattr(owner, "_online_next_authorized", False), owner._online_phase)
             if accept:
                 owner._online_authorized = True
                 owner._online_next_authorized = name == "rematch"
+                if name == "ready":
+                    owner._online_match["my_ready"] = True
                 if name == "ready" and owner._online_phase == "matched":
                     owner._online_phase = "starting"
             else:
@@ -55,6 +60,7 @@ class _DriverClient:
             with owner._online_lock:
                 if self.generation == owner._online_generation and self.client is owner._online_client:
                     owner._online_authorized, owner._online_next_authorized, owner._online_phase = old
+                    owner._online_match["my_ready"] = old_ready
             raise
 
     def ready(self, accept=True, *args, **kwargs):
@@ -187,6 +193,11 @@ class T5Match(Online):
             state["set"]["next"] = dict(info["next"])
         if isinstance(info.get("rating"), dict):
             state["set"]["rating"] = dict(info["rating"])
+        failure = getattr(self, "_online_match_failure", {})
+        if failure:
+            remaining = max(0, math.ceil(failure["until"] - time.monotonic()))
+            if remaining:
+                state["match_failure"] = dict(message=failure["message"], remaining=remaining)
         state["character_locked"] = bool(getattr(self, "_online_character_locked", False))
         state["capabilities"]["leave_set"] = bool(
             info.get("state") == "active" and (info.get("rated") or info.get("casual"))
@@ -194,6 +205,27 @@ class T5Match(Online):
             and callable(getattr(self._online_client, "leave_set", None)))
         state["capabilities"]["ingame_rematch"] = bool(getattr(self, "_online_ingame_menu", False))
         return state
+
+    def _online_unplayed(self):
+        info = getattr(self, "_online_set", {})
+        return not (getattr(self, "_online_set_played", False) or sum(info.get("wins", [])))
+
+    def _online_match_failed(self, reason, message=None, **requests):
+        name = self._online_match.get("opponent")
+        if reason == "ready_timeout" and not self._online_match.get("my_ready"):
+            name = self._online_name
+        peer = i18n.literal(name) if name else "@online.opponent"
+        key = {"ready_timeout": "@online.could_not_start_ready", "declined": "@online.could_not_start_declined",
+               "opponent_left": "@online.could_not_start_left", "peer_quit": "@online.could_not_start_left",
+               "build_mismatch": "@online.could_not_start_build", "version_mismatch": "@online.could_not_start_build"}.get(
+                   reason, "@online.could_not_start_connection")
+        notice = i18n.message(key[1:], name=peer)
+        self._online_to_lobby(message or MATCH_CANCEL_REASONS.get(reason, "@online.connection_failed"), **requests)
+        self._online_set = {}
+        self._online_character_locked = False
+        self._online_rematch = False
+        self._online_leaving_set = False
+        self._online_match_failure = dict(message=notice, until=time.monotonic() + 3)
 
     def _online_set_view(self, info, slot=None, ended=False):
         if not isinstance(info, dict):
@@ -261,13 +293,18 @@ class T5Match(Online):
         if phase not in ("logged_in", "searching", "result_sent") and not (phase == "starting" and continuation):
             # A duplicate offer cannot authorize another start or replace a running match.
             return True
+        self._online_match_failure = {}
+        previous_set = getattr(self, "_online_set", {})
+        offered_set = event.get("set") or {}
+        if event.get("origin") not in ("set", "rematch") or offered_set.get("id") != previous_set.get("id"):
+            self._online_set_played = False
         self._online_match_id = mid
         self._online_authorized = continuation
         self._online_next_authorized = False
         self._online_ready_check = not no_check
         self._online_early_start = None
         self._online_start_seen = None
-        self._online_match = self._online_match_view(event)
+        self._online_match = dict(self._online_match_view(event), my_ready=continuation, peer_ready=False)
         self._online_set_slot = event.get("slot") if event.get("slot") in (0, 1) else 0
         info = event.get("set")
         if isinstance(info, dict):
@@ -299,6 +336,9 @@ class T5Match(Online):
             sid = event.get("set")
             if not info or (sid and info.get("id") and sid != info["id"]):
                 return True
+            if self._online_unplayed() and not sum(self._online_set_view(event).get("wins", [])):
+                self._online_match_failed(event.get("reason"))
+                return True
             self._online_character_locked = False
             self._online_set = self._online_set_view(dict(event, id=info.get("id")), ended=True)
             self._online_rematch = bool(event.get("reason") == "decided" and getattr(self, "_online_rematch", False))
@@ -318,8 +358,11 @@ class T5Match(Online):
         if kind == "notice":
             # This match cannot be played (the games cannot reach each other, or another game build): leave it and
             # stay in the lobby (closing here was a logout).
-            self._online_to_lobby("@online.game_build_mismatch" if event.get("code") == "version_mismatch"
-                                  else "@online.connection_failed", leave=current)
+            message = "@online.game_build_mismatch" if event.get("code") == "version_mismatch" else "@online.connection_failed"
+            if self._online_unplayed():
+                self._online_match_failed(event.get("code"), message, leave=current)
+            else:
+                self._online_to_lobby(message, leave=current)
             return True
         if kind == "match_reveal":
             self._online_match.update(self._online_match_view(event))
@@ -327,7 +370,10 @@ class T5Match(Online):
         if kind == "match_cancel":
             # Back to the lobby, still logged in (closing here logged the player out after every declined or
             # timed-out ready check).
-            self._online_to_lobby(MATCH_CANCEL_REASONS.get(event.get("reason"), "@online.cancelled"))
+            if self._online_unplayed():
+                self._online_match_failed(event.get("reason"), MATCH_CANCEL_REASONS.get(event.get("reason"), "@online.cancelled"))
+            else:
+                self._online_to_lobby(MATCH_CANCEL_REASONS.get(event.get("reason"), "@online.cancelled"))
             return True
         if kind == "match_start":
             ticket = event.get("ticket")
@@ -359,6 +405,15 @@ class T5Match(Online):
             self._online_phase = "starting"
             self._online_message = "@online.connection_relay" if self._online_started_path == "relay" else "@online.starting"
         elif kind == "match_result":
+            score = event.get("score")
+            scored = (isinstance(score, (list, tuple)) and len(score) == 2
+                      and all(type(n) is int and 0 <= n <= 10000 for n in score) and any(score))
+            next_info = self._online_set_view(event.get("set"))
+            if (self._online_unplayed() and not scored and not sum(next_info.get("wins", []))
+                    and event.get("status") not in ("confirmed", "disputed")):
+                self._online_match_failed(event.get("reason"))
+                return True
+            self._online_set_played = True
             self._online_phase = "result_sent"
             self._online_rematch = bool(event.get("rematch_window"))
             next_set = event.get("set")
@@ -385,6 +440,7 @@ class T5Match(Online):
                 self._online_next_authorized = False
                 self._online_message = "@online.rematch_declined"
         elif kind == "opponent_ready":
+            self._online_match["peer_ready"] = True
             self._online_message = "@online.waiting_peer_ready"
         elif kind.startswith("nat"):
             path = event.get("path")
@@ -411,6 +467,7 @@ class T5Match(Online):
             self._online_submit("t5_leave_set", leave_set)
         elif action == "start_match" and phase == "matched" and client and not self._online_busy:
             self._online_authorized = True
+            self._online_match["my_ready"] = True
             self._online_phase, self._online_message = "starting", "@online.waiting_peer_ready"
             generation = self._online_generation
             ready_check = getattr(self, "_online_ready_check", True)
@@ -507,8 +564,12 @@ class T5Match(Online):
                 return True
             mid = getattr(self, "_online_match_id", None)
             pending = self._online_phase in ("matched", "starting") and not self._online_match_started()
-            self._online_to_lobby(message, decline=mid if self._online_phase == "matched" and mid else None,
-                                  leave=mid if pending and self._online_phase == "starting" else None)
+            requests = dict(decline=mid if self._online_phase == "matched" and mid else None,
+                            leave=mid if pending and self._online_phase == "starting" else None)
+            if self._online_unplayed() and mid:
+                self._online_match_failed("no_peer", message, **requests)
+            else:
+                self._online_to_lobby(message, **requests)
             return True
         if action == "t5_driver":
             driver, notes = value
@@ -546,7 +607,13 @@ class T5Match(Online):
             if (kind in ("ask_result", "rematch_offer", "set_next")
                     and note.get("match") not in (None, getattr(self, "_online_match_id", None))):
                 continue
+            if not getattr(self, "_online_match_id", None) and kind in ("ask_result", "rematch_offer", "set_next", "game_state"):
+                continue
             if kind == "ask_result":
+                if self._online_unplayed():
+                    self._online_match_failed("no_peer", "@online.game_closed",
+                                              leave=getattr(self, "_online_match_id", None))
+                    continue
                 self._online_phase, self._online_message = "result", "@online.result_prompt"
             elif kind == "rematch_offer":
                 self._online_rematch = True
@@ -566,6 +633,8 @@ class T5Match(Online):
                     # (confirmed, set won/lost, rematch offer) stays the message until the next game starts.
                     continue
                 state = note.get("state")
+                if state == "fight":
+                    self._online_set_played = True
                 self._online_message = ("@online.playing" if state == "fight" else "@online.loading"
                                         if state in ("loading", "stage") else "@online.select")
             elif kind in ("ingame_ui_ready", "ingame_ui_fallback"):
@@ -573,9 +642,15 @@ class T5Match(Online):
             # Native status strings can contain server text: only catalog messages reach the view.
 
     def online_poll(self):
+        failure = getattr(self, "_online_match_failure", {})
+        expired = bool(failure and time.monotonic() >= failure["until"])
+        if expired:
+            self._online_match_failure = {}
+            if self._online_phase == "logged_in":
+                self._online_message = "@online.room_joined" if self._online_room else "@online.logged_in"
         if not hasattr(self, "_online_driver_results"):
             self._online_driver_results = queue.Queue()
-        changed = super().online_poll()
+        changed = super().online_poll() or expired
         while True:
             try:
                 generation, value, error = self._online_driver_results.get_nowait()
@@ -638,6 +713,10 @@ class T5Match(Online):
         threading.Thread(target=run, name="openrecomp-t5-match", daemon=True).start()
 
     def _online_match_reset(self):
+        if self._online_unplayed():
+            self._online_set = {}
+            self._online_character_locked = False
+            self._online_rematch = False
         self._online_authorized = False
         self._online_next_authorized = False
         self._online_early_start = None
@@ -665,6 +744,8 @@ class T5Match(Online):
             self._online_driver = None
             self._online_rematch = False
             self._online_set = {}
+            self._online_set_played = False
+            self._online_match_failure = {}
             self._online_character_locked = False
             self._online_leaving_set = False
             self._online_ingame_menu = False

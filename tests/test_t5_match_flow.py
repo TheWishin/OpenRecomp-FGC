@@ -196,6 +196,7 @@ class T5MatchTests(unittest.TestCase):
     def test_manual_result_and_rematch_delegate_to_driver(self):
         client = self.match()
         self.start(client)
+        self.a.fake_driver.notes.append(dict(kind="game_state", state="fight"))
         self.a.fake_driver.notes.append(dict(kind="ask_result", match="one"))
         self.a.online_poll()
         self.a.online_poll()

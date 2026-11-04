@@ -254,7 +254,7 @@ class SetTests(unittest.TestCase):
         # QA run (two launchers, local lobby): the declined player read "The set has ended." instead of
         # "The other player declined the match." (1.2.0 sends set_end right after match_cancel).
         for rated, reason, expected in ((False, "declined", "@online.peer_declined"),
-                                        (True, "declined", "@online.set_ended")):
+                                        (True, "declined", "@online.peer_declined")):
             with self.subTest(rated=rated):
                 self.setUp()
                 client = self.login()

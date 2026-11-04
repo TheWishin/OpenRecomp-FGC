@@ -11,6 +11,82 @@ def _cycler(nav, g, key, label, choices, current, prefix="community_option"):
                     lead="@online.community_hint", rows=[dict(k="@current", v=shown)]))
 
 
+def room_rows(state, action):
+    room = (state.get("community") or {}).get("room") or {}
+    if not room:
+        return []
+    members = {str(p["id"]): p for p in room.get("members") or []}
+    line = [str(pid) for pid in room.get("line") or [] if str(pid) in members]
+    community = room.get("size", 2) > 2 or room.get("mode") == "tables"
+    phase = state.get("phase")
+    match = state.get("match") or {}
+    lead = ("@online.room_line_next" if community else
+            "@online.room_waiting" if len(members) < 2 else "@online.room_ready_next")
+    out = [dict(kind="heading", label=i18n.literal(room.get("name") or "")),
+           dict(kind="action", id="community_next", label="@online.room_next", value=lead, hint=lead)]
+    if community:
+        def names(ids):
+            return i18n.literal(" / ".join(members[pid].get("name") or "?" for pid in ids))
+        me = str(room.get("me_id") or "")
+        now = [pid for table in room.get("tables") or [] if table.get("playing")
+               for pid in table.get("players") or [] if pid in members]
+        if not now and room.get("mode") != "tables":
+            now = line[:2]
+        next_up = [pid for pid in line if pid not in now]
+        for iid, label, value in (("now", "@online.room_playing_now", names(now) if now else "@online.room_waiting"),
+                                  ("next", "@online.room_up_next", names(next_up[:2]) if next_up else "@online.room_line_empty"),
+                                  ("place", "@online.room_your_place", str(line.index(me) + 1) if me in line else "@online.community_sit_out")):
+            out.append(dict(kind="action", id="community_line:" + iid, label=label, value=value, hint=lead))
+    if not community or phase in ("matched", "starting"):
+        ready_members = members
+        if community:
+            pair = next((table.get("players") or [] for table in room.get("tables") or []
+                         if str(room.get("me_id")) in (table.get("players") or [])), line[:2])
+            ready_members = {pid: member for pid, member in members.items() if pid in pair}
+        for pid, member in ready_members.items():
+            mine = pid == str(room.get("me_id")) or (not room.get("me_id") and member.get("name") == state.get("name"))
+            ready = bool(match.get("my_ready" if mine else "peer_ready"))
+            iid = "start_match" if mine else "community_ready:" + pid
+            item = action(iid, "@online.room_ready")
+            item.update(label=i18n.message("online.room_player_ready", name=i18n.literal(member.get("name") or "")),
+                        value="@online.room_is_ready" if ready else "@online.room_not_ready", hint=lead)
+            if not mine or ready or phase != "matched":
+                item.update(disabled=True, run=None, verb="")
+            out.append(item)
+    if community and room.get("mode") != "tables":
+        for n, pid in enumerate(line):
+            out.append(dict(kind="action", id="community_line_member:" + pid,
+                            label=i18n.literal(members[pid].get("name") or ""), value=str(n + 1), hint=lead))
+    for item in out:
+        item["room_current"] = True
+    return out
+
+
+def match_rows(state, action):
+    """The ready check keeps the room and both players' status visible."""
+    out = room_rows(state, action)
+    if not any(row.get("id") == "start_match" for row in out):
+        item = action("start_match", "@online.room_ready")
+        if state.get("phase") != "matched" or (state.get("match") or {}).get("my_ready"):
+            item.update(disabled=True, run=None, verb="", value="@online.room_is_ready")
+        out.append(item)
+    room = (state.get("community") or {}).get("room") or {}
+    if room and (room.get("size", 2) > 2 or room.get("mode") == "tables"):
+        out.append(dict(kind="action", id="community_sit_out" if room.get("in_line") else "community_back_in_line",
+                        label="@online.community_sit_out" if room.get("in_line") else "@online.community_back_in_line",
+                        disabled=True, run=None, verb=""))
+    if room.get("host"):
+        out.append(dict(kind="action", id="community_apply", label="@online.room_apply_lock",
+                        value={"password": "@online.create_password_room", "code": "@online.create_code_room"}.get(room.get("lock"), "@online.room_open"),
+                        disabled=True, run=None, verb=""))
+        for member in room.get("members") or []:
+            if str(member["id"]) != str(room.get("me_id")):
+                out.append(dict(kind="action", id="community_kick:" + str(member["id"]),
+                                label="@online.community_kick", value=i18n.literal(member.get("name") or ""),
+                                disabled=True, run=None, verb=""))
+    return out
+
+
 def rows(nav, g, state, action):
     caps = state.get("capabilities") or {}
     data = state.get("community") or {}
@@ -46,18 +122,20 @@ def rows(nav, g, state, action):
     for key, label, options in choices:
         out.append(_cycler(nav, g, key, label, options, prefs.get(key)))
     out.append(action("community_create", "@online.community_create"))
+    draft = out
     room = data.get("room") or {}
     if not room:
         return out
+    out = room_rows(state, action)
     members = {p["id"]: p for p in room.get("members") or []}
-    out.append(dict(kind="heading", label="@online.community_members"))
+    member_rows = [dict(kind="heading", label="@online.community_members")]
     for member in members.values():
         item = dict(kind="action", id="community_member:" + str(member["id"]),
                     label=i18n.literal(member.get("name") or ""), hint="@online.community_hint",
                     detail=dict(kicker="@online.community_members", title=i18n.literal(member.get("name") or ""),
                         rows=[dict(k="@online.community_rotation", v="@online.community_back_in_line"
                                    if member["id"] in room.get("line", []) else "@online.community_sit_out")]))
-        out.append(item)
+        member_rows.append(item)
     if room.get("size", 2) > 2 or room.get("mode") == "tables":
         out.append(action("community_sit_out" if room.get("in_line") else "community_back_in_line",
                           "@online.community_sit_out" if room.get("in_line") else "@online.community_back_in_line"))
@@ -70,13 +148,17 @@ def rows(nav, g, state, action):
                                 rows=[dict(k="@online.community_first_to", v=i18n.literal(" / ".join(str(n) for n in table.get("wins") or [])))]))
         out.append(item)
     if room.get("host"):
-        out += [action("community_apply", "@online.community_apply"), action("community_new_code", "@online.community_new_code")]
+        lock_choices = [item for item in draft if item.get("id") in ("community_option:access", "community_option:hidden")]
+        draft = [item for item in draft if item not in lock_choices]
+        out += lock_choices
+        out += [action("community_apply", "@online.room_apply_lock"), action("community_new_code", "@online.community_new_code")]
         if room.get("lock") == "password":
             item = action("community_bar", "@online.community_bar")
             item["value"] = str(room.get("wrong_passwords", 0))
             out.append(item)
         for member in members.values():
-            if member.get("name") != state.get("name"):
+            if (str(member["id"]) != str(room.get("me_id")) if room.get("me_id")
+                    else member.get("name") != state.get("name")):
                 item = action("community_kick:" + str(member["id"]), "@online.community_kick")
                 item["value"] = i18n.literal(member.get("name") or "")
                 out.append(item)
@@ -89,7 +171,10 @@ def rows(nav, g, state, action):
                 if values:
                     out.append(_cycler(nav, g, key, label, values, pair.get(key), "community_pair_option"))
             out.append(action("community_pair", "@online.community_pair"))
-    return out
+    out += member_rows
+    for item in out:
+        item["room_current"] = True
+    return out + draft
 
 
 def enhance_rows(out, state):

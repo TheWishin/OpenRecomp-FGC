@@ -219,7 +219,7 @@ class Online:
             out.extend(nav_accounts.rows(self, g, state, action))
             if capabilities.get("direct_available", False):
                 out.append(action("mode_direct", "@t4.direct_mode", "@t4.direct_mode_hint"))
-        elif phase == "logged_in":
+        elif phase in ("logged_in", "searching", "cancelling"):
             fighters = g.a.fighters()
             if fighters:
                 locked = bool(state.get("character_locked"))
@@ -235,19 +235,33 @@ class Online:
             out.append(action("search_casual", "@online.casual", "@online.search_hint"))
             if capabilities.get("ranked", True):
                 out.append(action("search_ranked", "@online.ranked", "@online.search_hint"))
+            if phase in ("searching", "cancelling"):
+                out.append(action("cancel", "@online.cancel"))
             if capabilities.get("lobby", False):
                 self._online_lobby_items(g, state, out, action)
                 self._online_feature_items(g, state, out, action)
             out.append(action("logout", "@online.logout"))
+            if phase in ("searching", "cancelling"):
+                for item in out:
+                    if item.get("run") and item.get("id") != "cancel":
+                        item.update(disabled=True, run=None, verb="")
+                if phase == "cancelling":
+                    next(item for item in out if item.get("id") == "cancel").update(
+                        disabled=True, run=None, verb="", label="@online.cancelling")
         elif phase in ("connecting", "searching", "cancelling"):
             out.append(action("cancel", "@cancel" if phase == "connecting" else "@online.cancel"))
         elif phase == "matched":
             if match_flow:
-                out += [action("start_match", "@online.start_match", "@online.ready_hint"),
-                        action("cancel_match", "@online.cancel_match")]
+                from . import nav_community
+
+                out += nav_community.match_rows(state, action)
+                out.append(action("cancel_match", "@online.cancel_match"))
             else:
                 out.append(action("logout", "@online.logout", "@online.match_stop"))
         elif phase == "starting" and match_flow:
+            from . import nav_community
+
+            out += nav_community.match_rows(state, action)
             out.append(action("cancel_match", "@online.cancel_match"))
         elif phase == "playing" and match_flow:
             out.append(action("stop_match", "@online.stop_match"))

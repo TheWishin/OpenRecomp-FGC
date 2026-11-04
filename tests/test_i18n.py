@@ -181,6 +181,7 @@ def untranslated_literals(source):
         "password", "code", "online", "in_match", "rematch", "logs", ".match_driver", ".t4game",
         "continue", "won", "lost", "draw", "t5_ready", "t5_answer", "t5_rematch", "t5_return", "t5_driver",
         "openrecomp-t5-match", "openrecomp-t5-match-close", "openrecomp-t5-state", "unqueue", "reconnecting", "chapterNext", "chapterPrev",
+        "now", "community_ready:", "02d", "quick",  # room ids, timer format, queue protocol mode
         # the lobby page's region and line ids (nav_online_layout) and the rank plate file name
         "card", "chat_lobby", "chat_toggle", "compose", "f:", "find", "friend_bar", "game_setup", "game_update", "h:",
         "hist_page", "i:", "lb_page", "lb_sort", "mention", "online_profile", "online_room_", "online_tour_", "p:",
@@ -459,6 +460,18 @@ def game():
 
 
 class Catalogs(unittest.TestCase):
+    def test_catalogs_keep_controls_t4_and_room_flow_keys_without_duplicates(self):
+        required = {"controls.preset.hitbox", "controls.conflict.swap", "t4.side_you_rank",
+                    "t4.result_char_lock", "online.room_player_ready", "online.room_apply_lock",
+                    "online.could_not_start_ready", "online.search_separate_guest"}
+        for code in i18n.LANGUAGES:
+            with self.subTest(code=code):
+                pairs = json.loads((ROOT / "openrecomp" / "i18n" / (code + ".json")).read_text(
+                    encoding="utf-8"), object_pairs_hook=list)
+                keys = [key for key, value in pairs]
+                self.assertEqual(len(keys), len(set(keys)), "duplicate catalog keys")
+                self.assertTrue(required <= set(keys), required - set(keys))
+
     def test_catalogs_have_equal_keys_and_placeholders(self):
         catalogs = {code: json.loads((ROOT / "openrecomp" / "i18n" / (code + ".json")).read_text(encoding="utf-8")) for code in i18n.LANGUAGES}
         keys = set(catalogs["en"])

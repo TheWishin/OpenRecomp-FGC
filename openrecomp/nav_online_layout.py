@@ -23,7 +23,7 @@ CHAPTER_LABELS = {"lobby": "@online_ui.chapter.lobby", "rooms": "@online_ui.chap
                   "tournaments": "@online_ui.chapter.tournaments", "spectating": "@online_ui.chapter.spectating",
                   "account": "@online_ui.chapter.account"}
 REGIONS = ("find",) + CHAPTERS + ("chat",)
-FIND_IDS = {"online_status", "online_fighter", "search_casual", "search_ranked", "ranked_strict", "logout",
+FIND_IDS = {"online_status", "online_fighter", "search_casual", "search_ranked", "ranked_strict", "logout", "cancel",
             "profile_self", "accept_challenge", "decline_challenge", "native", "leave_set", "game_setup",
             "game_update", "rules_life", "screen_side", "always_left", "other_here", "other_keep", "netext_options"}
 # (id or id prefix, region): the first match wins
@@ -37,7 +37,7 @@ PREFIXES = (
     (("leaderboard_", "profile_board:"), "leaderboard"),
     (("stats_", "community_totals", "community_fighter:", "no_statistics"), "stats"),
     (("refresh_rooms", "create_room", "create_password_room", "create_code_room", "join_room_code", "online_room_",
-      "room_invite_code", "leave_room", "join_room:", "no_rooms", "community_"), "rooms"),
+      "room_invite_code", "leave_room", "join_room:", "no_rooms", "community_", "start_match"), "rooms"),
     (("refresh_friends", "online_friend_name", "add_friend", "remove_friend:", "invite_friend:", "invite_room:",
       "accept_friend:", "decline_friend:", "cancel_friend:", "accept_invite:", "decline_invite:", "cancel_invite",
       "no_friends"), "friends"),
@@ -107,7 +107,7 @@ class OnlineLayout:
 
     def _online_layout_on(self, state):
         caps = state.get("capabilities") or {}
-        return (state.get("phase") == "logged_in" and caps.get("lobby", False)
+        return (state.get("phase") in ("logged_in", "searching", "cancelling") and caps.get("lobby", False)
                 and not state.get("recovery_codes"))
 
     def _online_layout_items(self, g, state, out):
@@ -137,6 +137,9 @@ class OnlineLayout:
                 if item.get("id") == "search_ranked":
                     item.update(disabled=True, run=None, verb="", hint="@online_ui.ranked_account",
                                 value="@online_ui.ranked_account")
+        if state.get("phase") in ("searching", "cancelling"):
+            for item in extra:
+                item.update(disabled=True, run=None, verb="")
         toggle = dict(kind="action", id="chat_toggle", label="@online_ui.chat_hide" if open_chat else "@online_ui.chat_show",
                       verb="@change", hint="@online_ui.chat_toggle_hint",
                       detail=dict(kicker="@online.chat", title="@online.chat", lead="@online_ui.chat_toggle_hint", rows=[]),
@@ -175,6 +178,13 @@ class OnlineLayout:
             by_region[region].append(item)
         by_region["chat"] = tabs + [it for it in by_region["chat"] if it.get("id") != "chat_toggle"]
         by_region["lobby"] = self._lobby_order(state, by_region["lobby"])
+        by_region["rooms"] = sorted(by_region["rooms"], key=lambda it: not it.get("room_current", False))
+        room = (state.get("community") or {}).get("room") or state.get("room") or {}
+        room_id = str(room.get("id") or "")
+        seen = self.__dict__.setdefault("online_room_seen", {})
+        if room_id and seen.get(g.id) != room_id:
+            self.__dict__.setdefault("online_chapter", {})[g.id] = "rooms"
+        seen[g.id] = room_id
         by_region["find"] = self._find_order(by_region["find"])
         page = []
         for region, items in by_region.items():
@@ -200,7 +210,7 @@ class OnlineLayout:
     @staticmethod
     def _find_order(items):
         order = {iid: n for n, iid in enumerate((
-            "online_status", "other_here", "other_keep", "profile_self", "logout", "search_ranked", "search_casual", "accept_challenge",
+            "online_status", "cancel", "other_here", "other_keep", "profile_self", "logout", "search_ranked", "search_casual", "accept_challenge",
             "decline_challenge", "online_fighter", "rules_life", "ranked_strict", "screen_side", "always_left", "netext_options"))}
         return sorted(items, key=lambda it: (order.get(it.get("id"), 50), 0))
 
@@ -449,6 +459,14 @@ class OnlineLayout:
                     prevG=self.glyph("chapterPrev"), nextG=self.glyph("chapterNext"), chatG=self.glyph("x"))
         page["profile"] = self._view_profile(g, state, items, fi, by_id)
         page["find"] = self._view_find(g, state, items, fi, by_id)
+        searching = state.get("phase") in ("searching", "cancelling")
+        elapsed = max(0, int((state.get("search") or {}).get("elapsed") or 0))
+        page["search"] = dict(active=searching,
+                              label="@online.searching_ranked" if state.get("queue") == "ranked" else "@online.searching_casual",
+                              elapsed=f"{elapsed // 60}:{elapsed % 60:02d}",
+                              reason=(state.get("search") or {}).get("reason") or "",
+                              cancel=self._btn(items, by_id["cancel"], fi) if "cancel" in by_id else {})
+        page["notice"] = (state.get("match_failure") or {}).get("message") or ""
         page["chapters"] = self._view_chapters(state, items, chapter)
         page["body"] = self._view_body(g, state, items, fi, chapter)
         page["chat"] = self._view_chat(g, state, items, fi)
@@ -506,6 +524,10 @@ class OnlineLayout:
                 return dict(index=-1, label="", focused=False, disabled=True, present=False)
             out = self._btn(items, by_id[iid], fi)
             out["present"] = True
+            if state.get("phase") in ("searching", "cancelling"):
+                mode = "ranked" if iid == "search_ranked" else "casual"
+                if state.get("queue") == mode:
+                    out["label"] = "@online.searching_ranked" if mode == "ranked" else "@online.searching_casual"
             return out
         options = [self._btn(items, n, fi) for n, it in enumerate(items)
                    if it.get("region") == "find" and (it.get("kind") == "cycler" or it.get("id") in ("online_fighter", "ranked_strict", "netext_options"))]

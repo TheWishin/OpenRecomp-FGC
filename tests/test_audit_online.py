@@ -206,7 +206,8 @@ class OnlineAuditTests(unittest.TestCase):
         client.events.put(dict(t="match_found", opponent="invalid", ping=42))
         client.events.put(dict(t="match_reveal", opponent=["invalid"]))
         adapter.online_poll()
-        self.assertEqual(adapter.online_state()["match"], dict(opponent="", ping=None))
+        self.assertEqual(adapter.online_state()["match"],
+                         dict(opponent="", ping=None, my_ready=False, peer_ready=False))
 
     def test_session_save_preserves_malformed_settings_and_warns(self):
         for original in ('{"settings":', '[]', '{"sessions": ["preserve"]}'):

@@ -164,6 +164,9 @@ class Online:
         self._online_account = False
         self._online_recovery_codes = []
         self._online_queue = ""
+        self._online_search_started = None
+        self._online_search_second = -1
+        self._online_queue_sizes = {}
         self._online_match = {}
         self._online_players = []
         self._online_other_builds = 0
@@ -458,6 +461,7 @@ class Online:
                     invites=[dict(inv) for inv in self._online_invites],
                     outgoing_invite=dict(self._online_outgoing_invite))
         snapshot["remember"] = bool(getattr(self, "_online_remember", True))
+        snapshot["search"] = self._online_search_state()
         other = self._other_state()
         if other:
             snapshot["other_launcher"] = other
@@ -478,6 +482,23 @@ class Online:
             if isinstance(getattr(self, "root", None), str) and self.root:
                 snapshot["game_folder"] = self.root[-120:]
         return t5_features.state(self, snapshot)
+
+    def _online_search_state(self):
+        started = getattr(self, "_online_search_started", None)
+        elapsed = max(0, int(time.monotonic() - started)) if started is not None else 0
+        reason = ""
+        if self._online_phase == "searching":
+            sizes = getattr(self, "_online_queue_sizes", {})
+            mine = "ranked" if self._online_queue == "ranked" else "quick"
+            other = "quick" if mine == "ranked" else "ranked"
+            if getattr(self, "_online_other_builds", 0):
+                reason = i18n.message("online.searching_other_build", count=self._online_other_builds)
+            elif (sizes.get(other, 0) and sizes.get(mine) == 1
+                  and (getattr(self, "_online_me", None) or {}).get("status") == "queue"):
+                reason = "@online.search_separate_guest" if not self._online_account else "@online.search_separate_queue"
+            elif self._online_queue == "ranked" and getattr(self, "_online_strict", False):
+                reason = "@online_ui.strict_hint"
+        return dict(elapsed=elapsed, reason=reason, queues=dict(getattr(self, "_online_queue_sizes", {})))
 
     def _online_social_cap(self, capability):
         if not self.online_lobby or self.online_game == "t4" or self._online_client is None:
@@ -799,6 +820,8 @@ class Online:
                 return
             mode = "ranked" if action == "search_ranked" else "casual"
             self._online_phase, self._online_queue = "searching", mode
+            self._online_search_started = time.monotonic()
+            self._online_search_second = -1
             self._online_message = "@online.searching_ranked" if mode == "ranked" else "@online.searching_casual"
             self._online_search_submit(mode)
         elif self.online_lobby and self._online_phase == "logged_in":
@@ -1002,6 +1025,11 @@ class Online:
         players, rooms = event.get("players"), event.get("rooms")
         players = players if isinstance(players, (list, tuple)) else []
         rooms = rooms if isinstance(rooms, (list, tuple)) else []
+        sizes = event.get("queue")
+        if isinstance(sizes, dict):
+            self._online_queue_sizes = {key: min(value, 10 ** 7) for key, value in sizes.items()
+                                        if key in ("quick", "ranked") and isinstance(value, int)
+                                        and not isinstance(value, bool) and value >= 0}
         self._online_players = [self._online_player(p) for p in players
                                 if isinstance(p, dict) and p.get("id") != me.get("id")][:200]
         self._online_other_builds = sum(1 for p in players if isinstance(p, dict) and p.get("id") != me.get("id")
@@ -1547,6 +1575,11 @@ class Online:
             self._online_guard_at = time.monotonic() + 1
             self._online_submit("guard", self._online_game_check)
         changed = t5_features.poll(self) or changed
+        if self._online_phase in ("searching", "cancelling"):
+            second = self._online_search_state()["elapsed"]
+            if second != self._online_search_second:
+                self._online_search_second = second
+                changed = True
         return self._online_invite_waits() or changed
 
     def _online_match_reset(self):

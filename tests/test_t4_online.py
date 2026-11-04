@@ -207,6 +207,42 @@ class T4OnlineTests(unittest.TestCase):
         self.assertEqual(self.a.online_state()["message"], "@online.client_missing")
         self.assertEqual(len(self.a.clients), 1)
 
+    def test_room_ready_states_are_independent_correlated_and_reset_for_each_offer(self):
+        client = self.login()
+        offer = dict(t="match_found", match="first", slot=0,
+                     opponent=dict(name="Other", rank="Initiate", tier=13))
+        client.events.put(offer)
+        self.a.online_poll()
+        self.assertFalse(self.a.online_state()["match"]["my_ready"])
+        self.assertFalse(self.a.online_state()["match"]["peer_ready"])
+        client.events.put(dict(t="opponent_ready", match="previous"))
+        self.a.online_poll()
+        self.assertFalse(self.a.online_state()["match"]["peer_ready"])
+        client.events.put(dict(t="opponent_ready", match="first"))
+        self.a.online_poll()
+        self.assertTrue(self.a.online_state()["match"]["peer_ready"])
+        self.assertFalse(self.a.online_state()["match"]["my_ready"])
+        self.assertFalse(self.a._online_authorized)
+        self.assertEqual(self.a.starts, [])
+        self.a.online_action("start_match")
+        self.a.online_poll()
+        self.assertTrue(self.a.online_state()["match"]["my_ready"])
+        client.events.put(dict(t="match_reveal", match="first", slot=0,
+                               opponent=dict(name="Other", rank="Initiate", tier=13)))
+        self.a.online_poll()
+        match = self.a.online_state()["match"]
+        self.assertTrue(match["my_ready"] and match["peer_ready"])
+        self.assertEqual(match["sides"][1]["rank"], "Initiate")
+        self.a.online_action("cancel_match")
+        self.a.online_poll()
+        client.events.put(dict(t="opponent_ready", match="first"))
+        self.a.online_poll()
+        self.assertEqual(self.a.online_state()["match"], {})
+        client.events.put(dict(offer, match="second"))
+        self.a.online_poll()
+        self.assertFalse(self.a.online_state()["match"]["my_ready"])
+        self.assertFalse(self.a.online_state()["match"]["peer_ready"])
+
     def test_found_waits_for_explicit_start_and_keeps_ticket_secret(self):
         client = self.found()
         self.assertFalse(client.closed.is_set())

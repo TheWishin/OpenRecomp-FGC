@@ -81,7 +81,7 @@ def state(owner):
     maximum = limits.get("max_size") if isinstance(limits, dict) else None
     maximum = max(2, _number(maximum, 8, 16))
     tables = [dict(id=_text(t.get("id")), players=[_text(p) for p in (t.get("players") or [])[:2]],
-                   playing=bool(t.get("match")),
+                   playing=bool(t.get("match") or (t.get("set") or {}).get("state") == "active"),
                    wins=[_number(n) for n in ((t.get("set") or {}).get("wins") or [])[:2]])
               for t in (room.get("tables") or [])[:16] if isinstance(t, dict)]
     current = dict(id=_text(room.get("id")), name=_text(room.get("name"), 64),
@@ -98,6 +98,8 @@ def state(owner):
                    wrong_passwords=_number((room.get("guesses") or {}).get("wrong")) if _host(owner, room) else 0)
     me = getattr(client, "me", None) or {}
     current["in_line"] = isinstance(me, dict) and me.get("id") in current["line"]
+    current["me_id"] = _text(me.get("id")) if isinstance(me, dict) else ""
+    current["status"] = _text(room.get("status"), 40)
     badges = _cap(client, "badges_ok")
     roster = getattr(client, "players", None)
     roster = {_text(p.get("id")): p for p in roster if isinstance(p, dict)} if isinstance(roster, list) else {}

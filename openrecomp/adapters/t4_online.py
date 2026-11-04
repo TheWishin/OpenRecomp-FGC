@@ -1004,7 +1004,7 @@ class T4Online(T4Direct, Online):
             self._online_ready_check = False
             self._online_early_start = self._online_pending_start = None
             self._online_result_message = "@online.result_sent"
-            self._online_match = self._online_match_view(event)
+            self._online_match = dict(self._online_match_view(event), my_ready=True, peer_ready=False)
             self._t4_set_info(event)
             self._online_phase, self._online_queue = "starting", ""
             self._online_message = "@online.starting"
@@ -1023,7 +1023,7 @@ class T4Online(T4Direct, Online):
             self._online_early_start = None
             self._online_pending_start = None
             self._online_result_message = "@online.result_sent"
-            self._online_match = self._online_match_view(event)
+            self._online_match = dict(self._online_match_view(event), my_ready=True, peer_ready=False)
             self._t4_set_info(event)
             self._online_phase, self._online_queue = "starting", ""
             self._online_message = "@online.starting"
@@ -1050,7 +1050,7 @@ class T4Online(T4Direct, Online):
         self._online_owned_run = None
         self._online_pending_start = None
         self._online_result_message = "@online.result_sent"
-        self._online_match = self._online_match_view(event)
+        self._online_match = dict(self._online_match_view(event), my_ready=False, peer_ready=False)
         self._t4_set_info(event)
         self._online_phase, self._online_queue = "matched", ""
         self._online_message = "@online.t4_matched"
@@ -1087,6 +1087,12 @@ class T4Online(T4Direct, Online):
 
     def _online_event(self, event):
         kind = event.get("t")
+        if kind == "opponent_ready":
+            current = getattr(self, "_online_match_id", None)
+            if (self._online_phase in ("matched", "starting")
+                    and (not current or event.get("match") in (None, current))):
+                self._online_match["peer_ready"] = True
+            return True
         if kind == "notice" and event.get("code") in ("nat_error", "version_mismatch"):
             if self._online_phase in ("matched", "starting", "playing"):
                 message = ("@online.game_build_mismatch" if event["code"] == "version_mismatch"
@@ -1260,6 +1266,7 @@ class T4Online(T4Direct, Online):
         phase = self._online_phase
         if action == "start_match" and phase == "matched" and client and not self._online_busy:
             self._online_authorized = True
+            self._online_match["my_ready"] = True
             self._online_phase, self._online_message = "starting", "@online.starting"
             generation = self._online_generation
             ready_check = getattr(self, "_online_ready_check", True)
