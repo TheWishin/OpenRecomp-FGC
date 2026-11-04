@@ -28,6 +28,11 @@ class Tree(unittest.TestCase):
         self.write("tools/iso_extract.py", us_iso_tool())
         self.write("tools/build_game.ps1", "$ExpectedElfSha1 = '%s'\n# fork into ..\\tekken4-fork-ps2recomp\n" % US)
         self.write("tools/net_preflight.ps1", "# preflight\n")
+        # Model a launcher separate from the fake player's home, even with TEMP inside this checkout.
+        module = mock.patch.object(t4_source, "__file__",
+                                   str(Path(self.tmp.name) / "launcher" / "openrecomp" / "adapters" / "t4_source.py"))
+        module.start()
+        self.addCleanup(module.stop)
 
     def write(self, name, text):
         path = self.root / name

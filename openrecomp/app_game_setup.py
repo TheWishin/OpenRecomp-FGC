@@ -4,8 +4,6 @@ import subprocess
 import sys
 
 from . import manifest as mf
-from . import game_releases as gr
-from .game_setup import GameSetup, default_parent
 from .nav_game_setup import SETUP_GAMES
 
 FIRST_CHECK_SECONDS = 3.0
@@ -13,9 +11,24 @@ FIRST_CHECK_SECONDS = 3.0
 
 class GameSetupBackend:
     def _setup_init(self):
-        self.setup = GameSetup(self.config)
+        self._setup = None
         self._setup_clock = 0.0
-        self._setup_started = os.environ.get(gr.NO_CHECK_ENV) == "1"     # tests: no automatic network check
+        self._setup_started = os.environ.get("OPENRECOMP_NO_GAME_CHECKS") == "1"     # tests: no automatic network check
+
+    @property
+    def setup(self):
+        if self._setup is None:
+            from .game_setup import GameSetup
+            self._setup = GameSetup(self.config)
+        return self._setup
+
+    @setup.setter
+    def setup(self, value):
+        self._setup = value
+
+    def _shutdown_setup(self):
+        if self._setup is not None:
+            self._setup.shutdown()
 
     def _setup_kwargs(self):
         return dict(on_setup=self._setup_action, game_prereleases=bool(self.config.get("game_prereleases")),
@@ -45,7 +58,7 @@ class GameSetupBackend:
                 self.setup.check(gid, None, force=True)
 
     def _setup_busy(self):
-        return self.setup.busy()
+        return self._setup is not None and self._setup.busy()
 
     def _setup_action(self, action, gid, arg):
         """Nav -> work. Returns what Nav needs right away (a bool or a dict)."""
@@ -55,6 +68,7 @@ class GameSetupBackend:
             self._setup_check_all(force=True)
             return True
         if action == "default_parent":
+            from .game_setup import default_parent
             return default_parent()
         if action == "space":
             return self.setup.space(gid, arg)
@@ -129,6 +143,8 @@ class GameSetupBackend:
                 auto = getattr(self, "_auto_check_updates", None)    # the launcher's own release, same moment
                 if callable(auto):
                     auto()
+        if getattr(self, "_setup", None) is None:
+            return changed
         for gid in SETUP_GAMES:
             game = self.nav.game_by_id(gid)
             seen = getattr(game.a, "lobby_release", None) if game is not None and game.a.found() else None

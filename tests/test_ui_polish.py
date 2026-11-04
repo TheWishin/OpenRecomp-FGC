@@ -7,7 +7,7 @@ import unittest
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ.setdefault("QT_QUICK_BACKEND", "software")
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QObject, QUrl
 from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -42,6 +42,8 @@ class ScenePolish(unittest.TestCase):
         self.engine.load(QUrl.fromLocalFile(str(Path(UI_DIR) / "Main.qml")))
         self.assertTrue(self.engine.rootObjects(), self.warnings)
         self.win = self.engine.rootObjects()[0]
+        self.win.show()
+        self.wait_pages()
         spin()
 
     def tearDown(self):
@@ -55,9 +57,19 @@ class ScenePolish(unittest.TestCase):
         self.assertTrue(found, name)
         return found
 
+    def wait_pages(self):
+        for _ in range(200):
+            spin(5)
+            if all(not p.property("active") or p.property("progress") == 1
+                   and p.property("item") is not None
+                   for p in self.win.findChildren(QObject, "pageLoader")):
+                return
+        self.fail("A page did not load before geometry was checked")
+
     def publish(self):
         self.backend._v = self.nav.view()
         self.backend.viewChanged.emit()
+        self.wait_pages()
         spin(160)
 
     def test_longest_catalog_texts_keep_shelf_and_prompts_in_bounds(self):

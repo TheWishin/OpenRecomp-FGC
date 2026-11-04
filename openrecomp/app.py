@@ -17,8 +17,6 @@ from .nav import Game, Nav
 from .pad import Pads, PlayStationReader, WinMMPlayStationReader, XInputReader
 from .update_service import UpdateService
 from . import updater
-from .game_library import Library
-from .game_updates import GameUpdates
 from .app_game_setup import GameSetupBackend
 from .adapters import other_launchers
 
@@ -89,7 +87,12 @@ class Backend(QObject, GameSetupBackend):
     def __init__(self, launch_env=None, parent=None, windowed=False):
         super().__init__(parent)
         self.config = mf.load_config()
-        self.library = Library(self.config)
+        self._library = None
+        self._save_timer = QTimer(self)
+        self._save_timer.setSingleShot(True)
+        self._save_timer.setInterval(200)
+        self._save_timer.timeout.connect(self._flush_config)
+        self._config_pending = False
         self._library_results = queue.Queue()
         self._library_work = None
         self._game_offers = {}
@@ -146,11 +149,17 @@ class Backend(QObject, GameSetupBackend):
         self._last_build = {}
         self._last_prerequisites = {}
         self._slow = 0.0
+        self._model_elapsed = 0.0
+        wordmark = os.path.join(UI_DIR, "assets", "logo-wordmark.svg")
+        self._wordmark = QUrl.fromLocalFile(wordmark).toString() if os.path.isfile(wordmark) else ""
         self.refresh()
         self.timer = QTimer(self)
         self.timer.setInterval(TICK_MS)
         self.timer.timeout.connect(self._tick)
         self.timer.start()
+        self._background_timer = QTimer(self)
+        self._background_timer.setInterval(250)
+        self._background_timer.timeout.connect(self._background_tick)
         self.stall = stall.from_env()      # OPENRECOMP_STALL_LOG: log every time the window stood still
         if self.stall is not None:
             self._heart = QTimer(self)
@@ -158,10 +167,17 @@ class Backend(QObject, GameSetupBackend):
             self._heart.timeout.connect(self.stall.beat)
             self._heart.start()
 
+    @property
+    def library(self):
+        if self._library is None:
+            from .game_library import Library
+            self._library = Library(self.config)
+        return self._library
+
     def _update_busy(self):
         if getattr(self, "_library_work", None) is not None:
             return True
-        if getattr(self, "setup", None) is not None and self._setup_busy():
+        if getattr(self, "_setup_busy", lambda: False)():
             return True
         if self.nav.binding_active():
             return True
@@ -177,6 +193,8 @@ class Backend(QObject, GameSetupBackend):
         return False
 
     def _quit(self):
+        if getattr(self, "_save_timer", None) is not None and self._save_timer.isActive():
+            self._flush_config()
         if self.window is not None:
             self.window.setProperty("allowClose", True)
         QGuiApplication.quit()
@@ -220,7 +238,7 @@ class Backend(QObject, GameSetupBackend):
     def _library_blocked(self):
         """A library job waits for builds, games, installs and searches; a lobby login alone does not (Nav.set_games
         keeps every unchanged game logged in)."""
-        if getattr(self, "setup", None) is not None and self._setup_busy():
+        if getattr(self, "_setup_busy", lambda: False)():
             return True
         return not self.nav.can_reload_games()
 
@@ -285,6 +303,7 @@ class Backend(QObject, GameSetupBackend):
         if game is None or game.m.get("adapter") != "generic":
             return "@library.failed"
         manifest = copy.deepcopy(game.m)
+        from .game_updates import GameUpdates
         service = GameUpdates(copy.deepcopy(self.config))
         self._game_updaters[game_id] = service
         return self._library_job("check", lambda: service.check(manifest), game_id)
@@ -345,10 +364,26 @@ class Backend(QObject, GameSetupBackend):
         return True
 
     def _save_config(self):
+        timer = getattr(self, "_save_timer", None)
+        if timer is not None:
+            self._config_pending = True
+            timer.start()
+        else:
+            Backend._flush_config(self)
+
+    def _flush_config(self):
+        timer = getattr(self, "_save_timer", None)
+        if timer is not None:
+            if not self._config_pending:
+                return
+            self._config_pending = False
+            timer.stop()
         try:
             mf.save_config(self.config)
         except (OSError, ValueError):
             self.nav.say("@preferences.save_failed", 8)
+            if timer is not None:
+                self.refresh()
 
     def _save_language(self, language):
         self.config["language"] = language
@@ -460,10 +495,14 @@ class Backend(QObject, GameSetupBackend):
             self._open_pending()
         if getattr(self.nav, "pending_native", None) is not None:
             self._queue_native()
+        previous = getattr(self, "_view", None)
         self._view = self.nav.view()
-        wordmark = os.path.join(UI_DIR, "assets", "logo-wordmark.svg")
-        self._view["wordmark"] = QUrl.fromLocalFile(wordmark).toString() if os.path.isfile(wordmark) else ""
-        self.viewChanged.emit()
+        if not hasattr(self, "_wordmark"):
+            wordmark = os.path.join(UI_DIR, "assets", "logo-wordmark.svg")
+            self._wordmark = QUrl.fromLocalFile(wordmark).toString() if os.path.isfile(wordmark) else ""
+        self._view["wordmark"] = self._wordmark
+        if self._view != previous:
+            self.viewChanged.emit()
 
     def _open_pending(self):
         """nav.pending_url (the OpenRecomp-FGC Discord) in the default browser."""
@@ -493,10 +532,29 @@ class Backend(QObject, GameSetupBackend):
             self.nav.say("@t4.tools.copy_failed")
 
     def _in_front(self):
-        return self.window is None or self.window.isActive() or os.environ.get("OPENRECOMP_PAD_ALWAYS") == "1"
+        if self.window is None:
+            return True
+        if getattr(self, "_input_active", None) is not None:
+            return self._input_active
+        return (self.window.isVisible() and not self.window.windowState() & Qt.WindowMinimized
+                and (self.window.isActive() or os.environ.get("OPENRECOMP_PAD_ALWAYS") == "1"))
 
-    def _tick(self):
-        dt = TICK_MS / 1000.0
+    def _sync_timers(self):
+        running = any(g.a.running() for g in self.nav.games)
+        return_pad = any(g.m.get("adapter") == "t4" and g.a.running() for g in self.nav.games)
+        visible = self.window is None or (self.window.isVisible() and not self.window.windowState() & Qt.WindowMinimized)
+        self._input_active = visible and (self.window is None or self.window.isActive()
+                                         or os.environ.get("OPENRECOMP_PAD_ALWAYS") == "1")
+        foreground = return_pad or visible and not running
+        self.timer.start() if foreground else self.timer.stop()
+        self._background_timer.stop() if foreground else self._background_timer.start()
+
+    def _background_tick(self):
+        self._tick(0.25)
+        self._sync_timers()
+
+    def _tick(self, dt=None):
+        dt = TICK_MS / 1000.0 if dt is None else dt
         running = any(g.a.running() for g in self.nav.games)
         if any(g.m.get("adapter") == "t4" and g.a.running() for g in self.nav.games):
             if self.pads.return_requested(dt):
@@ -506,12 +564,19 @@ class Backend(QObject, GameSetupBackend):
         active = self._in_front() and not running
         if not active:
             self.nav.release("confirm")
-        changed = self.nav.tick(dt)
-        changed = self._poll_updates() or changed
-        if hasattr(self, "setup"):
-            changed = self._poll_setup(dt) or changed
-        if hasattr(self, "_poll_library"):
-            changed = self._poll_library() or changed
+        elapsed = getattr(self, "_model_elapsed", 0.1) + dt
+        fast = bool(getattr(self.nav, "holding", None) or getattr(self.nav, "toast", ""))
+        changed = False
+        if elapsed >= 0.1 or fast:
+            self._model_elapsed = 0.0
+            changed = self.nav.tick(elapsed)
+            changed = self._poll_updates() or changed
+            if hasattr(self, "_poll_setup"):
+                changed = self._poll_setup(elapsed) or changed
+            if hasattr(self, "_poll_library"):
+                changed = self._poll_library() or changed
+        else:
+            self._model_elapsed = elapsed
         running = any(g.a.running() for g in self.nav.games)
         active = active and not running
         capturing = self.nav.binding_active()
@@ -718,6 +783,9 @@ def make_engine(backend, full):
             backend.window.showFullScreen()
         else:
             backend.window.show()
+        backend.window.visibilityChanged.connect(backend._sync_timers)
+        backend.window.activeChanged.connect(backend._sync_timers)
+        backend._sync_timers()
     return engine
 
 
@@ -738,7 +806,8 @@ def main(argv=None):
     backend = Backend(windowed=args.windowed)
     app.aboutToQuit.connect(backend.nav.close_online)
     app.aboutToQuit.connect(other_launchers.DETECTOR.disable)
-    app.aboutToQuit.connect(backend.setup.shutdown)      # an install/update stops or finishes before the exit
+    app.aboutToQuit.connect(backend._shutdown_setup)      # an install/update stops or finishes before the exit
+    app.aboutToQuit.connect(backend._flush_config)
     engine = make_engine(backend, full=backend.nav.fullscreen)
     # A broken QML scene must never acknowledge an update. The old helper owns rollback.
     QTimer.singleShot(updater.CONFIRM_AFTER_MS, lambda: updater.confirm_startup(backend.updates.root))

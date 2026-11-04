@@ -7,7 +7,6 @@ returns the space dict at once).
 import os
 
 from . import i18n
-from .game_releases import SOURCES
 
 SETUP_GAMES = ("t5dr", "t4")
 STEP_TEXT = {"download": "@setup.step_download", "unpack": "@setup.step_unpack", "swap": "@setup.step_swap"}
@@ -38,6 +37,7 @@ class GameSetupNav:
             return []
         st = self._setup(g.id)
         if not g.a.found():
+            from .game_releases import SOURCES
             if section == "online":
                 return []
             busy = st.get("phase") == "installing"
@@ -230,6 +230,7 @@ class GameSetupNav:
         self._setup_where(self.setup_game)
 
     def _view_setup_dialog(self, v):
+        from .game_releases import SOURCES
         kind = self.confirm_kind
         gid = getattr(self, "setup_game", "")
         st = self._setup(gid)

@@ -163,6 +163,11 @@ def run_child():
 
         def save_feedback():
             if scenario["refused"]:
+                # Preferences coalesce before writing; feedback follows that write.
+                for _ in range(200):
+                    if not backend._save_timer.isActive():
+                        break
+                    spin()
                 check(backend.view["toast"] == i18n.text(nav.language, "preferences.save_failed"),
                       "An unsaved preference needs localized feedback")
 

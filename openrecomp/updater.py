@@ -24,7 +24,6 @@ import sys
 import time
 import urllib.error
 import urllib.parse
-import urllib.request
 import zipfile
 from dataclasses import dataclass
 
@@ -161,18 +160,22 @@ def url_allowed(url, channel, kind="download"):
         return False
 
 
-class _Redirects(urllib.request.HTTPRedirectHandler):
-    def __init__(self, channel, kind):
-        self.channel, self.kind = channel, kind
+def _Redirects(channel, kind):
+    # HTTP and its email/TLS dependencies are needed only by an update worker.
+    import urllib.request
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        target = urllib.parse.urljoin(req.full_url, newurl)
-        if not url_allowed(target, self.channel, self.kind):
-            raise UpdateError("An update redirect left this project's release channel.")
-        return super().redirect_request(req, fp, code, msg, headers, target)
+    class Redirects(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            target = urllib.parse.urljoin(req.full_url, newurl)
+            if not url_allowed(target, channel, kind):
+                raise UpdateError("An update redirect left this project's release channel.")
+            return super().redirect_request(req, fp, code, msg, headers, target)
+
+    return Redirects()
 
 
 def _open(url, channel, kind="download"):
+    import urllib.request
     if not url_allowed(url, channel, kind):
         raise UpdateError("Refused a URL outside this project's release channel.")
     request = urllib.request.Request(url, headers={"User-Agent": "OpenRecomp-FGC-updater", "Accept": "application/vnd.github+json"})
