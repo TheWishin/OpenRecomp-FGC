@@ -453,12 +453,31 @@ class Backend(QObject, GameSetupBackend):
 
     def refresh(self):
         self._copy_pending()
+        if getattr(self.nav, "pending_url", None):
+            self._open_pending()
         if getattr(self.nav, "pending_native", None) is not None:
             self._queue_native()
         self._view = self.nav.view()
         wordmark = os.path.join(UI_DIR, "assets", "logo-wordmark.svg")
         self._view["wordmark"] = QUrl.fromLocalFile(wordmark).toString() if os.path.isfile(wordmark) else ""
         self.viewChanged.emit()
+
+    def _open_pending(self):
+        """nav.pending_url (the OpenRecomp-FGC Discord) in the default browser."""
+        url = getattr(self.nav, "pending_url", None)
+        if not url:
+            return
+        self.nav.pending_url = None
+        self.opened_urls = getattr(self, "opened_urls", []) + [url]      # (tests read it)
+        if QGuiApplication.platformName() in ("offscreen", "minimal"):
+            return                              # tests: never a real browser
+        try:
+            from PySide6.QtGui import QDesktopServices
+            opened = QDesktopServices.openUrl(QUrl(url))
+        except (ImportError, AttributeError, RuntimeError):
+            opened = False
+        if not opened:
+            self.nav.say(i18n.message("community.open_failed", url=i18n.literal(url)), 10)
 
     def _copy_pending(self):
         text = getattr(self.nav, "pending_clipboard", None)

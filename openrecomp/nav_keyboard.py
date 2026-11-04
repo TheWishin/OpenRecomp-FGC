@@ -8,8 +8,13 @@ ONLINE_KEYS = (
 )
 ONLINE_PASSWORDS = ("online_password", "online_room_password", "online_current_password", "online_new_password",
                     "online_repeat_password", "online_recovery_code")
-CHAT_TEXT_LIMITS = dict(online_private_chat=200, online_private_report_reason=200)
+CHAT_TEXT_LIMITS = dict(online_private_chat=200, online_private_report_reason=200, support_note=300, support_contact=80)
 PASTE_LIMIT = 256       # one paste: a password, an address, a name -- never a whole document
+
+
+def _free_text(tid):
+    """Fields typed as they are (lower case, symbols page): the online fields, a game source, a report's note."""
+    return tid.startswith(("online_", "support_")) or tid == "library_repository"
 
 
 class Keyboard:
@@ -25,14 +30,15 @@ class Keyboard:
                  "online_profile_name": "@online.profile_lookup",
                  "online_current_password": "@online120.current_password", "online_new_password": "@online120.new_password",
                  "online_repeat_password": "@online120.repeat_password", "online_recovery_code": "@online120.recovery_code",
-                 "online_block_name": "@online120.block_name", "online_fingerprint": "@online120.fingerprint"}.get(tid, "@osk.player_name")
+                 "online_block_name": "@online120.block_name", "online_fingerprint": "@online120.fingerprint",
+                 "support_note": "@support.send.note", "support_contact": "@support.send.contact"}.get(tid, "@osk.player_name")
         self.osk = dict(tid=tid, text="" if tid == "library_repository" else self.game.a.text_value(tid), row=1, col=0, title=title, page=0)
         if tid in CHAT_TEXT_LIMITS:
             self.osk["text"] = self.osk["text"][:CHAT_TEXT_LIMITS[tid]]
         self.overlay = "osk"
 
     def _osk_keys(self):
-        return ONLINE_KEYS[self.osk["page"]] if self.osk["tid"].startswith("online_") or self.osk["tid"] == "library_repository" else OSK
+        return ONLINE_KEYS[self.osk["page"]] if _free_text(self.osk["tid"]) else OSK
 
     def _osk(self, a):
         o = self.osk
@@ -59,7 +65,7 @@ class Keyboard:
         elif a == "back":
             self.overlay = None
             self.osk = None
-        elif a == "social" and (o["tid"].startswith("online_") or o["tid"] == "library_repository"):
+        elif a == "social" and _free_text(o["tid"]):
             o["page"] = (o["page"] + 1) % len(ONLINE_KEYS)
         elif a == "confirm":
             if o["row"] == len(keys):
@@ -91,7 +97,7 @@ class Keyboard:
         """A physical keyboard in the on-screen keyboard."""
         if self.overlay == "osk":
             self.device = "kb"
-            self._osk_append(text if self.osk["tid"].startswith("online_") or self.osk["tid"] == "library_repository" else text.upper())
+            self._osk_append(text if _free_text(self.osk["tid"]) else text.upper())
 
     def paste_text(self, text):
         """The clipboard into the on-screen keyboard's text (Ctrl+V, Shift+Insert, right-click Paste)."""
@@ -101,7 +107,7 @@ class Keyboard:
         text = "".join(" " if ch in "\n\r\t" else ch for ch in text if ch.isprintable() or ch in "\n\r\t")
         if not text:
             return
-        online = self.osk["tid"].startswith("online_") or self.osk["tid"] == "library_repository"
+        online = _free_text(self.osk["tid"])
         self._osk_append(text[:PASTE_LIMIT] if online else text[:PASTE_LIMIT].upper())
 
     def osk_copy(self, cut=False):
@@ -143,7 +149,7 @@ class Keyboard:
         text = "•" * len(o["text"]) if o["tid"] in ONLINE_PASSWORDS else o["text"]
         v["osk"] = dict(rows=rows, text=text + ("" if o.get("all") else "_"), title=o["title"], selected=bool(o.get("all")),
                         paste="@osk.paste", copy="@osk.copy", canCopy=o["tid"] not in ONLINE_PASSWORDS)
-        online = o["tid"].startswith("online_") or o["tid"] == "library_repository"
+        online = _free_text(o["tid"])
         v["hint"] = "@library.repository_hint" if o["tid"] == "library_repository" else ("@online.keyboard_hint" if online else "@osk_hint")
         v["prompts"] = [self.prompt("confirm", "@enter"), self.prompt("x", "@osk.delete"), self.prompt("play", "@osk.done"), self.prompt("back", "@cancel")]
         if online:

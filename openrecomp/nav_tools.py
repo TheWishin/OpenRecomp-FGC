@@ -1,5 +1,6 @@
 """Optional controls and local problem reports, through the common game interface."""
 from . import i18n
+from .community import DISCORD_URL
 
 
 class Tools:
@@ -124,6 +125,26 @@ class Tools:
         state = g.a.support_state()
         busy = state["running"]
         out = []
+        if hasattr(g.a, "support_probe"):
+            g.a.support_probe()                 # (once: does the server take reports? an older one hides Send)
+        if state.get("send_available") is not False and getattr(g.a, "support_send_info", lambda: None)():
+            # One click: Send is the page's first row (focused); the note and the contact are optional.
+            sending = busy and state.get("operation") == "send"
+            note, contact = state.get("note", ""), state.get("contact", "")
+            rows = [dict(k="@support.send.note", v=note or "-"), dict(k="@support.send.contact", v=contact or "-")]
+            out.append(dict(kind="action", id="send", label="@support.send", verb="" if busy else "@support.send.verb",
+                            disabled=busy, run=None if busy else (lambda: self._start_support(g, "send")),
+                            hint="@support.send.sending" if sending else "@support.send.hint",
+                            detail=dict(kicker="@section.support", title="@support.send",
+                                        lead="@support.send.sending" if sending else "@support.send.notice", rows=rows,
+                                        primary="" if busy else "@support.send.verb")))
+            for tid, label, value in (("support_note", "@support.send.note", note),
+                                      ("support_contact", "@support.send.contact", contact)):
+                out.append(dict(kind="action", id=tid, label=label, value=value, verb="" if busy else "@support.send.edit",
+                                disabled=busy, run=None if busy else (lambda tid=tid: self._open_osk(tid)),
+                                hint="@support.send.field_hint",
+                                detail=dict(kicker="@section.support", title=label, lead="@support.send.field_hint",
+                                            rows=[dict(k=label, v=value or "-")])))
         for kind, label, hint in (("check", "@support.check", "@support.check.hint"), ("report", "@support.report", "@support.report.hint")):
             run = (lambda: self._ask("support_report")) if kind == "report" else (lambda: self._start_support(g, "check"))
             out.append(dict(kind="action", id=kind, label=label, verb="" if busy else "@start", disabled=busy,
@@ -134,11 +155,18 @@ class Tools:
             out.append(self._support_finding("error", "@support.error", state["error"], "@support.check.hint"))
         for finding in state["findings"]:
             out.append(self._support_finding(finding["id"], finding["label"], finding.get("seen", ""), finding["fix"]))
+        if state.get("sent"):
+            out.append(self._support_finding("sent", i18n.message("support.send.done", id=i18n.literal(state["sent"])),
+                                             "", "@support.send.done_hint"))
         if state["report"]:
             out.append(self._support_finding("saved", "@support.report_ready", state["report"], "@support.local_only"))
-        elif not state["findings"] and not busy:
+        elif not state["findings"] and not busy and not state.get("sent"):
             label = "@support.no_findings" if state["checked"] else "@support.not_checked"
             out.append(self._support_finding("none", label, "", "@support.check.hint"))
+        out.append(dict(kind="action", id="discord", label="@community.discord", verb="@open", run=self.open_discord,
+                        hint="@community.hint",
+                        detail=dict(kicker="@section.support", title="@community.discord", lead="@community.hint",
+                                    rows=[dict(k="@community.link", v=i18n.literal(DISCORD_URL))], primary="@open")))
         return out
 
     @staticmethod
@@ -148,7 +176,7 @@ class Tools:
                                 rows=[dict(k="@support.report_path" if sid == "saved" else "@support.observation", v=seen)] if seen else []))
 
     def _start_support(self, g, kind):
-        if self._dry("@support.report" if kind == "report" else "@support.check"):
+        if self._dry({"report": "@support.report", "send": "@support.send"}.get(kind, "@support.check")):
             return
         if g.a.support_start(kind):
             self.support_game = g
