@@ -136,7 +136,7 @@ def untranslated_literals(source):
         "controls_path", "DeviceRef", "load", "sources", "table", "bind", "save", "mask_text",
         "default_sources", "step", "drain", "update",
         "idle", "waiting", "ready", "conflict", "multi", "timeout", "disconnected", "done", "ok",
-        "check", "report", "problem", "play", "controls", "support", "error", "saved", "none",
+        "check", "report", "problem", "play", "controls", "support", "error", "saved", "none", "sent", "support_note", "support_contact",
         "online_", "online_name", "online_password", "online_server", ":online",
         "offline", "connecting", "logged_in", "searching", "cancelling", "matched", "kicked", "match_found",
         "login_", "search_", "login_guest", "login_account", "login_register", "login_saved", "search_casual", "search_ranked",

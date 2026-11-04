@@ -73,6 +73,16 @@ Window {
                 Row {
                     anchors.right: parent.right; anchors.rightMargin: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 36
                     Text { textFormat: Text.PlainText; visible: win.v.screen === "hub"; width: Math.min(implicitWidth, 320); elide: Text.ElideRight; text: win.v.topline; color: win.muted; font.family: win.mono; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
+                    // the players' Discord (one server for every game: community.py); pads reach it in the drawer (social)
+                    Rectangle {
+                        objectName: "discordButton"
+                        visible: !!win.v.discord
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.min(discordLabel.implicitWidth, 300) + 28; height: 40
+                        color: discordTap.pressed ? win.line : "transparent"; border.width: 2; border.color: win.line
+                        Text { id: discordLabel; textFormat: Text.PlainText; anchors.centerIn: parent; width: Math.min(implicitWidth, 300); elide: Text.ElideRight; text: win.v.discord || ""; color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: 22 }
+                        TapHandler { id: discordTap; onTapped: win.backend.press("discord") }
+                    }
                     Row {
                         spacing: 12; anchors.verticalCenter: parent.verticalCenter
                         Glyph { g: win.v.social; size: 40 }

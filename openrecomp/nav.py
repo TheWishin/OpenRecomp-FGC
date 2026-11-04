@@ -5,6 +5,7 @@ press goes through act(), so the whole launcher can be driven and checked withou
 Section and overlay mixins keep their input and view code together; Nav owns the shared state and dispatch.
 """
 from . import i18n
+from .community import DISCORD_URL
 from .nav_common import (
     DEVICE_LABEL, FRIENDLY_RESULT, GAP, GLYPHS, GRID_COLS, HOLD_SECONDS, OSK,
     OSK_ACTIONS, PICKER_VISIBLE, ROWS_VISIBLE, SCREEN_W, SECTION_TITLES,
@@ -176,6 +177,13 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
             return
         self.pending_clipboard = str(text)
 
+    def open_discord(self):
+        """The players' Discord (community.DISCORD_URL) in the browser: the app opens nav.pending_url."""
+        if self._dry("@community.discord"):
+            return
+        self.pending_url = DISCORD_URL
+        self.say("@community.opening")
+
     def _handle(self, a):
         if self.library_busy:
             if (self.overlay == "dialog" and self.confirm_kind.startswith("library_")
@@ -188,6 +196,8 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
             return self.request_quit()
         if a == "returnGame":
             return self._return_game()
+        if a == "discord":                  # the top bar's OpenRecomp-FGC Discord (mouse); pads: Quick access
+            return self.open_discord()
         if self.overlay == "binding":
             return self._binding(a)
         if self.overlay == "dialog":
@@ -304,7 +314,7 @@ class Nav(GameSetupNav, Shelf, Hub, Sections, BuildPage, Dialog, Drawer, Grid, K
                  trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True),
                  shelf=dict(tiles=[], x=0, w=SCREEN_W), tabs=[], rows=[], detail=dict(rows=[], results=[], images=[]), hint="", prompts=[], accent="#ECE9E1", badge="", gameShort="", numeral="",
                  topline="", hold=0, more=dict(up=False, down=False), grid=dict(cells=[], main=""), osk=dict(rows=[], text="", title="", selected=False, paste="", copy="", canCopy=False), dialog=dict(title="", text="", options=[]),
-                 picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]), build=dict(show=False, cards=[], main=dict(button={}, logLines=[]), more=[]), online=dict(layout=""), settingsPage=dict(layout=""), quickAccess="@quick_access", recentSets="@recent_sets", folder="@folder", file="@file", pick="@picker.pick", mainLabel="@main", fighterTitle="@fighter.choose", fighterMain="@fighter.main")
+                 picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]), build=dict(show=False, cards=[], main=dict(button={}, logLines=[]), more=[]), online=dict(layout=""), settingsPage=dict(layout=""), quickAccess="@quick_access", discord="@community.discord", recentSets="@recent_sets", folder="@folder", file="@file", pick="@picker.pick", mainLabel="@main", fighterTitle="@fighter.choose", fighterMain="@fighter.main")
         if self.screen == "start":
             self._view_start(v)
         else:

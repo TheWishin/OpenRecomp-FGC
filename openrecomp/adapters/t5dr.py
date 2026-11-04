@@ -458,6 +458,8 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
     def text_value(self, tid):
         if tid.startswith("online_"):
             return self.online_text_value(tid)
+        if tid.startswith("support_"):
+            return self.support_text_value(tid)
         if tid == "replay_dir":
             return self.s.get("replay_dir") or ""
         return self.s["nickname"] if tid == "nickname" else ""
@@ -465,6 +467,9 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
     def set_text_value(self, tid, value):
         if tid.startswith("online_"):
             self.set_online_text_value(tid, value)
+            return
+        if tid.startswith("support_"):
+            self.set_support_text_value(tid, value)
             return
         if tid == "replay_dir":
             self.set_setting(tid, value)

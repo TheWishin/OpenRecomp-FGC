@@ -18,6 +18,7 @@ class Drawer:
         for g in self.games:
             if g.a.found() and g.a.native_label:
                 out.append(dict(id="native:" + g.id, label=g.a.native_label, value=g.short, game=g, hint=i18n.message("native_hint", name=g.a.native_label)))
+        out.append(dict(id="discord", label="@community.discord", value="", discord=True, hint="@community.hint"))
         rows = [item["id"] for item in out]
         previous = getattr(self, "drawer_rows", None)
         index = self.drawer_focus
@@ -48,6 +49,8 @@ class Drawer:
                 return
             if items[self.drawer_focus].get("update"):
                 return self._check_update()
+            if items[self.drawer_focus].get("discord"):
+                return self.open_discord()
             if items[self.drawer_focus].get("game_check"):
                 if not self._dry("@setup.check"):
                     self.on_setup("check_all", "", True)

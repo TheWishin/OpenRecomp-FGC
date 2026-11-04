@@ -109,6 +109,18 @@ a game install; an installed T5DR Online can also supply its HID reader. Real US
 Normal launcher navigation pauses while a game runs. During T4, hold View + Menu (Share + Options) on one controller
 for two seconds to stop the game and return to the launcher.
 
+## Community and problem reports
+
+**OpenRecomp-FGC Discord** (top bar, and Quick access for pads) opens the players' one Discord server for T5DR
+Online, Tekken 4 Online and this launcher in the browser (the invite lives in `openrecomp/community.py`).
+
+T5DR's **Problem report** page starts with **Send to the developer**: one press makes the same cleaned report zip as
+"Create local report" (user names, internet addresses, passwords, tokens and lobby names taken out; no game files,
+keys, .pkg or .rap), sends it with the game version, build id, Windows version, the optional note and contact, and the
+lobby name to the install's own lobby server (the default of its `lobby/servers.json`), and shows "Sent, thanks
+(report #ID)". A server that takes no reports yet hides the row; saving the zip stays. The server side: T5DR's
+`lobby/t5lobby/server/reports.py` and docs/HOSTING.md "Problem reports".
+
 ## Add a game
 
 Press A on a free slot, then enter a GitHub `owner/repo` or choose a local folder.

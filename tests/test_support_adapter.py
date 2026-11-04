@@ -137,7 +137,7 @@ class Support(unittest.TestCase):
 
     def test_invalid_operation_does_not_start_work(self):
         with self.assertRaises(RuntimeError):
-            self.adapter.support_start("send")
+            self.adapter.support_start("upload")
         self.thread.assert_not_called()
 
     def test_report_destination_never_defaults_to_checkout(self):
