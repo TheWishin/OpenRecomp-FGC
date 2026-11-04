@@ -250,7 +250,8 @@ class LobbyActions(unittest.TestCase):
         self.assertFalse(self.a.online_state()["capabilities"]["rooms"])
 
     def test_social_features_of_t5dr_stay_off(self):
-        for key in ("friends", "private_rooms", "tournaments", "spectate", "relays", "sets", "match_rules"):
+        self.assertTrue(self.client.kwargs["sets"])     # T4 ranked sets
+        for key in ("friends", "private_rooms", "tournaments", "spectate", "relays", "match_rules"):
             self.assertFalse(self.client.kwargs[key], key)
 
 

@@ -112,6 +112,21 @@ class Online:
                 rows.append(dict(k="@online.opponent", v=i18n.literal(match["opponent"])))
             if match.get("ping") is not None:
                 rows.append(dict(k="@online.ping", v=str(match["ping"])))
+            # Who plays which side (T4: P1 = the host), with name, rank and rank badge.
+            from .nav_common import uri
+            for index, side in enumerate((match.get("sides") or [])[:2]):
+                if not isinstance(side, dict) or not side.get("name"):
+                    continue
+                name, rank = i18n.literal(side["name"]), i18n.literal(side.get("rank") or "")
+                if side.get("you"):
+                    value = (i18n.message("t4.side_you_rank", name=name, rank=rank) if side.get("rank")
+                             else i18n.message("t4.side_you", name=name))
+                else:
+                    value = i18n.message("t4.side_rank", name=name, rank=rank) if side.get("rank") else name
+                tier = side.get("tier")
+                rows.append(dict(k="@online.challenge_p1" if index == 0 else "@online.challenge_p2", v=value,
+                                 accent=bool(side.get("you")),
+                                 plate=uri(g.a.rank_plate(tier)) if isinstance(tier, int) else ""))
         set_state = state.get("set") or {}
         if set_state:
             wins = set_state.get("wins") or []

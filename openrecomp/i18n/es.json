@@ -530,7 +530,7 @@
     "online.match_active": "Partida en curso",
     "online.cancel_match": "Rechazar partida",
     "online.return_lobby": "Volver a la sala de espera",
-    "online.ranked_unavailable": "Las partidas clasificatorias de T4 no están disponibles hasta que el juego pueda informar resultados.",
+    "online.ranked_unavailable": "Este servidor de T4 aún no tiene partidas clasificatorias.",
     "online.lobby_updated": "Sala de espera actualizada.",
     "online.challenge_sent": "Desafío enviado.",
     "online.challenge_answered": "Desafío respondido.",
@@ -1342,5 +1342,13 @@
     "online_ui.server_line": "Servidor",
     "online_ui.or": "o",
     "online_ui.ranked_account": "Ranked necesita una cuenta (los invitados juegan casual)",
-    "online_ui.build_line": "Build {build}"
+    "online_ui.build_line": "Build {build}",
+    "t4.name_plates": "Placas de nombre en el juego",
+    "t4.name_plates_hint": "En línea: el nombre y la insignia de rango de cada jugador en su lado, en la selección de personaje y en el combate.",
+    "t4.name_plates_lead": "Solo se dibuja en tu pantalla; la partida en sí no cambia.",
+    "t4.side_you": "{name} (tú)",
+    "t4.side_you_rank": "{name} (tú) · {rank}",
+    "t4.side_rank": "{name} · {rank}",
+    "t4.result_unproven": "Los juegos no confirmaron este resultado, así que no cuenta para clasificatorias.",
+    "t4.result_char_lock": "Se cambió de luchador durante el set clasificatorio: esta partida es para el otro jugador."
 }

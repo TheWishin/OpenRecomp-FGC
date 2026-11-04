@@ -530,7 +530,7 @@
     "online.match_active": "Partida em andamento",
     "online.cancel_match": "Recusar partida",
     "online.return_lobby": "Voltar ao saguão",
-    "online.ranked_unavailable": "As partidas ranqueadas de T4 ficam indisponíveis até o jogo poder informar os resultados.",
+    "online.ranked_unavailable": "Este servidor de T4 ainda não tem partidas ranqueadas.",
     "online.lobby_updated": "Saguão atualizado.",
     "online.challenge_sent": "Desafio enviado.",
     "online.challenge_answered": "Desafio respondido.",
@@ -1342,5 +1342,13 @@
     "online_ui.server_line": "Servidor",
     "online_ui.or": "ou",
     "online_ui.ranked_account": "Ranqueada exige conta (convidados jogam casual)",
-    "online_ui.build_line": "Build {build}"
+    "online_ui.build_line": "Build {build}",
+    "t4.name_plates": "Placas de nome no jogo",
+    "t4.name_plates_hint": "Online: o nome e o emblema de rank de cada jogador do seu lado, na seleção de personagem e na luta.",
+    "t4.name_plates_lead": "Aparece só na sua tela; a partida em si não muda.",
+    "t4.side_you": "{name} (você)",
+    "t4.side_you_rank": "{name} (você) · {rank}",
+    "t4.side_rank": "{name} · {rank}",
+    "t4.result_unproven": "Os jogos não comprovaram este resultado, então ele não conta para o ranqueado.",
+    "t4.result_char_lock": "Um lutador foi trocado durante o set ranqueado: esta partida vai para o outro jogador."
 }

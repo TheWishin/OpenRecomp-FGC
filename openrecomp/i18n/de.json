@@ -530,7 +530,7 @@
     "online.match_active": "Match läuft",
     "online.cancel_match": "Match ablehnen",
     "online.return_lobby": "Zurück zur Lobby",
-    "online.ranked_unavailable": "Ranglisten-Matches sind für T4 nicht verfügbar, bis das Spiel Ergebnisse melden kann.",
+    "online.ranked_unavailable": "Dieser T4-Server hat noch kein Ranked.",
     "online.lobby_updated": "Lobby aktualisiert.",
     "online.challenge_sent": "Herausforderung gesendet.",
     "online.challenge_answered": "Herausforderung beantwortet.",
@@ -1342,5 +1342,13 @@
     "online_ui.server_line": "Server",
     "online_ui.or": "oder",
     "online_ui.ranked_account": "Ranked braucht ein Konto (Gäste spielen Casual)",
-    "online_ui.build_line": "Build {build}"
+    "online_ui.build_line": "Build {build}",
+    "t4.name_plates": "Namensschilder im Spiel",
+    "t4.name_plates_hint": "Online: Name und Rangabzeichen jedes Spielers auf seiner Seite, bei der Charakterwahl und im Kampf.",
+    "t4.name_plates_lead": "Wird nur auf deinem Bildschirm gezeichnet; am Match selbst ändert sich nichts.",
+    "t4.side_you": "{name} (du)",
+    "t4.side_you_rank": "{name} (du) · {rank}",
+    "t4.side_rank": "{name} · {rank}",
+    "t4.result_unproven": "Die Spiele haben dieses Ergebnis nicht belegt, darum zählt es nicht für Ranked.",
+    "t4.result_char_lock": "Im Ranked-Satz wurde der Kämpfer gewechselt: Dieses Spiel geht an den anderen Spieler."
 }

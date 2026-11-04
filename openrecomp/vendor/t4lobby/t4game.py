@@ -27,6 +27,10 @@ T4 port's netplay environment, read by runtime/tekken4_rollback_overrides.cpp np
                                                 score, fighters, stage, the compared state hash -- decided on frames
                                                 both games had confirmed (the T4 port's docs/MATCH_RESULT_T4.md)
     TEKKEN4_NET_PATH / _RTT_MS                  informational (in the run dir's env file)
+    TEKKEN4_HUD_NAMES    "<P1>|<P2>"            the players' lobby names for the game's name plates (hud_env; the T4
+    TEKKEN4_HUD_RANKS    "<P1 tier>,<P2 tier>"  port's runtime/tekken4_hud_overrides.cpp): P1 = the host's side on both
+                                                PCs; tiers of t4lobby/ranks.py (Tekken 7's names), -1 = none (guest)
+    TEKKEN4_HUD_PLATES   0                      no name plates (the player's setting)
 
 Not passed (the T4 game has no use for them yet): T5_NET_DELAY (T5DR's lockstep delay), T5_FIGHT / T5_CTL_DIR
 (direct fight, persistent game), T5_NET_UNLOCKS. Without a proven result in the file (older T4 builds, a match left
@@ -78,6 +82,27 @@ def game_env(ticket, delay="auto", bind=None, result_file=None):
     if result_file:
         env["TEKKEN4_NET_RESULT"] = str(result_file)
     return env
+
+
+def hud_env(slot, you, opponent, plates=True):
+    """The game's name plates (docs/T4_RANKED.md): who is P1 and P2 with their lobby names and T4 rank tiers, the same
+    on both PCs (slot: this PC's side, 0 = P1 = host; you / opponent: the lobby's player briefs, match_start "you" /
+    "opponent"). A guest has no rank (-1). plates False: TEKKEN4_HUD_PLATES=0 (off)."""
+    if not plates:
+        return {"TEKKEN4_HUD_PLATES": "0"}
+
+    def name(p):
+        text = "".join(ch for ch in str((p or {}).get("name") or "") if ch.isprintable() and ch != "|")
+        return text.strip()[:16] or "?"
+
+    def tier(p):
+        t = (p or {}).get("tier")
+        if (p or {}).get("guest") or isinstance(t, bool) or not isinstance(t, int) or not 0 <= t < 64:
+            return -1
+        return t
+    sides = [you, opponent] if slot == 0 else [opponent, you]
+    return {"TEKKEN4_HUD_NAMES": "|".join(name(p) for p in sides),
+            "TEKKEN4_HUD_RANKS": ",".join(str(tier(p)) for p in sides)}
 
 
 # ------------------------------------------------------------------------------------------------ the game's result

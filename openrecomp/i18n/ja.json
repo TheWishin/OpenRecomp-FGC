@@ -530,7 +530,7 @@
     "online.match_active": "対戦中",
     "online.cancel_match": "対戦を辞退",
     "online.return_lobby": "ロビーに戻る",
-    "online.ranked_unavailable": "ゲームが結果を報告できるようになるまで、T4のランクマッチは利用できません。",
+    "online.ranked_unavailable": "このT4サーバーにはまだランクマッチがありません。",
     "online.lobby_updated": "ロビーを更新しました。",
     "online.challenge_sent": "対戦を申し込みました。",
     "online.challenge_answered": "対戦申込に返答しました。",
@@ -1342,5 +1342,13 @@
     "online_ui.server_line": "サーバー",
     "online_ui.or": "または",
     "online_ui.ranked_account": "ランクマッチにはアカウントが必要です (ゲストはカジュアル)",
-    "online_ui.build_line": "ビルド {build}"
+    "online_ui.build_line": "ビルド {build}",
+    "t4.name_plates": "ゲーム内のネームプレート",
+    "t4.name_plates_hint": "オンライン：キャラクター選択と対戦中に、各プレイヤーの名前とランクバッジをそれぞれの側に表示します。",
+    "t4.name_plates_lead": "あなたの画面に表示されるだけで、対戦そのものは変わりません。",
+    "t4.side_you": "{name}（あなた）",
+    "t4.side_you_rank": "{name}（あなた）・{rank}",
+    "t4.side_rank": "{name}・{rank}",
+    "t4.result_unproven": "ゲームがこの結果を確認できなかったため、ランクマッチには数えられません。",
+    "t4.result_char_lock": "ランクセットの途中でキャラクターが変更されたため、このゲームは相手の勝ちになります。"
 }

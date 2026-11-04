@@ -176,6 +176,8 @@ def untranslated_literals(source):
         "hist_page", "i:", "lb_page", "lb_sort", "mention", "online_profile", "online_room_", "online_tour_", "p:",
         "pcompose", "preport", "private_open", "profile_player", "ranked_strict", "room_bar", "search", "spec_",
         "spec_watch_tour", "stats_mode", "stats_sort", "tabs", "rank_%02d.png", "ranks", "ping_measured",
+        # T4 ranked (t4_online): the badges' folder and file names, the found match's side list
+        "ui", "assets", "t4_rank_%02d.svg", "sides",
         # the settings page's group ids and its own rows (nav_settings_page)
         "display", "controls", "online", "audio", "offline", "replays", "updates", "advanced", "pad_bindings",
         "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",

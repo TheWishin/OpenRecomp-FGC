@@ -10,6 +10,7 @@ server list is included. Everything is standard-library Python.
     t4lobby.handover   MatchTicket (role, ports, peer, key, seed)
     t4lobby.t4game     MatchTicket -> the T4 game's TEKKEN4_NET* environment
     t4lobby.buildid    the build identity both players must share
+    t4lobby.ranks      the T4 rank tiers (Tekken 7's names) and their rating thresholds
 """
 __version__ = "0.1.0"
 

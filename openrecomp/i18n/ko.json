@@ -530,7 +530,7 @@
     "online.match_active": "대전 진행 중",
     "online.cancel_match": "대전 거절",
     "online.return_lobby": "로비로 돌아가기",
-    "online.ranked_unavailable": "게임이 결과를 보고할 수 있을 때까지 T4 랭크 대전은 이용할 수 없습니다.",
+    "online.ranked_unavailable": "이 T4 서버에는 아직 랭크전이 없습니다.",
     "online.lobby_updated": "로비를 새로 고쳤습니다.",
     "online.challenge_sent": "대전을 신청했습니다.",
     "online.challenge_answered": "대전 신청에 응답했습니다.",
@@ -1342,5 +1342,13 @@
     "online_ui.server_line": "서버",
     "online_ui.or": "또는",
     "online_ui.ranked_account": "랭크는 계정이 필요합니다 (게스트는 캐주얼)",
-    "online_ui.build_line": "빌드 {build}"
+    "online_ui.build_line": "빌드 {build}",
+    "t4.name_plates": "게임 내 이름표",
+    "t4.name_plates_hint": "온라인: 캐릭터 선택과 대전 중에 각 플레이어의 이름과 랭크 배지를 자기 쪽에 표시합니다.",
+    "t4.name_plates_lead": "내 화면에만 표시되며 대전 자체는 바뀌지 않습니다.",
+    "t4.side_you": "{name} (나)",
+    "t4.side_you_rank": "{name} (나) · {rank}",
+    "t4.side_rank": "{name} · {rank}",
+    "t4.result_unproven": "게임이 이 결과를 확인하지 못해 랭크전에 포함되지 않습니다.",
+    "t4.result_char_lock": "랭크 세트 중에 캐릭터를 바꿔 이번 게임은 상대의 승리가 됩니다."
 }

@@ -89,6 +89,8 @@ OMITTED_BRANDING = {
     "openrecomp/ui/assets/logo-mark-light.svg", "openrecomp/ui/assets/logo-mark.svg",
     "openrecomp/ui/assets/logo-wordmark-light.svg", "openrecomp/ui/assets/logo-wordmark.svg",
 }
+# Tekken 4 Online's rank badges (our own SVGs) are pictures too: this bundle shows the rank names as text.
+OMITTED_BRANDING |= {"openrecomp/ui/assets/ranks/t4_rank_%02d.svg" % tier for tier in range(47)}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".svg",
                   ".svgz", ".tif", ".tiff", ".avif", ".dds", ".tga", ".icns", ".cur"}
 

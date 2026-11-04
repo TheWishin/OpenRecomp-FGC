@@ -42,11 +42,13 @@ SOURCE_GROUPS = {
     "openrecomp/vendor": ("servers.json",),
     # The T4 lobby's client side only (MIT, from T5DR Online's open-source lobby); no server code.
     "openrecomp/vendor/t4lobby": ("__init__.py", "LICENSE", "buildid.py", "client.py", "handover.py", "i18n.py",
-                                  "i18n_known.py", "nat.py", "portmap.py", "proto.py", "servers.py", "spectate.py",
-                                  "t4game.py", "tour_client.py"),
+                                  "i18n_known.py", "nat.py", "portmap.py", "proto.py", "ranks.py", "servers.py",
+                                  "spectate.py", "t4game.py", "tour_client.py"),
     "openrecomp/i18n": ("__init__.py", "de.json", "en.json", "es.json", "fr.json", "ja.json", "ko.json", "pt-BR.json"),
     "openrecomp/ui": ("BuildAction.qml", "BuildPage.qml", "Glyph.qml", "Hub.qml", "Main.qml", "OnlineCard.qml", "OnlineHub.qml", "OnlineLogin.qml", "Overlays.qml", "ResultCell.qml", "SettingsHub.qml", "Shelf.qml"),
     "openrecomp/ui/assets": ("icon.ico", "icon.svg", "logo-mark-light.svg", "logo-mark.svg", "logo-wordmark-light.svg", "logo-wordmark.svg"),
+    # Tekken 4 Online's rank badges: our own drawing (tools/make_rank_badges.py), one per T4 rank tier
+    "openrecomp/ui/assets/ranks": tuple("t4_rank_%02d.svg" % tier for tier in range(47)),
     "openrecomp/ui/fonts": ("BigShoulders-800.ttf", "BigShoulders-900.ttf", "IBMPlexMono-400.ttf",
                             "IBMPlexMono-500.ttf", "IBMPlexMono-600.ttf", "IBMPlexSans-400.ttf",
                             "IBMPlexSans-500.ttf", "IBMPlexSans-600.ttf", "OFL-BigShoulders.txt",

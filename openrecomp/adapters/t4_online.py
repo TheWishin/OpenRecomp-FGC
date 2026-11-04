@@ -13,9 +13,9 @@ import uuid
 import zipfile
 
 from .base import NO_WINDOW
+from .t5_match import T5Match
 from .t5_online import Online, SearchRefused, entry_tls, game_process_running
 from ..manifest import save_config, user_dir
-from ..ranks import t4_rank_name
 
 
 # The T4 lobby client ships with the launcher (openrecomp/vendor/t4lobby); T4 installs have none.
@@ -24,6 +24,8 @@ SERVER_ENV = "OPENRECOMP_T4_SERVER"
 # The server the launcher ships with ("T4 Online"; a placeholder until tools/set_t4_server.py fills it in).
 SHIPPED_SERVERS = os.path.join(VENDOR, "servers.json")
 SERVERS_FORMAT = "t5dr-servers/1"
+# Our own rank badges (tools/make_rank_badges.py: Tekken 7's rank names, our drawing), one SVG per T4 rank tier.
+RANK_BADGES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "assets", "ranks")
 # Rooms are not part of the T4 beta lobby: players, chat, quick match and challenges only.
 ROOM_ACTIONS = ("refresh_rooms", "create_room", "create_password_room", "create_code_room",
                 "join_room_code", "leave_room")
@@ -542,8 +544,9 @@ class T4Direct:
 
 
 def ticket_env(ticket):
-    """Only the ticket fields documented by the T4 lobby handoff; no T5 game driver."""
-    if ticket.role not in ("host", "join") or ticket.ranked:
+    """Only the ticket fields documented by the T4 lobby handoff; no T5 game driver. Ranked tickets too (T4 ranked:
+    the game writes its own proven result, docs/T4_ONLINE.md "Ranked")."""
+    if ticket.role not in ("host", "join"):
         raise RuntimeError("@online.refused")
     peer = f"{ticket.peer[0]}:{int(ticket.peer[1])}"
     port = str(int(ticket.local_port))
@@ -562,11 +565,18 @@ class T4Online(T4Direct, Online):
     online_package = "t4lobby"
     online_game = "t4"
     online_port = 7791
-    online_ranked = False
     online_lobby = True
     online_match_flow = True
     online_legacy_config = False
     online_registration = True
+
+    @property
+    def online_ranked(self):
+        """Ranked when the T4 server opens it (welcome ranked_queue: a T4 server with proven game results); the
+        beta server before that answered false."""
+        client = self.__dict__.get("_online_client")
+        welcome = getattr(client, "welcome", None) if client is not None else None
+        return bool(isinstance(welcome, dict) and welcome.get("ranked_queue"))
 
     @property
     def online_direct_ip(self):
@@ -772,7 +782,30 @@ class T4Online(T4Direct, Online):
         return version[:40] if isinstance(version, str) and re.fullmatch(r"[0-9A-Za-z.+-]{1,40}", version) else "dev"
 
     def _online_player_rank(self, rating):
-        return t4_rank_name(rating)
+        return ""                       # the T4 server's own rank (Tekken 7's names) comes with the player
+
+    def rank_plate(self, tier):
+        """Our own badge for a T4 rank tier (an SVG of the launcher); "" = text only."""
+        if isinstance(tier, bool) or not isinstance(tier, int) or not 0 <= tier < 64:
+            return ""
+        path = os.path.join(RANK_BADGES, "t4_rank_%02d.svg" % tier)
+        return path if os.path.isfile(path) else ""
+
+    def rank_progress(self, rating):
+        """The ranked card's bar from the vendored client's rank table (t4lobby/ranks.py, the server's)."""
+        if isinstance(rating, bool) or not isinstance(rating, (int, float)):
+            return None
+        try:
+            ranks = importlib.import_module(self.online_package + ".ranks")
+            tier = ranks.tier_for(rating)
+            low, high = ranks.threshold(tier), ranks.threshold(tier + 1)
+            following = str(ranks.name(tier + 1))
+        except Exception:  # noqa: BLE001 -- an older client without the table, or the top rank
+            return None
+        if high != high or high in (float("inf"), float("-inf")):
+            return None
+        low = low if low not in (float("inf"), float("-inf")) else high - 50
+        return float(low), float(high), following
 
     def _online_player(self, player):
         out = super()._online_player(player)
@@ -792,7 +825,13 @@ class T4Online(T4Direct, Online):
         saved = self._online_saved() if state.get("saved_available") else None
         # One account for T5DR and T4: a T5DR remembered login offered here is named as such.
         state["saved_shared"] = bool(saved and saved.get("shared"))
-        state["rank"] = t4_rank_name(getattr(self, "_online_rating", None)) if state["name"] else ""
+        me = state.get("me") or {}
+        state["rank"] = str(me.get("rank") or "")[:40] if state["name"] and not me.get("guest") else ""
+        info = getattr(self, "_online_set", {})
+        state["set"] = dict(info, wins=list(info.get("wins", []))) if info else {}
+        state["capabilities"]["leave_set"] = bool(
+            info.get("state") == "active" and info.get("rated") and self._online_phase in ("result", "result_sent")
+            and callable(getattr(self._online_client, "leave_set", None)))
         return state
 
     def _online_lobby_action(self, action, client):
@@ -803,12 +842,14 @@ class T4Online(T4Direct, Online):
 
     def _online_client_options(self):
         options = super()._online_client_options()
+        # Ranked sets (best of 3, rated once): every game is a new connection and a new T4 game, started by itself
+        # after the server's countdown (_online_match_found, origin "set").
         options.update(relays=False, friends=False, private_rooms=False, tournaments=False,
-                       spectate=False, sets=False, match_rules=False)
+                       spectate=False, sets=True, match_rules=False)
         return options
 
     def _online_game_env(self, ticket):
-        if ticket.role not in ("host", "join") or ticket.ranked:
+        if ticket.role not in ("host", "join"):
             raise RuntimeError("@online.refused")
         api = self._online_modules()
         if "game_env" not in api:
@@ -826,11 +867,20 @@ class T4Online(T4Direct, Online):
             # The game's own result file (T4 game >= t4-result): absent in an older client = manual result only.
             reader, report = getattr(module, "read_game_result", None), getattr(module, "game_result_report", None)
             api["game_result"] = (reader, report) if callable(reader) and callable(report) else None
+            hud = getattr(module, "hud_env", None)
+            api["hud_env"] = hud if callable(hud) else None
+        if ticket.ranked and not api.get("game_result"):
+            raise RuntimeError("@online.refused")      # ranked needs the game's own result (an older client: none)
         env = dict(TEKKEN4_NET_STRICT_HELLO="0", TEKKEN4_NET_DELAY_MATCH="0")
         if getattr(self.core, "source_only", False):
             env.update(source_net_profile(self.config))
         # The lobby's endpoint, key, seed and build always win over the local profile.
         env.update(api["game_env"](ticket))
+        # The game's name plates: both players' names and rank badges on their sides (the same on both PCs).
+        if api.get("hud_env"):
+            you = getattr(self, "_t4_you", None) or dict(self._online_me or {}, name=self._online_name)
+            plates = self.config.get("t4_name_plates", True) is not False
+            env.update(api["hud_env"](ticket.slot, you, ticket.opponent, plates))
         # Where the game writes its result (TEKKEN4_NET_RESULT, next to its net.log): one file per match, a stale
         # one removed first; a file naming another match is never read (read_game_result checks the match id).
         self._t4_result_path, self._t4_result_sent, self._t4_result_stop_at = None, False, None
@@ -912,6 +962,23 @@ class T4Online(T4Direct, Online):
 
     def _online_match_found(self, event):
         self._online_reap_owned()
+        info = event.get("set") if isinstance(event.get("set"), dict) else None
+        if (event.get("origin") == "set" and info and info.get("rated")
+                and self._online_phase in ("result", "result_sent")
+                and info.get("id") == getattr(self, "_online_set", {}).get("id")):
+            # The next game of this ranked set: no vote, it starts by itself (the previous game is stopped first).
+            self._online_ticket = None
+            self._online_match_id = event.get("match")
+            self._online_authorized = True
+            self._online_ready_check = False
+            self._online_early_start = None
+            self._online_pending_start = None
+            self._online_result_message = "@online.result_sent"
+            self._online_match = self._online_match_view(event)
+            self._t4_set_info(event)
+            self._online_phase, self._online_queue = "starting", ""
+            self._online_message = "@online.starting"
+            return True
         if (self._online_phase not in ("logged_in", "searching")
                 or getattr(self, "_online_owned_run", None) is not None):
             # An unsolicited second offer must never discard an owned game or its result: say no to that offer
@@ -934,9 +1001,40 @@ class T4Online(T4Direct, Online):
         self._online_pending_start = None
         self._online_result_message = "@online.result_sent"
         self._online_match = self._online_match_view(event)
+        self._t4_set_info(event)
         self._online_phase, self._online_queue = "matched", ""
         self._online_message = "@online.t4_matched"
         return True
+
+    def _t4_set_info(self, event):
+        """Remember this player's own lobby entry and side; a ranked set's score and game number for the rows."""
+        self._t4_you = event.get("you") if isinstance(event.get("you"), dict) else None
+        info = event.get("set")
+        slot = event.get("slot") if event.get("slot") in (0, 1) else 0
+        self._t4_slot = slot
+        rated = isinstance(info, dict) and info.get("rated")
+        self._online_set = T5Match._online_set_view(self, info, slot) if rated else {}
+
+    def _online_match_view(self, event):
+        """The found match: the ping, and who plays which side with name and rank (and badge) -- P1 = the host."""
+        out = super()._online_match_view(event)
+        if event.get("ranked") is True:
+            out["ranked"] = True
+        slot, opponent = event.get("slot"), event.get("opponent")
+        if slot not in (0, 1) or not isinstance(opponent, dict):
+            return out                                  # a blind ready check: names after both accepted
+        you = event.get("you") if isinstance(event.get("you"), dict) else dict(self._online_me or {})
+        you = dict(you, name=you.get("name") or self._online_name)
+
+        def side(p, mine):
+            p = self._online_player(p) if p else {}
+            guest = bool(p.get("guest"))
+            return dict(name=str(p.get("name") or "")[:64], rank="" if guest else str(p.get("rank") or "")[:40],
+                        tier=None if guest else p.get("tier"), you=mine)
+        out["slot"] = slot
+        mine, theirs = side(you, True), side(opponent, False)
+        out["sides"] = [mine, theirs] if slot == 0 else [theirs, mine]
+        return out
 
     def _online_event(self, event):
         kind = event.get("t")
@@ -966,6 +1064,10 @@ class T4Online(T4Direct, Online):
             opponent = event.get("opponent") or {}
             opponent = opponent if isinstance(opponent, dict) else {}
             self._online_match["opponent"] = str(opponent.get("name") or "")
+            if event.get("slot") in (0, 1):
+                view = self._online_match_view(dict(event, you=getattr(self, "_t4_you", None) or event.get("you")))
+                self._online_match.update({k: view[k] for k in ("slot", "sides") if k in view})
+                self._t4_slot = event["slot"]
             return True
         if kind == "match_start":
             ticket = event.get("ticket")
@@ -1053,9 +1155,21 @@ class T4Online(T4Direct, Online):
                 self._online_result_message = {
                     "confirmed": "@online.result_confirmed", "disputed": "@online.result_disputed",
                     "void": "@online.result_void"}.get(status, "@online.result_sent")
+                if status == "void" and event.get("reason") == "unproven":
+                    self._online_result_message = "@t4.result_unproven"
+                elif event.get("reason") == "char_lock":
+                    self._online_result_message = "@t4.result_char_lock"
                 self._online_message = self._online_result_message
                 me = event.get("you") or {}
                 self._online_rating = me.get("rating") if isinstance(me, dict) else None
+                info = event.get("set")
+                if isinstance(info, dict) and info.get("rated"):
+                    self._online_set = T5Match._online_set_view(self, info, getattr(self, "_t4_slot", 0))
+            return True
+        if kind == "set_end":
+            info = getattr(self, "_online_set", {})
+            if info and (not event.get("set") or event.get("set") == info.get("id")):
+                self._online_set = T5Match._online_set_view(self, dict(event, id=info.get("id")), ended=True)
             return True
         return False
 
@@ -1076,9 +1190,6 @@ class T4Online(T4Direct, Online):
             if not self.online_text_value("online_server").strip():
                 self._online_phase, self._online_message = "error", "@t4.lobby_no_server"
                 return
-        if action == "search_ranked":
-            self._online_message = "@online.ranked_unavailable"
-            return
         if action == "login_saved" and self._online_client is None and not self._online_busy:
             saved = self._online_saved()
             self._t4_shared_attempt = saved["token"] if saved and saved.get("shared") else None
@@ -1113,6 +1224,15 @@ class T4Online(T4Direct, Online):
             evidence = dict(getattr(self, "_online_evidence", {}))
             self._online_submit(action, lambda: client.report_result(
                 winner=winner, match_id=ticket.match_id, source="manual", **evidence))
+        elif (action == "leave_set" and phase in ("result", "result_sent") and client and not self._online_busy
+              and self.online_state()["capabilities"].get("leave_set")):
+            self._online_submit("leave_set", lambda: client.leave_set())
+            self._online_set = {}
+            self._online_ticket = None
+            self._online_match_id = None
+            self._online_authorized = False
+            self._online_match = {}
+            self._online_phase, self._online_message = "logged_in", "@online.logged_in"
         elif action == "return_lobby" and phase == "result_sent":
             self._online_ticket = None
             self._online_match_id = None
