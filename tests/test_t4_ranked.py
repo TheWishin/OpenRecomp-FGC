@@ -128,6 +128,11 @@ class FoundMatchTest(Base):
         self.assertEqual(sides[1]["v"], i18n.message("t4.side_you_rank", name=i18n.literal("FakePlayer"),
                                                      rank=i18n.literal("Initiate")))
         self.assertTrue(sides[1]["accent"])
+        # the hub's detail panel keeps the badge (nav_hub) -- the found match's card shows it beside the name
+        nav.focus[self.a.m["id"] + ":online"] = 0
+        view = nav.view()
+        plates = [r.get("plate", "") for r in view["detail"]["rows"]]
+        self.assertTrue(any(p.endswith("t4_rank_42.svg") for p in plates), plates)
 
     def test_guest_opponent_has_no_rank(self):
         client = self.login()

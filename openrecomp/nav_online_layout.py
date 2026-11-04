@@ -412,7 +412,8 @@ class OnlineLayout:
         sd = status.get("detail") or {}
         it = items[fi] if items else {}
         d = it.get("detail") or {}
-        rows = [dict(k=r["k"], v=r["v"], accent=bool(r.get("accent"))) for r in (sd.get("rows") or []) + (
+        rows = [dict(k=r["k"], v=r["v"], accent=bool(r.get("accent")),
+                     **({"plate": r["plate"]} if r.get("plate") else {})) for r in (sd.get("rows") or []) + (
             (d.get("rows") or []) if it is not status else [])][:12]
         try:
             phase = g.a.online_state().get("phase", "")
