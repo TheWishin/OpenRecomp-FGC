@@ -65,6 +65,7 @@ CHAT_LINES = 13
 LOBBY_HEADINGS = ("@online.players", "@online.open_challenges")
 CARD_LINES = 13
 BODY_LINES = 13
+BAR_WIDTH = 5
 SIGNAL = ((60, 4), (100, 3), (160, 2))
 
 
@@ -573,9 +574,11 @@ class OnlineLayout:
                 while n < len(idx) and items[idx[n]].get("group") == group:
                     members.append(idx[n])
                     n += 1
-                if fi in members:
-                    focus_line = len(lines)
-                lines.append(dict(kind="bar", buttons=[self._btn(items, j, fi) for j in members]))
+                for start_at in range(0, len(members), BAR_WIDTH):     # a long bar (sort keys) wraps into lines
+                    part = members[start_at:start_at + BAR_WIDTH]
+                    if fi in part:
+                        focus_line = len(lines)
+                    lines.append(dict(kind="bar", buttons=[self._btn(items, j, fi) for j in part]))
                 continue
             if i == fi:
                 focus_line = len(lines)
