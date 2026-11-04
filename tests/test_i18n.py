@@ -131,6 +131,7 @@ def untranslated_literals(source):
         "reports", "t4-report-", "Tekken 4 Online",  # T4 report folder, temporary prefix and lobby metadata
         "T5DR Online.exe", "T5DROnline", "online.json", "release.json", "lobby", "t5lobby", "tools", "data",
         "cache", "fighters", "fighters.json", "python", "python.exe", "t4", "t5dr", "hero.png",
+        "build_game.py", "ps3recomp", "-c", "from Crypto.Cipher import AES",
         "Downloads", "Desktop", "APPDATA", "OPENRECOMP_T4_ROOT", "OPENRECOMP_T5DR_ROOT", "T5_ONLINE_DIR",
         "%USERPROFILE%/Downloads/T5DR-Online-*", "%USERPROFILE%/Desktop/T5DR-Online-*", "T5DR-Online-*",
         ".json", ".iso", "*.iso", ".pkg", ".rap", ".openrecomp.tmp", "logs\\build_game.log",

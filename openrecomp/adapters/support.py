@@ -72,12 +72,13 @@ class T5Support:
     def support_available(self):
         try:
             check, report = self._support_runtime()
-            return (callable(getattr(check, "check", None))
+            return ((callable(getattr(check, "check", None))
                     and all(callable(getattr(report, name, None))
                             for name in ("Context", "settings_lines", "build_info_for", "discover", "build"))
                     and callable(getattr(self.core, "desktop_dir", None)))
+                    or callable(getattr(self, "_support_install_findings", None)))
         except Exception:  # a missing optional module never prevents launching the game
-            return False
+            return callable(getattr(self, "_support_install_findings", None))
 
     def support_state(self):
         state = getattr(self, "_support_status", None)
@@ -188,8 +189,12 @@ class T5Support:
     def _support_work(self, kind):
         state = self.support_state()
         try:
-            check, report = self._support_runtime()
-            if kind == "check":
+            local_findings = getattr(self, "_support_install_findings", lambda: [])() if kind == "check" else []
+            if local_findings:
+                # A broken release may not have working diagnostic modules either.
+                state.update(checked=True, findings=local_findings)
+            elif kind == "check":
+                check, _report = self._support_runtime()
                 findings = []
                 for finding in check.check(self.s.out_dir):
                     label, fix = FINDINGS.get(finding.key, ("@support.finding.unknown.title", "@support.finding.unknown.fix"))
@@ -197,8 +202,10 @@ class T5Support:
                                          kind=getattr(finding, "kind", "problem")))
                 state.update(checked=True, findings=findings)
             elif kind == "send":
+                _check, report = self._support_runtime()
                 state.update(sent=self._support_send(report, state))
             else:
+                _check, report = self._support_runtime()
                 dest = self.core.desktop_dir()
                 # Reports belong to the player's folder, never the public launcher checkout.
                 checkout = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))

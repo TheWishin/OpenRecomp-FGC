@@ -114,6 +114,36 @@ class GameSetupNav:
         self.setup_game = g.id
         self._ask("setup_update")
 
+    def setup_reinstall(self, g):
+        """Repair this install in place, using the same protected-file exchange as an update."""
+        if self._dry("@t5.reinstall"):
+            return
+        st = self._setup(g.id)
+        if self._update_busy() or st.get("phase") in ("installing", "updating"):
+            self.say("@setup.busy")
+            return
+        self.setup_game = g.id
+        if st.get("latest") and st.get("phase") == "ready":
+            self._setup_reinstall_start(g.id)
+            return
+        self.setup_waiting = True
+        self.setup_reinstall_waiting = True
+        if st.get("phase") != "checking" and not self.on_setup("check", g.id, True):
+            self.setup_waiting = self.setup_reinstall_waiting = False
+            self.say("@setup.busy")
+            return
+        self._ask("setup_loading")
+
+    def _setup_reinstall_start(self, gid):
+        if not self._setup(gid).get("latest"):
+            self._ask("setup_none")
+        elif self._update_busy() or not self.on_setup("reinstall", gid, None):
+            self.overlay = None
+            self.say("@setup.busy")
+        else:
+            self.setup_cancelling = False
+            self._ask("setup_progress")
+
     def poll_setup(self, finished):
         """Called by the backend with GameSetup.poll()'s events. -> True when the screen changed."""
         changed = False
@@ -121,10 +151,14 @@ class GameSetupNav:
             changed = True
             if kind == "check" and getattr(self, "setup_waiting", False) and getattr(self, "setup_game", "") == gid:
                 self.setup_waiting = False
+                reinstall = getattr(self, "setup_reinstall_waiting", False)
+                self.setup_reinstall_waiting = False
                 if self.overlay == "dialog" and self.confirm_kind == "setup_loading":
                     if error:
                         self.overlay = None
                         self.say(error[0], 10)
+                    elif reinstall:
+                        self._setup_reinstall_start(gid)
                     else:
                         self._setup_where(gid)
             elif kind == "install":
@@ -182,6 +216,8 @@ class GameSetupNav:
                     self.say("@setup.cancelling")
             return
         if a == "back":
+            if kind == "setup_loading":
+                self.setup_waiting = self.setup_reinstall_waiting = False
             self.overlay = None
             return
         if a != "confirm":
@@ -189,6 +225,7 @@ class GameSetupNav:
         yes = self.exit_focus == 1
         if kind in ("setup_loading", "setup_none"):
             self.setup_waiting = False
+            self.setup_reinstall_waiting = False
             self.overlay = None
             source = self._setup_none_folder() if kind == "setup_none" and yes else None
             if source:              # nothing published yet: the folder the player already has

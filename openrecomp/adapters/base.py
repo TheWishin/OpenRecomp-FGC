@@ -277,6 +277,10 @@ class Adapter:
     def build_ready(self):
         return "@no_build_here"
 
+    def build_install_problem(self):
+        """A damaged release that needs reinstalling before Build, or an empty string."""
+        return ""
+
     def build_prepares(self):
         """build_ready() answers that build_start() solves by itself first (T4: missing tools it installs)."""
         return ()

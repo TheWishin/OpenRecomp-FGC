@@ -1,4 +1,9 @@
 {
+ "t5.install_incomplete_python": "This Tekken 5 DR install is incomplete: its Python (python folder) is missing or damaged. Reinstall T5DR (your game files and saves stay).",
+ "t5.install_incomplete_tools": "This Tekken 5 DR install is incomplete: its build tools are missing or damaged. Reinstall T5DR (your game files and saves stay).",
+ "t5.reinstall": "Reinstall T5DR",
+ "t5.choose_install": "Choose another folder",
+ "support.finding.t5_install.title": "Incomplete Tekken 5 DR install",
  "section.play": "Play offline",
  "section.online": "Online",
  "section.build": "Build",

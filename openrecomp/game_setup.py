@@ -185,7 +185,7 @@ class GameSetup:
         self._run(gid, "install", lambda: self.install_fn(gid, offer, parent, progress=self._progress(gid), cancel=cancel))
         return True
 
-    def update(self, gid, root):
+    def update(self, gid, root, *, reinstall=False):
         offer = self.offers.get(gid)
         if offer is None or self.busy() or not root:
             return False
@@ -193,7 +193,9 @@ class GameSetup:
         cancel = threading.Event()
         self.cancels[gid] = cancel
         st.update(phase="updating", error="", detail="", step="download", done=0, total=offer["zip"]["size"], result="")
-        self._run(gid, "update", lambda: self.update_fn(gid, offer, root, progress=self._progress(gid), cancel=cancel))
+        options = dict(reinstall=True) if reinstall else {}
+        self._run(gid, "update", lambda: self.update_fn(gid, offer, root, progress=self._progress(gid), cancel=cancel,
+                                                      **options))
         return True
 
     def cancel(self, gid):

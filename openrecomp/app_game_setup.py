@@ -76,12 +76,14 @@ class GameSetupBackend:
             if self._update_busy() or self._setup_root(gid):
                 return False
             return self.setup.install(gid, arg)
-        if action == "update":
+        if action in ("update", "reinstall"):
             root = self._setup_root(gid)
             if not root or self._update_busy():
                 return False
             if gid == "t5dr":
                 self.nav.close_online(only="t5dr")   # the borrowed lobby client must not run during the exchange
+            if action == "reinstall":
+                return self.setup.update(gid, root, reinstall=True)
             return self.setup.update(gid, root)
         if action == "cancel":
             self.setup.cancel(gid)

@@ -1,4 +1,9 @@
 {
+ "t5.install_incomplete_python": "Diese Tekken-5-DR-Installation ist unvollständig: Python (Ordner python) fehlt oder ist beschädigt. Installiere T5DR erneut (deine Spieldateien und Spielstände bleiben erhalten).",
+ "t5.install_incomplete_tools": "Diese Tekken-5-DR-Installation ist unvollständig: Die Build-Werkzeuge fehlen oder sind beschädigt. Installiere T5DR erneut (deine Spieldateien und Spielstände bleiben erhalten).",
+ "t5.reinstall": "T5DR erneut installieren",
+ "t5.choose_install": "Anderen Ordner wählen",
+ "support.finding.t5_install.title": "Unvollständige Tekken-5-DR-Installation",
  "section.play": "Offline spielen",
  "section.online": "Online",
  "section.build": "Bauen",

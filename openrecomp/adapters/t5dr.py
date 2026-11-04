@@ -653,16 +653,55 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         return [dict(id="low_priority", label="@responsive", options=YES_NO, value=bool(self.s["low_priority"]),
                      hint="@responsive.hint", lead="@responsive.lead")]
 
+    def build_install_problem(self):
+        own_python = os.path.join(self.root, "python", "python.exe")
+        try:
+            exe = os.stat(own_python)
+            folder = os.stat(os.path.dirname(own_python))
+            key = (os.path.normcase(os.path.realpath(self.root)), exe.st_mtime_ns, exe.st_size, folder.st_mtime_ns)
+        except OSError:
+            return "@t5.install_incomplete_python"
+        # Redraws and Check my problem share the probe. Replacing the release's Python invalidates it.
+        lock = self.__dict__.setdefault("_build_python_lock", threading.Lock())
+        with lock:
+            if getattr(self, "_build_python_probe", (None,))[0] != key:
+                try:
+                    subprocess.run([own_python, "-I", "-c", "from Crypto.Cipher import AES"], cwd=self.root,
+                                   timeout=3, check=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
+                    problem = ""
+                except (OSError, subprocess.SubprocessError):
+                    problem = "@t5.install_incomplete_python"
+                self._build_python_probe = (key, problem)
+            if self._build_python_probe[1]:
+                return self._build_python_probe[1]
+        if (not os.path.isfile(os.path.join(self.root, "tools", "build_game.py"))
+                or not os.path.isdir(os.path.join(self.root, "toolchain"))
+                or not os.path.isdir(os.path.join(self.root, "deps", "ps3recomp"))):
+            return "@t5.install_incomplete_tools"
+        return ""
+
     def build_ready(self):
         if self._borrowed():
             return "@t5.coexist.build_blocked"
+        problem = self.build_install_problem()
+        if problem:
+            return problem
         if not self.s["pkg"] or not self.s["rap"]:
             return "@choose_package_license"
         return ""
 
+    def _support_install_findings(self):
+        problem = self.build_install_problem()
+        return [dict(id="t5_install", label="@support.finding.t5_install.title", seen="", fix=problem,
+                     kind="problem")] if problem else []
+
     def build_start(self, force=False):
         if self._borrowed():
             raise RuntimeError("@t5.coexist.build_blocked")
+        problem = self.build_install_problem()
+        if problem:
+            raise RuntimeError(problem)
         self.build_steps = {}
         self.build_step = ""
         self.build_fraction = 0.0
@@ -670,8 +709,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         self.last_result = ""
         self.build = self.core.BuildRun(self.s["pkg"], self.s["rap"], self.s.out_dir, force=force, low_priority=bool(self.s["low_priority"]))
         own_python = os.path.join(self.root, "python", "python.exe")      # the build's tools run on the install's Python
-        if os.path.isfile(own_python):
-            self.build.cmd[0] = own_python
+        self.build.cmd[0] = own_python
         self.build.start()
 
     def _pump_build(self):

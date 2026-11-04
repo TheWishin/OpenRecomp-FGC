@@ -808,12 +808,14 @@ def t5dr_build_code(root):
     return stamp.get("code_id") if stamp else None
 
 
-def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=None, keys=None):
+def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=None, keys=None, reinstall=False):
     """Download, verify and exchange the program files of root. Returns dict(version, rebuild: True/False/None)."""
     src = SOURCES[game]
     root = os.path.abspath(root)
     current = installed_version(game, root)
-    if current and not is_newer(offer["version"], current):
+    current_key = version_key(current)
+    same_release = current_key is not None and version_key(offer["version"]) == current_key
+    if current and not is_newer(offer["version"], current) and not (reinstall and same_release):
         raise ReleaseError("@setup.err_not_newer")
     if keys is None:
         keys = tuple(dict.fromkeys(signing_keys(src) + install_keys(game, root)))
