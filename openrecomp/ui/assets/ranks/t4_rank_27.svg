@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" width="200" height="100">
+<!-- Tekken 4 Online rank badge 27: Savior (our own drawing, tools/make_rank_badges.py) -->
+<polygon points="14.00,6.00 186.00,6.00 198.00,50.00 186.00,94.00 14.00,94.00 2.00,50.00" fill="#de7012" stroke="#f8b673" stroke-width="5" stroke-linejoin="round"/>
+<polygon points="14.00,10.00 186.00,10.00 195.00,44.00 5.00,44.00" fill="#f8b673" fill-opacity="0.22"/>
+<circle cx="50" cy="50" r="36" fill="#733605" stroke="#f8b673" stroke-width="3"/>
+<polygon points="50.00,20.00 57.41,39.81 78.53,40.73 61.98,53.89 67.63,74.27 50.00,62.60 32.37,74.27 38.02,53.89 21.47,40.73 42.59,39.81" fill="#f8b673" stroke="#733605" stroke-width="1.5" stroke-linejoin="round"/>
+<circle cx="96.0" cy="80.0" r="4" fill="#f8b673" stroke="#733605" stroke-width="1.5"/>
+<circle cx="110.0" cy="80.0" r="4" fill="#f8b673" stroke="#733605" stroke-width="1.5"/>
+<circle cx="124.0" cy="80.0" r="4" fill="#f8b673" stroke="#733605" stroke-width="1.5"/>
+<text x="141" y="44" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="21.9" fill="#ffffff" stroke="#733605" stroke-width="3" paint-order="stroke">SAVIOR</text>
+</svg>

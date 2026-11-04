@@ -531,7 +531,7 @@
  "online.match_active": "Match läuft",
  "online.cancel_match": "Match ablehnen",
  "online.return_lobby": "Zurück zur Lobby",
- "online.ranked_unavailable": "Ranglisten-Matches sind für T4 nicht verfügbar, bis das Spiel Ergebnisse melden kann.",
+ "online.ranked_unavailable": "Dieser T4-Server hat noch kein Ranked.",
  "online.lobby_updated": "Lobby aktualisiert.",
  "online.challenge_sent": "Herausforderung gesendet.",
  "online.challenge_answered": "Herausforderung beantwortet.",
@@ -1400,5 +1400,13 @@
  "support.send.failed": "Der Bericht konnte nicht gesendet werden: {error}",
  "support.finding.wine_graphics.title": "Die Grafik des Spiels ist unter Wine oder Proton nicht gestartet",
  "support.finding.wine_graphics.fix": "Probiere in Steam eine andere Proton-Version (Proton Experimental, GE-Proton oder proton-cachyos). Hilft das nicht, installiere Microsofts Shader-Compiler mit protontricks d3dcompiler_47 in das Prefix des Spiels. Siehe die Linux- und Steam-Deck-Hilfe des Spiels.",
- "t4.no_powershell": "Der Build und die Online-Prüfung von Tekken 4 sind PowerShell-Skripte, und Wine oder Proton hat kein funktionierendes PowerShell. Baue das Spiel unter Windows oder installiere PowerShell 7 in dieses Prefix (ungetestet). Offline spielen ist nicht betroffen."
+ "t4.no_powershell": "Der Build und die Online-Prüfung von Tekken 4 sind PowerShell-Skripte, und Wine oder Proton hat kein funktionierendes PowerShell. Baue das Spiel unter Windows oder installiere PowerShell 7 in dieses Prefix (ungetestet). Offline spielen ist nicht betroffen.",
+ "t4.name_plates_hint": "Online: Name und Rangabzeichen jedes Spielers auf seiner Seite, bei der Charakterwahl und im Kampf.",
+ "t4.side_rank": "{name} · {rank}",
+ "t4.result_unproven": "Die Spiele haben dieses Ergebnis nicht belegt, darum zählt es nicht für Ranked.",
+ "t4.name_plates": "Namensschilder im Spiel",
+ "t4.result_char_lock": "Im Ranked-Satz wurde der Kämpfer gewechselt: Dieses Spiel geht an den anderen Spieler.",
+ "t4.side_you_rank": "{name} (du) · {rank}",
+ "t4.name_plates_lead": "Wird nur auf deinem Bildschirm gezeichnet; am Match selbst ändert sich nichts.",
+ "t4.side_you": "{name} (du)"
 }

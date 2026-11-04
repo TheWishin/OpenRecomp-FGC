@@ -19,7 +19,12 @@ class T4BetaDocsTests(unittest.TestCase):
                 self.assertIn("VPN", text)
                 self.assertIn("lobby server", text.lower())
                 self.assertNotIn("no lobby", text.lower())
-                self.assertIn("no ranked", text.lower())
+                if name == "docs/T4_ONLINE.md":
+                    # T4 ranked: only where the T4 server opens it, on results the games proved
+                    self.assertIn("ranked on a t4 server that opens it", text.lower())
+                    self.assertIn("only results the two games proved count", text.lower())
+                else:
+                    self.assertIn("no ranked", text.lower())
                 self.assertNotIn("casual quick match", text.lower())
                 self.assertNotIn("shared login", text.lower())
 

@@ -1533,16 +1533,17 @@ class LobbyClient(TourCalls, SpectateClientMixin):
         return self._call({"t": "game_started", "match": mid})
 
     def report_result(self, winner, score=None, match_id=None, source=None, desync=None, hash=None,
-                      frames=None, reason=None, chars=None, costumes=None):
+                      frames=None, reason=None, chars=None, costumes=None, stage=None):
         """winner: 0 (P1 = host) or 1 (P2 = join) or None (draw / no result); score: [P1 rounds, P2 rounds].
         source: game (read from the game) | manual (the player said) | quit | crash | disconnect.
         desync / hash / frames: the netplay layer's evidence when there is any (docs/RANKED.md).
         chars: [P1 fighter, P2 fighter] the game fought with (keys; in-game select); costumes: their confirm
-        buttons [P1, P2] (1-4 = LP, RP, LK, RK; 0 = the default), which a ranked set keeps."""
+        buttons [P1, P2] (1-4 = LP, RP, LK, RK; 0 = the default), which a ranked set keeps. stage: the stage the game
+        fought on (a key, or the game's id: Tekken 4's own result file)."""
         mid = match_id or (self.ticket.match_id if self.ticket else None) or (self.match or {}).get("match")
         msg = {"t": "result", "match": mid, "winner": winner, "score": score}
         for k, v in (("source", source), ("desync", desync), ("hash", hash), ("frames", frames),
-                     ("reason", reason), ("chars", chars), ("costumes", costumes)):
+                     ("reason", reason), ("chars", chars), ("costumes", costumes), ("stage", stage)):
             if v is not None:
                 msg[k] = v
         return self._call(msg)

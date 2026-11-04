@@ -531,7 +531,7 @@
  "online.match_active": "Match en cours",
  "online.cancel_match": "Refuser le match",
  "online.return_lobby": "Retour au salon",
- "online.ranked_unavailable": "Les matchs classés de T4 attendent que le jeu puisse transmettre les résultats.",
+ "online.ranked_unavailable": "Ce serveur T4 n'a pas encore de parties classées.",
  "online.lobby_updated": "Salon actualisé.",
  "online.challenge_sent": "Défi envoyé.",
  "online.challenge_answered": "Réponse au défi envoyée.",
@@ -1400,5 +1400,13 @@
  "support.send.failed": "Le rapport n'a pas pu être envoyé : {error}",
  "support.finding.wine_graphics.title": "Les graphismes du jeu n’ont pas démarré sous Wine ou Proton",
  "support.finding.wine_graphics.fix": "Essayez une autre version de Proton dans Steam (Proton Experimental, GE-Proton ou proton-cachyos). Si cela ne suffit pas, installez le compilateur de shaders de Microsoft dans le préfixe du jeu avec protontricks d3dcompiler_47. Consultez l’aide Linux et Steam Deck du jeu.",
- "t4.no_powershell": "La compilation et la vérification en ligne de Tekken 4 sont des scripts PowerShell, et Wine ou Proton n’a pas de PowerShell fonctionnel. Compilez le jeu sous Windows ou installez PowerShell 7 dans ce préfixe (non testé). Le jeu hors ligne n’est pas concerné."
+ "t4.no_powershell": "La compilation et la vérification en ligne de Tekken 4 sont des scripts PowerShell, et Wine ou Proton n’a pas de PowerShell fonctionnel. Compilez le jeu sous Windows ou installez PowerShell 7 dans ce préfixe (non testé). Le jeu hors ligne n’est pas concerné.",
+ "t4.name_plates_hint": "En ligne : le nom et l'insigne de rang de chaque joueur de son côté, à la sélection du personnage et pendant le combat.",
+ "t4.side_rank": "{name} · {rank}",
+ "t4.result_unproven": "Les jeux n'ont pas confirmé ce résultat : il ne compte pas en classé.",
+ "t4.name_plates": "Plaques de nom en jeu",
+ "t4.result_char_lock": "Un combattant a été changé pendant le set classé : cette partie va à l'autre joueur.",
+ "t4.side_you_rank": "{name} (toi) · {rank}",
+ "t4.name_plates_lead": "Affiché seulement sur ton écran ; le match lui-même ne change pas.",
+ "t4.side_you": "{name} (toi)"
 }

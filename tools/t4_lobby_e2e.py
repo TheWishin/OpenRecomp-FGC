@@ -2,7 +2,7 @@ r"""T4 lobby end to end on this PC: a local T4 lobby server and two real launche
 
     python tools\t4_lobby_e2e.py --lobby <T4 lobby folder> --t4-root <built T4 install> --iso <your ISO>
                                  --out <scratch folder> [--stub <t4_stub_game.py>] [--real]
-                                 [--accounts --t5dr-lobby <T5DR lobby folder>]
+                                 [--accounts --t5dr-lobby <T5DR lobby folder>] [--game-result W,A,B,F1,F2,STAGE]
 
 The server is the T4 port's own lobby (`<lobby>\run.py server`, 127.0.0.1 only, an in-memory database, free
 ports). Each player is a separate process running the launcher's real `python -m openrecomp` offscreen: its own
@@ -25,6 +25,11 @@ your T5DR login": his T4 server comes from a servers.json entry marked shared_lo
 and the T5DR remembered login is T5DR's real token for his account. That token reaches Bob's launcher through a
 stand-in sister game (a fourth test-only allowance: this offscreen launcher shows only T4, and a real T5DR install
 would drop a plain-TCP 127.0.0.1 login); how the launcher reads a T5DR install's saved logins is unit-tested.
+
+With --game-result the games decide the match themselves (the T4 game's TEKKEN4_NET_RESULT file; with --stub
+the stand-in game writes W = 0|1|draw, round score A-B, fighter ids F1/F2 and stage card STAGE as the real game
+does): nobody presses a result button, the launchers report the game's result and the lobby's verdict must be
+"confirmed".
 
 Nothing leaves 127.0.0.1. Prints one JSON line per player and exits 0 when every step passed.
 """
@@ -143,6 +148,9 @@ def parent(args):
                 command += ["--stub", str(Path(args.stub).resolve())]
             if args.real:
                 command.append("--real")
+            if args.game_result:
+                command += ["--game-result", args.game_result]
+                env["TEKKEN4_STUB_RESULT"] = args.game_result      # (read by the stand-in game only)
             log = open(out / (who + ".log"), "wb")
             children.append((who, subprocess.Popen(command, cwd=str(ROOT), env=env, stdout=log,
                                                    stderr=subprocess.STDOUT, creationflags=flags), log))
@@ -385,6 +393,21 @@ def child(args):
             run = getattr(adapter, "_online_owned_run", None)
             step("game_started", path=getattr(adapter._online_ticket, "path", ""),
                  role=getattr(adapter._online_ticket, "role", ""), pid=getattr(getattr(run, "proc", None), "pid", 0))
+            if args.game_result:
+                # The game decides: no result button. The launcher reports the game's file and closes the game.
+                wait(phase_is("result_sent"), 900, "the game's own result")
+                step("game_result_reported", path=getattr(adapter, "_t4_result_path", None))
+                wait(lambda: state().get("message") not in ("@online.result_sent",), 60, "the lobby's verdict")
+                step("result", message=state().get("message"))
+                if state().get("message") != "@online.result_confirmed":
+                    raise AssertionError("the lobby did not confirm the game's result: %s" % state().get("message"))
+                wait(lambda: getattr(adapter, "_online_owned_run", None) is None
+                     or adapter._online_owned_run.proc.poll() is not None, 60, "the game closed after its result")
+                step("game_closed")
+                focus("return_lobby", activate=True)
+                wait(phase_is("logged_in"), 20, "the lobby")
+                step("back_in_lobby")
+                return
             if args.real:
                 wait(lambda: getattr(adapter, "_online_playing_sent", False), 240, "the games playing (NETSUMMARY)")
                 step("games_connected_and_playing", evidence=dict(adapter._online_evidence))
@@ -457,9 +480,11 @@ def child(args):
         mark("players")
         wait_other("players")
 
-        # Lobby chat both ways.
+        # Lobby chat both ways (not in the --game-result run: it checks the result path only).
         line = "hi from " + who
-        if who == "Alice":
+        if args.game_result:
+            pass
+        elif who == "Alice":
             type_into("online_chat", line)
             focus("send_chat", activate=True)
             wait(chat_has("hi from Bob"), 30, "Bob's chat line")
@@ -471,7 +496,7 @@ def child(args):
         mark("chat")
         wait_other("chat")
 
-        if not args.real:
+        if not args.real and not args.game_result:
             # A challenge Bob declines, then one Alice accepts (Bob challenges).
             if who == "Alice":
                 focus(player_row("Bob"), activate=True)
@@ -498,7 +523,7 @@ def child(args):
         mark("quick_done")
         wait_other("quick_done", 300)
 
-        if not args.real:
+        if not args.real and not args.game_result:
             if who == "Bob":
                 focus(player_row("Alice"), activate=True)
                 step("challenge_sent")
@@ -546,6 +571,9 @@ def child(args):
         # The T4 lobby's stand-in game, started exactly where the launcher starts ps2EntryRunner.exe.
         if isinstance(command, (list, tuple)) and str(command[0]).lower().endswith("ps2entryrunner.exe"):
             command = [sys.executable, "-I", "-B", args.stub]
+            if args.game_result and isinstance(k.get("env"), dict):
+                # the launcher hands the game its own environment: the stand-in's result goes in here
+                k["env"] = dict(k["env"], TEKKEN4_STUB_RESULT=args.game_result)
         return real_popen(command, *a, **k)
 
     # Settings a player has after picking their ISO in the launcher (the source core keeps them per launcher home).
@@ -595,6 +623,7 @@ def main():
     parser.add_argument("--accounts", action="store_true",
                         help="log in with T5DR accounts through a T4 lobby that shares T5DR's (needs --t5dr-lobby)")
     parser.add_argument("--t5dr-lobby", help="T5DR's lobby folder (t5lobby inside), for --accounts")
+    parser.add_argument("--game-result", help="the games report their own result (see above)")
     parser.add_argument("--child")
     args = parser.parse_args()
     if args.child:

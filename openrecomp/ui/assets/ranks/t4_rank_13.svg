@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" width="200" height="100">
+<!-- Tekken 4 Online rank badge 13: Initiate (our own drawing, tools/make_rank_badges.py) -->
+<polygon points="14.00,6.00 186.00,6.00 198.00,50.00 186.00,94.00 14.00,94.00 2.00,50.00" fill="#2f9ccc" stroke="#a6e2f8" stroke-width="5" stroke-linejoin="round"/>
+<polygon points="14.00,10.00 186.00,10.00 195.00,44.00 5.00,44.00" fill="#a6e2f8" fill-opacity="0.22"/>
+<circle cx="50" cy="50" r="36" fill="#15506b" stroke="#a6e2f8" stroke-width="3"/>
+<polygon points="50.00,20.00 78.53,40.73 67.63,74.27 32.37,74.27 21.47,40.73" fill="#a6e2f8" stroke="#15506b" stroke-width="1.5" stroke-linejoin="round"/>
+<circle cx="96.0" cy="80.0" r="4" fill="#a6e2f8" stroke="#15506b" stroke-width="1.5"/>
+<text x="141" y="44" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="16.4" fill="#ffffff" stroke="#15506b" stroke-width="3" paint-order="stroke">INITIATE</text>
+</svg>

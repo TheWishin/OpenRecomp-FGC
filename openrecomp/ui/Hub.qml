@@ -214,6 +214,7 @@ Column {
                             width: detailContent.width; height: Math.max((hub.d.rows || []).length > 5 ? 38 : (hub.hasImages ? 44 : 48), Math.max(detailKey.implicitHeight, detailValue.implicitHeight) + 12); color: "transparent"
                             Rectangle { width: parent.width; height: 1; color: hub.root.line }
                             Text { id: detailKey; objectName: "detailKey"; width: parent.width * 0.45; wrapMode: Text.Wrap; anchors.verticalCenter: parent.verticalCenter; textFormat: Text.PlainText; text: parent.r.k || ""; color: hub.root.muted; font.family: hub.root.sans; font.pixelSize: 26 }
+                            Image { objectName: "detailPlate"; visible: !!parent.r.plate; source: parent.r.plate || ""; height: 34; width: 68; fillMode: Image.PreserveAspectFit; asynchronous: true; sourceSize.height: 68; anchors.verticalCenter: parent.verticalCenter; x: detailValue.x + detailValue.width - detailValue.contentWidth - width - 10 }
                             Text { id: detailValue; objectName: "detailValue"; width: parent.width * 0.53; horizontalAlignment: Text.AlignRight; wrapMode: Text.Wrap; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; textFormat: Text.PlainText; text: parent.r.v || ""; color: parent.r.accent ? hub.v.accent : hub.root.textC; font.family: hub.root.mono; font.weight: Font.Medium; font.pixelSize: 26 }
                         }
                     }

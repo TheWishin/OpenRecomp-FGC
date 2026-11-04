@@ -531,7 +531,7 @@
  "online.match_active": "Match in progress",
  "online.cancel_match": "Decline match",
  "online.return_lobby": "Return to lobby",
- "online.ranked_unavailable": "Ranked is unavailable for T4 until the game can report results.",
+ "online.ranked_unavailable": "This T4 server has no ranked play yet.",
  "online.lobby_updated": "Lobby updated.",
  "online.challenge_sent": "Challenge sent.",
  "online.challenge_answered": "Challenge answered.",
@@ -1400,5 +1400,13 @@
  "support.send.failed": "The report could not be sent: {error}",
  "support.finding.wine_graphics.title": "The game's graphics did not start under Wine or Proton",
  "support.finding.wine_graphics.fix": "Try another Proton build in Steam (Proton Experimental, GE-Proton or proton-cachyos). If that does not help, install Microsoft's shader compiler into the game's prefix with protontricks d3dcompiler_47. See the game's Linux and Steam Deck help.",
- "t4.no_powershell": "Tekken 4's build and online check are PowerShell scripts, and Wine or Proton has no working PowerShell. Build the game on Windows, or install PowerShell 7 into this prefix (untested). Offline play is not affected."
+ "t4.no_powershell": "Tekken 4's build and online check are PowerShell scripts, and Wine or Proton has no working PowerShell. Build the game on Windows, or install PowerShell 7 into this prefix (untested). Offline play is not affected.",
+ "t4.name_plates_hint": "Online: each player's name and rank badge on their side, at character select and in the fight.",
+ "t4.side_rank": "{name} · {rank}",
+ "t4.result_unproven": "The games did not prove this result, so it does not count for ranked.",
+ "t4.name_plates": "Name plates in the game",
+ "t4.result_char_lock": "A fighter was changed during the ranked set: this game goes to the other player.",
+ "t4.side_you_rank": "{name} (you) · {rank}",
+ "t4.name_plates_lead": "Only drawn on your screen; the match itself is not changed.",
+ "t4.side_you": "{name} (you)"
 }

@@ -390,6 +390,9 @@ class T4(T4Online, Adapter):
                  hint="@unlock_all.hint", lead="@unlock_all.lead"),
             dict(id="debug_panel", label="@debug_window", options=yes_no, value=bool(self.s.get("debug_panel")),
                  hint="@debug.hint", lead="@debug.lead"),
+            dict(id="name_plates", label="@t4.name_plates", options=yes_no,
+                 value=self.config.get("t4_name_plates", True) is not False,
+                 hint="@t4.name_plates_hint", lead="@t4.name_plates_lead"),
             dict(id="net_diagnostics", label="@t4.net_diagnostics", options=yes_no,
                  value=self._net_diagnostics(),
                  hint="@t4.net_diagnostics_hint", lead="@t4.net_diagnostics_lead"),
@@ -398,6 +401,13 @@ class T4(T4Online, Adapter):
     def set_setting(self, sid, value):
         if self._online_work_active():
             raise RuntimeError("@t4.work_busy")
+        if sid == "name_plates":
+            # Online name plates in the game (TEKKEN4_HUD_PLATES): each player's name and rank badge on their side.
+            if type(value) is not bool:
+                return
+            self.config["t4_name_plates"] = value
+            save_config(self.config)
+            return
         if sid == "net_diagnostics":
             if type(value) is not bool:
                 return

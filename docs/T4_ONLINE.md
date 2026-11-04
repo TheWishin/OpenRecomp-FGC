@@ -1,6 +1,6 @@
 # T4 Online: lobby and direct IP / VPN beta
 
-The beta plays T4 online in two ways, with no ranked:
+The beta plays T4 online in two ways (ranked on a T4 server that opens it, see "Ranked" below):
 
 - **T4 lobby:** through a T4 lobby server. Guest or account login, the player list,
   lobby chat, quick match and challenges (accept or decline), then the same explicit
@@ -71,8 +71,12 @@ A stale ELF or a stamp without a compiler says "rebuild"; a missing ISO says "ch
 What the client expects from the server: a T4 lobby (welcome `"game": "t4"`, UDP magic
 `T4LB`, relayed game packets `T4NP`), TCP and UDP 7791 plus UDP 7792 for the NAT probe
 unless the address names other ports, guests on, quick match and challenges (unranked), the
-lobby chat, and a short minimum match length or none (the T4 game writes no result
-file yet: the players report the winner). The players' game port is any free UDP port
+lobby chat, and a short minimum match length or none. A T4 game built from a source with
+the match result (T4 `t4-result`, docs/MATCH_RESULT_T4.md there) writes its own result file
+(`TEKKEN4_NET_RESULT`, next to the game's net.log): the launcher reports it with source "game"
+(winner, round score, fighters, stage, the compared state hash) and closes the game five seconds
+later; an older build, or a game that ends without a decided match, leaves the manual answer.
+The players' game port is any free UDP port
 the launcher picks; nothing needs forwarding.
 
 ### Controller walk (lobby)
@@ -86,11 +90,30 @@ the launcher picks; nothing needs forwarding.
 4. When a match is found, choose **Start match**. T4 starts with the lobby's connection;
    pick characters and stage in T4's own VS menus. View + Menu held two seconds ends the
    game (as for direct IP).
-5. After the game, report **I won**, **I lost** or **No result**; the lobby's verdict
-   appears, then **Back to lobby**. **Direct IP / VPN** on the login screen goes back.
+5. When the game decided the match itself, the launcher reports it, closes the game and shows
+   the lobby's verdict. Otherwise (an older T4 build, a game closed before the match ended)
+   report **I won**, **I lost** or **No result** after the game; the lobby's verdict appears,
+   then **Back to lobby**. **Direct IP / VPN** on the login screen goes back.
 
-Not in the T4 beta lobby: ranked and leaderboards, rooms, friends, private chat,
-spectating, tournaments, replays, in-game result files and direct entry into a fight.
+Not in the T4 beta lobby: rooms, friends, private chat, spectating, tournaments, replays and
+direct entry into a fight.
+
+### Ranked
+
+When the T4 server opens ranked (its welcome says `ranked_queue`), accounts get **Search ranked**;
+guests play casual. Ranked is a set, best of 3, rated once (Glicko-2) when it is decided; the next
+game starts by itself after the server's countdown (no ready vote), **Leave set** between games
+counts as a loss. Only results the two games proved count (the T4 game's own result file on both
+PCs); a game that only has the players' answers does not count ("The games did not prove this
+result") and is played again. The set's fighters are the ones game 1 was fought with: a later game
+fought with another fighter goes to the other player.
+
+Ranks are Tekken 7's 47 rank names (Beginner ... Tekken God Omega) on the T4 rating -- separate
+from T5DR's. The pictures are our own badges (`tools/make_rank_badges.py`, one SVG per rank in
+`openrecomp/ui/assets/ranks`), never Namco's emblems; they show in the lobby table, the profile
+card and the found match, which names **P1** and **P2** with name, rank and badge (P1 = the host).
+In the game each player's name and badge sit on their side at character select and under the
+life bars (Settings: **Name plates in the game**, on by default; nothing changes in the match).
 
 ### End-to-end check on one PC
 

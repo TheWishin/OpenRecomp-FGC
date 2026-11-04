@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" width="200" height="100">
+<!-- Tekken 4 Online rank badge 0: Beginner (our own drawing, tools/make_rank_badges.py) -->
+<polygon points="14.00,6.00 186.00,6.00 198.00,50.00 186.00,94.00 14.00,94.00 2.00,50.00" fill="#7d838c" stroke="#c9ccd1" stroke-width="5" stroke-linejoin="round"/>
+<polygon points="14.00,10.00 186.00,10.00 195.00,44.00 5.00,44.00" fill="#c9ccd1" fill-opacity="0.22"/>
+<circle cx="50" cy="50" r="36" fill="#3c4047" stroke="#c9ccd1" stroke-width="3"/>
+<circle cx="50" cy="50" r="22" fill="#c9ccd1"/>
+<text x="141" y="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="16.4" fill="#ffffff" stroke="#3c4047" stroke-width="3" paint-order="stroke">BEGINNER</text>
+</svg>
