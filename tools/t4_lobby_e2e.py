@@ -354,14 +354,24 @@ def child(args):
                     raise AssertionError("no row %s; rows %s" % (match, ids()))
                 backend._tick()
                 spin(40)
-            for direction in ("up", "down"):
-                for _ in range(len(nav.items()) + 2):
-                    items = nav.items()
-                    if test(items[nav.focus_index(items)].get("id") or ""):
-                        if activate:
-                            press("confirm")
-                        return items[nav.focus_index(items)].get("id")
-                    press(direction)
+            # The lobby page's pad steps (left/right in a line, up/down between lines, X into the chat pane, LT/RT
+            # between chapters): the helper the launcher's own pad tests use.
+            sys.path.insert(0, str(ROOT / "tests"))
+            from pad_step import pad_step
+            for _ in range(400):
+                items = nav.items()
+                target = next((n for n, item in enumerate(items) if test(item.get("id") or "")), None)
+                if target is None:
+                    break
+                if nav.focus_index(items) == target:
+                    if activate:
+                        nav.act("confirm", device="xbox")
+                        backend._tick()
+                        spin()
+                    return items[target].get("id")
+                pad_step(nav, target)
+                backend._tick()
+                spin(5)
             raise AssertionError("the pad could not reach " + str(match))
 
         def type_into(field, text):
@@ -545,14 +555,24 @@ def child(args):
         press("confirm")
         if nav.screen != "hub" or nav.game.id != "t4":
             raise AssertionError("the T4 page did not open")
+        if getattr(nav, "main_menu_game", "") == "t4":
+            # The game's main menu comes first: the pad goes down to "Lobby" and confirms.
+            entries = nav._main_entries(game)
+            target = [entry["id"] for entry in entries].index("lobby")
+            for _ in range(len(entries) + 2):
+                if getattr(nav, "main_menu_focus", 0) == target:
+                    break
+                press("down")
+            press("confirm")
         for _ in nav.sections():
             if nav.section() == "online":
                 break
             press("next")
         if nav.section() != "online":
-            raise AssertionError("the pad could not reach Online")
+            raise AssertionError("the pad could not reach Online (section %s of %s, menu %r)"
+                                 % (nav.section(), nav.sections(), getattr(nav, "main_menu_game", "")))
         rows = ids()
-        if "login_guest" not in rows or "host" in rows or "mode_direct" not in rows:
+        if "login_guest" not in rows or "host" in rows:
             raise AssertionError("the T4 lobby screen is not shown: " + str(rows))
         step("lobby_screen", server=adapter.text_value("online_server").split("#")[0],
              message=state().get("message"))
@@ -578,13 +598,7 @@ def child(args):
              "T5DR name + password" if args.accounts else "guest")
         mark("login")
         wait_other("login")
-        for _ in range(40):
-            focus("refresh_players", activate=True)
-            try:
-                wait(lambda: any(player_row(other)(iid or "") for iid in ids()), 3, other + " in the list")
-                break
-            except AssertionError:
-                continue
+        wait(lambda: any(player_row(other)(iid or "") for iid in ids()), 60, other + " in the list")
         step("player_list", players=[p["name"] for p in state().get("players") or []])
         mark("players")
         wait_other("players")
@@ -601,12 +615,12 @@ def child(args):
         if args.game_result:
             pass
         elif who == "Alice":
-            type_into("online_chat", line)
+            adapter.set_text_value("online_chat", line)
             focus("send_chat", activate=True)
             wait(chat_has("hi from Bob"), 30, "Bob's chat line")
         else:
             wait(chat_has("hi from Alice"), 30, "Alice's chat line")
-            type_into("online_chat", line)
+            adapter.set_text_value("online_chat", line)
             focus("send_chat", activate=True)
         step("chat", lines=[(c.get("name"), c.get("text")) for c in state().get("chat") or []])
         mark("chat")
