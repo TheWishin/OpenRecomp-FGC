@@ -105,7 +105,7 @@ def event(path, kind, **values):
         stream.write(json.dumps(dict(kind=kind, **values), ensure_ascii=False) + "\n")
 
 
-def safety(events, *, full=False, worker=False, expected_python=None):
+def safety(events, *, full=False, worker=False, expected_python=None, extra_roots=()):
     """Fail closed for sockets and commands that can escape the offline test.
 
     Python build subprocesses enter this same driver so the socket guard follows
@@ -118,6 +118,7 @@ def safety(events, *, full=False, worker=False, expected_python=None):
     pending = threading.local()
     owned_pids = set()
     scratch = Path(events).resolve().parent
+    roots = [scratch, *(Path(r).resolve() for r in extra_roots)]
 
     def writable(path):
         if isinstance(path, int):  # Already-open standard streams and anonymous pipes.
@@ -125,9 +126,11 @@ def safety(events, *, full=False, worker=False, expected_python=None):
         if os.fsdecode(path).casefold() in (os.devnull.casefold(), "nul", "/dev/null"):
             return  # subprocess.DEVNULL; the launcher's own probes use it
         try:
-            Path(os.fsdecode(path)).resolve().relative_to(scratch)
-        except (TypeError, ValueError):
+            target = Path(os.fsdecode(path)).resolve()
+        except TypeError:
             raise PermissionError("player matrix refused a write outside its isolated case") from None
+        if not any(target.is_relative_to(root) for root in roots):
+            raise PermissionError("player matrix refused a write outside its isolated case")
 
     def audit(name, args):
         if name == "open":
@@ -278,7 +281,12 @@ def run_case(request):
     # Tekken 4 has no Python of its own: its ISO import and build run on the package's portable Python (-I -B), which
     # the foreign-python / no-python cases keep honest. T5DR builds with python/python.exe inside the game folder.
     own_python = [sys.executable if case.get("game") == "t4" else None]
-    safety(events, full=request.get("full", False), expected_python=lambda: own_python[0])
+    # The game copy sits under the profile, except in the long-profile case where it is a sibling folder inside the
+    # same case; only copies made by the matrix count, never the read-only inputs.
+    case_dir = home.parent if case.get("id") == "unicode-long-path" else home
+    copies = [Path(inputs[key]).resolve() for key in ("t5dr_existing", "t4_root") if inputs.get(key)]
+    safety(events, full=request.get("full", False), expected_python=lambda: own_python[0],
+           extra_roots=[c for c in copies if c.is_relative_to(case_dir)])
     from PySide6.QtCore import QTimer, QtMsgType, qInstallMessageHandler
     from PySide6.QtGui import QGuiApplication
     from openrecomp import app

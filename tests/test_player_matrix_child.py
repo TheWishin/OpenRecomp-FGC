@@ -124,6 +124,16 @@ class ProcessGuards(unittest.TestCase):
             subprocess.Popen(["unknown-tool.exe", "inert-input"])
         self.spawn.assert_not_called()
 
+    def test_extra_roots_widen_the_writable_area_to_the_named_folders_only(self):
+        case, other = self.folder / "case" / "profile", self.folder / "case" / "game copy"
+        child.safety(str(case / "events.jsonl"), extra_roots=[other])
+        audit = self.audit_hook.call_args.args[0]
+        audit("open", (str(case / "settings.json"), "w", os.O_WRONLY | os.O_CREAT))
+        audit("open", (str(other / "native" / "build.log"), "w", os.O_WRONLY | os.O_CREAT))
+        for outside in (self.folder / "case" / "elsewhere.txt", self.folder / "other-case" / "game copy" / "x"):
+            with self.subTest(outside=outside.name), self.assertRaises(PermissionError):
+                audit("open", (str(outside), "w", os.O_WRONLY))
+
     def test_audit_blocks_direct_shell_bypasses_and_external_network_events(self):
         audit = self.guard()
         for name, args in (("os.system", ("fake",)), ("os.spawn", ("fake",)),
