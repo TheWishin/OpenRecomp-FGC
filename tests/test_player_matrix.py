@@ -37,6 +37,9 @@ class MatrixFixture(unittest.TestCase):
                       root=str(root), expected_root=str(root), build_python=python,
                       commands=[[python, "inert-build-marker"]], build_started=True, first_steps=True,
                       offered_existing=True, second_copy=False)
+        if case_id in matrix.T4_CASES:  # Tekken 4 builds on the package's portable Python
+            python = str(self.launcher / "portable/pythonw.exe")
+            result.update(build_python=python, commands=[[python, "-I", "-B", "inert-build-marker"]])
         if case_id in matrix.REPAIRS:
             result.update(build_python="", commands=[], build_started=False,
                           repair_message="The game package Python needs repair. Reinstall or choose a complete folder.")
@@ -112,6 +115,19 @@ class PlayerEnvironment(MatrixFixture):
         self.assertEqual(foreign[0], str(home.resolve() / "foreign-python"))
         self.assertEqual(foreign[1:], normal)
 
+    def test_tool_folders_reach_path_only_for_the_t4_case_and_never_with_a_python(self):
+        git, snake = self.temp / "git" / "cmd", self.temp / "pytools"
+        git.mkdir(parents=True); snake.mkdir()
+        (snake / "python.exe").write_bytes(b"x")
+        inputs = {"tools_path": [str(git), str(snake), str(self.temp / "missing")]}
+        t4 = next(c for c in matrix.cases() if c["id"] == "t4-iso")
+        other = next(c for c in matrix.cases() if c["id"] == "no-winget")
+        self.assertEqual(matrix._case_tools(t4, inputs), [str(git)])
+        self.assertEqual(matrix._case_tools(other, inputs), [])
+        path = matrix.isolated_env(self.temp / "p", "t4-iso", {}, tools=[str(git)])["PATH"].split(os.pathsep)
+        self.assertEqual(path[0], str(git))
+        self.assertNotIn(str(git), matrix.isolated_env(self.temp / "p", "t4-iso", {})["PATH"])
+
     def test_case_definitions_cover_every_required_selection_once(self):
         cases = matrix.cases()
         self.assertEqual(len(cases), len(matrix.REQUIRED_CASES))
@@ -123,6 +139,15 @@ class PlayerEnvironment(MatrixFixture):
 
 
 class EvidenceChecks(MatrixFixture):
+    def test_tekken4_builds_on_the_packages_portable_python_not_a_game_python_or_a_foreign_one(self):
+        self.assertEqual(matrix.evaluate_case("t4-iso", self.evidence("t4-iso"), self.launcher)[0], "PASS")
+        for wrong in (str(self.temp / "isolated-game" / "python" / "python.exe"), str(self.temp / "path" / "python.exe")):
+            with self.subTest(python=wrong):
+                evidence = self.evidence("t4-iso")
+                evidence.update(build_python=wrong, commands=[[wrong, "-I", "-B", "inert-build-marker"]])
+                self.assertEqual(matrix.evaluate_case("t4-iso", evidence, self.launcher)[0], "FAIL")
+        self.assertEqual(matrix.evaluate_case("fresh-t5dr", self.evidence("t4-iso"), self.launcher)[0], "FAIL")
+
     def test_success_requires_observed_game_python_and_successful_first_steps(self):
         self.assertEqual(matrix.evaluate_case("fresh-t5dr", self.evidence(), self.launcher)[0], "PASS")
         for key, value in (("build_started", False), ("first_steps", False), ("commands", []),
@@ -171,7 +196,7 @@ class EvidenceChecks(MatrixFixture):
                     self.assertEqual(matrix.evaluate_case(name, evidence, self.launcher)[0], "FAIL")
 
     def test_no_winget_can_pass_with_clear_guidance_or_successful_game_build(self):
-        evidence = self.evidence()
+        evidence = self.evidence("no-winget")
         self.assertEqual(matrix.evaluate_case("no-winget", evidence, self.launcher)[0], "PASS")
         evidence.update(build_started=False, build_python="", commands=[], first_steps=False,
                         guidance="Install the required build tools manually, then retry Build.")
@@ -260,6 +285,20 @@ class ScratchFixtures(MatrixFixture):
                 self.assertEqual(Path(case["selection"]).resolve(), (root / suffix).resolve())
                 self.assertEqual(len(list((home / "Downloads").iterdir())), 1)
                 self.assertTrue((self.source / "python/python.exe").exists())
+
+    def test_an_earlier_openrecomp_install_gets_the_install_marker_in_its_private_copy_only(self):
+        case = next(dict(c) for c in matrix.cases() if c["id"] == "existing-t5dr")
+        for managed in (False, True):
+            home = self.temp / "scratch" / ("managed" if managed else "borrowed")
+            home.mkdir(parents=True)
+            inputs = matrix.prepare_case(home, dict(case), {"t5dr_existing": str(self.source),
+                                                          "t5dr_existing_managed": managed})
+            marker = Path(inputs["t5dr_existing"]) / "openrecomp-release.json"
+            self.assertEqual(marker.is_file(), managed)
+            self.assertFalse((self.source / "openrecomp-release.json").exists())
+            if managed:
+                info = json.loads(marker.read_text(encoding="utf-8"))
+                self.assertEqual((info["game"], info["installed_by"]), ("t5dr", "OpenRecomp-FGC"))
 
     def test_discovery_case_does_not_preselect_a_folder(self):
         _, case, inputs = self.prepare("discover-old-t5dr")

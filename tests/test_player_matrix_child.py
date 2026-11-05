@@ -29,6 +29,23 @@ class LocalOnly(unittest.TestCase):
                 self.assertFalse(child.local_host(host))
 
 
+class SeededKeys(unittest.TestCase):
+    def test_keys_are_copied_into_the_case_once_and_the_source_is_left_alone(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as folder:
+            folder = Path(folder)
+            source, root = folder / "owner.keys", folder / "game"
+            source.write_bytes(b"inert key data")
+            self.assertFalse(child.seed_keys({}, root))
+            self.assertFalse(child.seed_keys({"t5dr_keys": str(source)}, ""))
+            self.assertTrue(child.seed_keys({"t5dr_keys": str(source)}, root))
+            target = root / "native" / "keys" / "ps3.keys"
+            self.assertEqual(target.read_bytes(), b"inert key data")
+            target.write_bytes(b"built by the game")
+            self.assertTrue(child.seed_keys({"t5dr_keys": str(source)}, root))
+            self.assertEqual(target.read_bytes(), b"built by the game")
+            self.assertEqual(source.read_bytes(), b"inert key data")
+
+
 class ProcessGuards(unittest.TestCase):
     def setUp(self):
         self.folder = Path(self.enterContext(tempfile.TemporaryDirectory(dir=Path(__file__).parent)))
@@ -120,6 +137,18 @@ class ProcessGuards(unittest.TestCase):
         audit("socket.connect", (None, ("127.0.0.1", 1)))
         audit("socket.getaddrinfo", ("localhost", 1))
         self.spawn.assert_not_called()
+
+
+    def test_null_device_writes_stay_allowed_but_other_writes_outside_the_case_do_not(self):
+        # subprocess.DEVNULL opens os.devnull read-write: the launcher's own Python probe
+        # (stdin/stdout=DEVNULL) failed with PermissionError and read as a damaged install.
+        audit = self.guard()
+        for name in (os.devnull, "nul", "NUL"):
+            with self.subTest(device=name):
+                audit("open", (name, "r+", os.O_RDWR))
+        with self.assertRaises(PermissionError):
+            audit("open", (str(Path(tempfile.gettempdir()) / "outside-case.txt"), "w", os.O_WRONLY))
+        audit("open", (str(self.folder / "inside.txt"), "w", os.O_WRONLY | os.O_CREAT))
 
 
 class NativeAudit(unittest.TestCase):

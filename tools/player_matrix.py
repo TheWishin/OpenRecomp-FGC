@@ -23,6 +23,7 @@ REQUIRED_CASES = (
     "foreign-python", "no-python", "unicode-long-path",
 )
 REPAIRS = {"missing-python", "missing-crypto"}
+T4_CASES = {"t4-iso", "no-winget"}
 SCHEMA = 1
 CHILD = Path(__file__).with_name("player_matrix_child.py")
 
@@ -91,7 +92,7 @@ def fingerprint(root):
     return _hash_files(_files(package_root(root)))
 
 
-def isolated_env(home, mode, base=None):
+def isolated_env(home, mode, base=None, tools=()):
     home = Path(home).resolve()
     base = dict(os.environ if base is None else base)
     env = {k: v for k, v in base.items() if not k.upper().startswith(
@@ -112,11 +113,14 @@ def isolated_env(home, mode, base=None):
                                                 system / "System32" / "WindowsPowerShell" / "v1.0"))
     if mode == "foreign-python":
         env["PATH"] = str(home / "foreign-python") + os.pathsep + env["PATH"]
+    if tools:
+        # A PC that has the build tools installed (Git is the one the T4 steps ask PATH for); never Python.
+        env["PATH"] = os.pathsep.join([*(str(Path(t)) for t in tools), env["PATH"]])
     return env
 
 
 def cases():
-    return [dict(id=name, game="t4" if name in ("t4-iso", "no-winget") else "t5dr", mode=name,
+    return [dict(id=name, game="t4" if name in T4_CASES else "t5dr", mode=name,
                  selection={"parent-t5dr": "parent", "native-t5dr": "native", "child-t5dr": "child"}.get(name, "exact"))
             for name in REQUIRED_CASES]
 
@@ -150,9 +154,12 @@ def evaluate_case(case_id, evidence, launcher):
     if case_id == "no-winget" and evidence.get("guidance") and not evidence.get("build_started"):
         return "PASS", "No winget: clear manual build-tools guidance"
     root = evidence.get("root")
-    expected = Path(root or "") / "python" / "python.exe"
+    # Tekken 4 ships no Python of its own: it runs on the package's portable Python (never one found on PATH).
+    expected = (launcher / "portable" / "pythonw.exe" if case_id in T4_CASES
+                else Path(root or "") / "python" / "python.exe")
     if not _same(evidence.get("build_python"), expected):
-        return "FAIL", "Build did not use the game's own python/python.exe"
+        return "FAIL", ("Build did not use the package's portable Python" if case_id in T4_CASES
+                        else "Build did not use the game's own python/python.exe")
     commands = evidence.get("commands", [])
     if not commands or not any(_same(c[0], expected) and c[1:] not in (
             ["--version"], ["-version"], ["/?"], ["-I", "-c", "from Crypto.Cipher import AES"])
@@ -263,6 +270,11 @@ def prepare_case(home, case, inputs):
         target.parent.mkdir(exist_ok=True)
         _copy_install(source, target)
         inputs[source_key] = str(target)
+        if case["game"] == "t5dr" and inputs.get("t5dr_existing_managed"):
+            # An install an earlier OpenRecomp launcher made. One only borrowed from T5DR's own launcher cannot
+            # be built in OpenRecomp (docs/T5DR_COEXISTENCE.md), so that fixture could never reach a build step.
+            (target / "openrecomp-release.json").write_text(json.dumps(dict(
+                game="t5dr", installed_by="OpenRecomp-FGC", version="0.0.0", tag="v0.0.0")), encoding="utf-8")
         inputs["expected_root"] = str(target)
         selection = case.get("selection", "exact")
         case["selection"] = str({"parent": target.parent, "native": target / "native",
@@ -337,6 +349,14 @@ def _run_process(command, *, timeout, check=False, **kwargs):
             kernel.CloseHandle(job)
 
 
+def _case_tools(case, inputs):
+    """Folders of tools a normal player PC has on PATH, for the one case that models such a PC (config `tools_path`)."""
+    folders = inputs.get("tools_path") or []
+    if case["id"] != "t4-iso":
+        return []
+    return [f for f in folders if Path(f).is_dir() and not list(Path(f).glob("python*.exe"))]
+
+
 def run_case(launcher, scratch, case, inputs, *, full=False, timeout=180, run=None):
     case = dict(case)
     home = Path(scratch) / case["id"]
@@ -355,7 +375,7 @@ def run_case(launcher, scratch, case, inputs, *, full=False, timeout=180, run=No
                    "--request", str(request_path), "--result", str(result_path)]
         flags = (subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS) if os.name == "nt" else 0
         with (home / "launcher-output.txt").open("w", encoding="utf-8") as output:
-            completed = (run or _run_process)(command, cwd=str(launcher), env=isolated_env(home, case["mode"]),
+            completed = (run or _run_process)(command, cwd=str(launcher), env=isolated_env(home, case["mode"], tools=_case_tools(case, inputs)),
                             stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT,
                             timeout=timeout + 30, creationflags=flags, check=False)
         if not result_path.is_file():

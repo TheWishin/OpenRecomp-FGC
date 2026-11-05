@@ -87,6 +87,19 @@ def local_host(host):
         return False
 
 
+def seed_keys(inputs, root):
+    """T5DR's first build step downloads the public key data from github.com. The offline gate hands the build the
+    keys file the owner already has (config `t5dr_keys`, read only) at the place the step looks, inside the case."""
+    source = inputs.get("t5dr_keys")
+    if not source or not root:
+        return False
+    target = Path(root) / "native" / "keys" / "ps3.keys"
+    if not target.exists():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(Path(source).read_bytes())
+    return True
+
+
 def event(path, kind, **values):
     with open(path, "a", encoding="utf-8") as stream:
         stream.write(json.dumps(dict(kind=kind, **values), ensure_ascii=False) + "\n")
@@ -109,6 +122,8 @@ def safety(events, *, full=False, worker=False, expected_python=None):
     def writable(path):
         if isinstance(path, int):  # Already-open standard streams and anonymous pipes.
             return
+        if os.fsdecode(path).casefold() in (os.devnull.casefold(), "nul", "/dev/null"):
+            return  # subprocess.DEVNULL; the launcher's own probes use it
         try:
             Path(os.fsdecode(path)).resolve().relative_to(scratch)
         except (TypeError, ValueError):
@@ -260,7 +275,9 @@ def run_case(request):
     sys.path[:] = [str(launcher)] + [p for p in sys.path if p and not same_path(p, repository)
                                     and not same_path(p, repository / "tools")]
     sys.dont_write_bytecode = True
-    own_python = [None]
+    # Tekken 4 has no Python of its own: its ISO import and build run on the package's portable Python (-I -B), which
+    # the foreign-python / no-python cases keep honest. T5DR builds with python/python.exe inside the game folder.
+    own_python = [sys.executable if case.get("game") == "t4" else None]
     safety(events, full=request.get("full", False), expected_python=lambda: own_python[0])
     from PySide6.QtCore import QTimer, QtMsgType, qInstallMessageHandler
     from PySide6.QtGui import QGuiApplication
@@ -273,6 +290,7 @@ def run_case(request):
     started_at = time.monotonic()
     phase = "start"
     selected_sources = False
+    blocked_since = None
     finished = False
     drive_timer = None
 
@@ -308,7 +326,8 @@ def run_case(request):
                 if row.get("id") == iid:
                     return row
                 press(backend, direction)
-        raise AssertionError("controller cannot reach " + iid)
+        raise AssertionError("controller cannot reach " + iid + "; rows: " + ", ".join(
+            str(row.get("id")) for row in nav.items()) + "; section " + str(nav.section()))
 
     def pick(backend, target, path):
         # Seed the picker at the supplied player's path, then confirm the actual
@@ -341,7 +360,7 @@ def run_case(request):
         return True
 
     def step():
-        nonlocal phase, selected_sources
+        nonlocal phase, selected_sources, blocked_since
         if finished:
             return
         backend = backend_ref[0]
@@ -349,7 +368,9 @@ def run_case(request):
         game = nav.game_by_id(gid)
         try:
             if time.monotonic() - started_at > request.get("timeout", 120):
-                finish("FAIL", "case timed out before successful build steps")
+                finish("FAIL", "case timed out before successful build steps (phase " + phase + (
+                       "; " + str(nav.overlay) + "/" + str(getattr(nav, "confirm_kind", "")) + "; " + str(backend.setup.view(gid))[:300]
+                       if phase == "install" else "") + ")")
                 return
             if game is None:
                 finish("FAIL", "packaged launcher has no " + gid + " tile")
@@ -392,6 +413,13 @@ def run_case(request):
                 phase = "sources"
                 return
             if phase == "install":
+                if nav.overlay == "dialog" and nav.confirm_kind == "setup_existing":
+                    # The launcher looks through drive roots, the registry and recent files: a development PC has
+                    # T5DR installs of its own. A fresh install says "no, install a new copy" and never touches them.
+                    if nav.exit_focus != 1:
+                        press(backend, "right")
+                    press(backend, "confirm")
+                    return
                 if nav.overlay == "dialog" and nav.confirm_kind == "setup_install":
                     if nav.exit_focus != 1:
                         press(backend, "right")
@@ -425,6 +453,13 @@ def run_case(request):
                     evidence["repair_message"] = i18n.localize(problem, "en")
                     finish("PASS", "incomplete game Python shows repair and cannot start a build")
                     return
+                problem = game.a.build_install_problem()
+                if problem:
+                    from openrecomp import i18n
+                    evidence["install_problem"] = i18n.localize(problem, "en")
+                    raise AssertionError("the game install is not buildable: " + evidence["install_problem"])
+                if gid != "t4":
+                    seed_keys(inputs, evidence["root"])
                 required = ("iso",) if gid == "t4" else ("pkg", "rap")
                 if not selected_sources:
                     for sid in required:
@@ -441,8 +476,15 @@ def run_case(request):
                 if row.get("first_play"):
                     raise AssertionError("scratch fixture already built; this case would launch a game")
                 if row.get("disabled") or row.get("blocked"):
-                    raise AssertionError("launcher blocks Build: " + str(row.get("hint", "")))
-                own_python[0] = str(Path(evidence["root"]) / "python" / "python.exe")
+                    # The launcher checks a chosen disc image / package on its own thread: the first tick
+                    # after the pick still shows "choose the image first". Only a block that stays is a failure.
+                    blocked_since = blocked_since or time.monotonic()
+                    if time.monotonic() - blocked_since < 45:
+                        return
+                    raise AssertionError("launcher blocks Build: " + str(row.get("hint", "")) + " (" + str(nav.toast) + "; " + str(game.a.source_state()) + ")")
+                blocked_since = None
+                if gid != "t4":
+                    own_python[0] = str(Path(evidence["root"]) / "python" / "python.exe")
                 press(backend, "confirm")
                 build = getattr(game.a, "build", None)
                 if build is not None:
@@ -457,7 +499,7 @@ def run_case(request):
             command = getattr(build, "cmd", None)
             if command:
                 evidence["build_python"] = command[0]
-                own = Path(evidence["root"]) / "python" / "python.exe"
+                own = Path(sys.executable) if gid == "t4" else Path(evidence["root"]) / "python" / "python.exe"
                 if not same_path(command[0], own):
                     raise AssertionError("build selected a Python outside the game install")
             evidence["build_started"] = evidence["build_started"] or bool(state.get("running") and build)
