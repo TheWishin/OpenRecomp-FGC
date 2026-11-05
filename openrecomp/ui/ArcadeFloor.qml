@@ -194,7 +194,7 @@ Item {
                         onActivated: i => floor.root.backend.clickRow(i)
                     }
                 }
-                OnlineStyle.SectionHeader { visible: floor.arcade.moreOpen && (floor.arcade.cabinets || []).length > 0; width: parent.width; text: floor.labels.cabinets || "" }
+                OnlineStyle.SectionHeader { visible: !!floor.arcade.moreOpen && (floor.arcade.cabinets || []).length > 0; width: parent.width; text: floor.labels.cabinets || "" }
                 Repeater {
                     id: drawerCabinets
                     model: floor.arcade.moreOpen ? floor.arcade.cabinets || [] : []
