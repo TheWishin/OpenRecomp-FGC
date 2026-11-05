@@ -38,9 +38,14 @@ class Dialog:
                     self.say("@cancelling_build")
             elif yes and self.confirm_kind == "stop_game" and not self._dry("@dry_stop"):
                 self._offline_action(self.game.a.stop)
-            elif yes and self.confirm_kind == "rebuild" and not self._dry("@dry_rebuild"):
-                if self._offline_action(self.game.a.build_start, force=True):
-                    self.say("@rebuild_starting")
+            elif yes and self.confirm_kind == "rebuild":
+                self._start_build(self.game, force=True)
+            elif yes and self.confirm_kind == "t5_folder":
+                # The one-time notice is told: remember it (the launcher's own config, nothing in the folder), then build.
+                self.game.a.foreign_notice_done()
+                if self.on_adapter_config:
+                    self.on_adapter_config()
+                self._start_build(self.game, force=bool(getattr(self, "build_force", False)))
             elif yes and self.confirm_kind == "controls_reset":
                 self._reset_controls()
             elif yes and self.confirm_kind == "support_report":
@@ -70,6 +75,8 @@ class Dialog:
             title, text = "@dialog.stop.title", "@dialog.stop.text"
         elif self.confirm_kind == "rebuild":
             title, text = "@dialog.rebuild.title", "@dialog.rebuild.text"
+        elif self.confirm_kind == "t5_folder":
+            title, text = "@dialog.t5_folder.title", "@dialog.t5_folder.text"
         elif self.confirm_kind == "controls_reset":
             title, text = "@controls.reset", "@controls.reset_confirm"
         elif self.confirm_kind == "support_report":

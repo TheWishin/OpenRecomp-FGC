@@ -158,6 +158,7 @@ class Backend(QObject, GameSetupBackend):
         times = self.config.get("build_times")
         self.nav.build_history = {k: v for k, v in times.items() if isinstance(v, dict)} if isinstance(times, dict) else {}
         self.nav.on_build_history = self._save_build_history      # the Build page's "about N min left" next time
+        self.nav.on_adapter_config = self._save_config            # e.g. the one-time T5DR folder notice
         self.updates = UpdateService(busy=self._update_busy, quit=self._quit,
                                      prereleases=lambda: bool(self.config.get("game_prereleases")))
         self._offered_update = False

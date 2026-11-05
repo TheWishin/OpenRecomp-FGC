@@ -4,6 +4,7 @@ Nothing of it is copied: OpenRecomp-FGC imports it from the player's install. Pi
 (read from the player's own built game by fighter_art.py) and stay on the PC.
 """
 import glob
+import hashlib
 import importlib.util
 import json
 import os
@@ -24,6 +25,7 @@ from .launch_guard import LaunchGuard
 from .t5_coexist import load_settings, readonly_imports
 from .t5_compatibility import build_compatibility
 from .t5_build_runtime import start_build_with_python
+from . import t5_buildlock
 from ..manifest import art_dir
 from ..fighter_render import t5_cache_name
 from ..game_releases import managed as _managed_install
@@ -37,6 +39,9 @@ ON_OFF = [("on", "@on"), ("off", "@off")]
 YES_NO = [(False, "@off"), (True, "@on")]
 STATE_SECONDS = 3.0          # beside a T5DR launcher: how old the build state may get before it is read again
 RANK_TAG = re.compile(r"\s*\[\d+\]$")
+# Windows' 260-character path limit as the game's Python and the build tools report it (any language: the code is fixed)
+PATH_ROOM = 70           # characters the game's Python files add below the folder (python\Lib\site-packages\Crypto\Cipher\...)
+PATH_TOO_LONG = re.compile(r"WinError 206|filename or extension is too long|path too long|Errno 36", re.I)
 
 
 def version_key(root):
@@ -279,11 +284,27 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             self._state_busy = False
 
     def coexistence_state(self):
-        return dict(active=self._borrowed(), source=self.root,
+        # can_build: a folder set up by T5DR's own launcher is built here too (docs/T5DR_COEXISTENCE.md "Building");
+        # both launchers keep using it, which is why `active` stays on.
+        return dict(active=self._borrowed(), source=self.root, can_build=True,
                     build=build_compatibility(self.release(), self.s.out_dir))
 
     def _borrowed(self):
+        """A folder set up by T5DR's own launcher (no OpenRecomp install marker): shared with that launcher."""
         return bool(getattr(self.s, "coexistence", False)) and not getattr(self, "managed", False)
+
+    def foreign_notice_pending(self):
+        """True until the player has been told (once per folder) that OpenRecomp builds a T5DR launcher folder."""
+        return self._borrowed() and self._folder_id() not in (self.config.get("t5dr_folder_notice") or [])
+
+    def foreign_notice_done(self):
+        seen = list(self.config.get("t5dr_folder_notice") or [])
+        if self._folder_id() not in seen:
+            seen.append(self._folder_id())
+        self.config["t5dr_folder_notice"] = seen        # OpenRecomp's own config; nothing is written into the folder
+
+    def _folder_id(self):
+        return hashlib.sha256(os.path.normcase(os.path.realpath(self.root)).encode("utf-8")).hexdigest()[:24]
 
     def ready(self):
         return bool(self.state()["ok"])
@@ -745,8 +766,6 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                 self.config.pop("t5dr_settings_copy", None)
             self.config.setdefault("roots", {})[self.m["id"]] = root
             return "reload"
-        if self._borrowed() and sid in ("pkg", "rap"):
-            raise RuntimeError("@t5.coexist.build_blocked")
         self.s[sid] = path
         self.s.save()
         self._state = None
@@ -776,11 +795,18 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                     try:
                         subprocess.run([own_python, "-I", "-c", "from Crypto.Cipher import AES"], cwd=self.root,
                                        timeout=timeout, check=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                       stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
+                                       stderr=subprocess.PIPE, creationflags=NO_WINDOW)
                         problem = ""
                         break
                     except subprocess.TimeoutExpired:
                         continue
+                    except subprocess.CalledProcessError as error:
+                        # A path past Windows' limit breaks the native module's load (WinError 206): the Python is
+                        # fine, so the answer is "move the folder", not "reinstall".
+                        text = error.stderr.decode("utf-8", "replace") if isinstance(error.stderr, bytes) else str(error.stderr or "")
+                        if PATH_TOO_LONG.search(text) or len(os.path.abspath(self.root)) + PATH_ROOM >= 260:
+                            problem = "@t5.install_path_too_long"
+                        break
                     except (OSError, subprocess.SubprocessError):
                         break
                 self._build_python_probe = (key, problem)
@@ -793,11 +819,13 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         return ""
 
     def build_ready(self):
-        if self._borrowed():
-            return "@t5.coexist.build_blocked"
         problem = self.build_install_problem()
         if problem:
             return problem
+        if getattr(self, "build", None) is None:
+            problem = t5_buildlock.blocker(self.root, self.s.out_dir)
+            if problem:
+                return problem
         if not self.s["pkg"] or not self.s["rap"]:
             return "@choose_package_license"
         return ""
@@ -808,11 +836,17 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                      kind="problem")] if problem else []
 
     def build_start(self, force=False):
-        if self._borrowed():
-            raise RuntimeError("@t5.coexist.build_blocked")
         problem = self.build_install_problem()
         if problem:
             raise RuntimeError(problem)
+        t5_buildlock.acquire(self.root, self.s.out_dir)       # one build at a time, whichever launcher starts it
+        try:
+            self._build_start(force)
+        except BaseException:
+            t5_buildlock.release(self.root)
+            raise
+
+    def _build_start(self, force):
         self.build_steps = {}
         self.build_step = ""
         self.build_fraction = 0.0
@@ -844,9 +878,16 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             elif kind == "line":
                 self.build_line = str(value)
                 self.build_lines = (getattr(self, "build_lines", []) + [self.build_line])[-14:]
+                if PATH_TOO_LONG.search(self.build_line):
+                    self._path_too_long = True
             elif kind == "error":
                 self.last_result = str(value)
             elif kind == "end":
+                t5_buildlock.release(getattr(self, "root", ""))
+                if value not in (0, -1) and getattr(self, "_path_too_long", False):
+                    # Not "reinstall": the folder is fine, its path is too long for Windows
+                    self.last_result = "@t5.build_path_too_long"
+                self._path_too_long = False
                 if value == 0:
                     if self.build_step:
                         self.build_steps[self.build_step] = "@osk.done"

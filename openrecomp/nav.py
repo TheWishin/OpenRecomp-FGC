@@ -91,6 +91,8 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
         self.pending_native = None                  # a dialog the app opens after this action
         self.picker_dirs = dict(picker_dirs or {})  # {".iso": folder, "folder": folder}: where the player last chose one
         self.on_picker_dir = on_picker_dir or (lambda _key, _folder: None)
+        self.on_adapter_config = None               # the app saves config.json after an adapter changed its config
+        self.build_force = False                    # the build a one-time folder notice is asking about
         self.osk = None
         self.tools_game = None                      # the game whose missing build tools the dialog lists
         self.tools_installing = None                # the game whose tools are being installed (result toast once)

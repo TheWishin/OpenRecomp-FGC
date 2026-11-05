@@ -23,6 +23,12 @@ TheWishin/Tekken4Recomp).
   one longer try before it asks you to reinstall.
 - Linux / Steam Deck (Proton, Wine): Tekken 4's Build says why it cannot run there (it needs Windows PowerShell)
   instead of failing silently; Japanese and Korean text uses Linux fonts when Windows' are missing.
+- **A T5DR folder set up by T5DR's own launcher can be built from OpenRecomp** (it was "playable, cannot be built"). You
+  get a one-time notice, then the build runs with the folder's own Python. The T5DR launcher keeps working on the same
+  folder: its settings, `release.json` and layout are not changed, and only one launcher builds at a time (a lock file
+  in the folder; each refuses while the other builds). Saves and settings stay.
+- A game folder whose path is too long for Windows (WinError 206) now says "move the game to a shorter path like
+  C:\Games\T5DR" instead of asking you to reinstall.
 - Games can be described in one JSON file (`docs/ADD_A_GAME.md`): start, stop, settings, picture and a signed update
   check. A Tekken Tag Tournament 2 (TAG2 PC) folder on this PC shows its own tile.
 

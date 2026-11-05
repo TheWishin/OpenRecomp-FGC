@@ -30,6 +30,22 @@ class LocalOnly(unittest.TestCase):
                 self.assertFalse(child.local_host(host))
 
 
+class LauncherFiles(unittest.TestCase):
+    def test_what_the_t5dr_launcher_relies_on_is_hashed_and_absence_counts(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as folder:
+            root = Path(folder)
+            (root / "release.json").write_text("{}", encoding="utf-8")
+            before = child.launcher_files(root)
+            self.assertIsNone(before["launcher.json"])
+            self.assertIsNotNone(before["release.json"])
+            self.assertEqual(child.launcher_files(root), before)
+            (root / "launcher.json").write_text("{}", encoding="utf-8")       # a file that was not there appears
+            self.assertNotEqual(child.launcher_files(root), before)
+            (root / "launcher.json").unlink()
+            (root / "release.json").write_text('{"v": 2}', encoding="utf-8")  # one that was there changes
+            self.assertNotEqual(child.launcher_files(root), before)
+
+
 class SeededKeys(unittest.TestCase):
     def test_keys_are_copied_into_the_case_once_and_the_source_is_left_alone(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as folder:

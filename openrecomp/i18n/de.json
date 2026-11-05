@@ -986,7 +986,7 @@
  "t5.coexist.settings": "Änderungen an Einstellungen bleiben in OpenRecomp. Die Einstellungen deines alten Launchers bleiben erhalten.",
  "t5.coexist.login": "Deine gespeicherte Anmeldung kann hier verwendet werden. Die Anmeldedatei deines alten Launchers bleibt erhalten.",
  "t5.coexist.build_match": "Das erstellte Spiel passt zur Code ID dieser Installation.",
- "t5.coexist.build_differs": "Das erstellte Spiel hat eine andere Code ID. Diese gemeinsame Installation muss im eigenen Launcher neu erstellt werden.",
+ "t5.coexist.build_differs": "Das erstellte Spiel hat eine andere Code ID. Diese gemeinsame Installation muss neu gebaut werden. Das geht auch hier; der T5DR-Launcher funktioniert danach weiter damit.",
  "t5.coexist.build_unknown": "Die Code ID des erstellten Spiels konnte nicht geprüft werden. Prüfe sie im alten Launcher.",
  "t5.coexist.build_blocked": "Das Erstellen verändert die gemeinsame Installation. Nutze dafür deren eigenen Launcher oder wähle eine separate Installation.",
  "t5.coexist.source": "Vorhandene T5DR-Installation",
@@ -1741,5 +1741,12 @@
  "playtime.online": "Online",
  "playtime.sessions": "Sitzungen",
  "playtime.local_only": "Nur auf diesem PC gespeichert. Wird nie hochgeladen.",
- "vibe.rank_up": "Rangaufstieg"
+ "vibe.rank_up": "Rangaufstieg",
+ "dialog.t5_folder.title": "Diesen T5DR-Ordner bauen?",
+ "dialog.t5_folder.text": "Dieser T5DR-Ordner wurde vom T5DR-Launcher eingerichtet. OpenRecomp kann ihn bauen, und der T5DR-Launcher funktioniert danach weiter damit. Deine Spielstände und Einstellungen bleiben erhalten. Baue nie mit beiden Launchern gleichzeitig. Jetzt bauen?",
+ "t5.build_locked_openrecomp": "OpenRecomp baut gerade in diesem Ordner. Warte, bis dieser Bau fertig ist.",
+ "t5.build_locked_t5dr": "Der T5DR-Launcher baut gerade in diesem Ordner. Warte, bis er fertig ist, und baue dann hier.",
+ "t5.build_lock_failed": "OpenRecomp konnte die Bau-Sperre nicht in diesen Ordner schreiben. Prüfe, ob Windows dort das Schreiben erlaubt.",
+ "t5.install_path_too_long": "Der Ordnerpfad ist für Windows zu lang. Verschiebe den ganzen Spielordner in einen kürzeren Pfad wie C:\\Games\\T5DR und wähle ihn dann erneut aus.",
+ "t5.build_path_too_long": "Der Bau wurde gestoppt, weil der Ordnerpfad für Windows zu lang ist. Verschiebe den Spielordner in einen kürzeren Pfad wie C:\\Games\\T5DR und baue dann erneut."
 }

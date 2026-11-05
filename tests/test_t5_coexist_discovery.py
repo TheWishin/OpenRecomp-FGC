@@ -160,16 +160,8 @@ class BorrowedInstall(unittest.TestCase):
                 adapter = self.adapter(compatibility)
                 self.assertEqual(adapter.ready(), ready)
                 self.assertEqual(adapter.state()["compatibility"], compatibility)
-                self.assertEqual(adapter.coexistence_state(), dict(active=True, source="synthetic-install", build=compatibility))
-
-    def test_borrowed_build_and_package_changes_stop_before_native_calls(self):
-        adapter = self.adapter()
-        self.assertEqual(adapter.build_ready(), "@t5.coexist.build_blocked")
-        for action in (lambda: adapter.build_start(), lambda: adapter.build_start(force=True),
-                       lambda: adapter.set_source("pkg", "synthetic.pkg"), lambda: adapter.set_source("rap", "synthetic.rap")):
-            with self.assertRaisesRegex(RuntimeError, "t5.coexist.build_blocked"):
-                action()
-        adapter.core.BuildRun.assert_not_called()
+                self.assertEqual(adapter.coexistence_state(), dict(active=True, source="synthetic-install", build=compatibility,
+                                                                   can_build=True))
 
     def test_state_refreshes_when_old_launcher_changes_the_build(self):
         adapter = self.adapter()

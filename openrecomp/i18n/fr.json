@@ -986,7 +986,7 @@
  "t5.coexist.settings": "Les changements de réglages restent dans OpenRecomp. Les réglages de ton ancien lanceur sont conservés.",
  "t5.coexist.login": "Ta connexion enregistrée peut être utilisée ici. Le fichier de connexion de ton ancien lanceur est conservé.",
  "t5.coexist.build_match": "Le jeu compilé correspond au Code ID de cette installation.",
- "t5.coexist.build_differs": "Le jeu compilé a un autre Code ID. Cette installation partagée doit être recompilée dans son propre lanceur.",
+ "t5.coexist.build_differs": "Le jeu compilé a un autre Code ID. Cette installation partagée doit être recompilée. Tu peux le faire ici ; le lanceur T5DR continue de fonctionner avec.",
  "t5.coexist.build_unknown": "Le Code ID du jeu compilé n'a pas pu être vérifié. Ouvre l'ancien lanceur pour le vérifier.",
  "t5.coexist.build_blocked": "Compiler modifie l'installation partagée. Utilise son propre lanceur ou choisis une installation séparée.",
  "t5.coexist.source": "Installation T5DR existante",
@@ -1741,5 +1741,12 @@
  "playtime.online": "En ligne",
  "playtime.sessions": "Sessions",
  "playtime.local_only": "Enregistré uniquement sur ce PC. Jamais envoyé.",
- "vibe.rank_up": "Promotion"
+ "vibe.rank_up": "Promotion",
+ "dialog.t5_folder.title": "Compiler ce dossier T5DR ?",
+ "dialog.t5_folder.text": "Ce dossier T5DR a été préparé par le lanceur T5DR. OpenRecomp peut le compiler, et le lanceur T5DR continue de fonctionner avec. Tes sauvegardes et réglages sont conservés. Ne compile jamais avec les deux lanceurs en même temps. Compiler maintenant ?",
+ "t5.build_locked_openrecomp": "OpenRecomp est déjà en train de compiler dans ce dossier. Attends la fin de cette compilation.",
+ "t5.build_locked_t5dr": "Le lanceur T5DR compile dans ce dossier en ce moment. Attends qu'il ait fini, puis compile ici.",
+ "t5.build_lock_failed": "OpenRecomp n'a pas pu écrire son verrou de compilation dans ce dossier. Vérifie que Windows autorise l'écriture à cet endroit.",
+ "t5.install_path_too_long": "Le chemin du dossier est trop long pour Windows. Déplace tout le dossier du jeu vers un chemin plus court comme C:\\Games\\T5DR, puis choisis-le à nouveau.",
+ "t5.build_path_too_long": "La compilation s'est arrêtée car le chemin du dossier est trop long pour Windows. Déplace le dossier du jeu vers un chemin plus court comme C:\\Games\\T5DR, puis relance la compilation."
 }

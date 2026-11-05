@@ -59,13 +59,32 @@ readiness to the selected installation's `core.game_state`.
 | Both Code IDs are known and differ | Build again. The old launcher's Play page says "Build the game once (about 2 minutes)" and offers BUILD GAME. OpenRecomp reports that the game needs rebuilding rather than treating its own launcher version as the game version. |
 | A Code ID or build stamp is missing or unreadable | Compatibility is unknown; do not claim that the builds match. OpenRecomp marks an otherwise built game Not ready and blocks Play until compatibility can be established. An absent build still shows the installed core's missing-build state. |
 
-Do not rebuild over the shared 1.1.9 build as part of trying the new launcher.
-That would change the game used by the old launcher as well. A changed game build
-needs a separate player-approved build location and its own acceptance check.
-OpenRecomp blocks the borrowed install's build/rebuild and package/licence-source
-changes. Use the native launcher deliberately for installation maintenance.
-Online peers must satisfy the installed lobby client's build/protocol checks;
-equal launcher versions do not bypass those checks.
+## Building a folder from the T5DR launcher
+
+A folder the T5DR launcher set up (it has no OpenRecomp install marker) can be built from OpenRecomp too, and **both
+launchers keep working on it afterwards**. Nothing the T5DR launcher relies on is changed: not its `launcher.json`, not
+`release.json`, not its Python, tools or `native` layout. OpenRecomp builds with that folder's own Python and writes
+exactly what the T5DR launcher's BUILD GAME writes (the output folder, normally `native`). The package and licence you
+choose in OpenRecomp stay in OpenRecomp's own home, like every other setting; the T5DR launcher keeps its own choices.
+Saves, replays, settings and `native\logs` are never touched.
+
+* The first time you press Build on such a folder OpenRecomp tells you once: "This T5DR folder was set up by the T5DR
+  launcher. OpenRecomp can build it, and the T5DR launcher keeps working with it too." Yes builds, No does nothing and
+  asks again next time. The answer is remembered per folder in OpenRecomp's own config, not in the folder.
+* **One build at a time.** While OpenRecomp builds it keeps `openrecomp-build.lock` in the folder (removed when the build
+  ends, is cancelled or fails). Another OpenRecomp window refuses to build there ("OpenRecomp is already building in this
+  folder"). OpenRecomp also refuses while the T5DR launcher is building: its `build.log` is being written and has no
+  exit-code line yet. The T5DR launcher itself does not look for OpenRecomp's lock, so do not press its BUILD GAME while
+  OpenRecomp builds.
+* A folder path past Windows' 260 characters breaks the game's Python (WinError 206). OpenRecomp then says the folder path
+  is too long and to move the game to a shorter path like `C:\Games\T5DR`, instead of asking you to reinstall.
+* `tests/test_t5_folder_takeover.py` checks that a build leaves the folder as the T5DR launcher would after its own build
+  and that the launcher's own checks still accept it. Set `OPENRECOMP_TEST_T5DR_ROOT` to an install to also run that
+  launcher's real `core.py` checks (read only).
+
+An install OpenRecomp downloaded itself (it has the marker) is OpenRecomp's own and was always buildable. Changing the
+game build of a folder both launchers use still means the T5DR launcher's Play page sees the new build the next time it
+looks, which is the point.
 
 ## Private update drill
 

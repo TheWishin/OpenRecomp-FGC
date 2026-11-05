@@ -193,7 +193,7 @@ class PackageTests(unittest.TestCase):
             "openrecomp/t4_report.py", "openrecomp/ui_sound.py", "openrecomp/nav_sound.py",
             "openrecomp/adapters/t4_support.py", "openrecomp/adapters/t5_netext.py",
             "openrecomp/adapters/build_tool_downloads.py", "openrecomp/adapters/t5_discovery.py",
-            "openrecomp/adapters/t5_build_runtime.py",
+            "openrecomp/adapters/t5_build_runtime.py", "openrecomp/adapters/t5_buildlock.py",
             "openrecomp/ui/PageLoader.qml", "openrecomp/ui/PeerPing.qml",
             "openrecomp/nav_controls_page.py", "openrecomp/pad_glyphs.py", "openrecomp/pad_presets.py",
             "openrecomp/ui/BindingsPage.qml", "openrecomp/ui/PadGlyph.qml",

@@ -256,6 +256,16 @@ def build_worker(events, argv, full):
     return 0
 
 
+def launcher_files(root):
+    """What T5DR's own launcher relies on, as hashes (absent files count): an OpenRecomp build must not change these."""
+    import hashlib
+    root = Path(root)
+    names = ["launcher.json", "release.json", "T5DR Online.exe", "launcher/core.py", "python/python.exe",
+             "tools/build_game.py"]
+    return {name: (hashlib.sha256((root / name).read_bytes()).hexdigest() if (root / name).is_file() else None)
+            for name in names}
+
+
 def read_events(path):
     try:
         return [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines()]
@@ -306,6 +316,7 @@ def run_case(request):
     blocked_since = None
     finished = False
     drive_timer = None
+    launcher_before = {}
 
     def finish(status, reason):
         nonlocal finished
@@ -313,6 +324,8 @@ def run_case(request):
             return
         finished = True
         result.update(status=status, reason=reason)
+        if launcher_before and evidence.get("root"):
+            evidence["launcher_files_unchanged"] = launcher_before == launcher_files(evidence["root"])
         if evidence.get("qml_warnings"):
             result.update(status="FAIL", reason="packaged QML emitted warnings")
         if backend_ref:
@@ -498,10 +511,19 @@ def run_case(request):
                 blocked_since = None
                 if gid != "t4":
                     own_python[0] = str(Path(evidence["root"]) / "python" / "python.exe")
+                    # A folder T5DR's own launcher set up (no OpenRecomp marker): the one-time notice comes first.
+                    evidence["foreign_folder"] = not (Path(evidence["root"]) / "openrecomp-release.json").is_file()
+                    launcher_before.update(launcher_files(evidence["root"]))
                 press(backend, "confirm")
+                if nav.overlay == "dialog" and nav.confirm_kind == "t5_folder":
+                    evidence["notice_shown"] = True
+                    if nav.exit_focus != 1:
+                        press(backend, "right")
+                    press(backend, "confirm")
                 build = getattr(game.a, "build", None)
                 if build is not None:
                     evidence["build_started"] = True
+                    evidence["lock_held"] = (Path(evidence["root"]) / "openrecomp-build.lock").is_file()
                     command = getattr(build, "cmd", None)
                     if command:
                         evidence["build_python"] = command[0]

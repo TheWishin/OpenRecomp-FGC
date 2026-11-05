@@ -986,7 +986,7 @@
  "t5.coexist.settings": "Setting changes stay in OpenRecomp. Your old launcher's settings stay as they are.",
  "t5.coexist.login": "Your existing saved login can be used here. Your old launcher's login file is kept.",
  "t5.coexist.build_match": "The built game matches this install's Code ID.",
- "t5.coexist.build_differs": "The game build has a different Code ID. This shared install needs a rebuild in its own launcher.",
+ "t5.coexist.build_differs": "The game build has a different Code ID. This shared install needs a rebuild. You can build it here; the T5DR launcher keeps working with it.",
  "t5.coexist.build_unknown": "The game build's Code ID could not be checked. Open the old launcher to check it.",
  "t5.coexist.build_blocked": "Builds change the shared install. Build with its own launcher, or choose a separate install.",
  "t5.coexist.source": "Existing T5DR install",
@@ -1741,5 +1741,12 @@
  "playtime.online": "Online",
  "playtime.sessions": "Sessions",
  "playtime.local_only": "Stored only on this PC. Never uploaded.",
- "vibe.rank_up": "Rank up"
+ "vibe.rank_up": "Rank up",
+ "dialog.t5_folder.title": "Build this T5DR folder?",
+ "dialog.t5_folder.text": "This T5DR folder was set up by the T5DR launcher. OpenRecomp can build it, and the T5DR launcher keeps working with it too. Your saves and settings stay. Never build with both launchers at the same time. Build now?",
+ "t5.build_locked_openrecomp": "OpenRecomp is already building in this folder. Wait until that build is done.",
+ "t5.build_locked_t5dr": "The T5DR launcher is building in this folder right now. Wait until it is done, then build here.",
+ "t5.build_lock_failed": "OpenRecomp could not write its build lock into this folder. Check that Windows lets you write there.",
+ "t5.install_path_too_long": "The folder path is too long for Windows. Move the whole game folder to a shorter path like C:\\Games\\T5DR, then choose it again.",
+ "t5.build_path_too_long": "The build stopped because the folder path is too long for Windows. Move the game folder to a shorter path like C:\\Games\\T5DR, then build again."
 }

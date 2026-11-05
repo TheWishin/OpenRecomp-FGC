@@ -171,6 +171,12 @@ class Sections:
         problem = g.a.build_install_problem() if g.a.found() else ""
         if problem and not g.a.build_state().get("running"):
             busy = self._setup(g.id).get("phase") in ("checking", "installing", "updating")
+            if problem == "@t5.install_path_too_long":
+                # The install is fine; Windows cannot open its files at this path. Reinstalling would not help.
+                return [dict(kind="action", id="build_choose_install", label="@t5.choose_install", verb="@choose",
+                             card="main", primary=True, install_problem=problem, disabled=busy, hint=problem,
+                             run=lambda: self._open_picker("source:folder", "@t5.choose_install", [], [], "folder"),
+                             detail=dict(kicker="@section.build", title="@t5.choose_install", lead=problem, rows=[]))]
             return [dict(kind="action", id="build_reinstall", label="@t5.reinstall", verb="@t5.reinstall",
                          card="main", primary=True, install_problem=problem,
                          disabled=busy or not self._setup_supported(g), hint=problem,
@@ -188,9 +194,22 @@ class Sections:
         title = title or src.get("title") or i18n.message("choose_named", name=src["label"])
         self._open_picker("source:" + src["id"], title, src["exts"], src["dirs"], src.get("kind", "file"), src.get("filter", ""))
 
+    def _start_build(self, g, force=False):
+        """Start a build, after the one-time notice for a folder that T5DR's own launcher set up."""
+        if self._dry("@dry_rebuild" if force else "@dry_build"):
+            return
+        if getattr(g.a, "foreign_notice_pending", lambda: False)():
+            self.build_force = force
+            self._ask("t5_folder")
+        elif (self._offline_action(g.a.build_start, force=True) if force else self._offline_action(g.a.build_start)):
+            self.say("@rebuild_starting" if force else "@build_starting")
+
     def _items_build_rows(self, g):
-        if getattr(g.a, "coexistence_state", lambda: dict(active=False))()["active"]:
+        coexist = getattr(g.a, "coexistence_state", lambda: dict(active=False))()
+        shared = []
+        if coexist["active"]:
             shared = [dict(it, card="game") for it in self._coexistence_items(g, choose=True)]
+        if coexist["active"] and not coexist.get("can_build"):
             if g.a.ready():
                 # Built by its own launcher and ready (QA: the page said "Not yet / Build game" while the top bar said
                 # Ready): the big button plays; building stays with that launcher.
@@ -205,7 +224,7 @@ class Sections:
                             lead="@t5.coexist.build_blocked", rows=[]))]
         state = g.a.build_state()
         source_state = g.a.source_state()
-        out = []
+        out = list(shared)
         for s in g.a.sources():
             src = dict(s)
             detail = dict(kicker="@your_files", title=s["label"], lead=s.get("note") or s["hint"],
@@ -256,9 +275,8 @@ class Sections:
         def build():
             if problem:
                 self.say(problem)
-            elif not self._dry("@dry_build"):
-                if self._offline_action(g.a.build_start):
-                    self.say("@build_starting")
+            else:
+                self._start_build(g)
         lead = state["result"] or problem or ("@built_hint" if g.a.ready() else "@build_hint")
         first_play = (g.a.ready() and (
             g.m.get("adapter") == "t4" and (not state["result"] or state["result"] in ("@build_finished", "@t4.build_finished"))

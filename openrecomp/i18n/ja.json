@@ -986,7 +986,7 @@
  "t5.coexist.settings": "設定の変更はOpenRecompに保存されます。以前のランチャーの設定はそのまま残ります。",
  "t5.coexist.login": "保存済みのログインをここでも使用できます。以前のランチャーのログインファイルは保持されます。",
  "t5.coexist.build_match": "ビルド済みのゲームは、このインストールのCode IDと一致しています。",
- "t5.coexist.build_differs": "ビルド済みのゲームのCode IDが異なります。この共有インストール専用のランチャーで再ビルドが必要です。",
+ "t5.coexist.build_differs": "ビルド済みのゲームのCode IDが異なります。この共有インストールは再ビルドが必要です。ここでもビルドでき、その後もT5DRランチャーで使えます。",
  "t5.coexist.build_unknown": "ビルド済みのゲームのCode IDを確認できませんでした。以前のランチャーで確認してください。",
  "t5.coexist.build_blocked": "ビルドすると共有インストールが変更されます。専用のランチャーでビルドするか、別のインストールを選んでください。",
  "t5.coexist.source": "既存のT5DRインストール",
@@ -1741,5 +1741,12 @@
  "playtime.online": "オンライン",
  "playtime.sessions": "セッション数",
  "playtime.local_only": "このPCにのみ保存されます。アップロードされません。",
- "vibe.rank_up": "昇格"
+ "vibe.rank_up": "昇格",
+ "dialog.t5_folder.title": "このT5DRフォルダーをビルドしますか?",
+ "dialog.t5_folder.text": "このT5DRフォルダーはT5DRランチャーで設定されたものです。OpenRecompでビルドでき、その後もT5DRランチャーで使えます。セーブと設定は保持されます。2つのランチャーで同時にビルドしないでください。今すぐビルドしますか?",
+ "t5.build_locked_openrecomp": "OpenRecompがこのフォルダーでビルド中です。そのビルドが終わるまでお待ちください。",
+ "t5.build_locked_t5dr": "T5DRランチャーがこのフォルダーでビルド中です。終わるまで待ってから、ここでビルドしてください。",
+ "t5.build_lock_failed": "OpenRecompはこのフォルダーにビルドロックを書き込めませんでした。Windowsで書き込みが許可されているか確認してください。",
+ "t5.install_path_too_long": "フォルダーのパスがWindowsには長すぎます。ゲームフォルダー全体をC:\\Games\\T5DRのような短いパスへ移動してから、もう一度選んでください。",
+ "t5.build_path_too_long": "フォルダーのパスがWindowsには長すぎるため、ビルドが止まりました。ゲームフォルダーをC:\\Games\\T5DRのような短いパスへ移動してから、もう一度ビルドしてください。"
 }

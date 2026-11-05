@@ -98,7 +98,7 @@ class T5InstallChecks(unittest.TestCase):
         self.run.assert_called_once_with(
             [str(self.python), "-I", "-c", "from Crypto.Cipher import AES"], cwd=str(self.root),
             timeout=3, check=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, creationflags=t5dr.NO_WINDOW)
+            stderr=subprocess.PIPE, creationflags=t5dr.NO_WINDOW)
 
     def test_runtime_replacement_invalidates_probe(self):
         self.assertEqual(self.a.build_install_problem(), "")

@@ -986,7 +986,7 @@
  "t5.coexist.settings": "Los cambios de ajustes quedan en OpenRecomp. Los ajustes de tu lanzador anterior se conservan.",
  "t5.coexist.login": "Puedes usar aquí tu sesión guardada. Se conserva el archivo de acceso de tu lanzador anterior.",
  "t5.coexist.build_match": "El juego compilado coincide con el Code ID de esta instalación.",
- "t5.coexist.build_differs": "El juego compilado tiene otro Code ID. Esta instalación compartida necesita recompilarse desde su propio lanzador.",
+ "t5.coexist.build_differs": "El juego compilado tiene otro Code ID. Esta instalación compartida necesita recompilarse. Puedes hacerlo aquí; el lanzador de T5DR sigue funcionando con ella.",
  "t5.coexist.build_unknown": "No se pudo comprobar el Code ID del juego compilado. Abre el lanzador anterior para comprobarlo.",
  "t5.coexist.build_blocked": "Compilar modifica la instalación compartida. Usa su propio lanzador o elige otra instalación.",
  "t5.coexist.source": "Instalación existente de T5DR",
@@ -1741,5 +1741,12 @@
  "playtime.online": "En línea",
  "playtime.sessions": "Sesiones",
  "playtime.local_only": "Guardado solo en este PC. Nunca se sube.",
- "vibe.rank_up": "Ascenso de rango"
+ "vibe.rank_up": "Ascenso de rango",
+ "dialog.t5_folder.title": "¿Compilar esta carpeta de T5DR?",
+ "dialog.t5_folder.text": "Esta carpeta de T5DR la preparó el lanzador de T5DR. OpenRecomp puede compilarla y el lanzador de T5DR sigue funcionando con ella. Se conservan tus partidas y ajustes. No compiles nunca con los dos lanzadores a la vez. ¿Compilar ahora?",
+ "t5.build_locked_openrecomp": "OpenRecomp ya está compilando en esta carpeta. Espera a que termine esa compilación.",
+ "t5.build_locked_t5dr": "El lanzador de T5DR está compilando en esta carpeta ahora mismo. Espera a que termine y luego compila aquí.",
+ "t5.build_lock_failed": "OpenRecomp no pudo escribir su bloqueo de compilación en esta carpeta. Comprueba que Windows permite escribir allí.",
+ "t5.install_path_too_long": "La ruta de la carpeta es demasiado larga para Windows. Mueve toda la carpeta del juego a una ruta más corta como C:\\Games\\T5DR y elígela de nuevo.",
+ "t5.build_path_too_long": "La compilación se detuvo porque la ruta de la carpeta es demasiado larga para Windows. Mueve la carpeta del juego a una ruta más corta como C:\\Games\\T5DR y compila de nuevo."
 }
