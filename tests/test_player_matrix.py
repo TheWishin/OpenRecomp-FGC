@@ -300,6 +300,18 @@ class ScratchFixtures(MatrixFixture):
                 info = json.loads(marker.read_text(encoding="utf-8"))
                 self.assertEqual((info["game"], info["installed_by"]), ("t5dr", "OpenRecomp-FGC"))
 
+    def test_unicode_case_keeps_the_game_folder_short_while_the_profile_is_long(self):
+        case = next(dict(c) for c in matrix.cases() if c["id"] == "unicode-long-path")
+        home = self.temp / "scratch" / "unicode-long-path" / ("Jörg Müller " + "long player folder " * 5).rstrip()
+        home.mkdir(parents=True)
+        inputs = matrix.prepare_case(home, case, {"t5dr_existing": str(self.source)})
+        root = Path(inputs["t5dr_existing"])
+        self.assertTrue((root / "python" / "python.exe").is_file())
+        self.assertIn("ö", str(root))
+        self.assertIn(" ", str(root))
+        self.assertLess(len(str(root)), len(str(home)))
+        self.assertFalse(root.is_relative_to(home))
+
     def test_discovery_case_does_not_preselect_a_folder(self):
         _, case, inputs = self.prepare("discover-old-t5dr")
         self.assertEqual(case["selection"], "")

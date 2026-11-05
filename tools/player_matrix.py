@@ -267,6 +267,11 @@ def prepare_case(home, case, inputs):
     source = inputs.get(source_key)
     if source and case["id"] != "fresh-t5dr":
         target = home / "Downloads" / ("T4" if case["game"] == "t4" else "T5DR-Online-old")
+        if case["id"] == "unicode-long-path":
+            # The long, umlaut-and-space *profile* is what is under test (settings, caches, temp). A game folder as
+            # long as that profile would pass Windows' 260 characters inside the game's own Python (pycryptodome's
+            # native module fails with WinError 206), which is a different, unrealistic case.
+            target = home.parent / "Spiele Jörg Müller" / ("T4" if case["game"] == "t4" else "T5DR-Online-old")
         target.parent.mkdir(exist_ok=True)
         _copy_install(source, target)
         inputs[source_key] = str(target)
