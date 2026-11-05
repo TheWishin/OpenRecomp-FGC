@@ -80,6 +80,18 @@ class T5InstallChecks(unittest.TestCase):
                 a = self.adapter(self.root)
                 self.assertEqual(a.build_install_problem(), "@t5.install_incomplete_python")
 
+    def test_a_slow_first_start_gets_one_longer_try_before_the_install_is_called_damaged(self):
+        self.run.side_effect = [subprocess.TimeoutExpired([str(self.python)], 3), mock.DEFAULT]
+        a = self.adapter(self.root)
+        self.assertEqual(a.build_install_problem(), "")
+        self.assertEqual([call.kwargs["timeout"] for call in self.run.call_args_list], [3, 25])
+        self.assertEqual(a.build_install_problem(), "")
+        self.assertEqual(self.run.call_count, 2)          # the good result is cached
+        self.run.reset_mock()
+        self.run.side_effect = subprocess.CalledProcessError(1, [str(self.python)])
+        self.assertEqual(self.adapter(self.root).build_install_problem(), "@t5.install_incomplete_python")
+        self.assertEqual(self.run.call_count, 1)          # a failed import is final at once
+
     def test_probe_uses_only_install_python_with_short_timeout_and_caches_it(self):
         self.assertEqual(self.a.build_install_problem(), "")
         self.assertEqual(self.a.build_ready(), "")

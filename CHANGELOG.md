@@ -19,6 +19,8 @@ TheWishin/Tekken4Recomp).
 - Tekken 4 gets **Problem report** too: send cleaned diagnostics to the T4 developer with one press, or save a ZIP
   locally. Older servers offer Save only. Game files and memory cards are never included.
 - Quick access > Test versions re-checks the games right away.
+- A slow first start of T5DR's own Python (antivirus scan, busy PC) no longer reads as "install damaged": the check gets
+  one longer try before it asks you to reinstall.
 - Linux / Steam Deck (Proton, Wine): Tekken 4's Build says why it cannot run there (it needs Windows PowerShell)
   instead of failing silently; Japanese and Korean text uses Linux fonts when Windows' are missing.
 - Games can be described in one JSON file (`docs/ADD_A_GAME.md`): start, stop, settings, picture and a signed update

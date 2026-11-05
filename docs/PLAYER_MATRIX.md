@@ -25,6 +25,9 @@ The private JSON object accepts these fields:
 | `t5dr_pkg`, `t5dr_rap` | The owner's own package and licence paths |
 | `t4_root` | A T4 install/source folder |
 | `t4_iso` | The owner's ISO path, read from their configuration |
+| `t5dr_keys` | Optional. A `ps3.keys` made offline (`tools/make_keys.py --source <folder with key_vault.h/.cpp>`); copied into each T5DR case's `native/keys` because the build's first step otherwise downloads the key data from github.com, which the offline guard refuses |
+| `t5dr_existing_managed` | Optional, `true`: the private copy of `t5dr_existing` gets OpenRecomp's install marker (an install an earlier OpenRecomp made). Without it the folder is an install borrowed from T5DR's own launcher, which OpenRecomp attaches to but never builds (`T5DR_COEXISTENCE.md`), so those cases stop at "Build is blocked" |
+| `tools_path` | Optional list of folders put first on PATH in the `t4-iso` case only (a PC that has Git installed); folders containing a `python*.exe` are ignored |
 
 The tool never reads account fields, logs in or starts a game. It copies the
 configured existing installs into each private case folder before folder selection
@@ -47,9 +50,13 @@ There are 13 required cases:
 | `foreign-python`, `no-python` | Game's own Python used regardless of PATH |
 | `unicode-long-path` | Spaces, umlauts and a long private profile path |
 
-Every successful build case needs an observed process using `<game>/python/python.exe`,
-successful early build steps, and the compile boundary. A launcher-Python fallback
-is a failure, including in T4. Known older packages may therefore fail this gate.
+Every successful T5DR build case needs an observed process using `<game>/python/python.exe`,
+successful early build steps, and the compile boundary. Tekken 4 has no Python of its own: its
+disc image check and build run on the package's `portable/pythonw.exe` (`-I -B`), and that
+is the one Python the T4 cases accept; any other Python, found on PATH or not, is a failure.
+A launcher-Python fallback in T5DR is a failure. Known older packages may therefore fail this gate.
+Tekken 4's build is a PowerShell pipeline (`tools/build_game.ps1`): the guard cannot audit it, so
+`t4-iso` is **BLOCKED** until an externally isolated offline machine or sandbox exists.
 Repair and manual-guidance cases pass only without starting an inappropriate build.
 
 The default run stops before spawning CMake/Ninja/compiler work. `--full` allows

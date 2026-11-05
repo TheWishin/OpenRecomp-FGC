@@ -768,13 +768,21 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         lock = self.__dict__.setdefault("_build_python_lock", threading.Lock())
         with lock:
             if getattr(self, "_build_python_probe", (None,))[0] != key:
-                try:
-                    subprocess.run([own_python, "-I", "-c", "from Crypto.Cipher import AES"], cwd=self.root,
-                                   timeout=3, check=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                   stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
-                    problem = ""
-                except (OSError, subprocess.SubprocessError):
-                    problem = "@t5.install_incomplete_python"
+                problem = "@t5.install_incomplete_python"
+                # The first start of a freshly unpacked python.exe can take seconds (antivirus scan, cold disk, a busy
+                # PC): a timeout earns one longer try before the install is called damaged. A failed import or a
+                # missing/unstartable program is final at once.
+                for timeout in (3, 25):
+                    try:
+                        subprocess.run([own_python, "-I", "-c", "from Crypto.Cipher import AES"], cwd=self.root,
+                                       timeout=timeout, check=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                       stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
+                        problem = ""
+                        break
+                    except subprocess.TimeoutExpired:
+                        continue
+                    except (OSError, subprocess.SubprocessError):
+                        break
                 self._build_python_probe = (key, problem)
             if self._build_python_probe[1]:
                 return self._build_python_probe[1]
