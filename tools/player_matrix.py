@@ -25,6 +25,19 @@ REQUIRED_CASES = (
 REPAIRS = {"missing-python", "missing-crypto"}
 T4_CASES = {"t4-iso", "no-winget"}
 SCHEMA = 1
+# Owner-approved waivers (decision 2026-11-05), the ONLY ones a release accepts. A waiver replaces a BLOCKED case (never a
+# failed, skipped or timed-out one) and travels in the report with its reason and reference; make_release.py takes the
+# report only when the waiver is exactly this one. The T4 build is a PowerShell pipeline that the Python audit cannot
+# sandbox here, so its player flow is covered by the Tekken 4 release gate instead.
+WAIVERS = {
+    "t4-iso": dict(
+        case="t4-iso", status="WAIVED", owner_decision="2026-11-05",
+        reason=("Tekken 4's build is a PowerShell pipeline (tools/build_game.ps1) that this Python-audited matrix cannot "
+                "sandbox, so the case stays BLOCKED here. The owner accepts the Tekken 4 v0.1.1 release gate as its "
+                "cover: a fresh-folder build with spaces and Unicode in the path, and the netplay pairs, passed there."),
+        reference=("Tekken 4 v0.1.1 release gate (docs/RELEASE_GATE_0.1.1.md in the Tekken 4 source repository), "
+                   "row 'Fresh ISO build, spaces + Unicode' (build/release-gate/fresh-attempt3/player-build.json)")),
+}
 CHILD = Path(__file__).with_name("player_matrix_child.py")
 
 
@@ -167,12 +180,42 @@ def evaluate_case(case_id, evidence, launcher):
         return "FAIL", "No observed build process using the game's Python"
     if not evidence.get("build_started") or not evidence.get("first_steps"):
         return "FAIL", "Build start and successful first steps were not observed"
+    if evidence.get("foreign_folder"):
+        # A folder T5DR's own launcher set up: told once, our lock held while building, T5DR's own files untouched.
+        if not evidence.get("notice_shown"):
+            return "FAIL", "The one-time notice for a T5DR-launcher folder was not shown before the build"
+        if not evidence.get("lock_held"):
+            return "FAIL", "The build ran without the one-build-at-a-time lock"
+        if evidence.get("launcher_files_unchanged") is not True:
+            return "FAIL", "The build changed a file the T5DR launcher relies on"
     if case_id == "discover-old-t5dr" and (not evidence.get("offered_existing") or evidence.get("second_copy")):
         return "FAIL", "Existing install was not offered without creating a second copy"
     if case_id in {"existing-t5dr", "parent-t5dr", "native-t5dr", "child-t5dr"}:
         if not _same(root, evidence.get("expected_root")):
             return "FAIL", "Selected folder did not resolve to the expected install root"
     return "PASS", "Game Python observed; build's first steps succeeded"
+
+
+def waiver_for(case_id):
+    """The owner-approved waiver text for a case, or None: no other case can ever be waived."""
+    waiver = WAIVERS.get(case_id)
+    return dict(waiver) if waiver else None
+
+
+def apply_waivers(rows, requested):
+    """Mark requested cases WAIVED when (and only when) they are BLOCKED and have an owner-approved waiver."""
+    for row in rows:
+        if row["id"] not in requested:
+            continue
+        waiver = waiver_for(row["id"])
+        if waiver is None:
+            raise MatrixError("Case " + row["id"] + " has no owner-approved waiver")
+        if row["status"] != "BLOCKED":
+            continue            # a case that ran keeps its own result; a FAIL is never waived
+        row["waiver"] = dict(waiver, original_status="BLOCKED", original_reason=row.get("reason", ""))
+        row["status"] = "WAIVED"
+        row["reason"] = "WAIVED by the owner (" + waiver["owner_decision"] + "): " + waiver["reference"]
+    return rows
 
 
 def check_matrix_report(report_path, *, commit, source_root, runtime_root):
@@ -202,13 +245,24 @@ def check_matrix_report(report_path, *, commit, source_root, runtime_root):
             raise MatrixError("Matrix cases need observation objects")
         if len(rows) != len(REQUIRED_CASES) or {r["id"] for r in rows} != set(REQUIRED_CASES):
             raise MatrixError("Matrix report is incomplete or contains duplicate cases")
+        waived = []
         for row in rows:
+            if row.get("status") == "WAIVED":
+                # Only the owner-approved waiver, word for word, of a case that was BLOCKED: nothing else is waivable.
+                expected = waiver_for(row["id"])
+                given = row.get("waiver")
+                if (expected is None or not isinstance(given, dict) or given.get("original_status") != "BLOCKED"
+                        or {k: v for k, v in given.items() if k not in ("original_status", "original_reason")} != expected):
+                    raise MatrixError("Matrix case " + row["id"] + " carries a waiver the owner did not approve")
+                waived.append(dict(case=row["id"], reference=expected["reference"], reason=expected["reason"],
+                                   owner_decision=expected["owner_decision"]))
+                continue
             status, reason = evaluate_case(row["id"], row.get("evidence", {}), launcher)
             if row.get("status") != "PASS" or status != "PASS":
                 raise MatrixError("Matrix case " + row["id"] + " did not pass: " + reason)
         return dict(schema=SCHEMA, source_commit=commit, package_fingerprint=report["package_fingerprint"],
                     report_sha256=hashlib.sha256(Path(report_path).read_bytes()).hexdigest(),
-                    cases=len(rows), status="PASS")
+                    cases=len(rows), status="PASS", waivers=waived)
     except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
         raise MatrixError("Missing or invalid player matrix report") from error
 
@@ -416,6 +470,8 @@ def main(argv=None):
     parser.add_argument("--report", type=Path, help="default <run>/report.json")
     parser.add_argument("--heavy-lock-dir", type=Path, default=Path(r"C:\T5DROnline\build\int115"))
     parser.add_argument("--timeout", type=float, default=180)
+    parser.add_argument("--waive", action="append", default=[], metavar="CASE",
+                        help="apply the owner-approved waiver to a BLOCKED case (only t4-iso has one; see WAIVERS)")
     parser.add_argument("--full", action="store_true", help="request a complete build; unauditable native pipelines remain blocked")
     args = parser.parse_args(argv)
     try:
@@ -440,6 +496,7 @@ def main(argv=None):
                 row = dict(id=case["id"], status="BLOCKED", reason=str(error), evidence={})
             rows.append(row)
             print(case["id"] + ": " + row["status"] + " - " + row["reason"], flush=True)
+        apply_waivers(rows, set(args.waive))
         unchanged = before == fingerprint(launcher)
         report = dict(schema=SCHEMA, created=datetime.now(timezone.utc).isoformat(), launcher=str(launcher),
                       source_commit=commit, source_fingerprint=source_fingerprint(launcher),
@@ -453,7 +510,7 @@ def main(argv=None):
         print("Report: " + str(report_path))
         if not unchanged:
             print("FAIL: tested package changed during the run")
-        return 0 if unchanged and all(row["status"] == "PASS" for row in rows) else 1
+        return 0 if unchanged and all(row["status"] in ("PASS", "WAIVED") for row in rows) else 1
     except (MatrixError, OSError, ValueError, subprocess.SubprocessError) as error:
         print("player_matrix: " + str(error), file=sys.stderr)
         return 2

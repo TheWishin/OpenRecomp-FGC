@@ -205,6 +205,30 @@ class EvidenceChecks(MatrixFixture):
         self.assertEqual(matrix.evaluate_case("no-winget", evidence, self.launcher)[0], "FAIL")
 
 
+class ForeignFolderEvidence(MatrixFixture):
+    """A folder T5DR's own launcher set up: the build must show the notice, the lock and untouched T5DR files."""
+
+    def evidence_for(self, **changes):
+        evidence = self.evidence("existing-t5dr")
+        evidence.update(foreign_folder=True, notice_shown=True, lock_held=True, launcher_files_unchanged=True)
+        evidence.update(changes)
+        return evidence
+
+    def test_complete_foreign_folder_evidence_passes(self):
+        self.assertEqual(matrix.evaluate_case("existing-t5dr", self.evidence_for(), self.launcher)[0], "PASS")
+
+    def test_each_missing_observation_fails(self):
+        for change in ({"notice_shown": False}, {"lock_held": False}, {"launcher_files_unchanged": False},
+                       {"launcher_files_unchanged": None}):
+            with self.subTest(change=change):
+                status, reason = matrix.evaluate_case("existing-t5dr", self.evidence_for(**change), self.launcher)
+                self.assertEqual(status, "FAIL", reason)
+
+    def test_an_openrecomp_made_install_needs_none_of_it(self):
+        evidence = self.evidence("existing-t5dr")
+        self.assertEqual(matrix.evaluate_case("existing-t5dr", evidence, self.launcher)[0], "PASS")
+
+
 class Reports(MatrixFixture):
     def test_complete_evidence_is_accepted(self):
         checked = self.check_report(self.report())
@@ -252,6 +276,104 @@ class Reports(MatrixFixture):
                     path.write_text(text, encoding="utf-8")
                 matrix.check_matrix_report(path, commit="reviewed-commit", source_root=self.launcher,
                                            runtime_root=self.launcher / "portable")
+
+
+class OwnerWaiver(MatrixFixture):
+    """Owner decision 2026-11-05: the T4 ISO case (a PowerShell build the audit cannot sandbox) is covered by the
+    Tekken 4 release gate. An explicit, named waiver, accepted for that one case and nothing else."""
+
+    def blocked_report(self, case_id="t4-iso"):
+        report = self.report()
+        for row in report["cases"]:
+            if row["id"] == case_id:
+                row.update(status="BLOCKED", reason="offline safety guard refused an unauditable installer", evidence={})
+        return report
+
+    def waive(self, report, requested=("t4-iso",)):
+        matrix.apply_waivers(report["cases"], set(requested))
+        return report
+
+    def test_only_t4_iso_has_a_waiver(self):
+        self.assertEqual(set(matrix.WAIVERS), {"t4-iso"})
+        waiver = matrix.waiver_for("t4-iso")
+        self.assertIn("RELEASE_GATE_0.1.1", waiver["reference"])
+        self.assertTrue(waiver["reason"] and waiver["owner_decision"] == "2026-11-05")
+        self.assertIsNone(matrix.waiver_for("existing-t5dr"))
+
+    def test_a_blocked_t4_iso_with_the_waiver_is_accepted_and_named_in_the_result(self):
+        report = self.waive(self.blocked_report())
+        row = next(r for r in report["cases"] if r["id"] == "t4-iso")
+        self.assertEqual(row["status"], "WAIVED")
+        self.assertEqual(row["waiver"]["original_status"], "BLOCKED")
+        self.assertIn("unauditable", row["waiver"]["original_reason"])
+        checked = self.check_report(report)
+        self.assertEqual(checked["status"], "PASS")
+        self.assertEqual([w["case"] for w in checked["waivers"]], ["t4-iso"])
+        self.assertIn("RELEASE_GATE_0.1.1", checked["waivers"][0]["reference"])
+
+    def test_a_plain_report_has_no_waivers(self):
+        self.assertEqual(self.check_report(self.report())["waivers"], [])
+
+    def test_a_blocked_t4_iso_without_the_waiver_is_still_refused(self):
+        with self.assertRaises(matrix.MatrixError):
+            self.check_report(self.blocked_report())
+
+    def test_no_other_case_can_be_waived_by_flag_or_by_hand(self):
+        with self.assertRaises(matrix.MatrixError):
+            self.waive(self.blocked_report("existing-t5dr"), ("existing-t5dr",))
+        report = self.blocked_report("existing-t5dr")
+        row = next(r for r in report["cases"] if r["id"] == "existing-t5dr")
+        row.update(status="WAIVED", waiver=dict(matrix.WAIVERS["t4-iso"], case="existing-t5dr", original_status="BLOCKED"))
+        with self.assertRaises(matrix.MatrixError):
+            self.check_report(report)
+
+    def test_failed_skipped_and_timed_out_cases_are_never_waived(self):
+        for status in ("FAIL", "SKIPPED"):
+            with self.subTest(status=status):
+                report = self.report()
+                row = next(r for r in report["cases"] if r["id"] == "t4-iso")
+                row.update(status=status, reason="timed out")
+                self.waive(report)
+                self.assertEqual(row["status"], status)
+                self.assertNotIn("waiver", row)
+                with self.assertRaises(matrix.MatrixError):
+                    self.check_report(report)
+
+    def test_an_altered_or_hand_written_waiver_is_refused(self):
+        for change in ({"reason": "because"}, {"reference": "trust me"}, {"owner_decision": "2026-12-31"},
+                       {"original_status": "FAIL"}):
+            with self.subTest(change=change):
+                report = self.waive(self.blocked_report())
+                next(r for r in report["cases"] if r["id"] == "t4-iso")["waiver"].update(change)
+                with self.assertRaises(matrix.MatrixError):
+                    self.check_report(report)
+        report = self.waive(self.blocked_report())
+        del next(r for r in report["cases"] if r["id"] == "t4-iso")["waiver"]
+        with self.assertRaises(matrix.MatrixError):
+            self.check_report(report)
+
+    def test_a_case_that_ran_and_passed_keeps_its_pass_when_the_flag_is_given(self):
+        report = self.waive(self.report())
+        self.assertEqual(next(r for r in report["cases"] if r["id"] == "t4-iso")["status"], "PASS")
+        self.assertEqual(self.check_report(report)["waivers"], [])
+
+    def test_the_release_packager_records_the_waiver(self):
+        import argparse
+        from tools import make_release as release
+        path = self.temp / "waived-report.json"
+        path.write_text(json.dumps(self.waive(self.blocked_report())), encoding="utf-8")
+        args = argparse.Namespace(rehearsal=False, matrix_report=path, skip_matrix=False)
+        with mock.patch.object(release, "ROOT", self.launcher):
+            facts = release.check_player_matrix(args, "reviewed-commit", self.launcher / "portable")
+        self.assertEqual(facts["status"], "passed")
+        self.assertEqual([w["case"] for w in facts["evidence"]["waivers"]], ["t4-iso"])
+        # the same report with a second waived case is refused by the packager
+        report = self.waive(self.blocked_report())
+        row = next(r for r in report["cases"] if r["id"] == "existing-t5dr")
+        row.update(status="WAIVED", waiver=dict(matrix.WAIVERS["t4-iso"], original_status="BLOCKED"))
+        path.write_text(json.dumps(report), encoding="utf-8")
+        with mock.patch.object(release, "ROOT", self.launcher), self.assertRaisesRegex(release.ReleaseFailed, "refused"):
+            release.check_player_matrix(args, "reviewed-commit", self.launcher / "portable")
 
 
 class ScratchFixtures(MatrixFixture):

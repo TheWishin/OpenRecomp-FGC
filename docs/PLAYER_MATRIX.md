@@ -26,7 +26,7 @@ The private JSON object accepts these fields:
 | `t4_root` | A T4 install/source folder |
 | `t4_iso` | The owner's ISO path, read from their configuration |
 | `t5dr_keys` | Optional. A `ps3.keys` made offline (`tools/make_keys.py --source <folder with key_vault.h/.cpp>`); copied into each T5DR case's `native/keys` because the build's first step otherwise downloads the key data from github.com, which the offline guard refuses |
-| `t5dr_existing_managed` | Optional, `true`: the private copy of `t5dr_existing` gets OpenRecomp's install marker (an install an earlier OpenRecomp made). Without it the folder is an install borrowed from T5DR's own launcher, which OpenRecomp attaches to but never builds (`T5DR_COEXISTENCE.md`), so those cases stop at "Build is blocked" |
+| `t5dr_existing_managed` | Optional, `true`: the private copy of `t5dr_existing` gets OpenRecomp's install marker (an install an earlier OpenRecomp made). Without it (the default, and the real situation of a player who used T5DR's own launcher) the folder is one T5DR's launcher set up, which OpenRecomp builds after a one-time notice while T5DR's launcher keeps working on it (`T5DR_COEXISTENCE.md` "Building a folder from the T5DR launcher") |
 | `tools_path` | Optional list of folders put first on PATH in the `t4-iso` case only (a PC that has Git installed); folders containing a `python*.exe` are ignored |
 
 The tool never reads account fields, logs in or starts a game. It copies the
@@ -56,7 +56,12 @@ disc image check and build run on the package's `portable/pythonw.exe` (`-I -B`)
 is the one Python the T4 cases accept; any other Python, found on PATH or not, is a failure.
 A launcher-Python fallback in T5DR is a failure. Known older packages may therefore fail this gate.
 Tekken 4's build is a PowerShell pipeline (`tools/build_game.ps1`): the guard cannot audit it, so
-`t4-iso` is **BLOCKED** until an externally isolated offline machine or sandbox exists.
+`t4-iso` is **BLOCKED** until an externally isolated offline machine or sandbox exists. The owner has approved one
+named waiver for exactly that case (2026-11-05): `player_matrix.py --waive t4-iso` turns a BLOCKED `t4-iso` into
+`WAIVED`, with the original reason, the owner's reason and the Tekken 4 v0.1.1 release gate as reference written into
+the report row (`WAIVERS` in `tools/player_matrix.py`). `make_release.py` accepts the report only for that waiver, word
+for word, on that case, and only if the case was BLOCKED: no other case, and no FAIL, skipped or timed-out case, can be
+waived, and the waiver is recorded in the release facts. Every other case must still pass.
 Repair and manual-guidance cases pass only without starting an inappropriate build.
 
 The default run stops before spawning CMake/Ninja/compiler work. `--full` allows
