@@ -1,6 +1,5 @@
 """Main menu routes are controller-first and never start matchmaking on entry."""
 import unittest
-import re
 from pathlib import Path
 
 from openrecomp import i18n
@@ -115,17 +114,87 @@ class MainMenuTests(unittest.TestCase):
         self.assertEqual(adapter.calls, [])
 
     def test_game_art_overlay_keeps_help_readable_over_a_white_background(self):
+        import tempfile
+        from PySide6.QtCore import QObject, QUrl
+        from PySide6.QtGui import QColor, QGuiApplication, QImage
+        from PySide6.QtQml import QQmlApplicationEngine
         from test_accessibility import contrast
+        from test_ui_loads import FakeBackend, spin, wait_pages
         ui = Path(__file__).parents[1] / "openrecomp" / "ui"
-        overlay = re.search(r'position: 1; color: "#([A-Fa-f0-9]{8})"',
-                            (ui / "MainMenu.qml").read_text(encoding="utf-8")).group(1)
-        alpha = int(overlay[:2], 16) / 255
-        background = "#" + "".join(f"{round(int(overlay[n:n+2], 16) * alpha + 255 * (1-alpha)):02x}"
-                                   for n in (2, 4, 6))
-        theme = (ui / "Theme.qml").read_text(encoding="utf-8")
-        colours = re.search(r'readonly property color muted: (.*)', theme).group(1)
-        for colour in re.findall(r'"(#[A-Fa-f0-9]{6})"', colours):
-            self.assertGreaterEqual(contrast(colour, background), 4.5)
+        app = QGuiApplication.instance() or QGuiApplication([])
+        adapter, nav = self.make()
+        nav.open_main_menu()
+        backend = FakeBackend(nav)
+        engine = QQmlApplicationEngine()
+        warnings = []
+        engine.warnings.connect(lambda entries: warnings.extend(item.toString() for item in entries))
+        engine.setInitialProperties(dict(backend=backend, wantFull=False))
+        engine.load(QUrl.fromLocalFile(str(ui / "Main.qml")))
+        self.assertTrue(engine.rootObjects(), warnings)
+        window = engine.rootObjects()[0]
+        window.show()
+
+        def rgb(colour):
+            return colour.redF(), colour.greenF(), colour.blueF()
+
+        def blend(front, back, alpha):
+            return tuple(front[index] * alpha + back[index] * (1 - alpha) for index in range(3))
+
+        def stops(item):
+            children = item.findChildren(QObject)
+            return [QColor(child.property("color")) for child in children
+                    if child.property("position") is not None and child.property("color") is not None]
+
+        try:
+            with tempfile.TemporaryDirectory(prefix="vibe-menu-white-", dir=ui.parents[1] / "build") as directory:
+                image = QImage(8, 8, QImage.Format_RGB32)
+                image.fill(QColor("white"))
+                path = Path(directory) / "white.png"
+                self.assertTrue(image.save(str(path)))
+                for game in ("", "t5dr", "t4"):
+                    for high_contrast in (False, True):
+                        backend._v = nav.view()
+                        backend._v.update(gameTheme=game, highContrast=high_contrast, reducedMotion=True,
+                                          livingBackground=dict(theme=game, source=QUrl.fromLocalFile(str(path)).toString()))
+                        backend.viewChanged.emit()
+                        wait_pages(window)
+                        spin(220)
+                        backdrop = next(item for item in window.findChildren(QObject, "livingBackground")
+                                        if item.isVisible())
+                        art = backdrop.findChild(QObject, "backgroundRuntimeArt")
+                        self.assertGreater(art.property("paintedWidth"), 0)
+                        atmosphere = backdrop.findChild(QObject, "backgroundAtmosphere")
+                        veil = backdrop.findChild(QObject, "backgroundReadabilityVeil")
+                        veil_stops = stops(veil)
+                        self.assertTrue(veil_stops)
+                        ground = rgb(window.property("ground"))
+                        # Maximal atmosphere and one maximal streak conservatively
+                        # bound the underlay, without relying on source picture colours.
+                        underlay = blend(rgb(backdrop.property("atmosphere")), ground, atmosphere.opacity())
+                        streaks = [item for item in backdrop.childItems()
+                                   if item.property("index") is not None and item.property("color") is not None]
+                        self.assertTrue(streaks)
+                        streak = max(streaks, key=lambda item: item.opacity())
+                        underlay = blend(rgb(streak.property("color")), underlay, streak.opacity())
+                        underlay = blend((1, 1, 1), underlay, art.opacity())
+                        veil_colour = min(veil_stops, key=lambda colour: colour.alphaF())
+                        underlay = blend(rgb(veil_colour), underlay, veil_colour.alphaF())
+                        fighters = window.findChild(QObject, "mainMenuFighters")
+                        menu = fighters.parentItem().parentItem()
+                        menu_overlay = menu.childItems()[0]
+                        overlay_stops = stops(menu_overlay)
+                        self.assertTrue(overlay_stops)
+                        overlay = min(overlay_stops, key=lambda colour: colour.alphaF())
+                        background = QColor.fromRgbF(*blend(rgb(overlay), underlay, overlay.alphaF())).name()
+                        with self.subTest(game=game, high_contrast=high_contrast):
+                            self.assertGreaterEqual(contrast(window.property("muted").name(), background), 4.5)
+                            self.assertGreaterEqual(contrast(window.property("textC").name(), background), 4.5)
+        finally:
+            window.hide()
+            window.setProperty("allowClose", True)
+            window.close()
+            del engine
+        self.assertEqual(warnings, [])
 
     def test_practice_entry_focuses_the_real_practice_setting(self):
         adapter, nav = self.make()

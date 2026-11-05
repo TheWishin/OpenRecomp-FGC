@@ -6,12 +6,14 @@ per file -- sector (from the start of DATA.BIN), size, checksum, index, key. The
 LZ-packed TIM2 pictures (248x307, 256 colours); entry 253 is Jin in his hooded jacket, the cover's look.
 
 Only the player's verified disc is read (the program's SHA-1 must match), nothing is written next to it, and the
-result is one PNG in <user folder>/art/t4/. Standard library only; no text here is ever shown to the player (a
+result is PNGs in <user folder>/art/t4/. Fighter portraits also accept the extracted disc directory from a build.
+Standard library only; no text here is ever shown to the player (a
 failure leaves the plain tile, its reason only goes to T4.art_note).
 """
 import hashlib
 import os
 import struct
+import tempfile
 import zlib
 
 from .adapters.t4_region import US_BOOT as ELF_NAME, US_ELF_SHA1 as ELF_SHA1
@@ -23,6 +25,14 @@ JIN_PORTRAIT = 253                       # table entry of Jin's select portrait
 PORTRAIT_SIZE = (248, 307)
 MAX_PACKED = 1 << 20
 MAX_PICTURE = 4 << 20
+# SLUS-20328 select renders, each decoded and visually checked. Alternate costume renders at 267-270
+# are deliberately excluded; the square player portraits use one consistent render per character.
+FIGHTER_PORTRAITS = {
+    "paul": 244, "law": 245, "lei": 246, "king": 247, "yoshimitsu": 248, "nina": 249,
+    "hwoarang": 250, "xiaoyu": 251, "christie": 252, "jin": 253, "julia": 254, "kuma": 255,
+    "bryan": 256, "heihachi": 257, "kazuya": 258, "lee": 259, "steve": 260, "marduk": 261,
+    "combot": 262, "panda": 263, "violet": 264, "eddy": 265, "miharu": 266,
+}
 # (sector size, offset of the 2048 user bytes): plain ISO, raw MODE1, raw MODE2/XA, 2336-byte sectors
 LAYOUTS = ((2048, 0), (2352, 16), (2352, 24), (2336, 8))
 
@@ -203,15 +213,24 @@ def read_entry(disc, index):
     if not 0 < elf_size <= 16 << 20:
         raise ArtError("unexpected program size")
     elf = disc.read(elf_lba, elf_size)
+    sector, size, checksum, key = file_entry(elf, index)
+    data_lba, data_size = disc.find(DATA_NAME)
+    if (sector * 2048 + size) > data_size:
+        raise ArtError("the file table points past DATA.BIN")
+    return decode_entry(disc.read(data_lba + sector, size), checksum, key)
+
+
+def file_entry(elf, index):
     if hashlib.sha1(elf).hexdigest() != ELF_SHA1:
         raise ArtError("not Tekken 4 (USA) SLUS-20328")
     sector, size, checksum, number, key = struct.unpack("<IIIhh", elf_reader(elf)(FILE_TABLE + 16 * index, 16))
     if number != index or not 0 < size <= MAX_PACKED:
         raise ArtError("unexpected file table entry")
-    data_lba, data_size = disc.find(DATA_NAME)
-    if (sector * 2048 + size) > data_size:
-        raise ArtError("the file table points past DATA.BIN")
-    data = bytearray(disc.read(data_lba + sector, size))
+    return sector, size, checksum, key
+
+
+def decode_entry(stored, checksum, key):
+    data = bytearray(stored)
     if key >= 0:
         n = min(4096, len(data)) // 4
         words = struct.unpack_from(f"<{n}I", data)
@@ -220,6 +239,83 @@ def read_entry(disc, index):
     if sum(struct.unpack_from(f"<{whole}I", data)) & 0xFFFFFFFF != checksum:
         raise ArtError("the file's checksum does not match")
     return bytes(data)
+
+
+def source_stamp(source):
+    """A source identity for retrying only when the player's disc files change."""
+    paths = [os.path.join(source, ELF_NAME), os.path.join(source, *DATA_NAME.split("/"))] \
+        if os.path.isdir(source) else [source]
+    try:
+        stamps = []
+        for path in paths:
+            info = os.stat(path)
+            stamps.append((os.path.normcase(os.path.abspath(path)), info.st_size, info.st_mtime_ns))
+        return tuple(stamps)
+    except OSError:
+        return None
+
+
+def read_source_entry(source, index):
+    """Read only the verified ELF and one packed picture, from a disc directory or ISO."""
+    if not os.path.isdir(source):
+        with Disc(source) as disc:
+            return read_entry(disc, index)
+    with open(os.path.join(source, ELF_NAME), "rb") as stream:
+        elf = stream.read((16 << 20) + 1)
+    if not 0 < len(elf) <= 16 << 20:
+        raise ArtError("unexpected program size")
+    sector, size, checksum, key = file_entry(elf, index)
+    with open(os.path.join(source, *DATA_NAME.split("/")), "rb") as stream:
+        if sector * 2048 + size > os.fstat(stream.fileno()).st_size:
+            raise ArtError("the file table points past DATA.BIN")
+        stream.seek(sector * 2048)
+        stored = stream.read(size)
+    if len(stored) != size:
+        raise ArtError("DATA.BIN ends early")
+    return decode_entry(stored, checksum, key)
+
+
+def make_fighter(source, key, path):
+    """Cache a fighter's square head crop from the player's ISO or extracted disc, atomically."""
+    return _make_fighter(source, key, path)
+
+
+def make_fighter_render(source, key, path, mirrored=False):
+    """Keep the complete native select cut-out for a VS card, including its original alpha."""
+    return _make_fighter(source, key, path, full=True, mirrored=mirrored)
+
+
+def _make_fighter(source, key, path, full=False, mirrored=False):
+    if not isinstance(key, str) or key not in FIGHTER_PORTRAITS:
+        raise ArtError("unknown fighter")
+    before = source_stamp(source)
+    if before is None:
+        raise ArtError("the portrait source is missing")
+    w, h, rgba = tim2_rgba(unpack_lz(read_source_entry(source, FIGHTER_PORTRAITS[key])))
+    if (w, h) != PORTRAIT_SIZE:
+        raise ArtError("unexpected portrait size")
+    # These select renders put the head at the top. Keep the original alpha, without the tile's edge fade.
+    height = h if full else w
+    rgba = rgba[:w * height * 4]
+    if mirrored:
+        from .fighter_render import mirror_rgba
+        rgba = mirror_rgba(rgba, w, height)
+    picture = png_bytes(w, height, rgba)
+    folder = os.path.dirname(os.path.abspath(path))
+    os.makedirs(folder, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=folder, prefix=".fighter-", suffix=".tmp", delete=False) as stream:
+            temporary = stream.name
+            stream.write(picture)
+        if source_stamp(source) != before:
+            raise ArtError("the portrait source changed")
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            os.unlink(temporary)
+    return path
 
 
 def make_hero(iso, path):

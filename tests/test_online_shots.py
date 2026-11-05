@@ -8,6 +8,15 @@ from tools import online_shots
 
 
 class SyntheticOnlineScreenshots(unittest.TestCase):
+    def test_starting_fixture_confirms_both_ready_and_retains_match_terms(self):
+        for game in ("t5", "t4"):
+            nav = online_shots.scene(game, "starting", "en")
+            match = nav.game.a.snapshot["match"]
+            self.assertTrue(match["opponent_ready"])
+            self.assertEqual(match["rounds"], 3)
+            self.assertEqual(match["ping_path"], "direct")
+            self.assertEqual(nav.game.a.snapshot["message"], "@online.starting")
+
     def test_targeted_recapture_replaces_only_its_exact_locale_game_scene_size(self):
         original = [dict(language="en", game="t5", scene="searching", size="1920x1080", overflow=["old"]),
                     dict(language="de", game="t5", scene="searching", size="1920x1080", overflow=[]),
@@ -67,7 +76,7 @@ class SyntheticOnlineScreenshots(unittest.TestCase):
 
     def test_sanitizer_removes_profile_art_and_nested_art(self):
         view = dict(profile=dict(face="private.png", plate="private.png"),
-                    nested=[dict(image="private.png", images=["private.png"], portrait="private.png")])
+                    nested=[dict(image="private.png", images=["private.png"], portrait="private.png", render="private.png")])
         online_shots.strip_art(view)
         self.assertNotIn("private", str(view))
 

@@ -5,6 +5,8 @@ the keyboard and the mouse make the same sound for the same change. The app take
 press and tick and plays it (ui_sound.UiSounds). Things that happen on their own (a match found, an update offer)
 note theirs with note_sound().
 """
+import math
+
 from . import ui_sound
 
 
@@ -61,6 +63,43 @@ class Sound:
     def hint_toggle(self, value, step=1):
         """A setting got value (ui_sound.toggle: on / off)."""
         self.hint_sound(ui_sound.toggle(value, step))
+
+    def observe_online_sound(self, g, state):
+        """Ready/result sounds follow public adapter transitions, once per match and outcome."""
+        match = state.get("match") or {}
+        phase = state.get("phase")
+        result = (state.get("set") or {}).get("result") or match.get("result") or state.get("result")
+        if not isinstance(result, str):
+            result = ""
+        if state.get("message") in ("@online.set_won", "@online.set_lost"):
+            result = "win" if state["message"] == "@online.set_won" else "loss"
+        snapshot = (str(state.get("netext_session") or ""), str(match.get("id") or ""), phase, result)
+        seen = self.__dict__.setdefault("_online_sound_seen", {})
+        previous = seen.get(g.id)
+        seen[g.id] = snapshot
+        if previous == snapshot or any(game.a.running() for game in self.games):
+            return
+        if phase == "starting" and (previous is None or previous[:3] != snapshot[:3]):
+            self.note_sound(ui_sound.READY)
+        elif phase in ("result", "result_sent") and result in ("win", "won", "loss", "lost"):
+            # result -> result_sent is the same outcome, not a second fanfare.
+            if previous is None or previous[:2] != snapshot[:2] or previous[3] != result:
+                self.note_sound(ui_sound.WIN if result in ("win", "won") else ui_sound.LOSS)
+
+    def tick_offer_sounds(self):
+        """One warning at each of the last three seconds; no timer or work when there are no offers."""
+        audible = None
+        for row in self.__dict__.get("_global_offer_clock", {}).values():
+            seconds = row.get("seconds")
+            if type(seconds) not in (int, float) or not math.isfinite(seconds):
+                continue
+            remaining = max(0, math.ceil(seconds - row["age"]))
+            previous = row.get("soundSecond")
+            row["soundSecond"] = remaining
+            if 1 <= remaining <= 3 and remaining != previous:
+                audible = ui_sound.COUNTDOWN
+        if audible and not any(game.a.running() for game in self.games):
+            self.note_sound(audible)
 
     def note_sound(self, name):
         if name:

@@ -657,6 +657,36 @@ class OnlineLayout:
                            lines=lines[start:start + CARD_LINES], up=start > 0, down=start + CARD_LINES < len(lines),
                            detail=dict(title=d.get("title") or it.get("label", ""), lead=d.get("lead") or it.get("hint", ""),
                                        rows=unique_rows))
+        if phase == "starting":
+            v["online"]["title"] = "@online.starting" if (state.get("match") or {}).get("opponent_ready") is True else "@online.waiting_peer_ready"
+        if phase in ("matched", "starting") and (state.get("capabilities") or {}).get("lobby"):
+            v["online"]["backdrop"] = self._view_match_lobby(g, state)
+
+    def _view_match_lobby(self, g, state):
+        """A passive view of the live lobby behind the ready card, with no action indices."""
+        from . import nav_arcade
+        labels = (("online_status", "@online.status"), ("search_ranked", "@online.ranked"),
+                  ("search_casual", "@online.casual"), ("arcade_sort", "@community_ui.sort"))
+        items = [dict(id=iid, kind="action", label=label, region="find", disabled=True) for iid, label in labels]
+        if not (state.get("capabilities") or {}).get("ranked"):
+            items = [item for item in items if item["id"] != "search_ranked"]
+        for room in state.get("rooms") or []:
+            items.append(dict(id="arcade_room:join_room:" + str(room.get("id") or ""), kind="action",
+                              label="@arcade.join", region="lobby", disabled=True))
+        by_id = {item["id"]: n for n, item in enumerate(items)}
+        page = dict(layout="lobby", phase=state.get("phase"), chapter="lobby", labels=dict(HIERARCHY_LABELS),
+                    profile=self._view_profile(g, state, items, -2, by_id),
+                    find=self._view_find(g, state, items, -2, by_id), findTitle="@online_ui.find_title",
+                    chapters=[dict(id="lobby", label=CHAPTER_LABELS["lobby"], active=True,
+                                   badge=str(len(state.get("players") or [])))],
+                    body=dict(lines=[]), arcade=nav_arcade.view(self, g, state, items, -2))
+
+        def passive(value):
+            if isinstance(value, dict):
+                return {key: -1 if key == "index" else False if key in ("focused", "helpOpen", "moreOpen", "optionsOpen")
+                        else True if key == "disabled" else passive(child) for key, child in value.items()}
+            return [passive(child) for child in value] if isinstance(value, list) else value
+        return passive(page)
 
     def _view_online_page(self, v, g, state, items, fi):
         chapter = self._chapter_of_focus(items, fi)

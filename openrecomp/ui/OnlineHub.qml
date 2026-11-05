@@ -97,7 +97,7 @@ Item {
             Row {
                 width: parent.width; spacing: 8
                 Image { width: 42; height: 22; visible: !!page.prof.plate; source: page.prof.plate || ""; fillMode: Image.PreserveAspectFit }
-                Caption { width: parent.width - (page.prof.plate ? 50 : 0); text: page.prof.rank || ""; color: page.acc; font.weight: Font.DemiBold }
+                Caption { width: parent.width - (page.prof.plate ? 50 : 0); text: page.prof.rank || ""; color: Theme.rankGold; font.weight: Font.DemiBold }
             }
             Caption { visible: !page.wideProfileMeta; width: parent.width; text: (page.prof.rows || []).join("  \u00b7  "); font.family: page.root.mono }
             Caption { visible: !page.wideProfileMeta; width: parent.width; text: (page.prof.conn || []).join("  \u00b7  "); color: Theme.muted }
@@ -141,21 +141,21 @@ Item {
                     visible: !!original.present
                     objectName: index === 0 ? "onlineRankedAction" : "onlineCasualAction"
                     width: page.fnd.ranked && page.fnd.ranked.present ? (findButtons.width - 12) / 2 : findButtons.width; height: Math.max(80 / Math.max(.5, Theme.viewportScale), matchCaption.implicitHeight + matchNote.implicitHeight + (searching ? 14 : 16))
-                    color: index === 0 ? page.acc : Theme.raised
+                    color: index === 0 ? Theme.primaryFill : Theme.raised
                     border.width: b.focused ? Theme.focusWidth : 1; border.color: b.focused ? Theme.focus : Theme.border
                     opacity: b.disabled ? 0.55 : 1
                     Column {
                         objectName: matchAction.searching ? "onlineSearchBanner" : "onlineSearchContent"
                         visible: matchAction.searching
                         x: 12; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 24 - searchCancel.width - 8; spacing: 2
-                        Caption { id: matchCaption; objectName: "onlineMatchActionCaption"; width: parent.width; text: matchAction.searching ? (page.o.arcade.search.text || "") : (((page.o.arcade || {}).labels || {})[matchAction.index === 0 ? "ranked" : "quick"] || matchAction.original.label || ""); color: matchAction.index === 0 ? Theme.ground : Theme.text; font.pixelSize: Theme.onlinePx(matchAction.searching ? 18 : 24); font.weight: Font.Bold; wrapMode: matchAction.searching ? Text.Wrap : Text.NoWrap; maximumLineCount: matchAction.searching ? 2 : 1 }
-                        Caption { id: matchNote; width: parent.width; text: matchAction.searching ? [page.o.arcade.search.elapsed || "", (page.o.search || {}).reason || ""].filter(s => s).join(" \u00b7 ") : matchAction.original.disabled && matchAction.original.value ? page.prof.guest && page.o.arcade ? page.o.arcade.labels.needsAccount : matchAction.original.value : matchAction.index === 0 ? page.fnd.rankedNote || "" : page.fnd.quickNote || ""; color: matchAction.index === 0 ? Theme.ground : Theme.muted }
+                        Caption { id: matchCaption; objectName: "onlineMatchActionCaption"; width: parent.width; text: matchAction.searching ? (page.o.arcade.search.text || "") : (((page.o.arcade || {}).labels || {})[matchAction.index === 0 ? "ranked" : "quick"] || matchAction.original.label || ""); color: matchAction.index === 0 ? Theme.primaryText : Theme.text; font.pixelSize: Theme.onlinePx(matchAction.searching ? 18 : 24); font.weight: Font.Bold; wrapMode: matchAction.searching ? Text.Wrap : Text.NoWrap; maximumLineCount: matchAction.searching ? 2 : 1 }
+                        Caption { id: matchNote; width: parent.width; text: matchAction.searching ? [page.o.arcade.search.elapsed || "", (page.o.search || {}).reason || ""].filter(s => s).join(" \u00b7 ") : matchAction.original.disabled && matchAction.original.value ? page.prof.guest && page.o.arcade ? page.o.arcade.labels.needsAccount : matchAction.original.value : matchAction.index === 0 ? page.fnd.rankedNote || "" : page.fnd.quickNote || ""; color: matchAction.index === 0 ? Theme.primaryText : Theme.muted }
                     }
                     Column {
                         visible: !matchAction.searching
                         x: 12; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 24; spacing: 2
-                        Caption { width: parent.width; text: (((page.o.arcade || {}).labels || {})[matchAction.index === 0 ? "ranked" : "quick"] || matchAction.original.label || ""); color: matchAction.index === 0 ? Theme.ground : Theme.text; font.pixelSize: Theme.onlinePx(24); font.weight: Font.Bold }
-                        Caption { width: parent.width; text: matchAction.original.disabled && matchAction.original.value ? page.prof.guest && page.o.arcade ? page.o.arcade.labels.needsAccount : matchAction.original.value : matchAction.index === 0 ? page.fnd.rankedNote || "" : page.fnd.quickNote || ""; color: matchAction.index === 0 ? Theme.ground : Theme.muted }
+                        Caption { width: parent.width; text: (((page.o.arcade || {}).labels || {})[matchAction.index === 0 ? "ranked" : "quick"] || matchAction.original.label || ""); color: matchAction.index === 0 ? Theme.primaryText : Theme.text; font.pixelSize: Theme.onlinePx(24); font.weight: Font.Bold }
+                        Caption { width: parent.width; text: matchAction.original.disabled && matchAction.original.value ? page.prof.guest && page.o.arcade ? page.o.arcade.labels.needsAccount : matchAction.original.value : matchAction.index === 0 ? page.fnd.rankedNote || "" : page.fnd.quickNote || ""; color: matchAction.index === 0 ? Theme.primaryText : Theme.muted }
                     }
                     ArcadeAction { id: searchCancel; objectName: "searchCancelAction"; visible: matchAction.searching; root: page.root; b: matchAction.b; compact: true; height: Theme.target(44); width: Math.min(implicitWidth, parent.width * .42); anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter; onActivated: page.click(b) }
                     TapHandler { id: matchTap; enabled: !matchAction.searching && !matchAction.b.disabled; onTapped: page.click(matchAction.b) }

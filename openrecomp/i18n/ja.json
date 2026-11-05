@@ -1722,6 +1722,7 @@
  "feedback.no_deadline": "制限時間の指定なし",
  "feedback.vs": "VS",
  "feedback.mode": "対戦形式",
+ "feedback.delay_short": "遅延",
  "feedback.rounds": "ラウンド数",
  "playtime.minutes": "{minutes}分",
  "playtime.hours": "{hours}時間",
@@ -1739,5 +1740,6 @@
  "playtime.offline": "オフライン",
  "playtime.online": "オンライン",
  "playtime.sessions": "セッション数",
- "playtime.local_only": "このPCにのみ保存されます。アップロードされません。"
+ "playtime.local_only": "このPCにのみ保存されます。アップロードされません。",
+ "vibe.rank_up": "昇格"
 }

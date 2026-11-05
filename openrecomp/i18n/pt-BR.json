@@ -1722,6 +1722,7 @@
  "feedback.no_deadline": "Prazo não informado",
  "feedback.vs": "VS",
  "feedback.mode": "Modo",
+ "feedback.delay_short": "Atraso",
  "feedback.rounds": "Assaltos",
  "playtime.minutes": "{minutes} min",
  "playtime.hours": "{hours} h",
@@ -1739,5 +1740,6 @@
  "playtime.offline": "Offline",
  "playtime.online": "Online",
  "playtime.sessions": "Sessões",
- "playtime.local_only": "Salvo apenas neste PC. Nunca enviado."
+ "playtime.local_only": "Salvo apenas neste PC. Nunca enviado.",
+ "vibe.rank_up": "Subiu de ranque"
 }

@@ -119,6 +119,7 @@ class GlobalOffers(unittest.TestCase):
         nav_feedback.observe(self.nav, self.nav.games[0], self.a.online_state())
         row = nav_feedback.global_view(self.nav)[0]
         self.assertIsNone(row["seconds"])
+        self.assertEqual(row["countdown"], "")
         nav_feedback.click_global(self.nav, row["identity"], True)
         self.a.snapshot.update(busy=False, message="@online.failure")
         nav_feedback.observe(self.nav, self.nav.games[0], self.a.online_state())
@@ -214,17 +215,85 @@ class GlobalOffers(unittest.TestCase):
 
 
 class OfferScene(unittest.TestCase):
-    def test_actual_global_popup_and_vs_buttons_load_and_stay_inside_their_cards(self):
+    def test_incoming_fixture_is_compact_centered_below_lobby_cards_and_has_only_server_timer(self):
         import os
         from pathlib import Path
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         os.environ.setdefault("QT_QUICK_BACKEND", "software")
         from PySide6.QtCore import QObject, QPointF, QUrl
-        from PySide6.QtGui import QGuiApplication
+        from PySide6.QtGui import QFontDatabase, QGuiApplication
+        from PySide6.QtQml import QQmlApplicationEngine
+        from openrecomp.app import UI_DIR
+        from test_ui_loads import FakeBackend, spin, wait_pages
+        from tools.online_shots import scene
+        gui = QGuiApplication.instance() or QGuiApplication([])
+        for path in (Path(UI_DIR) / "fonts").glob("*.ttf"):
+            QFontDatabase.addApplicationFont(str(path))
+        nav = scene("t5", "challenge_incoming", "en")
+        backend = FakeBackend(nav)
+        engine = QQmlApplicationEngine()
+        warnings = []
+        engine.warnings.connect(lambda rows: warnings.extend(row.toString() for row in rows))
+        engine.setInitialProperties(dict(backend=backend, wantFull=False))
+        engine.load(QUrl.fromLocalFile(str(Path(UI_DIR) / "Main.qml")))
+        self.assertTrue(engine.rootObjects(), warnings)
+        window = engine.rootObjects()[0]
+        for language in ("en", "de", "fr"):
+            for width, height in ((1920, 1080), (1280, 720)):
+                with self.subTest(language=language, size=(width, height)):
+                    window.setWidth(width)
+                    window.setHeight(height)
+                    nav.language = language
+                    backend.refresh()
+                    wait_pages(window)
+                    spin()
+                    popup = window.findChild(QObject, "globalOffer")
+                    self.assertTrue(popup.isVisible())
+                    stage = popup.parentItem()
+                    self.assertAlmostEqual(popup.x() + popup.width() / 2, stage.width() / 2, delta=.5)
+                    self.assertAlmostEqual(popup.y() + popup.height() / 2, stage.height() / 2, delta=.5)
+                    if language == "en" and width == 1920:
+                        self.assertLess(popup.width(), 600)
+                    for name in ("onlineProfile", "onlineFind"):
+                        card = window.findChild(QObject, name)
+                        self.assertTrue(card.isVisible())
+                        bottom = card.mapToItem(stage, QPointF(0, card.height())).y()
+                        self.assertGreaterEqual(popup.y(), bottom + 8)
+                    countdown = window.findChild(QObject, "globalOfferCountdown")
+                    self.assertFalse(countdown.isVisible())
+                    self.assertEqual(countdown.property("text"), "")
+        # A legacy/fallback label must never appear in the deadline slot.
+        backend._v["globalOffers"][0]["countdown"] = "No deadline supplied"
+        backend.viewChanged.emit()
+        spin()
+        self.assertFalse(countdown.isVisible())
+        self.assertEqual(countdown.property("text"), "")
+        nav.game.a.snapshot["challenge"].update(id="timed-challenge", seconds=19)
+        nav_feedback.observe(nav, nav.game, nav.game.a.online_state())
+        backend.refresh()
+        spin()
+        self.assertTrue(countdown.isVisible())
+        self.assertEqual(countdown.property("text"), "0:19")
+        self.assertEqual(nav.game.a.calls, [])
+        self.assertEqual(warnings, [])
+        window.setProperty("allowClose", True)
+        window.close()
+        engine.deleteLater()
+        gui.processEvents()
+
+    def test_actual_global_popup_and_vs_actions_stay_inside_their_presentations(self):
+        import os
+        from pathlib import Path
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        os.environ.setdefault("QT_QUICK_BACKEND", "software")
+        from PySide6.QtCore import QObject, QPointF, QUrl
+        from PySide6.QtGui import QFontDatabase, QGuiApplication
         from PySide6.QtQml import QQmlApplicationEngine
         from openrecomp.app import UI_DIR
         from test_ui_loads import FakeBackend, spin, wait_pages
         gui = QGuiApplication.instance() or QGuiApplication([])
+        for path in (Path(UI_DIR) / "fonts").glob("*.ttf"):
+            QFontDatabase.addApplicationFont(str(path))
         adapter = FeedbackLobby()
         nav = Nav([Game(adapter.m, adapter)], language="en")
         adapter.snapshot["challenge"] = dict(id="incoming", name="Synthetic challenger", rank="3rd Dan", ping=42, seconds=30)
@@ -246,6 +315,12 @@ class OfferScene(unittest.TestCase):
             popup = window.findChild(QObject, "globalOffer")
             self.assertIsNotNone(popup)
             self.assertGreater(popup.property("height"), 0)
+            self.assertLess(popup.width(), 900)
+            self.assertAlmostEqual(popup.x() + popup.width() / 2, popup.parentItem().width() / 2, delta=.5)
+            self.assertAlmostEqual(popup.y() + popup.height() / 2, popup.parentItem().height() / 2, delta=.5)
+            countdown = window.findChild(QObject, "globalOfferCountdown")
+            self.assertTrue(countdown.property("visible"))
+            self.assertEqual(countdown.property("text"), "0:30")
             for name in ("globalOfferAccept", "globalOfferDecline", "globalOfferReview"):
                 button = window.findChild(QObject, name)
                 origin = button.mapToItem(popup, QPointF())
@@ -253,6 +328,12 @@ class OfferScene(unittest.TestCase):
                 self.assertGreaterEqual(origin.y(), 0)
                 self.assertLessEqual(origin.x() + button.width(), popup.width())
                 self.assertLessEqual(origin.y() + button.height(), popup.height())
+        adapter.snapshot["challenge"].pop("seconds")
+        adapter.snapshot["challenge"]["id"] = "no-deadline"
+        nav_feedback.observe(nav, nav.game, adapter.online_state())
+        backend.refresh()
+        spin()
+        self.assertFalse(window.findChild(QObject, "globalOfferCountdown").property("visible"))
         adapter.snapshot.update(challenge={}, phase="matched", match=dict(opponent="Rival", ping=42, delay=dict(frames=2), first_to=2))
         nav.sec[nav.game.id] = "online"
         nav_feedback.observe(nav, nav.game, adapter.online_state())
@@ -262,11 +343,23 @@ class OfferScene(unittest.TestCase):
         card = window.findChild(QObject, "matchVersusCard")
         self.assertIsNotNone(card)
         self.assertFalse(window.findChild(QObject, "globalOffer").property("visible"))
+        presentation = window.findChild(QObject, "matchPresentation")
+        self.assertIsNotNone(presentation)
+        art_bottom = card.mapToItem(presentation, QPointF()).y() + card.height()
+        positions = []
         for name in ("versusReady", "versusDecline"):
             button = window.findChild(QObject, name)
-            origin = button.mapToItem(card, QPointF())
-            self.assertLessEqual(origin.x() + button.width(), card.width())
-            self.assertLessEqual(origin.y() + button.height(), card.height())
+            origin = button.mapToItem(presentation, QPointF())
+            self.assertGreaterEqual(origin.x(), 0)
+            self.assertGreater(origin.y(), art_bottom)
+            self.assertLessEqual(origin.x() + button.width(), presentation.width())
+            self.assertLessEqual(origin.y() + button.height(), presentation.height())
+            positions.append((origin, button))
+        ready_origin, ready = positions[0]
+        decline_origin, decline = positions[1]
+        self.assertLess(ready_origin.x() + ready.width(), decline_origin.x())
+        self.assertAlmostEqual(ready_origin.y() + ready.height() / 2,
+                               decline_origin.y() + decline.height() / 2, delta=.5)
         self.assertEqual(warnings, [])
         window.setProperty("allowClose", True)
         window.close()

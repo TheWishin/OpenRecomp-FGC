@@ -262,6 +262,10 @@ class Adapter:
         """A fighter's face picture (a file of the player's own build) for the online tables; "" = none."""
         return ""
 
+    def fighter_render(self, key, mirrored=False):
+        """An upper-body cut-out for the VS card, already oriented for its side; "" = none."""
+        return ""
+
     def fighter_label(self, key):
         """A fighter's name from the lobby's fighter key; the key itself when unknown."""
         return next((f["name"] for f in self.fighters() if f.get("key") == key), key or "")

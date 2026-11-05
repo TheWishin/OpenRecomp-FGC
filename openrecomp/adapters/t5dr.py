@@ -25,6 +25,7 @@ from .t5_coexist import load_settings, readonly_imports
 from .t5_compatibility import build_compatibility
 from .t5_build_runtime import start_build_with_python
 from ..manifest import art_dir
+from ..fighter_render import t5_cache_name
 from ..game_releases import managed as _managed_install
 from ..player_main import choose_main, local_main
 
@@ -575,6 +576,45 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
     def fighter_image(self, key):
         gid = next((f["id"] for f in self._fighter_table() if f["key"] == key), None)
         return self.face(gid) if gid is not None else ""
+
+    def fighter_render(self, key, mirrored=False):
+        gid = next((f["id"] for f in self._fighter_table() if f["key"] == key), None)
+        if not isinstance(gid, int) or gid < 0:
+            return ""
+        token = (gid, bool(mirrored))
+        path = os.path.join(art_dir("t5dr"), "fighters", t5_cache_name(gid, mirrored=mirrored))
+        if os.path.isfile(path):
+            return path
+        lock = self.__dict__.setdefault("_render_lock", threading.Lock())
+        with lock:
+            tried = self.__dict__.setdefault("_render_tried", set())
+            busy = self.__dict__.setdefault("_render_busy", set())
+            if token in tried or token in busy or not self.state().get("built"):
+                return ""
+            busy.add(token)
+            tried.add(token)
+        try:
+            threading.Thread(target=self._make_fighter_render, args=(gid, path, bool(mirrored)), daemon=True).start()
+        except Exception as error:  # noqa: BLE001 -- optional pictures never stop a screen
+            with lock:
+                busy.discard(token)
+                tried.discard(token)
+            self.problem = self.message("picture_error", error=str(error))
+        return ""
+
+    def _make_fighter_render(self, gid, path, mirrored=False):
+        from ..fighter_render import t5_cutout, write_render
+        try:
+            with readonly_imports():
+                decoder = importlib.import_module("t5lobby.fighter_art")
+            sources = decoder.ra.find_sources(self.s.out_dir)
+            if sources:
+                write_render(path, *t5_cutout(decoder, sources, gid, mirrored=mirrored))
+        except Exception as error:  # noqa: BLE001 -- optional pictures never stop a screen
+            self.problem = self.message("picture_error", error=str(error))
+        finally:
+            with self._render_lock:
+                self._render_busy.discard((gid, mirrored))
 
     def online_cfg_path(self):
         if getattr(self.s, "coexistence", False):

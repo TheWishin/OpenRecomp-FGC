@@ -1722,6 +1722,7 @@
  "feedback.no_deadline": "Aucune échéance indiquée",
  "feedback.vs": "VS",
  "feedback.mode": "Mode",
+ "feedback.delay_short": "Délai",
  "feedback.rounds": "Manches",
  "playtime.minutes": "{minutes} min",
  "playtime.hours": "{hours} h",
@@ -1739,5 +1740,6 @@
  "playtime.offline": "Hors ligne",
  "playtime.online": "En ligne",
  "playtime.sessions": "Sessions",
- "playtime.local_only": "Enregistré uniquement sur ce PC. Jamais envoyé."
+ "playtime.local_only": "Enregistré uniquement sur ce PC. Jamais envoyé.",
+ "vibe.rank_up": "Promotion"
 }

@@ -9,6 +9,7 @@ Item {
     property var handler: null
     property bool selected: false
     property bool disabled: false
+    readonly property bool pressed: !disabled && !!(handler && handler.pressed)
     property string disabledReason: parent.b ? (parent.b.disabledReason || parent.b.hint || parent.b.value || "") : ""
     property string name: labels(parent)
     property int role: Accessible.Button
@@ -39,6 +40,20 @@ Item {
         Accessible.ignored: !visible
         Accessible.onPressAction: if (!interaction.disabled) interaction.activated()
         HoverHandler { id: hover; enabled: !interaction.disabled }
+        Rectangle {
+            objectName: "focusGlow"
+            anchors.fill: parent; anchors.margins: -3
+            radius: 7; color: "transparent"
+            border.color: Theme.focus; border.width: 6
+            opacity: !interaction.disabled && (interaction.selected || hover.hovered) ? .16 : 0
+            Behavior on opacity { enabled: !Theme.reducedMotion; NumberAnimation { duration: 140 } }
+        }
+        Rectangle {
+            objectName: "pressFeedback"
+            anchors.fill: parent; radius: 4
+            color: Theme.focus; opacity: interaction.pressed ? .18 : 0
+            Behavior on opacity { enabled: !Theme.reducedMotion; NumberAnimation { duration: 80 } }
+        }
         Rectangle {
             objectName: "focusRing"
             anchors.fill: parent

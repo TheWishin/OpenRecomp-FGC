@@ -29,7 +29,7 @@ VIEW_FIELDS = {
     "folder", "file", "pick", "mainLabel", "fighterTitle", "fighterMain", "fullscreen", "reducedMotion", "build", "online", "settingsPage",
     "bindingsPage", "bindCapture", "ctlPreset",
     "discord", "sessionPage", "loading", "loadError", "textScale", "highContrast", "mainMenu",
-    "globalOffers", "activity", "matchVersus", "gameTheme",
+    "globalOffers", "activity", "matchVersus", "gameTheme", "livingBackground", "promotion",
 }
 
 

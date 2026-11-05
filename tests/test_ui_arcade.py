@@ -350,7 +350,7 @@ class ArcadeRendering(unittest.TestCase):
         self.assertGreaterEqual(tab.x(), viewport.property("contentX"))
         self.assertLessEqual(tab.x() + tab.width(), viewport.property("contentX") + viewport.width() + .5)
 
-    def test_match_found_has_one_heading_and_pinned_primary(self):
+    def test_match_found_has_one_heading_and_actions_below_compact_art(self):
         self.publish("t5", "matched")
         nav = self.backend.nav
         for width, height in ((1920, 1080), (1280, 720)):
@@ -361,7 +361,8 @@ class ArcadeRendering(unittest.TestCase):
             primary = self.named("versusReady")[0]
             self.assertTrue(primary.isVisible())
             card = self.named("matchVersusCard")[0]
-            self.assertAlmostEqual(self.rect(primary).bottom(), self.rect(card).bottom() - 20 * width / 1920, delta=1)
+            self.assertGreater(self.rect(primary).top(), self.rect(card).bottom())
+            self.assertAlmostEqual(self.rect(primary).bottom(), self.rect(self.named("matchPresentation")[0]).bottom(), delta=1)
             self.assertTrue(self.named("versusDecline")[0].isVisible())
         self.assertEqual(nav.game.a.calls, [])
 

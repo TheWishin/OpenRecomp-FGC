@@ -867,6 +867,12 @@ class Online:
         if generation != self._online_generation or client is not self._online_client:
             raise SearchRefused("@online.cancelled")
 
+    def _online_starting_pause(self):
+        """Give the ready card a frame before launch; called only from the launch worker."""
+        remaining = getattr(self, "_online_starting_until", 0) - time.monotonic()
+        if remaining > 0:
+            threading.Event().wait(min(.35, remaining))
+
     def _online_player_rank(self, rating):
         return ""
 

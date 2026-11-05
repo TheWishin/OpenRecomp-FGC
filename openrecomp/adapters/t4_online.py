@@ -1058,6 +1058,7 @@ class T4Online(T4Direct, Online):
         self._online_early_start = None
         self._online_owned_run = None
         self._online_pending_start = None
+        self._online_starting_until = 0
         self._online_result_message = "@online.result_sent"
         self._online_match = dict(self._online_match_view(event), my_ready=False, peer_ready=False)
         self._t4_set_info(event)
@@ -1166,12 +1167,16 @@ class T4Online(T4Direct, Online):
                 return True
             self._online_ticket = ticket
             self._online_match_id = ticket.match_id
+            if previous is None:
+                self._online_starting_until = time.monotonic() + .35
+            self._online_match["opponent_ready"] = True
             self._online_phase, self._online_message = "starting", "@online.starting"
             client = self._online_client
             generation = self._online_generation
             old_run = getattr(self, "_online_owned_run", None)
 
             def launch():
+                self._online_starting_pause()
                 self._online_check_request(generation, client)
                 if old_run is not None:
                     self._online_stop_owned(wait=True, expected=old_run)
@@ -1277,7 +1282,7 @@ class T4Online(T4Direct, Online):
         if action == "start_match" and phase == "matched" and client and not self._online_busy:
             self._online_authorized = True
             self._online_match["my_ready"] = True
-            self._online_phase, self._online_message = "starting", "@online.starting"
+            self._online_phase, self._online_message = "starting", "@online.waiting_peer_ready"
             generation = self._online_generation
             ready_check = getattr(self, "_online_ready_check", True)
 

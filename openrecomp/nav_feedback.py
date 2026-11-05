@@ -195,7 +195,8 @@ def observe(nav, g, state):
 
 
 def tick(nav, dt):
-    changed = False
+    from . import nav_rank_cue
+    changed = nav_rank_cue.tick(nav, dt)
     for row in nav.__dict__.get("_global_offer_clock", {}).values():
         old = int(row["age"])
         row["age"] += max(0, dt)
@@ -360,7 +361,7 @@ def global_view(nav):
             pending = bool(state.get("busy")) or identity in nav.__dict__.get("_global_offer_answers", {})
             from .nav_common import uri
             rows.append(dict(identity=identity, game=g.id, gameShort=i18n.literal(g.short), serial=clock.get("serial", 0),
-                accent="#71CBE5" if g.m.get("adapter") == "t4" else "#E99761" if g.m.get("adapter") == "t5dr" else g.accent,
+                accent="#71CBE5" if g.m.get("adapter") == "t4" else "#D11F3F" if g.m.get("adapter") == "t5dr" else g.accent,
                 kind=key.partition(":")[0], title="@online.match_found" if key.startswith("match:") else "@online.accept_invite" if key.startswith("invite:") else "@online.accept_challenge",
                 name=i18n.literal(str(info.get("name") or info.get("opponent") or "")),
                 rank=i18n.literal(str(info.get("rank") or "")), rating=i18n.literal(str(info.get("rating") or "")),
@@ -371,7 +372,7 @@ def global_view(nav):
                 fighter=i18n.literal(g.a.fighter_label(info["main"])) if info.get("main") else "",
                 selfArt=uri(g.a.fighter_image(state["me"]["main"])) if (state.get("me") or {}).get("main") else "",
                 connection=connection(info), details=details, seconds=seconds,
-                countdown=f"{seconds // 60}:{seconds % 60:02}" if seconds is not None else "@feedback.no_deadline",
+                countdown=f"{seconds // 60}:{seconds % 60:02}" if seconds is not None else "",
                 disabled=pending, focused=nav.__dict__.get("_global_offer_focus") == identity,
                 acceptLabel="@feedback.ready" if key.startswith("match:") else "@online.accept_invite" if key.startswith("invite:") else "@online.accept_challenge",
                 declineLabel="@online.cancel_match" if key.startswith("match:") else "@online.decline_invite" if key.startswith("invite:") else "@online.decline_challenge",
@@ -463,10 +464,10 @@ def match_view(nav, g):
     match = state.get("match") or {}
     me = state.get("me") or {}
     you_char, opp_char = match.get("you_char"), match.get("opp_char")
-    picked = state.get("phase") == "matched" and all(
+    picked = state.get("phase") in ("matched", "starting") and all(
         isinstance(key, str) and key and key != "random" for key in (you_char, opp_char))
 
-    def player(info, name, pick):
+    def player(info, name, pick, mirrored=False):
         main = info.get("main") or ""
         fighter = pick if picked else main
         return dict(name=i18n.literal(str(name)), rank=i18n.literal(str(info.get("rank") or "")),
@@ -475,6 +476,7 @@ def match_view(nav, g):
                     fighter=i18n.literal(str(g.a.fighter_label(fighter))) if fighter else "",
                     main=i18n.literal(str(g.a.fighter_label(main))) if main else "", mainLabel="@online_ui.col.main", picked=bool(picked),
                     art=uri(g.a.fighter_image(fighter)) if fighter else "",
+                    render=uri(g.a.fighter_render(fighter, mirrored=mirrored)) if fighter else "",
                     plate=uri(g.a.rank_plate(info.get("tier"))) if info.get("tier") is not None else "")
     opponent = match.get("opponent")
     opponent_info = match.get("opponent_info") if isinstance(match.get("opponent_info"), dict) else match
@@ -501,8 +503,21 @@ def match_view(nav, g):
             details.append(dict(k=label, v=value or i18n.literal(str(match[field]))))
     row = next((row for row in global_view(nav) if row["game"] == g.id and row["kind"] == "match"), {})
     ready = match.get("opponent_ready")
+    starting = state.get("phase") == "starting" and ready is True
+    waiting = state.get("phase") == "starting" and not starting
+    delay = next((detail["v"] for detail in details if detail["k"] in ("@input_delay", "@online.challenge_delay")), "@unknown")
+    compact = [i18n.localize("@feedback.delay_short", nav.language) + " " + i18n.localize(delay, nav.language)]
+    compact += [detail["v"] for detail in details if detail["k"] == "@feedback.mode"]
+    compact += [str(match["rounds"]) + " " + i18n.localize("@feedback.rounds", nav.language)] if "rounds" in match else []
+    conn = connection(match)
+    compact += [conn["text"], conn["path"]]
+    info_line = i18n.literal(" \u00b7 ".join(i18n.localize(part, nav.language) for part in compact if part))
     return dict(gameId=g.id, left=player(me, me.get("name") or state.get("name") or "", you_char),
-                right=player(opponent_info, opponent or "", opp_char), connection=connection(match), details=details,
-                game=i18n.literal(g.short), versus="@feedback.vs", countdown=row.get("countdown", "@feedback.no_deadline"),
-                seconds=row.get("seconds"), readyLabel="@feedback.ready", disabled=bool(state.get("busy")),
+                right=player(opponent_info, opponent or "", opp_char, mirrored=True), connection=connection(match), details=details,
+                game=i18n.literal(g.short), versus="@feedback.vs", countdown=row.get("countdown", ""),
+                seconds=row.get("seconds"), readyLabel="@online.waiting_peer_ready" if waiting else "@feedback.ready",
+                disabled=bool(state.get("busy")) or state.get("phase") == "starting",
+                phase=state.get("phase"), starting=starting, waiting=waiting,
+                startingLabel="@online.starting", declineLabel="@online.cancel_match", infoLine=info_line,
+                status="@online.starting" if starting else "@online.waiting_peer_ready" if waiting else "",
                 opponentStatus="@feedback.opponent_ready" if ready is True else "@feedback.opponent_waiting" if ready is False else "")
