@@ -528,6 +528,27 @@ class HeavySlots(MatrixFixture):
                 self.fail("Acquired an occupied slot")
         self.assertEqual(len(list(folder.iterdir())), 3)
 
+    def test_a_busy_pc_can_be_waited_for_but_never_robbed(self):
+        folder = self.temp / "locks"
+        folder.mkdir()
+        for name in ("HEAVY.lock", "HEAVY2.lock", "HEAVY3.lock"):
+            (folder / name).write_text("another worker", encoding="utf-8")
+        freed = []
+
+        def sleep(_seconds):
+            if not freed:
+                (folder / "HEAVY2.lock").unlink()          # the other worker finishes
+                freed.append(True)
+
+        with mock.patch.object(matrix.time, "sleep", sleep):
+            with matrix.heavy_slot(folder, wait=60, poll=0.01) as lock:
+                self.assertEqual(lock.name, "HEAVY2.lock")
+        (folder / "HEAVY2.lock").write_text("another worker", encoding="utf-8")
+        with self.assertRaises(matrix.MatrixError):          # waiting is bounded
+            with matrix.heavy_slot(folder, wait=0.05, poll=0.01):
+                self.fail("Acquired an occupied slot")
+        self.assertEqual(len(list(folder.iterdir())), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

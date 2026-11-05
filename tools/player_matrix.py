@@ -268,21 +268,26 @@ def check_matrix_report(report_path, *, commit, source_root, runtime_root):
 
 
 @contextmanager
-def heavy_slot(folder):
-    """CreateNew/exclusive creation: never steal or remove another run's lock."""
+def heavy_slot(folder, wait=0.0, poll=2.0):
+    """CreateNew/exclusive creation: never steal or remove another run's lock. `wait`: seconds to keep trying for a slot
+    another worker holds (0 = refuse at once, the default)."""
     folder = Path(folder)
     lock = None
-    for name in ("HEAVY.lock", "HEAVY2.lock", "HEAVY3.lock"):
-        candidate = folder / name
-        try:
-            with candidate.open("x", encoding="utf-8") as stream:
-                stream.write("player-matrix " + datetime.now(timezone.utc).isoformat() + " packaged launcher\n")
-            lock = candidate
-            break
-        except FileExistsError:
-            continue
-    if lock is None:
-        raise MatrixError("All heavy slots are occupied; rerun when one is free")
+    deadline = time.monotonic() + max(0.0, wait)
+    while lock is None:
+        for name in ("HEAVY.lock", "HEAVY2.lock", "HEAVY3.lock"):
+            candidate = folder / name
+            try:
+                with candidate.open("x", encoding="utf-8") as stream:
+                    stream.write("player-matrix " + datetime.now(timezone.utc).isoformat() + " packaged launcher\n")
+                lock = candidate
+                break
+            except FileExistsError:
+                continue
+        if lock is None:
+            if time.monotonic() >= deadline:
+                raise MatrixError("All heavy slots are occupied; rerun when one is free")
+            time.sleep(poll)
     try:
         yield lock
     finally:
@@ -469,6 +474,8 @@ def main(argv=None):
     parser.add_argument("--config", type=Path, help="private matrix inputs JSON; no accounts or credentials")
     parser.add_argument("--report", type=Path, help="default <run>/report.json")
     parser.add_argument("--heavy-lock-dir", type=Path, default=Path(r"C:\T5DROnline\build\int115"))
+    parser.add_argument("--heavy-wait", type=float, default=0.0, metavar="SECONDS",
+                        help="wait this long for a free heavy slot before a case is BLOCKED (default: do not wait)")
     parser.add_argument("--timeout", type=float, default=180)
     parser.add_argument("--waive", action="append", default=[], metavar="CASE",
                         help="apply the owner-approved waiver to a BLOCKED case (only t4-iso has one; see WAIVERS)")
@@ -490,7 +497,7 @@ def main(argv=None):
         rows = []
         for case in cases():
             try:
-                with heavy_slot(args.heavy_lock_dir):
+                with heavy_slot(args.heavy_lock_dir, wait=args.heavy_wait):
                     row = run_case(launcher, run_root, case, inputs, full=args.full, timeout=args.timeout)
             except (MatrixError, OSError) as error:
                 row = dict(id=case["id"], status="BLOCKED", reason=str(error), evidence={})
