@@ -3,10 +3,12 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
-## v0.1.1
+## v0.1.2
 
-- **Full Setup**: `OpenRecomp-FGC-Full-Setup-0.1.1.exe` installs the launcher together with Tekken 5 DR Online 1.2.0
-  and Tekken 4 0.1.0 (beta) in one go (a checkbox per game, both on). The games are the published, signed release
+v0.1.1 was an earlier pre-release; v0.1.2 contains everything planned for it.
+
+- **Full Setup**: `OpenRecomp-FGC-Full-Setup-0.1.2.exe` installs the launcher together with Tekken 5 DR Online 1.2.1
+  and Tekken 4 0.1.2 (beta) in one go (a checkbox per game, both on). The games are the published, signed release
   files, checked exactly like an install from inside the launcher. The small Setup and the zip stay as before.
 - **T5DR lobby address**: on a new PC the Lobby field already names the T5DR Online server; an empty field means the
   same server. A server that cannot be reached now says "Lobby not reachable" instead of a general error.
