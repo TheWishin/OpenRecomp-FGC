@@ -154,7 +154,7 @@ Item {
                     Column {
                         visible: !matchAction.searching
                         x: 12; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 24; spacing: 2
-                        Caption { width: parent.width; text: (((page.o.arcade || {}).labels || {})[matchAction.index === 0 ? "ranked" : "quick"] || matchAction.original.label || ""); color: matchAction.index === 0 ? Theme.primaryText : Theme.text; font.pixelSize: Theme.onlinePx(24); font.weight: Font.Bold }
+                        Caption { objectName: "onlineMatchActionCaption"; width: parent.width; text: (((page.o.arcade || {}).labels || {})[matchAction.index === 0 ? "ranked" : "quick"] || matchAction.original.label || ""); color: matchAction.index === 0 ? Theme.primaryText : Theme.text; font.pixelSize: Theme.onlinePx(24); font.weight: Font.Bold }
                         Caption { width: parent.width; text: matchAction.original.disabled && matchAction.original.value ? page.prof.guest && page.o.arcade ? page.o.arcade.labels.needsAccount : matchAction.original.value : matchAction.index === 0 ? page.fnd.rankedNote || "" : page.fnd.quickNote || ""; color: matchAction.index === 0 ? Theme.primaryText : Theme.muted }
                     }
                     ArcadeAction { id: searchCancel; objectName: "searchCancelAction"; visible: matchAction.searching; root: page.root; b: matchAction.b; compact: true; height: Theme.target(44); width: Math.min(implicitWidth, parent.width * .42); anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter; onActivated: page.click(b) }
