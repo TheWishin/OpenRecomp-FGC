@@ -76,6 +76,11 @@ class ButtonContent(unittest.TestCase):
                 if state == "result":
                     for label in self.named("onlineFieldLabel"):
                         if label.isVisible() and label.property("text") in ("Ich habe gewonnen", "Ich habe verloren", "Kein Ergebnis"):
+                            # The page's focus now starts on its first action (Ich habe gewonnen): a focused row
+                            # shows its hint line under the label, so the label deliberately sits above the middle.
+                            if any(child.objectName() == "onlineFieldHelp" and child.isVisible()
+                                   for child in label.parentItem().childItems()):
+                                continue
                             self.assertAlmostEqual(label.y() + label.height() / 2,
                                                    label.parentItem().height() / 2, delta=.5)
 

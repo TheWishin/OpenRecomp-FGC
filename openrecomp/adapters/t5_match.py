@@ -191,6 +191,10 @@ class T5Match(Online):
         if mid:
             state["match"]["id"] = mid
         state["capabilities"]["rematch"] = bool(getattr(self, "_online_rematch", False))
+        # A press is only taken when the match driver is there and no other request of this launcher runs.
+        state["capabilities"]["rematch_ready"] = bool(
+            state["capabilities"]["rematch"] and self._online_phase == "result_sent"
+            and getattr(self, "_online_driver", None) is not None and not self._online_busy)
         info = getattr(self, "_online_set", {})
         state["set"] = dict(info, wins=list(info.get("wins", []))) if info else {}
         if isinstance(info.get("next"), dict):

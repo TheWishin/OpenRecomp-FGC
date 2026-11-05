@@ -363,7 +363,12 @@ class Online:
                     action("result_none", "@online.result_none", "@online.result_hint")]
         elif phase == "result_sent" and match_flow:
             if capabilities.get("rematch", False):
-                out.append(action("rematch", "@online.rematch", "@online.rematch_hint"))
+                rematch = action("rematch", "@online.rematch", "@online.rematch_hint")
+                if state.get("busy") or capabilities.get("rematch_ready") is False:
+                    # Not ready yet (a request of this launcher still runs, the match driver is not there): a press
+                    # would be dropped, so the row says so instead of looking pressable.
+                    rematch.update(disabled=True, run=None, verb="")
+                out.append(rematch)
             out.append(action("return_lobby", "@online.return_lobby"))
         if capabilities.get("leave_set", False):
             out.append(action("leave_set", "@online.leave_set", "@online.leave_ranked_set" if set_state.get("rated") else "@online.leave_set"))
@@ -383,11 +388,38 @@ class Online:
         from .nav_lobby_chat import ensure_rows
         out = ensure_rows(self, g, state, out)
         out = self._remember_online_rows(g, out, state)
+        self._land_on_result(g, state, out)
         if out and out[0].get("region") == "login":
             self._login_start_focus(g, out)
         else:
             self.__dict__.setdefault("login_focused", set()).discard(g.id)
         return out
+
+    def _land_on_result(self, g, state, out):
+        """The result page's focus starts on its first action (Rematch, else Back to lobby), never on the status
+        row: that row is the card's title, nothing shows it focused and a press on it does nothing. A Rematch row
+        that appears a moment later takes the focus too -- while nobody has touched the pad or the mouse."""
+        memory = self.__dict__.setdefault("result_landing", {})
+        phase = state.get("phase")
+        if phase not in ("result", "result_sent") or not (state.get("capabilities") or {}).get("match_flow"):
+            memory.pop(g.id, None)
+            return
+        order = ("rematch", "return_lobby") if phase == "result_sent" else ("result_win",)
+        ids = [it.get("id") for it in out]
+        target = next((iid for iid in order if iid in ids), None)
+        if target is None:
+            return
+        keys = {g.id + ":online"} | ({self.key()} if g is self.game else set())
+        landing = memory.get(g.id)
+        if landing and landing["phase"] == phase:
+            untouched = self.trail is landing["trail"] and all(
+                ids[min(self.focus.get(key, 0), len(ids) - 1)] == landing["id"] for key in keys)
+            if not (untouched and target != landing["id"]):
+                return
+        index = ids.index(target)
+        for key in keys:
+            self.focus[key] = index
+        memory[g.id] = dict(phase=phase, id=target, trail=self.trail)
 
     def _online_feature_items(self, g, state, out, action):
         from . import (nav_accounts, nav_challenges, nav_community, nav_moderation, nav_private_chat,

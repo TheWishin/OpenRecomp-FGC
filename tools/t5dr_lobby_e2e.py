@@ -282,6 +282,13 @@ def child(args):
                     break
                 if nav.focus_index(items) == target:
                     if activate:
+                        # A row that is not ready yet looks disabled (no run): wait for it, a press on it is refused
+                        wait_until = time.monotonic() + 10
+                        while not nav.items()[target].get("run") and time.monotonic() < wait_until:
+                            backend._tick()
+                            spin(40)
+                        items = nav.items()
+                        target = next((k for k, row in enumerate(items) if test(row.get("id") or "")), target)
                         # the same action the launcher's own pad tests send for A on the focused row
                         nav.act("confirm", device="xbox")
                         backend._tick()

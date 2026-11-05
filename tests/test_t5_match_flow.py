@@ -244,6 +244,29 @@ class T5MatchTests(unittest.TestCase):
         self.a.online_poll()
         self.assertEqual(self.a.fake_driver.rematches, [("one", True)])
 
+    def test_rematch_is_ready_only_with_the_driver_and_no_other_request_running(self):
+        client = self.match()
+        self.start(client)
+        self.a.fake_driver.notes.append(dict(kind="game_state", state="fight"))
+        self.a.fake_driver.notes.append(dict(kind="ask_result", match="one"))
+        self.a.online_poll()
+        self.a.online_poll()
+        self.a.online_action("result_win")
+        self.a.online_poll()
+        client.events.put(dict(t="match_result", match="one", status="confirmed", rematch_window=20))
+        self.a.online_poll()
+        self.a.online_poll()
+        caps = self.a.online_state()["capabilities"]
+        self.assertTrue(caps["rematch"] and caps["rematch_ready"])
+        self.a._online_busy = True
+        caps = self.a.online_state()["capabilities"]
+        self.assertTrue(caps["rematch"])
+        self.assertFalse(caps["rematch_ready"])
+        self.a._online_busy = False
+        driver, self.a._online_driver = self.a._online_driver, None
+        self.assertFalse(self.a.online_state()["capabilities"]["rematch_ready"])
+        self.a._online_driver = driver
+
     def test_return_lobby_declines_rematch(self):
         client = self.match()
         self.start(client)
