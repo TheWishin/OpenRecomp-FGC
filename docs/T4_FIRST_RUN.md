@@ -28,8 +28,10 @@ Lizenzen ist enthalten.
 
 Dasselbe ZIP traegt auch Tekken 5 DR, aber ohne T5DR selbst: jeder legt seinen
 eigenen, entpackten Ordner `T5DR-Online-1.2.0` daneben (neben `OpenRecomp-FGC/`
-und `T4/`) und baut ihn einmal in dessen `T5DR Online.exe` mit BUILD GAME und
-der eigenen .pkg und .rap. Der Launcher findet den Nachbarordner selbst. Der
+und `T4/`) und baut ihn einmal im Launcher (Tekken 5 > Build, eigene .pkg und .rap,
+Bauen; der Launcher fragt einmal nach). Dessen `T5DR Online.exe` (BUILD GAME)
+bleibt im selben Ordner benutzbar, nur nie beide gleichzeitig bauen lassen.
+Der Launcher findet den Nachbarordner selbst. Der
 ganze Zwei-PC-Ablauf mit beiden Spielen steht in [HAND_CHECK.md](HAND_CHECK.md).
 
 1. `OpenRecomp-FGC/run.cmd` im Explorer doppelklicken und dem Bildschirm

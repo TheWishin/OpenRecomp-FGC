@@ -154,8 +154,10 @@ keine Spielerlogs oder Screenshots ins Repository legen.
 ### Tekken 5 DR offline
 
 - Kachel Tekken 5 DR: Status „nicht gebaut“, solange kein Build da ist.
-  Tekken 5 > Build > **T5DR Online launcher** öffnet `T5DR Online.exe`;
-  dort BUILD GAME mit eigener .pkg und .rap. Danach den Launcher-Bereich neu
+  Tekken 5 > Build: eigene .pkg und .rap wählen, **Bauen** (der Launcher fragt
+  einmal nach, ob er den T5DR-Ordner bauen darf). Alternativ **T5DR Online
+  launcher** öffnen: `T5DR Online.exe`, dort BUILD GAME (nie beide gleichzeitig).
+  Danach den Launcher-Bereich neu
   öffnen: Status „bereit“, Version 1.2.0?
 - Play: Spiel startet, Pad funktioniert, Ton an, Spielende führt zurück in den
   Launcher. Einstellungen (Auflösung, Anzeige, Bildschirmseite) und

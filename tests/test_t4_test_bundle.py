@@ -63,6 +63,13 @@ class T4TestBundleTests(unittest.TestCase):
                 for phrase in ("Visual Studio 2022 Build Tools", "Git", "CMake", "Ninja", "SLUS-20328",
                                "T5DR-Online-1.2.0", ".pkg", ".rap", "T5DR Online.exe", "BUILD GAME", "7400"):
                     self.assertIn(phrase, text)
+            # The new flow: OpenRecomp builds the T5DR folder itself, T5DR's own launcher stays usable.
+            for text in (guide, result.read("START_HERE.txt").decode("utf-8")):
+                self.assertIn("Tekken 5 > Build", text)
+            self.assertIn("builds that folder itself", result.read("START_HERE.txt").decode("utf-8"))
+            self.assertIn("Never let both launchers build", result.read("START_HERE.txt").decode("utf-8"))
+            self.assertIn("nie beide gleichzeitig", guide)
+            self.assertNotIn("in T5DR's own launcher", result.read("START_HERE.txt").decode("utf-8"))
             self.assertIn("T5DR-Online-1.2.0", result.read("BUNDLE.txt").decode("utf-8"))
             self.assertFalse(any(name.startswith("T5DR") for name in result.namelist()))
             self.assertFalse(any(Path(name).suffix.lower() in bundle.IMAGE_SUFFIXES for name in result.namelist()))
