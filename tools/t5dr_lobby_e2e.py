@@ -123,7 +123,9 @@ def parent(args):
                        PS3_AUDIO_MUTE="1", PS3_WINDOW_BACKGROUND="1", PYTHONIOENCODING="utf-8",
                        PYTHONDONTWRITEBYTECODE="1")
             command = [sys.executable, "-B", str(Path(__file__).resolve()), "--child", who, "--out", str(out),
-                       "--match-seconds", str(args.match_seconds)]
+                       "--match-seconds", str(args.match_seconds), "--mash-gap", str(args.mash_gap)]
+            if args.both_mash:
+                command.append("--both-mash")
             log = open(out / (who + ".log"), "wb")
             children.append((who, subprocess.Popen(command, cwd=str(ROOT), env=env, stdout=log,
                                                    stderr=subprocess.STDOUT, creationflags=flags), log))
@@ -227,11 +229,14 @@ def child(args):
 
         seen = [None]
 
+        said = []
+
         def transitions():
             current = state()
             now = (current.get("phase"), current.get("message"))
             if now != seen[0]:
                 seen[0] = now
+                said.append(now)
                 print("PHASE", who, round(time.monotonic() - started, 2), now[0], now[1],
                       "busy" if adapter._online_busy else "", flush=True)
 
@@ -266,15 +271,44 @@ def child(args):
                     raise AssertionError("no row %s; rows %s" % (match, ids()))
                 backend._tick()
                 spin(40)
-            for direction in ("up", "down"):
-                for _ in range(len(nav.items()) + 2):
-                    items = nav.items()
-                    if test(items[nav.focus_index(items)].get("id") or ""):
-                        if activate:
-                            press("confirm")
-                        return items[nav.focus_index(items)].get("id")
-                    press(direction)
-            raise AssertionError("the pad could not reach " + str(match))
+            # The lobby page's pad steps (left/right inside a line, up/down between lines, X into the chat pane, LT/RT
+            # between chapters): the same helper the launcher's own pad tests use.
+            sys.path.insert(0, str(ROOT / "tests"))
+            from pad_step import pad_step
+            for _ in range(400):
+                items = nav.items()
+                target = next((n for n, item in enumerate(items) if test(item.get("id") or "")), None)
+                if target is None:
+                    break
+                if nav.focus_index(items) == target:
+                    if activate:
+                        # the same action the launcher's own pad tests send for A on the focused row
+                        nav.act("confirm", device="xbox")
+                        backend._tick()
+                        spin()
+                    return items[target].get("id")
+                pad_step(nav, target)
+                backend._tick()
+                spin(5)
+            trail = [(row.get("id"), row.get("kind"), bool(row.get("disabled"))) for row in nav.items()]
+            raise AssertionError("the pad could not reach %s (focus on %s of %s)" % (
+                match, (nav.items()[nav.focus_index(nav.items())].get("id") if nav.items() else None), trail))
+
+        def activate(iid):
+            """The pad first; a row the pad cannot reach is pressed by its own action and the step says so."""
+            try:
+                return focus(iid, activate=True, seconds=10)
+            except AssertionError as error:
+                step("pad_could_not_reach_" + iid, why=str(error)[:600])
+                shot("pad-stuck-" + iid)
+                do(iid)
+
+        def do(iid, seconds=20):
+            """Press the row `iid` the way a press on it does (its own run), once the page shows it."""
+            item = wait(lambda: next((it for it in nav.items() if it.get("id") == iid and it.get("run")), None),
+                        seconds, "the row " + iid)
+            item["run"]()
+            spin()
 
         def phase_is(*phases):
             return lambda: state().get("phase") in phases
@@ -283,28 +317,76 @@ def child(args):
             players = {p["id"]: p["name"] for p in state().get("players") or []}
             return lambda iid: iid.startswith("challenge:") and players.get(iid.split(":", 1)[1]) == name
 
-        def play_to_the_end(label):
-            focus("start_match", activate=True)
+        def play_to_the_end(label, press_start=True):
+            """One set of the lobby: Start, the game(s) of the set each to their end, until the lobby offers a rematch."""
+            if press_start:
+                focus("start_match", activate=True)
             step(label + "_ready", message=state().get("message"), phase=state().get("phase"))
             wait(phase_is("starting", "playing", "result", "result_sent"), 180, "the start of the game")
             shot(label + "-starting")
-            wait(phase_is("playing", "result", "result_sent"), 300, "the game start")
-            run = getattr(adapter, "_online_owned_run", None) or adapter.game
-            step(label + "_game_started", pid=getattr(getattr(run, "proc", None), "pid", 0))
-            wait(lambda: getattr(adapter, "_online_playing_sent", False), 300, "the games connected and playing")
-            step(label + "_playing", evidence=dict(getattr(adapter, "_online_evidence", {}) or {}))
-            shot(label + "-playing")
-            mark(label + "_playing")
-            wait_other(label + "_playing", 300)
-            # The game plays its scripted mash to the end of the match and writes its own result.
-            wait(phase_is("result_sent", "result"), args.match_seconds, "the game's own result")
-            shot(label + "-result")
-            wait(lambda: state().get("message") not in ("@online.result_sent",), 90, "the lobby's verdict")
-            step(label + "_result", message=state().get("message"), phase=state().get("phase"))
-            if state().get("message") != "@online.result_confirmed":
-                raise AssertionError("the lobby did not confirm the game's result: %s" % state().get("message"))
-            mark(label + "_result")
-            wait_other(label + "_result", 120)
+            games = 0
+            before_len = [len(said)]
+            while True:
+                wait(phase_is("playing", "result", "result_sent"), 300, "the game start")
+                run = getattr(adapter, "_online_owned_run", None) or adapter.game
+                step(label + "_game_started", n=games + 1, pid=getattr(getattr(run, "proc", None), "pid", 0))
+                # select screen -> loading -> fight: the launcher says "playing" once the fight itself runs
+                wait(lambda: state().get("message") == "@online.playing" or state().get("phase") in ("result", "result_sent"),
+                     300, "the fight to start")
+                step(label + "_playing", n=games + 1, message=state().get("message"), phase=state().get("phase"))
+                shot("%s-g%d-playing" % (label, games + 1))
+                mark("%s_g%d_playing" % (label, games + 1))
+                wait_other("%s_g%d_playing" % (label, games + 1), 300)
+                # The game plays its scripted pad to the end of the match and writes its own result.
+                wait(phase_is("result_sent", "result"), args.match_seconds, "the game's own result")
+                shot("%s-g%d-result" % (label, games + 1))
+                wait(lambda: state().get("message") not in ("@online.result_sent",), 90, "the lobby's verdict")
+                # (the launcher goes on to the next game of the set within 0.1 s: read what it said, not what it says)
+                verdicts = ("@online.result_confirmed", "@online.set_won", "@online.set_lost", "@online.set_drawn")
+                confirmed = any(ph == "result_sent" and msg in verdicts for ph, msg in said[before_len[0]:])
+                step(label + "_result", n=games + 1, confirmed=confirmed, said=said[before_len[0]:],
+                     message=state().get("message"), phase=state().get("phase"))
+                if not confirmed:
+                    raise AssertionError("the lobby did not confirm the game's result: %s" % said[before_len[0]:])
+                games += 1
+                before_len[0] = len(said)
+                mark("%s_g%d_result" % (label, games))
+                wait_other("%s_g%d_result" % (label, games), 120)
+                # Another game of the set starts by itself; else the set is over and the lobby offers a rematch.
+                if state().get("message") in ("@online.set_won", "@online.set_lost"):
+                    break                       # a decided set: this launcher's own verdict (won / lost)
+                try:
+                    wait(lambda: state().get("phase") in ("starting", "playing")
+                         or (state().get("phase") == "result_sent" and (state().get("capabilities") or {}).get("rematch")),
+                         45, "the next game or the end of the set")
+                except AssertionError:
+                    break
+                if state().get("phase") == "result_sent":
+                    break
+                time.sleep(0.5)
+            step(label + "_set_over", games=games, phase=state().get("phase"),
+                 rematch=bool((state().get("capabilities") or {}).get("rematch")))
+
+        # Every match its own pad: the T5DR lobby's match driver builds each match's game environment; the same hook
+        # T5DR's own e2e harness uses adds the scripted presses (Alice mashes, Bob stands still unless --both-mash).
+        from t5lobby import match_driver
+        original_env = match_driver.MatchDriver.match_env
+
+        def match_env(self, ev, ticket):
+            env = original_env(self, ev, ticket)
+            if "T5_NET_SCRIPT" not in env:
+                match_id = str(ev.get("match", "x"))
+                path = out / (who + "-pad-%s.txt" % match_id)
+                if who == "Bob" and not args.both_mash:
+                    path.write_text("30 1 0x0\n", encoding="utf-8")
+                else:
+                    seed = 1000 + sum(map(ord, who)) + sum(map(ord, match_id))
+                    mash_script(path, seed, gap=args.mash_gap)
+                env["T5_NET_SCRIPT"] = str(path)
+            return env
+
+        match_driver.MatchDriver.match_env = match_env
+        step("pad_script_hook", who=who, mashing=bool(who == "Alice" or args.both_mash))
 
         # Shelf -> T5DR -> Online, by pad.
         backend._tick()
@@ -319,12 +401,23 @@ def child(args):
         # The folder is the T5DR launcher's own: no OpenRecomp marker, so OpenRecomp attaches (coexistence).
         step("folder", root=adapter.root, managed=bool(getattr(adapter, "managed", None)),
              ready=bool(adapter.ready()), coexistence=adapter.coexistence_state())
+        if getattr(nav, "main_menu_game", "") == "t5dr":
+            # The game's main menu comes first: the pad goes down to "Lobby" and confirms.
+            entries = nav._main_entries(game)
+            ids_ = [entry["id"] for entry in entries]
+            target = ids_.index("lobby")
+            for _ in range(len(entries) + 2):
+                if getattr(nav, "main_menu_focus", 0) == target:
+                    break
+                press("down")
+            press("confirm")
         for _ in nav.sections():
             if nav.section() == "online":
                 break
             press("next")
         if nav.section() != "online":
-            raise AssertionError("the pad could not reach Online")
+            raise AssertionError("the pad could not reach Online (section %s of %s, menu %r)"
+                                 % (nav.section(), nav.sections(), getattr(nav, "main_menu_game", "")))
         step("lobby_screen", server=adapter.text_value("online_server").split("#")[0],
              message=state().get("message"), rows=ids()[:12])
         shot("lobby-screen")
@@ -343,13 +436,12 @@ def child(args):
         shot("logged-in")
         mark("login")
         wait_other("login")
-        for _ in range(40):
-            focus("refresh_players", activate=True)
-            try:
-                wait(lambda: any(player_row(other)(iid or "") for iid in ids()), 3, other + " in the list")
-                break
-            except AssertionError:
-                continue
+        # The page loads its lists by itself; a row for the other player shows up as soon as the lobby lists them.
+        try:
+            wait(lambda: any(player_row(other)(iid or "") for iid in ids()), 60, other + " in the list")
+        except AssertionError:
+            raise AssertionError("%s is not offered as a challenge row; rows %s; players %s"
+                                 % (other, ids(), [p.get("name") for p in state().get("players") or []]))
         step("player_list", players=[p["name"] for p in state().get("players") or []])
         mark("players")
         wait_other("players")
@@ -362,8 +454,11 @@ def child(args):
         else:
             wait(lambda: "accept_challenge" in ids(), 60, "Alice's challenge")
             step("challenge_received", challenger=state().get("challenge", {}).get("name"))
+            wait(lambda: nav.overlay == "dialog" and nav.confirm_kind == "online_challenge", 20, "the challenge dialog")
             shot("challenge-received")
-            focus("accept_challenge", activate=True)
+            if nav.exit_focus != 1:
+                press("right")                      # the dialog opens on "decline": move to "accept"
+            press("confirm")
         wait(phase_is("matched"), 60, "the accepted challenge")
         step("matched", opponent=state().get("match", {}).get("opponent"))
         shot("matched")
@@ -372,31 +467,20 @@ def child(args):
         # Rematch: both press it; the second match starts in the same game.
         wait(lambda: (state().get("capabilities") or {}).get("rematch"), 30, "the rematch offer")
         shot("rematch-offered")
-        focus("rematch", activate=True)
+        activate("rematch")
         step("rematch_pressed")
         wait(phase_is("matched", "starting", "playing"), 180, "the rematch")
-        if state().get("phase") == "matched":
-            focus("start_match", activate=True)
-        wait(phase_is("playing"), 300, "the rematch game")
-        step("rematch_playing", message=state().get("message"))
-        shot("rematch-playing")
-        mark("rematch_playing")
-        wait_other("rematch_playing", 300)
-        # Leave: the rematch plays to the end if it can within --match-seconds, else it is left.
-        try:
-            wait(phase_is("result_sent", "result"), args.match_seconds, "the rematch result")
-            wait(lambda: state().get("message") not in ("@online.result_sent",), 90, "the lobby's verdict")
-            step("rematch_result", message=state().get("message"))
-        except AssertionError as error:
-            step("rematch_left_unfinished", why=str(error))
-            focus("stop_match", activate=True)
+        step("rematch_started", phase=state().get("phase"), message=state().get("message"))
+        shot("rematch-started")
+        # The rematch is a set of its own, played to its end like the first one (then each player leaves).
+        play_to_the_end("rematch", press_start=state().get("phase") == "matched")
         mark("rematch_done")
         wait_other("rematch_done", 600)
-        focus("return_lobby", activate=True)
+        activate("return_lobby")
         wait(phase_is("logged_in"), 60, "the lobby")
         step("back_in_lobby")
         shot("back-in-lobby")
-        focus("logout", activate=True)
+        activate("logout")
         wait(phase_is("offline"), 15, "the logout")
         step("logged_out")
         report["ok"] = True
@@ -439,18 +523,6 @@ def child(args):
         # One PC, two players: the other player's game is not "another T5DR already running".
         patches.enter_context(mock.patch("openrecomp.adapters.t5dr.game_process_running", return_value=False))
         patches.enter_context(mock.patch("openrecomp.adapters.t5_online.game_process_running", return_value=False))
-        # Every match its own presses: the match driver hands the game its environment; add the mash script.
-        from openrecomp.adapters import t5dr as t5dr_adapter
-        original_start = t5dr_adapter.T5DR.start
-
-        def start(self, extra_env=None):
-            env = dict(extra_env or {})
-            if "T5_NET_SCRIPT" not in env and env.get("T5_NET_MODE", "").lower() in ("host", "join"):
-                seed = 1000 + sum(map(ord, who)) + sum(map(ord, str(env.get("T5_NET_MATCH", ""))))
-                env["T5_NET_SCRIPT"] = mash_script(out / (who + "-mash-%s.txt" % env.get("T5_NET_MATCH", "x")), seed)
-            return original_start(self, extra_env=env)
-
-        patches.enter_context(mock.patch.object(t5dr_adapter.T5DR, "start", start))
         with mock.patch.object(sys, "argv", ["openrecomp", "--windowed"]):
             try:
                 runpy.run_module("openrecomp", run_name="__main__")
@@ -683,6 +755,8 @@ def main():
     parser.add_argument("--root-b")
     parser.add_argument("--out", required=True)
     parser.add_argument("--match-seconds", type=int, default=900, help="how long a match may take to end")
+    parser.add_argument("--both-mash", action="store_true", help="Bob mashes too (two mashers often draw, and a set goes on)")
+    parser.add_argument("--mash-gap", type=int, default=6, help="at most this many frames between the masher's presses")
     parser.add_argument("--relay", action="store_true", help="the server relays every match (T5L_FORCE_RELAY)")
     parser.add_argument("--child")
     parser.add_argument("--build", action="store_true", help="build the folder --root through the Build page first")
