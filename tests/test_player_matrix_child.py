@@ -1,4 +1,5 @@
 """Safety guards are exercised with synthetic audit events and fake process spawns."""
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -133,6 +134,16 @@ class ProcessGuards(unittest.TestCase):
         for outside in (self.folder / "case" / "elsewhere.txt", self.folder / "other-case" / "game copy" / "x"):
             with self.subTest(outside=outside.name), self.assertRaises(PermissionError):
                 audit("open", (str(outside), "w", os.O_WRONLY))
+
+    def test_a_build_worker_reads_the_extra_roots_the_driver_left_beside_the_events(self):
+        case, other = self.folder / "case2" / "profile", self.folder / "case2" / "game copy"
+        case.mkdir(parents=True)
+        (case / "roots.json").write_text(json.dumps([str(other)]), encoding="utf-8")
+        child.safety(str(case / "events.jsonl"), worker=True)
+        audit = self.audit_hook.call_args.args[0]
+        audit("open", (str(other / "native" / "build.log"), "w", os.O_WRONLY | os.O_CREAT))
+        with self.assertRaises(PermissionError):
+            audit("open", (str(self.folder / "case2" / "elsewhere.txt"), "w", os.O_WRONLY))
 
     def test_audit_blocks_direct_shell_bypasses_and_external_network_events(self):
         audit = self.guard()

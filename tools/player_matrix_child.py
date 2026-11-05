@@ -119,6 +119,10 @@ def safety(events, *, full=False, worker=False, expected_python=None, extra_root
     owned_pids = set()
     scratch = Path(events).resolve().parent
     roots = [scratch, *(Path(r).resolve() for r in extra_roots)]
+    try:        # build workers are separate processes: the driver leaves the case's extra folders beside the events
+        roots += [Path(r).resolve() for r in json.loads((scratch / "roots.json").read_text(encoding="utf-8"))]
+    except (OSError, ValueError, TypeError):
+        pass
 
     def writable(path):
         if isinstance(path, int):  # Already-open standard streams and anonymous pipes.
@@ -285,8 +289,9 @@ def run_case(request):
     # same case; only copies made by the matrix count, never the read-only inputs.
     case_dir = home.parent if case.get("id") == "unicode-long-path" else home
     copies = [Path(inputs[key]).resolve() for key in ("t5dr_existing", "t4_root") if inputs.get(key)]
-    safety(events, full=request.get("full", False), expected_python=lambda: own_python[0],
-           extra_roots=[c for c in copies if c.is_relative_to(case_dir)])
+    extra = [c for c in copies if c.is_relative_to(case_dir)]
+    (home / "roots.json").write_text(json.dumps([str(c) for c in extra]), encoding="utf-8")
+    safety(events, full=request.get("full", False), expected_python=lambda: own_python[0], extra_roots=extra)
     from PySide6.QtCore import QTimer, QtMsgType, qInstallMessageHandler
     from PySide6.QtGui import QGuiApplication
     from openrecomp import app
