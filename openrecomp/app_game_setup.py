@@ -12,6 +12,7 @@ FIRST_CHECK_SECONDS = 3.0
 class GameSetupBackend:
     def _setup_init(self):
         self._setup = None
+        self._queued_update = ""
         self._setup_clock = 0.0
         self._setup_started = os.environ.get("OPENRECOMP_NO_GAME_CHECKS") == "1"     # tests: no automatic network check
 
@@ -102,6 +103,27 @@ class GameSetupBackend:
         if action == "cancel":
             self.setup.cancel(gid)
             return True
+        if action == "queue_update":
+            # Something runs (game, build, online match): the update starts by itself when it ends
+            if not self._setup_root(gid):
+                return False
+            self._queued_update = gid
+            self.nav.setup_queued = gid
+            return True
+        if action == "unqueue":
+            self._queued_update = ""
+            self.nav.setup_queued = ""
+            return True
+        if action == "update_with_launcher":
+            return self._setup_update_with_launcher(gid)
+        if action == "pending_build":
+            self.config["pending_build"] = gid
+            try:
+                mf.save_config(self.config)
+            except (OSError, ValueError):
+                self.config.pop("pending_build", None)
+                return False
+            return True
         if action == "attach":
             return self._setup_attach(gid, arg)
         if action == "reload":
@@ -131,6 +153,47 @@ class GameSetupBackend:
             self.config.pop("pending_game_update", None)
             return False
         return True
+
+    def _setup_update_with_launcher(self, gid):
+        """One Update for everything: the launcher's own update is downloaded first (progress, then "Restart to
+        finish"); the game update (gid) is remembered and continues by itself after the restart."""
+        updates = getattr(self, "updates", None)
+        if updates is None or updates.state.get("phase") != "available":
+            return False
+        self.config["pending_game_update"] = dict(game=gid, launcher=str(updates.state.get("version", "")))
+        try:
+            mf.save_config(self.config)
+        except (OSError, ValueError):
+            self.config.pop("pending_game_update", None)
+            return False
+        if not self._install_update():
+            self.config.pop("pending_game_update", None)
+            return False
+        return True
+
+    def _run_queued_and_pending(self):
+        """After a game, build or match ended: the queued game update starts; after a restart the build a game
+        update asked for starts. Nothing here opens a dialog."""
+        changed = False
+        if self._queued_update and not self._update_busy(allow_lobby=True):
+            gid, self._queued_update = self._queued_update, ""
+            self.nav.setup_queued = ""
+            root = self._setup_root(gid)
+            if root and self.setup.update(gid, root):
+                self.nav.say("@setup.queued_start", 10)
+            changed = True
+        gid = self.config.get("pending_build")
+        if gid and self._setup_started and not self._update_busy():
+            game = self.nav.game_by_id(gid)
+            if game is not None and game.a.found():
+                self.config.pop("pending_build", None)
+                try:
+                    mf.save_config(self.config)
+                except (OSError, ValueError):
+                    pass
+                self.nav.setup_auto_build(gid)
+                changed = True
+        return changed
 
     def _resume_game_update(self):
         """After Update all restarted the launcher: start the game update the player already asked for, once its
@@ -228,6 +291,8 @@ class GameSetupBackend:
                     changed = True
         events = self.setup.poll()
         if self.config.get("pending_game_update") and self._resume_game_update():
+            changed = True
+        if (self._queued_update or self.config.get("pending_build")) and self._run_queued_and_pending():
             changed = True
         views = {gid: self.setup.view(gid) for gid in SETUP_GAMES}
         if views != self.nav.setup_state:

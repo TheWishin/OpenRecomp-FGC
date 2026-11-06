@@ -46,12 +46,20 @@ class Service(unittest.TestCase):
         self.api.launch_update.assert_called_once_with(Path("fake-install"), Path("fake-plan"))
         self.quit.assert_called_once()
 
-    def test_busy_refuses_confirm_and_defers_helper_when_activity_starts_during_download(self):
+    def test_busy_still_downloads_but_defers_the_helper_until_the_activity_ends(self):
         self.offer()
         self.busy = True
-        self.assertFalse(self.service.install())
-        self.api.stage_update.assert_not_called()
+        self.assertTrue(self.service.install())          # the download needs no closed game; only the restart does
+        self.service.poll()
+        self.api.stage_update.assert_called_once()
+        self.api.launch_update.assert_not_called()
+        self.assertEqual(self.service.state["phase"], "waiting")
         self.busy = False
+        self.service.poll()
+        self.api.launch_update.assert_called_once()
+
+    def test_busy_defers_helper_when_activity_starts_during_download(self):
+        self.offer()
         self.assertTrue(self.service.install())
         self.busy = True
         self.service.poll()

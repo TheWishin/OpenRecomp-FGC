@@ -163,9 +163,7 @@ class SettingsPage:
         self.on_ui_sound(self.ui_sounds, self.ui_sound_volume)
 
     def _settings_game_check(self):
-        if not self._dry("@setup.check"):
-            self.on_setup("check_all", "", True)
-            self.say("@setup.checking")
+        self.setup_check_manual()
 
     def _settings_prereleases(self, value):
         self.game_prereleases = bool(value)

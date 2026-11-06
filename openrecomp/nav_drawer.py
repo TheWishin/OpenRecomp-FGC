@@ -13,7 +13,7 @@ class Drawer:
         phase = self.update_state.get("phase", "idle")
         update_hint = {"checking": "@updates.checking", "installing": "@updates.installing", "current": "@updates.current",
                        "waiting": "@updates.waiting", "unconfigured": "@updates.unconfigured", "error": self.update_failure_key(),
-                       "cancelled": "@updates.cancelled"}.get(phase, "@updates.hint")
+                       "cancelled": "@updates.cancelled", "ready": "@updates.ready"}.get(phase, "@updates.hint")
         if phase in UPDATE_BUSY:
             # While it runs the row shows where it is (the same line as the progress window)
             update_hint = self._update_progress_line()
@@ -74,9 +74,7 @@ class Drawer:
                 from . import nav_feedback
                 return nav_feedback.return_activity(self)
             if items[self.drawer_focus].get("game_check"):
-                if not self._dry("@setup.check"):
-                    self.on_setup("check_all", "", True)
-                    self.say("@setup.checking")
+                self.setup_check_manual()
                 return
             g = items[self.drawer_focus].get("game")
             if g and not self._dry(i18n.message("dry_open", name=g.a.native_label)):
@@ -147,23 +145,63 @@ class Drawer:
     def poll_update(self):
         """Called with every new launcher-update state: the progress window closes when the run is over (the
         outcome is said as a message by the backend)."""
+        changed = False
         if (self.overlay == "dialog" and self.confirm_kind == "update_progress"
                 and self.update_state.get("phase") not in UPDATE_BUSY):
             self.overlay = None
-            return True
-        return False
+            changed = True
+        version = str(self.update_state.get("version", ""))
+        if (self.update_state.get("phase") == "ready" and self.update_restart_asked != version and self.overlay is None
+                and not self._update_busy()):
+            # Downloaded and checked while nothing else runs: one prompt, never over another dialog or a running game
+            self.update_restart_asked = version
+            self._ask("update_restart")
+            changed = True
+        return changed
+
+    def launcher_update_line(self):
+        """The line on the home screen about the launcher's own update ("" when there is nothing to say)."""
+        st = self.update_state
+        phase = st.get("phase")
+        if phase == "available":
+            return i18n.message("updates.home_available", version=i18n.literal(str(st.get("version", ""))))
+        if phase == "ready":
+            return "@updates.home_ready"
+        if phase == "installing":
+            return i18n.message("updates.home_installing", progress=self._update_progress_line())
+        if phase == "waiting":
+            return "@updates.waiting"
+        return ""
+
+    def launcher_update_action(self):
+        """The home screen's Update: one action for whatever the launcher itself needs (its own entry in Quick
+        access does the same thing)."""
+        self._check_update()
+
+    def setup_check_manual(self):
+        """Check for game updates because the player asked: the result is said when the checks are done."""
+        if self._dry("@setup.check"):
+            return
+        self.setup_check_pending = True
+        self.on_setup("check_all", "", True)
+        self.say("@setup.checking")
 
     def _check_update(self):
-        if self.update_state.get("phase") in UPDATE_BUSY:
+        phase = self.update_state.get("phase")
+        if phase in UPDATE_BUSY:
             # Pressing the entry again shows the running update's progress (and its Cancel); it never starts another
             self._ask("update_progress")
             return
-        if self._update_busy():
+        if phase == "ready":
+            self.update_restart_asked = ""
+            self._ask("update_restart")
+            return
+        if phase == "available":
+            self.overlay = None
+            self.offer_update(force=True)     # also while a game runs: it downloads now, installs when closed
+        elif self._update_busy():
             self.say("@updates.busy")
             return
-        if self.update_state.get("phase") == "available":
-            self.overlay = None
-            self.offer_update(force=True)
         elif (self.update_state.get("phase") == "current" and self.update_state.get("test_version")
               and getattr(self, "on_update_test", None) and not self._dry("@updates.install")):
             if self.on_update_test():
@@ -177,8 +215,8 @@ class Drawer:
     def offer_update(self, force=False):
         """Offer once per session when the launcher is free; confirmation remains a separate action."""
         version = self.update_state.get("version", "")
-        if (self.update_state.get("phase") != "available" or not version or self.overlay or self._update_busy()
-                or (not force and self.update_offered == version)):
+        if (self.update_state.get("phase") != "available" or not version or self.overlay
+                or (self._update_busy() and not force) or (not force and self.update_offered == version)):
             return False
         self.update_offered = self.update_version = version
         self._ask("update")

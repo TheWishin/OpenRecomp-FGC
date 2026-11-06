@@ -160,10 +160,11 @@ class Backend(QObject, GameSetupBackend):
         self.nav.on_build_history = self._save_build_history      # the Build page's "about N min left" next time
         self.nav.on_adapter_config = self._save_config            # e.g. the one-time T5DR folder notice
         self.nav.on_uninstall = self._uninstall                   # Settings > Uninstall OpenRecomp completely
-        self.updates = UpdateService(busy=self._update_busy, quit=self._quit,
+        self.updates = UpdateService(busy=self._update_busy, quit=self._quit, ask_restart=True,
                                      prereleases=lambda: bool(self.config.get("game_prereleases")))
         self.nav.on_update_test = self._take_test_update          # "up to date -- test version X available"
         self.nav.on_update_cancel = self._cancel_update           # Back / Esc / B / Cancel in the update window
+        self.nav.on_update_apply = lambda: self.updates.apply()   # "Restart to finish"
         self._offered_update = False
         self._update_phase = "idle"
         if problems:
@@ -324,9 +325,8 @@ class Backend(QObject, GameSetupBackend):
         close = getattr(self.nav, "poll_update", None)
         if close is not None and close():
             changed = True
-        if phase == "available" and not self._offered_update and not self._update_busy():
-            self._offered_update = self.nav.offer_update()
-            changed = changed or self._offered_update
+        # An update found in the background is a line on the home screen and in Quick access, never a dialog
+        # that appears by itself (it asks when the player presses Update).
         return changed
 
     def _library_blocked(self):

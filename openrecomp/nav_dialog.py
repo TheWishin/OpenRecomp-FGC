@@ -21,6 +21,8 @@ class Dialog:
             return self._setup_dialog(a)
         if self.confirm_kind == "update_progress":
             return self._update_progress_dialog(a)
+        if self.confirm_kind == "update_restart":
+            return self._update_restart_dialog(a)
         if self.confirm_kind == "tools_help":
             return self._tools_dialog(a)
         if self.confirm_kind == "uninstall_all":
@@ -55,12 +57,13 @@ class Dialog:
             elif yes and self.confirm_kind == "support_report":
                 self._start_support(self.game, "report")
             elif yes and self.confirm_kind == "update":
-                if self._update_busy():
-                    self.say("@updates.busy")
-                elif self.update_state.get("phase") == "available" and self.update_state.get("version") == self.update_version:
+                if self.update_state.get("phase") == "available" and self.update_state.get("version") == self.update_version:
                     if self.on_update_install and not self._dry("@updates.install"):
+                        busy = self._update_busy()
                         if self.on_update_install() is not False:
                             self._ask("update_progress")     # step, MB, speed, time left -- and Cancel
+                            if busy:
+                                self.say("@updates.queued", 12)   # downloads now, installs when the game is closed
 
     # ---- the launcher's own update: progress and cancel
     def _update_progress_dialog(self, a):
@@ -76,6 +79,30 @@ class Dialog:
             if self.on_update_cancel is not None:
                 self.on_update_cancel()
             self.say("@setup.cancelling")
+
+    def _update_restart_dialog(self, a):
+        """"Restart to finish": the launcher update is downloaded and checked. Later keeps it ready."""
+        if a in ("left", "right", "up", "down"):
+            self.exit_focus = 1 - self.exit_focus
+        elif a == "back":
+            self.overlay = None
+            self.say("@updates.ready", 8)
+        elif a == "confirm":
+            self.overlay = None
+            if self.exit_focus == 1 and self.on_update_apply is not None and self.on_update_apply():
+                self.say("@updates.restarting", 12)
+            else:
+                self.say("@updates.ready", 8)
+
+    def _view_update_restart(self, v):
+        text = i18n.message("updates.restart_text", version=i18n.literal(str(self.update_state.get("version", ""))))
+        if self.update_continues:
+            text = i18n.message("updates.restart_text_game", text=text, game=i18n.literal(self.update_continues))
+        v["dialog"] = dict(title="@updates.restart_title", text=text,
+                           options=[dict(label="@updates.later", index=0, focused=self.exit_focus == 0),
+                                    dict(label="@updates.restart_now", index=1, focused=self.exit_focus == 1)])
+        v["hint"] = "@dialog_hint"
+        v["prompts"] = [self.prompt("confirm", "@confirm"), self.prompt("right", "@switch"), self.prompt("back", "@updates.later")]
 
     def _view_update_progress(self, v):
         st = self.update_state
@@ -135,6 +162,8 @@ class Dialog:
             return self._view_setup_dialog(v)
         if self.confirm_kind == "update_progress":
             return self._view_update_progress(v)
+        if self.confirm_kind == "update_restart":
+            return self._view_update_restart(v)
         if self.confirm_kind == "tools_help":
             return self._view_tools_dialog(v)
         if self.confirm_kind == "uninstall_all":

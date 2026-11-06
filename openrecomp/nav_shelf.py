@@ -150,6 +150,8 @@ class Shelf:
                 self._select_game(g)
                 self.library_game = g.id
                 self._ask("library_manage")
+            elif a == "x" and self.launcher_update_line():
+                self.launcher_update_action()
             elif a == "play":
                 self._select_game(g)
                 self.start_game(g)
@@ -223,6 +225,12 @@ class Shelf:
                 v["hint"] = "@setup.tile_hint"
             if g.m.get("schema_version") == 1 and g.m.get("adapter") == "generic":
                 v["prompts"].append(self.prompt("x", "@library.manage"))
+            line = self.launcher_update_line()
+            if line:
+                # A small "update available" line for the launcher itself, and the one action that does it
+                v["hint"] = i18n.message("updates.home_join", hint=v["hint"], line=line)
+                if not any(p.get("action") == "x" for p in v["prompts"]):
+                    v["prompts"].append(self.prompt("x", "@setup.update"))
             v["prompts"] += [self.prompt("switchGame", "@switch_game"), self.prompt("social", "@quick_access"), self.prompt("back", "@quit")]
         else:
             v["hint"] = "@onboarding.empty" if not self.games else "@manifest_hint"

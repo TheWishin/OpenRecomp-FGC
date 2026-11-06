@@ -144,6 +144,26 @@ class GameSetupNav:
         self._ask("setup_existing")
         return True
 
+    def _setup_queue(self, gid):
+        if self.setup_queued == gid:
+            self.on_setup("unqueue", gid, None)
+            self.say("@setup.unqueued", 8)
+        elif self.on_setup("queue_update", gid, None):
+            self.say("@setup.queued", 12)
+        else:
+            self.say("@setup.busy")
+
+    def setup_auto_build(self, gid):
+        """A game update changed what must be built: build it now (the line says so), unless something runs."""
+        g = self.game_by_id(gid)
+        if g is None or not g.a.found():
+            return
+        if self._update_busy():
+            self.say("@setup.rebuild_hint", 12)
+            return
+        self.say("@setup.rebuild_auto", 15)
+        self._start_build(g)
+
     def _setup_running(self):
         """The game whose install/update is running (one at a time), from the view the backend gave us."""
         return next((gid for gid, st in (getattr(self, "setup_state", None) or {}).items()
@@ -189,7 +209,12 @@ class GameSetupNav:
         if self._setup_show_running():
             return
         if self._update_busy(allow_lobby=True):
-            self.say("@setup.busy")
+            st = self._setup(g.id)
+            if st.get("phase") == "ready" and st.get("latest") and (st.get("available") or st.get("required")) \
+                    and not st.get("needs_launcher"):
+                self._setup_queue(g.id)         # "will install when you close the game", pressed again = not
+            else:
+                self.say("@setup.busy")
             return
         self.setup_game = g.id
         st = self._setup(g.id)
@@ -235,6 +260,13 @@ class GameSetupNav:
             self.setup_cancelling = False
             self._ask("setup_progress")
 
+    def _setup_error_text(self, error):
+        """The sentence for a failed install/update; "could not replace <folder>" names the folder."""
+        key, detail = error[0], (error[1] if len(error) > 1 else "")
+        if key == "@setup.err_replace":
+            return i18n.message("setup.err_replace", folder=i18n.literal(str(detail)))
+        return key
+
     def poll_setup(self, finished):
         """Called by the backend with GameSetup.poll()'s events. -> True when the screen changed."""
         changed = False
@@ -249,7 +281,7 @@ class GameSetupNav:
                 if self.overlay == "dialog" and self.confirm_kind == "setup_loading":
                     if error:
                         self.overlay = None
-                        self.say(error[0], 10)
+                        self.say(self._setup_error_text(error), 10)
                     elif reinstall:
                         self._setup_reinstall_start(gid)
                     elif update:
@@ -263,7 +295,7 @@ class GameSetupNav:
                 if self.overlay == "dialog" and self.confirm_kind == "setup_progress":
                     self.overlay = None
                 if error:
-                    self.say("@setup.cancelled_install" if error[0] == "@setup.cancelled" else error[0], 12)
+                    self.say("@setup.cancelled_install" if error[0] == "@setup.cancelled" else self._setup_error_text(error), 12)
                 else:
                     self.on_setup("attach", gid, result)
             elif kind == "update":
@@ -271,15 +303,33 @@ class GameSetupNav:
                 if self.overlay == "dialog" and self.confirm_kind == "setup_progress":
                     self.overlay = None
                 if error:
-                    self.say(error[0], 12)
+                    self.say(self._setup_error_text(error), 12)
                 elif result.get("restart"):
+                    if result.get("rebuild") is True:
+                        self.on_setup("pending_build", gid, None)     # built by itself once the launcher is back
                     self._ask("setup_restart")
                 else:
                     self.on_setup("reload", gid, result)
+                    rebuild = result.get("rebuild") is True
                     self.say(i18n.message("setup.done_update", version=i18n.literal(result.get("version", "")),
-                                          hint="@setup.rebuild_hint" if result.get("rebuild") else "@setup.updated_hint"), 12)
+                                          hint="@setup.rebuild_auto" if rebuild else
+                                          "@setup.rebuild_hint" if result.get("rebuild") else "@setup.updated_hint"), 12)
+                    if rebuild:
+                        self.setup_auto_build(gid)
         if self.overlay == "dialog" and self.confirm_kind == "setup_progress":
             changed = True
+        if self.setup_check_pending and not any((st or {}).get("phase") == "checking"
+                                                for st in (getattr(self, "setup_state", None) or {}).values()):
+            self.setup_check_pending = False
+            changed = True
+            failed = next((e for _g, k, _r, e in finished if k == "check" and e), None)
+            names = [g.m.get("title", g.id) for g in self.games if self.setup_update_needed(g)]
+            if failed:
+                self.say(self._setup_error_text(failed), 10)
+            elif names:
+                self.say(i18n.message("setup.found_updates", games=i18n.literal(", ".join(names))), 12)
+            else:
+                self.say("@setup.all_current", 10)
         return changed
 
     def setup_installed(self, gid):
@@ -364,8 +414,16 @@ class GameSetupNav:
         elif kind == "setup_update":
             self.overlay = None
             if yes:
-                if self._update_busy(allow_lobby=True):
-                    self.say("@setup.busy")
+                launcher = self.update_state if self.update_state.get("phase") == "available" else None
+                if launcher and not self._setup(gid).get("needs_launcher") and self.on_setup(
+                        "update_with_launcher", gid, str(launcher.get("version", ""))):
+                    # One action: the launcher first (progress, then "Restart to finish"); the game update then
+                    # continues by itself after the restart.
+                    game = self.game_by_id(gid)
+                    self.update_continues = game.m.get("title", gid) if game is not None else gid
+                    self._ask("update_progress")
+                elif self._update_busy(allow_lobby=True):
+                    self._setup_queue(gid)
                 elif self.on_setup("update", gid, None):
                     self.setup_cancelling = False
                     self._ask("setup_progress")
@@ -456,6 +514,11 @@ class GameSetupNav:
             elif game is not None and getattr(game.a, "root", None):
                 # 0.1.3: which install is updated (a player can have several)
                 text = i18n.message("setup.update_in_folder", text=text, folder=i18n.literal(game.a.root))
+            if self.update_state.get("phase") == "available" and not st.get("needs_launcher"):
+                text = i18n.message("setup.update_launcher_first", text=text,
+                                    version=i18n.literal(str(self.update_state.get("version", ""))))
+            elif self._update_busy(allow_lobby=True):
+                text = i18n.message("setup.update_queue_note", text=text)
         elif kind == "setup_needs_launcher":
             title = "@setup.needs_launcher_title"
             text = i18n.message("setup.needs_launcher_text", name=name, version=i18n.literal(st.get("latest", "")),

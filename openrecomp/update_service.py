@@ -26,7 +26,7 @@ def failure_reason(error):
 
 
 class UpdateService:
-    def __init__(self, root=None, *, api=updater, busy=None, quit=None, worker=None, prereleases=None, now=None):
+    def __init__(self, root=None, *, api=updater, busy=None, quit=None, worker=None, prereleases=None, now=None, ask_restart=False):
         self.root = Path(root) if root is not None else Path(__file__).resolve().parent.parent
         self.api = api
         self.busy = busy or (lambda: False)
@@ -35,6 +35,8 @@ class UpdateService:
         self.prereleases = prereleases or (lambda: False)     # the player's Quick access -> Test versions switch
         self.quiet = False                                     # an automatic check: no "up to date" message
         self.now = now or time.time
+        self.ask_restart = ask_restart        # the UI wants its "Restart to finish" prompt (phase "ready") first
+        self.apply_requested = False
         self.state = dict(phase="idle", version="", notes="", size=0, test_version="", target="", step="", done=0,
                           total=0, speed=0, left=0, can_cancel=True, cancelling=False, reason="")
         self.cancel_event = threading.Event()
@@ -67,6 +69,7 @@ class UpdateService:
         """A new run: a fresh cancel flag and progress meter. The same flag is what the worker's download watches."""
         self.cancel_event = threading.Event()
         self.staged = None
+        self.apply_requested = False
         self.state.update(phase=phase, step=step, done=0, total=total, speed=0, left=0, can_cancel=True,
                           cancelling=False, reason="")
 
@@ -84,13 +87,13 @@ class UpdateService:
         unpacking, and while the staged update waits for games to close, nothing of the launcher is changed: the
         download stops, partial files go. Once the helper is started (restart) there is nothing to cancel."""
         phase = self.state["phase"]
-        if self.applying or phase not in BUSY_PHASES or not self.state.get("can_cancel", True):
+        if self.applying or phase not in BUSY_PHASES + ("ready",) or not self.state.get("can_cancel", True):
             return False
         if phase == "checking":
             self._stale_checks += 1
             self.state.update(phase="cancelled", step="", reason="")
             return True
-        if phase == "waiting":
+        if phase in ("waiting", "ready"):
             self._discard()
             self.state.update(phase="cancelled", step="", reason="")
             return True
@@ -100,8 +103,17 @@ class UpdateService:
         self.state["cancelling"] = True       # the worker answers within a second; poll() then says "cancelled"
         return True
 
+    def apply(self):
+        """The player pressed "Restart to finish" (phase "ready"): the next poll starts the helper. If a game or
+        build is running by then, the update waits and installs when it is closed."""
+        if self.state["phase"] not in ("ready", "waiting") or self.prepared is None or self.applying:
+            return False
+        self.apply_requested = True
+        return True
+
     def _discard(self):
         staged, self.staged, self.prepared = self.staged, None, None
+        self.apply_requested = False
         discard = getattr(self.api, "discard_stage", None)
         if staged is not None and callable(discard):
             try:
@@ -143,7 +155,7 @@ class UpdateService:
         """Update all (a game release needs OpenRecomp-FGC `minimum`): find a launcher release at or above it -- the
         newest stable one, else a test version -- and install it without another question (the player pressed
         Update all). The game update continues after the restart (app_game_setup: pending game update)."""
-        if self.state["phase"] in BUSY_PHASES or self.prepared is not None or self.busy():
+        if self.state["phase"] in BUSY_PHASES or self.prepared is not None:
             return False
         self.quiet = False                 # the player asked for this: a failure is said, even after a quiet check
         self._begin("installing", "lookup")
@@ -160,7 +172,7 @@ class UpdateService:
 
     def install(self):
         """Called only after the player confirms the offered release."""
-        if self.state["phase"] != "available" or self.release is None or self.busy():
+        if self.state["phase"] not in ("available", "cancelled") or self.release is None:
             return False
         self.quiet = False
         release = dict(self.release)
@@ -212,9 +224,14 @@ class UpdateService:
             elif operation == "stage":
                 self.prepared = result
                 self.state.update(step="", done=0, total=0, speed=0, left=0)
-        if self.prepared is not None and not self.applying and self.busy():
+        wanted = self.apply_requested or not self.ask_restart
+        if self.prepared is not None and not self.applying and wanted and self.busy():
             if self.state["phase"] != "waiting":
-                self.state["phase"] = "waiting"
+                self.state["phase"] = "waiting"       # "will install when you close the game"
+                changed = True
+        elif self.prepared is not None and not self.applying and not wanted:
+            if self.state["phase"] != "ready":
+                self.state.update(phase="ready", step="", can_cancel=True)    # downloaded and checked: ask to restart
                 changed = True
         elif self.prepared is not None and not self.applying:
             # Launch only on this thread, after a fresh busy check. The helper waits for our exit.

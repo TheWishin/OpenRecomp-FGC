@@ -397,6 +397,35 @@ def download(src, url, dest, *, limit, expect=None, opener=None, progress=None, 
     return h.hexdigest()
 
 
+def file_sha256(path, size):
+    """SHA-256 of a file that has exactly `size` bytes, else None."""
+    try:
+        if os.path.getsize(path) != size:
+            return None
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for block in iter(lambda: f.read(1 << 20), b""):
+                h.update(block)
+        return h.hexdigest()
+    except OSError:
+        return None
+
+
+def download_keep(game, parent):
+    """Where a verified download waits for the next try (beside the install, one slot per game)."""
+    return os.path.join(os.path.abspath(parent), f".openrecomp-download-{game}")
+
+
+def _drop_keep(keep, done):
+    if done:
+        shutil.rmtree(keep, ignore_errors=True)
+    else:
+        try:
+            os.rmdir(keep)                   # nothing complete was kept: leave no empty folder
+        except OSError:
+            pass
+
+
 def _remove(path):
     try:
         os.remove(path)
@@ -453,8 +482,11 @@ def check_signature(src, version, sums_bytes, sig_bytes, keys=None):
     raise ReleaseError("@setup.err_signature", f"{version}: no valid release signature")
 
 
-def verified_zip(src, offer, work, *, keys=None, opener=None, progress=None, cancel=None):
-    """Download SHA256SUMS (+ signature) and the zip into work; returns the zip's path once it matches."""
+def verified_zip(src, offer, work, *, keys=None, opener=None, progress=None, cancel=None, keep=None):
+    """Download SHA256SUMS (+ signature) and the zip into work; returns the zip's path once it matches.
+
+    keep: a folder that holds the zip between tries. A download that completed and has the right hash stays there
+    when the install or update fails or is cancelled later, and the next try uses it without downloading again."""
     progress = progress or (lambda *_: None)
     os.makedirs(work, exist_ok=True)
     sums_path = os.path.join(work, "SHA256SUMS")
@@ -474,9 +506,18 @@ def verified_zip(src, offer, work, *, keys=None, opener=None, progress=None, can
         raise ReleaseError("@setup.err_checksum", "SHA256SUMS has no line for the zip")
     if offer["zip"].get("sha256") and offer["zip"]["sha256"] != want:
         raise ReleaseError("@setup.err_checksum", "SHA256SUMS and GitHub disagree")
-    zpath = os.path.join(work, offer["zip"]["name"])
-    got = download(src, offer["zip"]["url"], zpath, limit=MAX_ZIP, expect=offer["zip"]["size"], opener=opener,
-                   cancel=cancel, progress=lambda n, t: progress("download", n, t))
+    zpath = os.path.join(keep or work, offer["zip"]["name"])
+    if keep:
+        os.makedirs(keep, exist_ok=True)
+        for old in os.listdir(keep):                 # another release's file or a partial one: not ours to keep
+            if old != offer["zip"]["name"]:
+                _remove(os.path.join(keep, old))
+    got = file_sha256(zpath, offer["zip"]["size"]) if keep else None
+    if got == want:
+        progress("download", offer["zip"]["size"], offer["zip"]["size"])      # kept from the last try
+    else:
+        got = download(src, offer["zip"]["url"], zpath, limit=MAX_ZIP, expect=offer["zip"]["size"], opener=opener,
+                       cancel=cancel, progress=lambda n, t: progress("download", n, t))
     if progress:
         progress("check", 0, 0)
     if got != want:
@@ -691,9 +732,10 @@ def install_fresh(game, offer, parent, *, opener=None, progress=None, cancel=Non
     target = target_folder(src, offer, parent)
     stage = os.path.join(os.path.abspath(parent), f".openrecomp-setup-{game}-{os.getpid()}-{int(time.time())}")
     os.makedirs(stage)
+    keep, finished = download_keep(game, parent), False
     try:
         zpath = verified_zip(src, offer, os.path.join(stage, "download"), keys=keys, opener=opener,
-                             progress=progress, cancel=cancel)
+                             progress=progress, cancel=cancel, keep=keep)
         if progress:
             progress("unpack", 0, 0)
         new = unpack(src, zpath, os.path.join(stage, "new"), offer, cancel=cancel,
@@ -704,9 +746,11 @@ def install_fresh(game, offer, parent, *, opener=None, progress=None, cancel=Non
         if os.path.isdir(target):
             os.rmdir(target)            # empty (checked above)
         os.rename(new, target)
+        finished = True
         return target
     finally:
         shutil.rmtree(stage, ignore_errors=True)
+        _drop_keep(keep, finished)
 
 
 def processes_under(folder):
@@ -789,26 +833,83 @@ def swap(src, root, new, backup):
             _move(os.path.join(new, n), os.path.join(root, n))
             moved_new.append(n)
     except OSError as e:
-        left = []
-        for n in reversed(moved_new):
-            try:
-                _move(os.path.join(root, n), os.path.join(new, n))
-            except OSError:
-                left.append(n)
-        for n in reversed(moved_old):
-            if os.path.lexists(os.path.join(root, n)):
-                left.append(n)              # its new copy is still in the way: the old one stays in backup
-                continue
-            try:
-                _move(os.path.join(backup, n), os.path.join(root, n))
-            except OSError:
-                left.append(n)
+        left = undo_swap(root, new, backup, moved_old, moved_new)
         if left:
             raise ReleaseError("@setup.err_restore", f"{e}; not put back: {', '.join(sorted(set(left)))}") from None
         _remove(journal)
         raise ReleaseError("@setup.err_busy", str(e)) from None
     _write_json(journal, dict(state="swapped", old=olds, new=names))
     return moved_old, moved_new
+
+
+def undo_swap(root, new, backup, moved_old, moved_new):
+    """Take the new items out of root again and put the old ones back from backup. Returns the names that could
+    not be put back (a file held by another program): the backup keeps them."""
+    left = []
+    for n in reversed(moved_new):
+        try:
+            _move(os.path.join(root, n), os.path.join(new, n))
+        except OSError:
+            left.append(n)
+    for n in reversed(moved_old):
+        if os.path.lexists(os.path.join(root, n)):
+            left.append(n)              # its new copy is still in the way: the old one stays in backup
+            continue
+        try:
+            _move(os.path.join(backup, n), os.path.join(root, n))
+        except OSError:
+            left.append(n)
+    return left
+
+
+def tree_entries(folder):
+    """Every file and folder below `folder` as posix paths relative to it (what the release must leave behind)."""
+    out = []
+    for here, dirs, files in os.walk(folder):
+        rel = os.path.relpath(here, folder).replace(os.sep, "/")
+        for name in dirs + files:
+            out.append(name if rel == "." else rel + "/" + name)
+    return out
+
+
+def missing_entries(root, entries):
+    return [e for e in entries if not os.path.lexists(os.path.join(root, *e.split("/")))]
+
+
+def extract_entries(src, zip_path, offer, entries, root):
+    """Write the named entries (relative to the game folder) from the verified zip into root. OSError when the
+    place cannot be written (a folder locked by an antivirus scan or the game)."""
+    top = src.top.format(version=offer["version"], tag=offer["tag"])
+    with zipfile.ZipFile(zip_path) as zf:
+        members = {i.filename.rstrip("/"): i for i in zf.infolist()}
+        for e in entries:
+            info = members.get(top + "/" + e)
+            target = os.path.join(root, *e.split("/"))
+            if info is None:
+                if any(name.startswith(top + "/" + e + "/") for name in members):
+                    os.makedirs(target, exist_ok=True)          # a folder the zip has no entry of its own for
+                    continue
+                raise OSError(f"{e} is not in the release")
+            if info.is_dir():
+                os.makedirs(target, exist_ok=True)
+                continue
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with zf.open(info) as source, open(target, "xb") as out:
+                shutil.copyfileobj(source, out, 1 << 20)
+
+
+def complete_exchange(src, zip_path, offer, root, entries):
+    """After the exchange: everything the release unpacked to must be in root. What is missing is extracted again
+    from the verified zip; what cannot be (-> OSError) makes the caller undo the whole exchange. Returns the
+    list of entries that had to be extracted again."""
+    missing = missing_entries(root, entries)
+    if not missing:
+        return []
+    extract_entries(src, zip_path, offer, missing, root)
+    still = missing_entries(root, entries)
+    if still:
+        raise OSError(still[0])
+    return missing
 
 
 def update_stage(root):
@@ -904,14 +1005,14 @@ def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=Non
         raise ReleaseError("@setup.err_restore", "an earlier update left its backup")
     shutil.rmtree(stage, ignore_errors=True)
     os.makedirs(stage)
-    keep = False
+    keep, saved, finished = False, download_keep(game, parent), False
     try:
         zpath = verified_zip(src, offer, os.path.join(stage, "download"), keys=keys, opener=opener,
-                             progress=progress, cancel=cancel)
+                             progress=progress, cancel=cancel, keep=saved)
         new = unpack(src, zpath, os.path.join(stage, "new"), offer, cancel=cancel,
                      progress=lambda n, t: progress and progress("unpack", n, t))
-        _remove(zpath)
         names = os.listdir(new)
+        entries = tree_entries(new)
         before_code = t5dr_build_code(root) if game == "t5dr" else None
         old_digest = tree_digest(root, [n for n in names if os.path.exists(os.path.join(root, n))]) if game == "t4" else None
         new_digest = tree_digest(new, names) if game == "t4" else None
@@ -919,11 +1020,25 @@ def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=Non
             raise ReleaseError("@setup.cancelled")      # last moment to stop: nothing of root has moved yet
         if progress:
             progress("swap", 0, 0)
+        backup = os.path.join(stage, "backup")
         try:
-            swap(src, root, new, os.path.join(stage, "backup"))
+            moved_old, moved_new = swap(src, root, new, backup)
         except ReleaseError as e:
             keep = e.key == "@setup.err_restore"         # the old files wait in the backup: never delete them
             raise
+        try:
+            complete_exchange(src, zpath, offer, root, entries)
+        except (OSError, zipfile.BadZipFile) as e:
+            # A folder of the release did not arrive (or could not be written again): the old version stays.
+            lost = (missing_entries(root, entries) or [str(e)])[0].split("/")[0]
+            left = undo_swap(root, new, backup, moved_old, moved_new)
+            if left:
+                keep = True
+                raise ReleaseError("@setup.err_restore", f"{e}; not put back: {', '.join(sorted(set(left)))}") from None
+            _remove(backup + ".json")
+            raise ReleaseError("@setup.err_replace", lost) from None
+        _remove(zpath)
+        finished = True
         marker = _read_json(os.path.join(root, MARKER)) or dict(game=game)
         marker.update(game=game, version=offer["version"], tag=offer["tag"], sha256=offer["zip"].get("sha256"),
                       prerelease=bool(offer.get("prerelease")))
@@ -940,6 +1055,7 @@ def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=Non
     finally:
         if not keep:
             shutil.rmtree(stage, ignore_errors=True)
+        _drop_keep(saved, finished)
 
 
 def on_test_track(game, root):

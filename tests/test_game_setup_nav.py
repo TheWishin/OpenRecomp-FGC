@@ -201,7 +201,8 @@ class SetupNav(unittest.TestCase):
         nav.act("confirm", device="xbox")
         nav.poll_setup([("t4", "update", dict(version="0.1.0-beta.2", rebuild=True, restart=False), None)])
         self.assertEqual(self.setup.calls[-1][0], "reload")
-        self.assertIn("build the game again", text(nav, nav.toast))
+        # 0.1.5: a changed game is built by itself (the update line said so), not left to a second click
+        self.assertIn("The build is starting.", text(nav, nav.toast))
 
     def test_quick_access_checks_game_updates_and_switches_test_versions(self):
         nav = self.nav(Game5())

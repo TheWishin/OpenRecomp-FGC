@@ -625,15 +625,26 @@ def stage_update(root, release, channel=None, progress=None, cancel=None):
         expected = _signed_checksum(sums, release)
         if expected != release["digest"]:
             raise UpdateError("Signed checksum and GitHub digest disagree.")
-        archive_path = transaction / "release.zip"
+        # The verified download stays beside the installation (cache-<version>.zip): a failed, cancelled or
+        # postponed update continues from it instead of downloading again. Only a complete file with the right
+        # hash is ever kept (a partial download is removed by _download).
+        archive_path = work / cache_name(release["version"])
         report = progress or (lambda *_: None)
-        count = _download(release["zip_url"], channel, min(MAX_ZIP, release["size"]), archive_path,
-                          progress=lambda done, total: report("download", done, total or release["size"]),
-                          cancel=cancel)
+        if archive_path.is_file() and _file_digest(archive_path, release["size"]) == expected:
+            report("download", release["size"], release["size"])
+            count = release["size"]
+        else:
+            count = _download(release["zip_url"], channel, min(MAX_ZIP, release["size"]), archive_path,
+                              progress=lambda done, total: report("download", done, total or release["size"]),
+                              cancel=cancel)
         report("verify", 0, 0)
         with open(archive_path, "rb") as downloaded:
             digest = hashlib.file_digest(downloaded, "sha256").hexdigest()
         if count != release["size"] or digest != expected:
+            try:
+                archive_path.unlink()
+            except OSError:
+                pass
             raise UpdateError("The update archive failed its size or SHA-256 check.")
         staged = transaction / "new"
         staged.mkdir()
@@ -666,6 +677,21 @@ def stage_update(root, release, channel=None, progress=None, cancel=None):
         except OSError:
             pass
         raise
+
+
+def cache_name(version):
+    return "cache-" + re.sub(r"[^A-Za-z0-9._-]", "_", str(version)) + ".zip"
+
+
+def _file_digest(path, size):
+    """SHA-256 of a cached download when it has exactly the expected size, else None."""
+    try:
+        if Path(path).stat().st_size != size:
+            return None
+        with open(path, "rb") as f:
+            return hashlib.file_digest(f, "sha256").hexdigest()
+    except OSError:
+        return None
 
 
 def discard_stage(staged):
@@ -1034,6 +1060,16 @@ def clean_finished(root, now=None):
     except (OSError, UpdateError):
         return 0
     removed = 0
+    current = version_key(local_version(root))
+    for cached in entries:
+        try:
+            if cached.is_file() and cached.name.startswith("cache-") and cached.name.endswith(".zip"):
+                wanted = version_key(cached.name[6:-4])
+                if ((current and wanted and wanted <= current) or now - cached.stat().st_mtime >= ABANDONED_AFTER):
+                    cached.unlink()
+                    removed += 1
+        except OSError:
+            pass
     for transaction in entries:
         try:
             if (transaction.is_symlink() or transaction.is_junction() or not transaction.is_dir()

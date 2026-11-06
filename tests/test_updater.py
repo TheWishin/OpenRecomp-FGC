@@ -254,7 +254,7 @@ class UpdaterTests(unittest.TestCase):
         verify.assert_called_once()
         with mock.patch.object(u, "_download", side_effect=download), mock.patch.object(u, "verify_signature"), self.assertRaises(u.UpdateError):
             u.stage_update(self.root, dict(offered, digest="0" * 64), CHANNEL)
-        self.assertEqual(len(list(u._work_root(self.root).iterdir())), 1)
+        self.assertEqual(len([d for d in u._work_root(self.root).iterdir() if d.is_dir()]), 1)     # the verified download stays: a retry reuses it
 
     def test_manifest_rejects_other_project_and_channel(self):
         program(self.root)

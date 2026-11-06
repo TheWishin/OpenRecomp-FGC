@@ -106,8 +106,9 @@ class LauncherUpdates(unittest.TestCase):
         self.assertTrue(self.nav.offer_update())
         self.adapter.is_running = True
         self.press("right", "confirm")
-        self.install.assert_not_called()
-        self.assertEqual(self.nav.view()["toast"], i18n.text("en", "updates.busy"))
+        # The download needs no closed game: it starts, and the restart waits ("installs when you close the game")
+        self.install.assert_called_once()
+        self.assertEqual(self.nav.view()["toast"], i18n.text("en", "updates.queued"))
 
     def test_updates_wait_for_build_support_and_online_sessions(self):
         self.available()

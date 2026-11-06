@@ -106,6 +106,11 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
         self.on_update_check = on_update_check
         self.on_update_install = on_update_install
         self.on_update_cancel = None            # set by the backend (UpdateService.cancel)
+        self.on_update_apply = None             # "Restart to finish" (UpdateService.apply)
+        self.setup_queued = ""                  # a game update waiting for the running game/build to end
+        self.setup_check_pending = False        # the player asked for a game-update check: say how it ended
+        self.update_continues = ""              # the game whose update continues after the launcher restart
+        self.update_restart_asked = ""
         self.update_state = dict(phase="idle", version="", notes="", size=0)
         self.update_offered = ""
         self.update_version = ""
