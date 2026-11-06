@@ -130,6 +130,30 @@ class LobbyIdentity(unittest.TestCase):
             self.assertNotEqual(holder._t4_identity_build(self.api, info, out).build_id, first)
             self.assertEqual(len(reads), 2)
 
+    def test_the_builds_own_record_is_used_while_size_and_time_match(self):
+        """T4 0.1.3's build writes game/t4-game-files.json: the first Online login does not read DATA.BIN again."""
+        holder, info, out = self.install("a")
+        expected = holder._t4_identity_build(self.api, info, out).build_id
+        disc = Path(holder.root, "game", "disc")
+        files = {}
+        for name in ("SLUS_203.28", "TEKKEN/DATA.BIN", "IRX/IOPRP243.IMG"):
+            path = disc / name
+            files[name] = dict(size=path.stat().st_size, mtime_ns=path.stat().st_mtime_ns,
+                               sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+        Path(holder.root, "game", "t4-game-files.json").write_text(json.dumps(dict(schema=1, files=files)), encoding="utf-8")
+        t4_online._hash_cache.clear()
+        data = str(disc / "TEKKEN" / "DATA.BIN")
+        real = open
+        with mock.patch("builtins.open", side_effect=lambda path, *a, **k: (_ for _ in ()).throw(AssertionError("read"))
+                        if os.path.normcase(str(path)) == os.path.normcase(data) else real(path, *a, **k)):
+            with mock.patch.dict(os.environ, OPENRECOMP_HOME=str(self.dir / "fresh-home")):
+                self.assertEqual(holder._t4_identity_build(self.api, info, out).build_id, expected)
+        # a changed file (other time) is hashed again, never taken from the record
+        os.utime(data, ns=(5, 5))
+        t4_online._hash_cache.clear()
+        with mock.patch.dict(os.environ, OPENRECOMP_HOME=str(self.dir / "fresh-home2")):
+            self.assertEqual(holder._t4_identity_build(self.api, info, out).build_id, expected)
+
     def test_the_formula_is_the_direct_ip_preflight_formula(self):
         """tools/net_preflight.py (T4) hashes the same three files the same way: Direct IP and the lobby agree."""
         holder, _info, _out = self.install("a")

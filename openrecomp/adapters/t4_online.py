@@ -93,10 +93,22 @@ GAME_FILES_PREFIX = b"t4-game-files-v1\n"
 def game_files_sha256(root):
     """SHA-256 over the extracted game files of the install at `root` (names + their SHA-256), the same value
     tools/net_preflight.py puts into Direct IP's identity. Raises OSError when one is missing."""
+    try:            # the build's own record (T4 0.1.3 build_game: game\t4-game-files.json), while size + time match
+        with open(os.path.join(root, "game", "t4-game-files.json"), encoding="utf-8") as stream:
+            recorded = json.load(stream).get("files") or {}
+    except (OSError, ValueError, AttributeError):
+        recorded = {}
     h = hashlib.sha256(GAME_FILES_PREFIX)
     for name in GAME_FILES:
         path = os.path.join(root, "game", "disc", *name.split("/"))
-        h.update(name.encode() + b"\0" + _file_hash(path, hashlib.sha256).encode() + b"\n")
+        info = os.stat(path)
+        entry = recorded.get(name) if isinstance(recorded, dict) else None
+        if (isinstance(entry, dict) and entry.get("size") == info.st_size and entry.get("mtime_ns") == info.st_mtime_ns
+                and isinstance(entry.get("sha256"), str) and re.fullmatch(r"[0-9a-f]{64}", entry["sha256"])):
+            digest = entry["sha256"]
+        else:
+            digest = _file_hash(path, hashlib.sha256)
+        h.update(name.encode() + b"\0" + digest.encode() + b"\n")
     return h.hexdigest()
 
 
