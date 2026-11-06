@@ -162,12 +162,18 @@ class SetupNav(unittest.TestCase):
     def test_cancel_keeps_the_dialog_until_the_worker_has_stopped(self):
         nav = self.nav(Game5())
         self.start_update(nav)
-        nav.act("back", device="xbox")
+        nav.act("back", device="xbox")                    # Back hides the window; the update goes on
+        self.assertIsNone(nav.overlay)
+        self.assertNotIn("cancel", [c[0] for c in self.setup.calls])
+        nav.setup_offer_update(nav.games[0])              # shown again
+        nav.act("right", device="xbox")                   # Hide -> Cancel
+        nav.act("confirm", device="xbox")
         self.assertEqual(self.setup.calls[-1], ("cancel", "t5dr", None))
         self.assertEqual((nav.overlay, nav.confirm_kind), ("dialog", "setup_progress"))   # Play/Build stay blocked
         self.assertIn("Cancelling", text(nav, nav.view()["dialog"])["text"])
-        nav.act("confirm", device="xbox")
+        nav.act("confirm", device="xbox")                 # only Hide is left now
         self.assertEqual([c for c in self.setup.calls if c[0] == "cancel"], [("cancel", "t5dr", None)])  # asked once
+        nav.setup_offer_update(nav.games[0])
         nav.setup_state["t5dr"].update(phase="ready", error="@setup.cancelled")
         nav.poll_setup([("t5dr", "update", None, ("@setup.cancelled", ""))])
         self.assertIsNone(nav.overlay)

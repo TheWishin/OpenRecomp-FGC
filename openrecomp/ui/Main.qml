@@ -45,6 +45,9 @@ Window {
     property string lastToast: ""
     readonly property real hintHeight: Math.ceil(Math.max((compactOnline ? 36 : 48) * Theme.textScale, focusHint.implicitHeight + (compactOnline ? 8 : 12)))
     readonly property real headerHeight: Math.max(compactOnline ? 56 : 72, Theme.target(44) + (compactOnline ? 8 : 12), topActions.implicitHeight + (compactOnline ? 8 : 12))
+    readonly property var progressCard: v.progressCard || ({show: false, lines: []})
+    readonly property real progressCardHeight: progressCard.show ? 20 + progressCard.lines.length * Math.ceil(Theme.px(19) * 1.3 + 22) : 0
+    readonly property real progressReserve: progressCard.show ? progressCardHeight + 8 : 0
     readonly property real promptHeight: Math.max(compactOnline ? 48 : 60, promptRow.implicitHeight + (compactOnline ? 8 : 12))
 
     onVChanged: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; Theme.gameKind = v.gameTheme || ""; Theme.reducedMotion = reducedMotion; if (v.toast) lastToast = v.toast }
@@ -142,9 +145,9 @@ Window {
                     reducedMotion: win.reducedMotion
                     motionActive: visible && win.motionActive
                 }
-                PageLoader { y: win.activityHeight; width: parent.width; height: parent.height - y; active: win.v.screen === "start"; page: "Shelf.qml"; root: win }
-                PageLoader { y: win.activityHeight; width: win.onlineContentWidth; height: parent.height - y; active: win.v.screen === "hub" && !win.v.mainMenu.show; page: "Hub.qml"; root: win }
-                PageLoader { y: win.activityHeight; width: win.onlineContentWidth; height: parent.height - y; active: win.v.screen === "hub" && !!win.v.mainMenu.show; page: "MainMenu.qml"; root: win }
+                PageLoader { y: win.activityHeight; width: parent.width; height: parent.height - y - win.progressReserve; active: win.v.screen === "start"; page: "Shelf.qml"; root: win }
+                PageLoader { y: win.activityHeight; width: win.onlineContentWidth; height: parent.height - y - win.progressReserve; active: win.v.screen === "hub" && !win.v.mainMenu.show; page: "Hub.qml"; root: win }
+                PageLoader { y: win.activityHeight; width: win.onlineContentWidth; height: parent.height - y - win.progressReserve; active: win.v.screen === "hub" && !!win.v.mainMenu.show; page: "MainMenu.qml"; root: win }
                 OnlineStyle.SecondaryButton {
                     id: activityReturn
                     objectName: "onlineActivityReturn"
@@ -152,6 +155,47 @@ Window {
                     x: 16; y: 4; width: win.onlineContentWidth - 32; maxW: width; height: win.activityHeight - 8
                     b: ({label: [(win.v.activity || {}).name, (win.v.activity || {}).label, (win.v.activity || {}).status].filter(s => s).join(" · ")})
                     onActivated: win.backend.press("returnActivity")
+                }
+                // ---------------------------------------------------------------- progress card: installs / updates in the background
+                Rectangle {
+                    id: progressCardBox
+                    objectName: "progressCard"
+                    visible: win.progressCard.show
+                    width: 820; height: win.progressCardHeight
+                    x: 1920 - width - 48; y: parent.height - height - 6; z: 400
+                    color: Theme.raised; border.width: 1; border.color: win.line; radius: 4
+                    Column {
+                        x: 16; y: 10; width: parent.width - 32; spacing: 0
+                        Repeater {
+                            model: win.progressCard.lines.length
+                            Item {
+                                id: cardLine
+                                objectName: "progressLine"
+                                required property int index
+                                readonly property var p: win.ok(win.progressCard.lines, index)
+                                width: parent.width; height: Math.ceil(Theme.px(19) * 1.3 + 22)
+                                Text {
+                                    id: cardText
+                                    objectName: "progressLineText"
+                                    textFormat: Text.PlainText; width: parent.width; elide: Text.ElideRight; maximumLineCount: 1
+                                    text: cardLine.p.text || ""
+                                    color: cardLine.p.state === "failed" ? Theme.error : win.textC
+                                    font.family: win.sans; font.weight: Font.Medium; font.pixelSize: Theme.px(19)
+                                }
+                                Rectangle {
+                                    y: cardText.implicitHeight + 6; width: parent.width; height: 4; radius: 2; color: win.line
+                                    Rectangle {
+                                        width: parent.width * (cardLine.p.fraction < 0 ? 0.35 : Math.max(0, Math.min(1, cardLine.p.fraction || 0)))
+                                        height: parent.height; radius: 2
+                                        color: cardLine.p.state === "failed" ? Theme.error : cardLine.p.state === "done" ? Theme.success : Theme.readableAccent(win.v.accent)
+                                        opacity: cardLine.p.fraction < 0 ? 0.7 : 1
+                                    }
+                                }
+                                TapHandler { id: cardTap; onTapped: win.backend.openProgress(cardLine.p.id) }
+                                Interaction { handler: cardTap; selected: false; onActivated: win.backend.openProgress(cardLine.p.id) }
+                            }
+                        }
+                    }
                 }
                 LobbyChat {
                     objectName: "lobbyChatPane"

@@ -267,6 +267,15 @@ class GameSetupNav:
             return i18n.message("setup.err_replace", folder=i18n.literal(str(detail)))
         return key
 
+    def _setup_job_ended(self, gid, error):
+        """An install / update is over: its window closes (only its own), the progress card tells how it ended."""
+        if self.progress_modal() and self.confirm_kind == "setup_progress" and getattr(self, "setup_game", "") == gid:
+            self.overlay = None
+        cancelled = bool(error) and error[0] == "@setup.cancelled"
+        kind = "cancelled" if cancelled else "failed" if error else "done"
+        self.progress_note_end(gid, self._progress_name(gid), kind,
+                               self._setup_error_text(error) if error and not cancelled else None)
+
     def poll_setup(self, finished):
         """Called by the backend with GameSetup.poll()'s events. -> True when the screen changed."""
         changed = False
@@ -292,16 +301,14 @@ class GameSetupNav:
                         self._setup_where(gid)
             elif kind == "install":
                 self.setup_cancelling = False
-                if self.overlay == "dialog" and self.confirm_kind == "setup_progress":
-                    self.overlay = None
+                self._setup_job_ended(gid, error)
                 if error:
                     self.say("@setup.cancelled_install" if error[0] == "@setup.cancelled" else self._setup_error_text(error), 12)
                 else:
                     self.on_setup("attach", gid, result)
             elif kind == "update":
                 self.setup_cancelling = False
-                if self.overlay == "dialog" and self.confirm_kind == "setup_progress":
-                    self.overlay = None
+                self._setup_job_ended(gid, error)
                 if error:
                     self.say(self._setup_error_text(error), 12)
                 elif result.get("restart"):
@@ -349,27 +356,11 @@ class GameSetupNav:
     # ------------------------------------------------------------------------------------------ dialogs
     def _setup_dialog(self, a):
         kind = self.confirm_kind
-        count = 1 if kind in ("setup_loading", "setup_progress") or kind == "setup_none" and not self._setup_none_folder() else 2
+        count = 1 if kind in ("setup_loading",) or kind == "setup_none" and not self._setup_none_folder() else 2
         if a in ("left", "right", "up", "down"):
             self.exit_focus = (self.exit_focus + 1) % count
             return
         gid = getattr(self, "setup_game", "")
-        if kind == "setup_progress":
-            if a in ("back", "confirm"):
-                st = self._setup(gid)
-                if st.get("phase") not in ("installing", "updating"):
-                    self.overlay = None
-                elif st.get("step") == "swap" or st.get("can_cancel") is False:
-                    # Files are being replaced: no cancel (the dialog stays, it says to wait). Back/Confirm only
-                    # say it again, so nobody thinks the launcher ignored the press.
-                    self.say("@setup.installing_wait")
-                elif not getattr(self, "setup_cancelling", False):
-                    # The dialog stays until the worker has stopped: no build, Play or quit against files being
-                    # replaced (poll_setup closes it with the worker's result).
-                    self.setup_cancelling = True
-                    self.on_setup("cancel", gid, None)
-                    self.say("@setup.cancelling")
-            return
         if a == "back":
             if kind == "setup_loading":
                 self.setup_waiting = self.setup_reinstall_waiting = self.setup_update_waiting = False
@@ -454,6 +445,21 @@ class GameSetupNav:
         self.setup_parent = path
         self._setup_where(self.setup_game)
 
+    def _view_setup_progress(self, v):
+        from .game_releases import SOURCES
+        from .nav_progress import cancel_safe
+        gid = getattr(self, "setup_game", "")
+        st = self._setup(gid)
+        name = i18n.literal(SOURCES[gid].title if gid in SOURCES else gid)
+        if getattr(self, "setup_cancelling", False) or st.get("cancelling"):
+            progress = "@setup.cancelling"
+            st = dict(st, cancelling=True)
+        elif not cancel_safe(st):
+            progress = "@setup.installing_wait"     # the point of no return: no Cancel, the player is told
+        else:
+            progress = self._setup_progress_text(st)
+        self._view_progress_dialog(v, "@setup.working", i18n.message("setup.progress_text", name=name, progress=progress), st)
+
     def _view_setup_dialog(self, v):
         from .game_releases import SOURCES
         kind = self.confirm_kind
@@ -489,16 +495,6 @@ class GameSetupNav:
             if space.get("problem"):
                 text = i18n.message("setup.problem", text=text, problem=space["problem"])
             labels = ["@setup.other_folder", "@setup.install_here"]
-        elif kind == "setup_progress":
-            title = "@setup.working"
-            if st.get("step") == "swap":
-                # 0.1.4+: the point of no return -- no Cancel, and the player is told not to close the launcher
-                text = i18n.message("setup.progress_text", name=name, progress="@setup.installing_wait")
-                labels = ["@setup.ok_wait"]
-            else:
-                progress = "@setup.cancelling" if getattr(self, "setup_cancelling", False) else self._setup_progress_text(st)
-                text = i18n.message("setup.progress_text", name=name, progress=progress)
-                labels = ["@cancel"]
         elif kind == "setup_update":
             title = "@setup.update"
             text = i18n.message("setup.update_text", name=name,

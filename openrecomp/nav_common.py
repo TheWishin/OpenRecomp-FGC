@@ -4,11 +4,11 @@ import pathlib
 SECTION_TITLES = {"play": "section.play", "online": "section.online", "build": "section.build", "replays": "section.replays", "settings": "section.settings", "controls": "section.controls", "support": "section.support"}
 GLYPHS = {
     "xbox": dict(confirm="A", back="B", x="X", social="Y", prev="LB", next="RB", play="Start", switchGame="View", right="‹ ›",
-                 chapterPrev="LT", chapterNext="RT", chapters="LT RT"),
+                 chapterPrev="LT", chapterNext="RT", chapters="LT RT", progress="F7"),
     "ps": dict(confirm="✕", back="○", x="□", social="△", prev="L1", next="R1", play="Options", switchGame="Share", right="‹ ›",
-               chapterPrev="L2", chapterNext="R2", chapters="L2 R2"),
+               chapterPrev="L2", chapterNext="R2", chapters="L2 R2", progress="F7"),
     "kb": dict(confirm="Enter", back="Esc", x="X", social="F", prev="Q", next="E", play="Space", switchGame="G", right="← →",
-               chapterPrev="PgUp", chapterNext="PgDn", chapters="PgUp PgDn"),
+               chapterPrev="PgUp", chapterNext="PgDn", chapters="PgUp PgDn", progress="F7"),
 }
 TRAIL = dict(up="↑", down="↓", left="←", right="→", confirm="A", back="B", x="X", social="Y", prev="LB", next="RB", play="St", switchGame="Vw",
              chapterPrev="LT", chapterNext="RT")

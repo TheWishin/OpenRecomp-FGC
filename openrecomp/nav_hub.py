@@ -29,8 +29,8 @@ class Hub:
 
     def items(self):
         if getattr(self, "main_menu_game", "") == self.game.id:
-            return self._items_online(self.game)
-        return getattr(self, "_items_" + self.section())(self.game)
+            return self.lock_items(self._items_online(self.game))
+        return self.lock_items(getattr(self, "_items_" + self.section())(self.game))
 
     def focus_index(self, items):
         i = max(0, min(len(items) - 1, self.focus.get(self.key(), 0)))

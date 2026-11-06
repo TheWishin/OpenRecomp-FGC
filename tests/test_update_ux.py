@@ -351,22 +351,25 @@ class LauncherUpdateWindow(unittest.TestCase):
         nav._ask("update_progress")
         view = text(nav, nav.view()["dialog"])
         self.assertIn("Downloading 20 % · 10 of 50 MB · 5.0 MB/s · 8 s left", view["text"])
-        self.assertEqual([o["label"] for o in view["options"]], ["Cancel"])
+        self.assertEqual([o["label"] for o in view["options"]], ["Hide", "Cancel"])
         self.running(nav, step="verify", total=0, done=0)
         self.assertIn("Verifying", text(nav, nav.view()["dialog"])["text"])
 
-    def test_back_esc_and_the_cancel_button_all_cancel_once(self):
+    def test_back_hides_and_only_the_cancel_button_cancels_once(self):
         nav = self.nav()
         self.running(nav)
         nav._ask("update_progress")
-        nav.act("back", device="xbox")
+        nav.act("back", device="xbox")                       # Esc hides: the update goes on
+        self.assertEqual((self.cancels, nav.overlay), ([], None))
+        nav._ask("update_progress")
+        nav.act("right", device="xbox")
+        nav.act("confirm", device="xbox")                    # the Cancel button
         self.assertEqual(self.cancels, [1])
         self.running(nav, cancelling=True)
         self.assertIn("Cancelling", text(nav, nav.view()["dialog"])["text"])
-        nav.act("confirm", device="xbox")                    # the Cancel button: nothing second
-        nav.act("back", device="xbox")
+        nav.act("confirm", device="xbox")                    # only Hide is left: nothing second
         self.assertEqual(self.cancels, [1])
-        self.assertEqual(nav.overlay, "dialog")              # stays until the worker has stopped
+        self.assertIsNone(nav.overlay)
 
     def test_pressing_the_entry_again_shows_the_progress_and_starts_nothing(self):
         nav = self.nav()
@@ -383,11 +386,10 @@ class LauncherUpdateWindow(unittest.TestCase):
         nav._ask("update_progress")
         view = text(nav, nav.view()["dialog"])
         self.assertIn("do not close the launcher", view["text"])
-        self.assertEqual([o["label"] for o in view["options"]], ["OK"])
-        nav.act("back", device="xbox")
+        self.assertEqual([o["label"] for o in view["options"]], ["Hide"])
         nav.act("confirm", device="xbox")
         self.assertEqual(self.cancels, [])
-        self.assertIn("do not close the launcher", text(nav, nav.toast))
+        self.assertIsNone(nav.overlay)                       # Hide is all there is; the work goes on
 
     def test_the_window_closes_when_the_run_is_over(self):
         nav = self.nav()
@@ -530,19 +532,19 @@ class GameWindow(unittest.TestCase):
         nav._ask("setup_progress")
         view = text(nav, nav.view()["dialog"])
         self.assertIn("do not close the launcher", view["text"])
-        self.assertEqual([o["label"] for o in view["options"]], ["OK"])
-        nav.act("back", device="xbox")
+        self.assertEqual([o["label"] for o in view["options"]], ["Hide"])
         nav.act("confirm", device="xbox")
         self.assertNotIn("cancel", [c[0] for c in self.setup.calls])
-        self.assertEqual(nav.confirm_kind, "setup_progress")
+        self.assertIsNone(nav.overlay)
 
     def test_cancel_during_the_download_is_offered_and_says_nothing_was_changed(self):
         nav = self.nav()
         self.state(nav)
         nav.setup_game = "t5dr"
         nav._ask("setup_progress")
-        self.assertEqual([o["label"] for o in text(nav, nav.view()["dialog"])["options"]], ["Cancel"])
-        nav.act("back", device="xbox")
+        self.assertEqual([o["label"] for o in text(nav, nav.view()["dialog"])["options"]], ["Hide", "Cancel"])
+        nav.act("right", device="xbox")
+        nav.act("confirm", device="xbox")
         self.assertEqual(self.setup.calls[-1], ("cancel", "t5dr", None))
         nav.setup_state["t5dr"].update(phase="ready")
         nav.poll_setup([("t5dr", "update", None, ("@setup.cancelled", ""))])

@@ -382,7 +382,7 @@ def global_view(nav):
 
 
 def click_global(nav, identity, accept):
-    if nav.overlay == "binding" or getattr(nav, "native_edit", "") or nav.overlay == "osk":
+    if nav.overlay == "binding" or getattr(nav, "native_edit", "") or nav.overlay == "osk" or nav.progress_modal():
         return False
     row = next((row for row in global_view(nav) if row["identity"] == identity), None)
     if not row or row["disabled"]:
@@ -406,7 +406,7 @@ def click_global(nav, identity, accept):
 
 
 def global_action(nav, action):
-    if nav.overlay == "binding" or getattr(nav, "native_edit", "") or nav.overlay == "osk":
+    if nav.overlay == "binding" or getattr(nav, "native_edit", "") or nav.overlay == "osk" or nav.progress_modal():
         return False
     rows = global_view(nav)
     if action == "offers" and rows:

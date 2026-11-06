@@ -200,6 +200,9 @@ class Sections:
         """Start a build, after the one-time notice for a folder that T5DR's own launcher set up."""
         if self._dry("@dry_rebuild" if force else "@dry_build"):
             return
+        if self.update_running(g):
+            self.say("@progress.update_running")
+            return
         if getattr(g.a, "foreign_notice_pending", lambda: False)():
             self.build_force = force
             self._ask("t5_folder")

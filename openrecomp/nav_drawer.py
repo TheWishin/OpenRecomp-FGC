@@ -34,6 +34,8 @@ class Drawer:
                 out.append(dict(id="native:" + g.id, label=g.a.native_label, value=g.short, game=g, hint=i18n.message("native_hint", name=g.a.native_label)))
         out.append(dict(id="launcher", label="@launcher_settings.title", value="", launcher=True, hint="@launcher_settings.hint"))
         out.append(dict(id="discord", label="@community.discord", value="", discord=True, hint="@community.hint"))
+        if self.progress_jobs() or self.progress_ends:
+            out.append(dict(id="progress", label="@progress.show", value="", progress=True, hint="@progress.drawer_hint"))
         from . import nav_feedback
         activity = nav_feedback.activity_view(self)
         if activity:
@@ -74,6 +76,9 @@ class Drawer:
                 return self._check_update()
             if items[self.drawer_focus].get("discord"):
                 return self.open_discord()
+            if items[self.drawer_focus].get("progress"):
+                self.overlay = None
+                return self.progress_open()
             if items[self.drawer_focus].get("activity"):
                 from . import nav_feedback
                 return nav_feedback.return_activity(self)
@@ -150,6 +155,7 @@ class Drawer:
         """Called with every new launcher-update state: the progress window closes when the run is over (the
         outcome is said as a message by the backend)."""
         changed = False
+        self.note_launcher_update()
         if (self.overlay == "dialog" and self.confirm_kind == "update_progress"
                 and self.update_state.get("phase") not in UPDATE_BUSY):
             self.overlay = None

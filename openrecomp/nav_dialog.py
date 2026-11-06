@@ -15,12 +15,12 @@ class Dialog:
         if self.confirm_kind == "netext_forget":
             from . import nav_netext
             return nav_netext.dialog(self, a)
+        if self.confirm_kind in ("update_progress", "setup_progress"):
+            return self._progress_dialog(a)
         if self.confirm_kind.startswith("library_"):
             return self._library_dialog(a)
         if self.confirm_kind.startswith("setup_"):
             return self._setup_dialog(a)
-        if self.confirm_kind == "update_progress":
-            return self._update_progress_dialog(a)
         if self.confirm_kind == "update_restart":
             return self._update_restart_dialog(a)
         if self.confirm_kind == "tools_help":
@@ -65,21 +65,7 @@ class Dialog:
                             if busy:
                                 self.say("@updates.queued", 12)   # downloads now, installs when the game is closed
 
-    # ---- the launcher's own update: progress and cancel
-    def _update_progress_dialog(self, a):
-        if a not in ("back", "confirm"):
-            return
-        st = self.update_state
-        if st.get("phase") not in ("checking", "installing", "waiting"):
-            self.overlay = None
-        elif st.get("step") == "restart" or st.get("can_cancel") is False:
-            # Files are being replaced: nothing to cancel any more. The window says why and stays.
-            self.say("@updates.step_restart")
-        elif not st.get("cancelling"):
-            if self.on_update_cancel is not None:
-                self.on_update_cancel()
-            self.say("@setup.cancelling")
-
+    # ---- the launcher's own update: progress (the dialog logic is shared: nav_progress)
     def _update_restart_dialog(self, a):
         """"Restart to finish": the launcher update is downloaded and checked. Later keeps it ready."""
         if a in ("left", "right", "up", "down"):
@@ -105,14 +91,11 @@ class Dialog:
         v["prompts"] = [self.prompt("confirm", "@confirm"), self.prompt("right", "@switch"), self.prompt("back", "@updates.later")]
 
     def _view_update_progress(self, v):
+        from .nav_progress import cancel_safe
         st = self.update_state
-        restart = st.get("step") == "restart" or st.get("can_cancel") is False
-        text = i18n.message("updates.progress_text", version=i18n.literal(str(st.get("version", ""))),
-                            progress=self._update_progress_line())
-        v["dialog"] = dict(title="@updates.progress_title", text=text,
-                           options=[dict(label="@setup.ok_wait" if restart else "@cancel", index=0, focused=True)])
-        v["hint"] = "@dialog_hint"
-        v["prompts"] = [self.prompt("confirm", "@setup.ok_wait" if restart else "@cancel"), self.prompt("back", "@setup.ok_wait" if restart else "@cancel")]
+        progress = "@setup.installing_wait" if not cancel_safe(st) and not st.get("cancelling") else self._update_progress_line()
+        text = i18n.message("updates.progress_text", version=i18n.literal(str(st.get("version", ""))), progress=progress)
+        self._view_progress_dialog(v, "@updates.progress_title", text, st)
 
     # ---- complete uninstall (0.1.3): the list first, then Cancel / keep saves / remove everything
     def uninstall_ask(self):
@@ -156,12 +139,14 @@ class Dialog:
         if self.confirm_kind == "netext_forget":
             from . import nav_netext
             return nav_netext.view_dialog(self, v)
+        if self.confirm_kind == "update_progress":
+            return self._view_update_progress(v)
+        if self.confirm_kind == "setup_progress":
+            return self._view_setup_progress(v)
         if self.confirm_kind.startswith("library_"):
             return self._view_library_dialog(v)
         if self.confirm_kind.startswith("setup_"):
             return self._view_setup_dialog(v)
-        if self.confirm_kind == "update_progress":
-            return self._view_update_progress(v)
         if self.confirm_kind == "update_restart":
             return self._view_update_restart(v)
         if self.confirm_kind == "tools_help":

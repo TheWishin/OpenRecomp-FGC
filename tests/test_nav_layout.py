@@ -26,7 +26,7 @@ VIEW_FIELDS = {
     "screen", "overlay", "toast", "device", "inputMode", "nativeEdit", "nativeField", "trail", "social", "prevG", "nextG", "confirmInk", "backG",
     "shelf", "tabs", "rows", "detail", "hint", "prompts", "accent", "badge", "gameShort", "numeral",
     "topline", "hold", "more", "grid", "osk", "dialog", "picker", "drawer", "quickAccess", "recentSets",
-    "folder", "file", "pick", "mainLabel", "fighterTitle", "fighterMain", "fullscreen", "reducedMotion", "build", "online", "settingsPage",
+    "progressCard", "folder", "file", "pick", "mainLabel", "fighterTitle", "fighterMain", "fullscreen", "reducedMotion", "build", "online", "settingsPage",
     "bindingsPage", "bindCapture", "ctlPreset",
     "discord", "sessionPage", "loading", "loadError", "textScale", "highContrast", "mainMenu",
     "globalOffers", "activity", "matchVersus", "gameTheme", "livingBackground", "promotion",

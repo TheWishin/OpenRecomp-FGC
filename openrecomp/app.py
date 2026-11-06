@@ -23,7 +23,7 @@ from .adapters import other_launchers
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 KEYS = {Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right", Qt.Key_Return: "confirm", Qt.Key_Enter: "confirm",
         Qt.Key_Escape: "back", Qt.Key_Space: "play", Qt.Key_X: "x", Qt.Key_F: "social", Qt.Key_G: "switchGame", Qt.Key_Q: "prev", Qt.Key_E: "next",
-        Qt.Key_PageUp: "chapterPrev", Qt.Key_PageDown: "chapterNext", Qt.Key_F8: "offers"}
+        Qt.Key_PageUp: "chapterPrev", Qt.Key_PageDown: "chapterNext", Qt.Key_F8: "offers", Qt.Key_F7: "progress"}
 KEYS = {int(k): v for k, v in KEYS.items()}   # by number: an unknown key (any layout's letter) is no ValueError
 TICK_MS = 16
 # Windows' CJK fonts first (unchanged order), then the Linux ones Wine/Proton list (make_engine)
@@ -992,6 +992,12 @@ class Backend(QObject, GameSetupBackend):
         self.nav.act(action, device="kb")
         if action == "confirm":
             self.nav.release("confirm")
+        self.refresh()
+
+    @Slot(str)
+    def openProgress(self, jid):
+        self.nav.device = "kb"
+        click(self.nav, "confirm", "progress_open", jid)
         self.refresh()
 
     @Slot(str, bool)

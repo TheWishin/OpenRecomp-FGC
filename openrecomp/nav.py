@@ -27,6 +27,7 @@ from .nav_online_layout import OnlineLayout
 from .nav_online_login import OnlineLogin
 from .nav_settings_page import SettingsPage
 from .nav_picker import Picker
+from .nav_progress import ProgressNav
 from .nav_sections import Sections
 from .nav_shelf import Shelf
 from .nav_sound import Sound
@@ -42,7 +43,7 @@ class Game:
         self.accent = manifest["accent"]
 
 
-class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, ControlsPage, Online, OnlineLayout, OnlineLogin, SettingsPage, LauncherSettings, Library, Sound):
+class Nav(ProgressNav, GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, ControlsPage, Online, OnlineLayout, OnlineLogin, SettingsPage, LauncherSettings, Library, Sound):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None,
                  on_update_check=None, on_update_install=None, on_game_preview=None, on_game_accept=None,
@@ -137,6 +138,9 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
         self.setup_parent = ""
         self.setup_space = {}
         self.setup_waiting = False
+        self.progress_ends = {}               # jobs that just ended, for the progress card
+        self.progress_launcher_seen = False
+        self.progress_next = 0
 
     def act(self, action, device=None):
         self.sounded(action, self._act, action, device)
@@ -179,6 +183,7 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
         changed = self.poll_sources() or changed
         changed = self.poll_tools_install() or changed
         changed = self.poll_build(dt) or changed
+        changed = self.tick_progress(dt) or changed
         if self.toast:
             self.toast_left -= dt
             if self.toast_left <= 0:
@@ -220,6 +225,10 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
             return
         if a == "quit":
             return self.request_quit()
+        if self.progress_modal():           # an install / update window: nothing behind it reacts
+            return self._dialog(a)
+        if a == "progress":
+            return self.progress_open()
         if a == "returnGame":
             return self._return_game()
         if a == "discord":                  # the top bar's OpenRecomp-FGC Discord (mouse); pads: Quick access
@@ -322,6 +331,9 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
             return
         if self._dry(i18n.message("dry_start", name=i18n.literal(g.short))):
             return
+        if self.update_running(g):
+            self.say("@progress.update_running")
+            return
         if g.a.running():
             self.say(i18n.message("game_already_running", name=i18n.literal(g.short)))
             return
@@ -377,7 +389,7 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
         if over:
             over(v)
         from . import nav_feedback
-        v["globalOffers"] = nav_feedback.global_view(self)
+        v["globalOffers"] = [] if self.progress_modal() else nav_feedback.global_view(self)
         v["activity"] = nav_feedback.activity_view(self)
         v["matchVersus"] = nav_feedback.match_view(self, self.game) if self.game else {}
         from . import nav_rank_cue
@@ -386,6 +398,9 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
             for prompt in v["prompts"]:
                 if prompt.get("action") == "social":
                     prompt["label"] = "@feedback.offers"
+        v["progressCard"] = self.progress_view()
+        if v["progressCard"]["show"] and self.device == "kb":
+            v["prompts"] = v["prompts"] + [self.prompt("progress", "@progress.show")]
         v["gameTheme"] = self.game.m.get("adapter", "") if self.game and self.screen == "hub" else ""
         from .living_background import background_view
         background_game = self.game
