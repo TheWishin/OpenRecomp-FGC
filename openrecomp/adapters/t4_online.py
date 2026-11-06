@@ -582,6 +582,21 @@ def _is_set(info):
     return isinstance(info, dict) and bool(info.get("rated") or info.get("casual")) and bool(info.get("id"))
 
 
+FAST_DELAY_RTT_MS = 100
+
+
+def fast_delay(rtt_ms):
+    """No delay chosen by a player: 1 frame while the lobby's round trip is at most FAST_DELAY_RTT_MS, else the game's
+    own auto rule (1 up to 60 ms, 2 above, 3 above 150, 4 above 250). The game's rule gave 2 frames from 60 ms on,
+    which felt laggy next to offline; rollback covers the extra predicted frames (a few ms of re-simulation each).
+    Only the host's value counts (the joiner waits for the host's pick), so mixed launchers stay in sync."""
+    try:
+        rtt = float(rtt_ms)
+    except (TypeError, ValueError):
+        return "auto"
+    return "1" if 0 < rtt <= FAST_DELAY_RTT_MS else "auto"
+
+
 def ticket_env(ticket):
     """Only the ticket fields documented by the T4 lobby handoff; no T5 game driver. Ranked tickets too (T4 ranked:
     the game writes its own proven result, docs/T4_ONLINE.md "Ranked")."""
@@ -589,7 +604,7 @@ def ticket_env(ticket):
         raise RuntimeError("@online.refused")
     peer = f"{ticket.peer[0]}:{int(ticket.peer[1])}"
     port = str(int(ticket.local_port))
-    delay = ticket.input_delay if ticket.input_delay is not None else "auto"
+    delay = ticket.input_delay if ticket.input_delay is not None else fast_delay(getattr(ticket, "rtt_ms", None))
     rounds = ticket.rounds
     if type(rounds) is not int or not 1 <= rounds <= 5:
         raise RuntimeError("@online.refused")
