@@ -67,7 +67,7 @@ def untranslated_literals(source):
                 if isinstance(child, (ast.Constant, ast.Tuple, ast.List)):
                     ignore(child)  # action IDs and core protocol values
         elif isinstance(node, ast.Assign):
-            if any(isinstance(t, ast.Name) and t.id in ("GLYPHS", "TRAIL", "OSK", "ONLINE_KEYS", "BACK_SOURCE", "__all__") for t in node.targets):
+            if any(isinstance(t, ast.Name) and t.id in ("GLYPHS", "TRAIL", "OSK", "ONLINE_KEYS", "BACK_SOURCE", "LAYOUT", "TK_MODULES", "__all__") for t in node.targets):
                 ignore(node.value)  # physical button names, keyboard keys, exports
             if any(isinstance(t, ast.Name) and t.id in ("PREFLIGHT_SCRIPT", "WORKER", "AUTHENTICODE_SCRIPT") for t in node.targets):
                 ignore(node.value)  # internal PowerShell wrappers, never screen copy
@@ -95,7 +95,7 @@ def untranslated_literals(source):
                 ignore(node.args[1])  # attribute names; a displayed fallback is still checked
             elif name in ("get", "setdefault", "getenv", "pop", "startswith", "import_module", "strftime", "compile", "match", "expanduser") and node.args:
                 ignore(node.args[0])
-            elif name in ("prompt", "glyph", "_ask", "_open_picker", "act", "on_setup", "on_uninstall") and node.args:
+            elif name in ("prompt", "glyph", "_ask", "_open_picker", "_open_choices", "act", "on_setup", "on_uninstall") and node.args:
                 ignore(node.args[0])
             elif name == "_go" and len(node.args) > 1:
                 ignore(node.args[1])

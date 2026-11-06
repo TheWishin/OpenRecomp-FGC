@@ -179,6 +179,14 @@ class BuildPage:
                 needed = setup.get("required")
                 card("game", "@build.card.update", "@setup.update_needed_hint" if needed else "@setup.update_hint",
                      "todo", game_items)
+            elif all(it.get("id") in ("folder", "folder:zip", "install_switch") for _i, it in game_items):
+                # 0.1.3: the folder in use (and the switch between known installs) -- a good folder is done, a wrong
+                # one says what is wrong with it (it used to say "no bundled build tools" for every T4 folder)
+                folder = next((it for _i, it in game_items if it.get("id") == "folder"), None)
+                ok = folder is None or bool(folder.get("ok"))
+                card("game", "@build.card.game", "@build.folder_in_use" if ok else (folder.get("note") or folder.get("hint")
+                                                                                   or "@t4.portable_required"),
+                     "done" if ok else "todo", game_items)
             else:
                 card("game", "@build.card.game", "@t4.portable_required", "todo", game_items)
         # 2 -- the player's own files

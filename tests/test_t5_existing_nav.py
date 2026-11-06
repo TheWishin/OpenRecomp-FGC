@@ -1,5 +1,6 @@
 """Existing-install consent uses controller actions and fake folders only."""
 from types import SimpleNamespace
+import os
 import unittest
 from unittest import mock
 
@@ -133,7 +134,10 @@ class ExistingInstallBackend(unittest.TestCase):
         backend.config["t5dr_settings_copy"] = "previous-copy"
         with mock.patch("openrecomp.app_game_setup.mf.save_config") as save:
             self.assertTrue(backend._setup_action("use_existing", "t5dr", "D:/player-owned/T5DR"))
-        self.assertEqual(backend.config, dict(roots=dict(t5dr="D:/player-owned/T5DR")))
+        self.assertEqual(backend.config["roots"], dict(t5dr="D:/player-owned/T5DR"))
+        self.assertNotIn("t5dr_settings_copy", backend.config)
+        # 0.1.3: the folder is remembered as a known install (the Build page's switch lists it)
+        self.assertEqual(backend.config["known_roots"], dict(t5dr=[os.path.abspath("D:/player-owned/T5DR")]))
         save.assert_called_once_with(backend.config)
         backend._reload_library.assert_called_once_with()
         backend.nav.setup_installed.assert_called_once_with("t5dr")

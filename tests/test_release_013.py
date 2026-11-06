@@ -55,5 +55,30 @@ class UnsignedCandidate(unittest.TestCase):
         self.assertIn(str(Path(r"D:\out") / "t4" / "SHA256SUMS.sig"), text)
 
 
+class PreReleaseFirst(unittest.TestCase):
+    """Owner's rule: every release goes out as a pre-release first; the owner marks it latest after his test."""
+
+    def text(self):
+        return make_release.commands(Path(r"D:\out"), "v0.1.3", "v0.1.3", ["a.zip"], ["t.zip"], "a" * 40, "b" * 40, True)
+
+    def test_both_releases_are_created_and_published_as_pre_releases(self):
+        lines = [line for line in self.text().splitlines() if line.startswith("gh release")]
+        launcher = [line for line in lines if "OpenRecomp-FGC" in line]
+        t4 = [line for line in lines if "Tekken4Recomp" in line]
+        self.assertIn("--draft --prerelease", launcher[0])
+        self.assertTrue(launcher[1].endswith("--draft=false --prerelease"))
+        self.assertTrue(launcher[2].endswith("--prerelease=false --latest"))       # the owner's step after his test
+        self.assertIn("--draft --prerelease", t4[0])
+        self.assertTrue(t4[1].endswith("--draft=false --prerelease"))
+        self.assertNotIn("not as a pre-release", self.text())
+
+    def test_player_notes_come_first(self):
+        notes = make_release.notes("t4", tag="v0.1.3", commit="a" * 40, t4_commit="b" * 40, key_id="k", sums={},
+                                   rehearsal=False, unsigned=False, intro="Update the launcher first.")
+        self.assertTrue(notes.startswith("Tekken 4 recompiled (USA SLUS-20328), v0.1.3\n\nUpdate the launcher first."))
+        from openrecomp.game_releases import release_notes
+        self.assertTrue(release_notes(notes).startswith("Tekken 4 recompiled (USA SLUS-20328), v0.1.3 Update the launcher"))
+
+
 if __name__ == "__main__":
     unittest.main()

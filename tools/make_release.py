@@ -369,8 +369,12 @@ def verify_full_setup(folder, zip_name, full_name, games):
 
 
 def notes(kind, **facts):
+    # --player-notes / --t4-player-notes: a few plain sentences for players, first (a launcher's update dialog shows the
+    # start of a release's text).
+    intro = (facts.get("intro") or "").strip()
+    intro = intro + "\n\n" if intro else ""
     if kind == "launcher":
-        return (f"OpenRecomp-FGC {facts['version']}\n\n"
+        return (f"OpenRecomp-FGC {facts['version']}\n\n" + intro +
                 "Launcher for Tekken 4 and Tekken 5 Dark Resurrection Online. No game data is included.\n\n"
                 f"- Install: `OpenRecomp-FGC-Setup-{facts['plain']}.exe` (per user, no administrator), or unpack "
                 f"`OpenRecomp-{facts['version']}.zip` and run `OpenRecomp-FGC\\run.cmd`.\n"
@@ -384,7 +388,7 @@ def notes(kind, **facts):
                 f"| Release key | `{facts['key_id']}` (Ed25519, `SHA256SUMS.sig`) |\n"
                 + "".join(f"| `{name}` | `{value}` |\n" for name, value in facts["sums"].items())
                 + _candidate_line(facts))
-    return (f"Tekken 4 recompiled (USA SLUS-20328), {facts['tag']}\n\n"
+    return (f"Tekken 4 recompiled (USA SLUS-20328), {facts['tag']}\n\n" + intro +
             "Beta. Installed and updated by OpenRecomp-FGC (Tekken 4 > Install). No game data: the game is built on your "
             "PC from your own disc image.\n\n"
             "The zip also works alone: unpack it, run `OpenRecomp-FGC\\run.cmd`; the launcher uses the `T4` folder "
@@ -393,6 +397,15 @@ def notes(kind, **facts):
             f"| Release key | `{facts['key_id']}` (Ed25519, `SHA256SUMS.sig`) |\n"
             + "".join(f"| `{name}` | `{value}` |\n" for name, value in facts["sums"].items())
             + _candidate_line(facts))
+
+
+def _read_notes(path):
+    if not path:
+        return ""
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as error:
+        raise ReleaseFailed(f"player notes {path}: {error}") from None
 
 
 def _candidate_line(facts):
@@ -408,12 +421,14 @@ def commands(out, version, t4_tag, launcher_files, t4_files, commit, t4_commit, 
         f"#    (git rev-parse {version}^{{commit}}); push the branch that holds it, then the tag.",
         "git -C <OpenRecomp-FGC checkout> push origin main",
         f"git -C <OpenRecomp-FGC checkout> push origin {version}",
-        f"gh release create {version} --repo TheWishin/OpenRecomp-FGC --verify-tag --draft "
+        f"gh release create {version} --repo TheWishin/OpenRecomp-FGC --verify-tag --draft --prerelease "
         f"--title \"OpenRecomp-FGC {version}\" --notes-file \"{out / 'launcher' / 'NOTES.md'}\" "
         + " ".join(f"\"{out / 'launcher' / n}\"" for n in launcher_files),
-        "#    Owner: VirusTotal check of the Setup.exe, then publish the draft (not as a pre-release: the launcher",
-        "#    offers only published plain vX.Y.Z to everyone; vX.Y.Z-<test> tags marked pre-release reach testers).",
-        f"gh release edit {version} --repo TheWishin/OpenRecomp-FGC --draft=false",
+        "#    Owner's rule: pre-release first. VirusTotal check of the Setup.exe, then publish the draft AS A PRE-RELEASE",
+        "#    (installed launchers do not offer a pre-release to everyone; testers download it from the release page).",
+        f"gh release edit {version} --repo TheWishin/OpenRecomp-FGC --draft=false --prerelease",
+        "#    After the owner's test is OK: the owner marks it the latest release (then every launcher offers it).",
+        f"gh release edit {version} --repo TheWishin/OpenRecomp-FGC --prerelease=false --latest",
         "",
         f"# 2. Tekken 4 release (TheWishin/Tekken4Recomp), T4 source {t4_commit[:12]} (inside the zip).",
         "#    The release repository needs at least one commit on main (a README, like T5DR's public release",
@@ -422,7 +437,10 @@ def commands(out, version, t4_tag, launcher_files, t4_files, commit, t4_commit, 
         + ("--prerelease " if t4_prerelease else "")
         + f"--title \"Tekken 4 {t4_tag} (beta)\" --notes-file \"{out / 't4' / 'NOTES.md'}\" "
         + " ".join(f"\"{out / 't4' / n}\"" for n in t4_files),
-        f"gh release edit {t4_tag} --repo TheWishin/Tekken4Recomp --draft=false",
+        "#    Pre-release first (owner's rule): published as a pre-release; Tekken 4 is a beta, so launchers already offer",
+        "#    its published pre-releases to everyone -- publish it only together with the launcher's pre-release.",
+        f"gh release edit {t4_tag} --repo TheWishin/Tekken4Recomp --draft=false"
+        + (" --prerelease" if t4_prerelease else ""),
         "",
         "# Check (read only): what a launcher sees",
         "gh api repos/TheWishin/OpenRecomp-FGC/releases/latest --jq \".tag_name, [.assets[].name]\"",
@@ -532,10 +550,12 @@ def make(args):
                            t4=bundled_version("t4", Path(args.t4_release) if args.t4_release else t4_dir)) if full_name else None)
         (launcher_dir / "NOTES.md").write_text(notes("launcher", version=version, plain=plain, commit=commit,
                                                      key_id=launcher_key, sums=launcher_sums, rehearsal=args.rehearsal,
-                                                     full=full_name, full_games=full_games, unsigned=unsigned),
+                                                     full=full_name, full_games=full_games, unsigned=unsigned,
+                                                     intro=_read_notes(getattr(args, "player_notes", None))),
                                                encoding="utf-8")
         (t4_dir / "NOTES.md").write_text(notes("t4", tag=t4_tag, commit=commit, t4_commit=t4_commit, key_id=t4_key,
-                                               sums=t4_all, rehearsal=args.rehearsal, unsigned=unsigned), encoding="utf-8")
+                                               sums=t4_all, rehearsal=args.rehearsal, unsigned=unsigned,
+                                               intro=_read_notes(getattr(args, "t4_player_notes", None))), encoding="utf-8")
         launcher_files = [*launcher_names, "SHA256SUMS", "SHA256SUMS.sig"]
         t4_assets = [t4_zip, "SHA256SUMS", "SHA256SUMS.sig"]
         text = commands(out, version, t4_tag, launcher_files, t4_assets, commit, t4_commit, not args.t4_stable)
@@ -575,6 +595,8 @@ def main(argv=None):
     parser.add_argument("--t4-key", help="private T4 key file (outside every repository)")
     parser.add_argument("--unsigned", action="store_true",
                         help="build and check everything but the signatures; COMMANDS.txt names the owner's signing steps")
+    parser.add_argument("--player-notes", type=Path, help="text file: player notes at the top of the launcher's NOTES.md")
+    parser.add_argument("--t4-player-notes", type=Path, help="text file: player notes at the top of the T4 NOTES.md")
     parser.add_argument("--t4-stage", type=Path,
                         help="T4's portable release stage (T4 tools/package_release.py --stage): the T4 folder of the zip")
     parser.add_argument("--out", help=r"default dist\release-<version> in this checkout")

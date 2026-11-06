@@ -18,6 +18,11 @@ class Picker:
             return
         self._open_list_picker(target, title, exts, kind, self._picker_start(dirs, kind, exts))
 
+    def _open_choices(self, target, title, choices, start=""):
+        """A list of folders to pick one from (several installs in one folder, the known installs of a game)."""
+        self.picker = dict(target=target, title=title, exts=[], kind="folder", dir=start, focus=0, choices=list(choices))
+        self.overlay = "picker"
+
     def _open_list_picker(self, target, title, exts, kind, start, filter_name=""):
         self.picker = dict(target=target, title=title, exts=exts, kind=kind, dir=start, focus=0, filter_name=filter_name)
         self.overlay = "picker"

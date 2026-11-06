@@ -148,5 +148,7 @@ def install_source(manifest, config, path):
                                       "@t4.install_busy") else "@t4.zip_invalid"
     except (OSError, zipfile.BadZipFile, RuntimeError):
         return "@t4.install_failed"
+    from ..known_installs import remember
+    remember(config, manifest["id"], root, (config.get("roots") or {}).get(manifest["id"]) or "")
     config.setdefault("roots", {})[manifest["id"]] = root
     return "reload"

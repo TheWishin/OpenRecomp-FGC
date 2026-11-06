@@ -14,6 +14,7 @@ from .launch_guard import LaunchGuard
 from . import t4_region
 from .t4_online import T4Online
 from .t4_support import T4Support
+from .t4_controls import T4Controls
 from .t5_online import game_process_running
 from .t4_install import install_root, install_source, source_root
 from .. import t4_art, wine
@@ -134,7 +135,7 @@ def load_core(root):
     return core
 
 
-class T4(T4Support, T4Online, Adapter):
+class T4(T4Controls, T4Support, T4Online, Adapter):
     native_label = "@t4.native_label"
     other_launcher_game = "t4"           # its own launcher open too: other_launchers
 

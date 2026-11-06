@@ -26,6 +26,15 @@ Made so that every player gets the same Tekken 4 build and the launcher always r
   folders the launcher did not create.
 - The T4 online identity uses the game files from your ISO (SLUS_203.28, DATA.BIN, IRX) instead of the whole ISO file:
   two clean rips of the same disc can play each other.
+- **Faster Tekken 4 builds, Microsoft's files once per PC.** They are kept in one shared folder for every Tekken 4 install
+  and update (no second download after an update or reinstall), checked once; a rebuild with nothing changed takes
+  about 2 seconds (was 40), the first build shows the download in % and MB. Visual Studio on a developer's PC (2022,
+  2026, a developer prompt) can no longer change the compiled game.
+- **Pad bindings for Tekken 5 are back** with T5DR 1.2.1: its controller editor needs no Tk any more (the entry was
+  missing on a fresh install). Tekken 4 gets a Pad bindings page too, showing its fixed buttons for keyboard and
+  controller (they cannot be changed yet).
+- **Several installs:** the Build page lists the installs of a game this launcher knows and switches between them; the
+  Tekken 5 page shows its folder like Tekken 4's; an update notice names the folder it updates.
 
 ## v0.1.2
 

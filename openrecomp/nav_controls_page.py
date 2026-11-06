@@ -57,7 +57,13 @@ class ControlsPage:
     def _ctl_tab_label(pad):
         port = pad.get("port", -1)
         player = i18n.message("controls.player_short", n=port + 1) if port >= 0 else "@controls.no_player"
-        return i18n.message("controls.tab", player=player, name=i18n.literal(pad.get("name") or ""))
+        return i18n.message("controls.tab", player=player, name=ControlsPage._ctl_name(pad))
+
+    @staticmethod
+    def _ctl_name(pad):
+        """A device's name as the reader gives it (literal), or a catalog key for a game's own fixed layout."""
+        name = pad.get("name") or ""
+        return name if isinstance(name, str) and name.startswith("@") else i18n.literal(name)
 
     # ---------------------------------------------------------------- the rows
     def _items_controls(self, g):
@@ -71,7 +77,8 @@ class ControlsPage:
                          detail=dict(kicker="@section.controls", title="@controls.empty", lead="@controls.hint", rows=[]))]
         features = pad.get("features") or {}
         disabled = bool(pad.get("disabled"))
-        kicker = i18n.literal(pad.get("name") or "")
+        kicker = self._ctl_name(pad)
+        fixed = bool(pad.get("fixed"))     # the game's buttons cannot be changed (Tekken 4): shown, never bound
         out = []
         if len(pads) > 1:
             out.append(dict(kind="cycler", id="ctl:device", local=True, label="@controls.device", ctl="setting",
@@ -112,6 +119,10 @@ class ControlsPage:
                             current=options.get("stick"), hint="@controls.stick_hint",
                             set=lambda v: self._ctl_write(g, "set_control_option", pad["id"], "stick", v),
                             detail=dict(kicker=kicker, title="@controls.stick", lead="@controls.stick_hint", rows=[])))
+        if fixed:
+            out.append(dict(kind="action", id="ctl:fixed", label="@controls.fixed", ctl="setting", verb="",
+                            hint="@controls.fixed_hint",
+                            detail=dict(kicker=kicker, title="@controls.fixed", lead="@controls.fixed_hint", rows=[])))
         if features.get("test"):
             out.append(dict(kind="action", id="ctl:test", label="@controls.test", ctl="setting", verb="@controls.start_test",
                             hint="@controls.test_hint", run=lambda: self._begin_input_test(g, pad["id"]),
@@ -123,19 +134,20 @@ class ControlsPage:
                 continue
             out.append(dict(kind="heading", label=label, ctlGroup=group))
             for slot in mine:
-                out.append(self._ctl_slot_item(g, pad, slot, kicker, disabled, features))
+                out.append(self._ctl_slot_item(g, pad, slot, kicker, disabled or fixed, features, fixed))
         return out
 
-    def _ctl_slot_item(self, g, pad, slot, kicker, disabled, features):
+    def _ctl_slot_item(self, g, pad, slot, kicker, disabled, features, fixed=False):
         unbound = not slot.get("sources") and slot.get("value") in ("", "@controls.unbound")
         value = slot.get("text") or slot.get("value") or ""
         rows = [dict(k="@controls.current", v=value or "@controls.unbound")]
         return dict(kind="action", id=str(pad["id"]) + ":" + slot["id"], slot=slot["id"], ctl="slot",
                     label=slot["label"], notation=slot["id"], value=value, glyphs=list(slot.get("glyphs") or []),
-                    unbound=unbound, verb="" if disabled else "@controls.bind", hint="@controls.hint", disabled=disabled,
+                    unbound=unbound, verb="" if disabled else "@controls.bind",
+                    hint="@controls.fixed_hint" if fixed else "@controls.hint", disabled=disabled and not fixed,
                     clear=bool(features.get("clear")) and not disabled and not unbound,
                     run=None if disabled else lambda pid=pad["id"], sid=slot["id"]: self._begin_binding(g, pid, sid),
-                    detail=dict(kicker=kicker, title=slot["label"], lead="@controls.hint", rows=rows,
+                    detail=dict(kicker=kicker, title=slot["label"], lead="@controls.fixed_hint" if fixed else "@controls.hint", rows=rows,
                                 primary="" if disabled else "@controls.bind"))
 
     # ---------------------------------------------------------------- edits

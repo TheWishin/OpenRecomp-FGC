@@ -51,6 +51,13 @@ class Adapter:
         """Read-only install preflight; never loads another launcher's runtime."""
         return []
 
+    def known_installs(self):
+        """[(root, version)]: the installs of this game the launcher knows, the folder in use first (known_installs)."""
+        if self.m.get("adapter") not in ("t4", "t5dr") or not getattr(self, "root", None):
+            return []
+        from ..known_installs import known
+        return known(self.config, self.m["id"], self.root)
+
     def ready(self):
         return False
 

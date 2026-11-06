@@ -741,6 +741,10 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         rap = self.s["rap"]
         rap_ok = bool(rap) and os.path.isfile(rap)
         return [
+            # 0.1.3: the folder in use, always on the page; choosing another T5DR folder switches to it at any time.
+            dict(id="folder", label="@t5.game_folder", title="@t5.choose_install", value=self.root, ok=True, kind="folder",
+                 exts=[], dirs=[os.path.dirname(self.root), os.path.join(home, "Downloads")],
+                 hint="@t5.folder_change_hint", note=""),
             dict(id="pkg", label="@package", value="@found" if pkg_ok else "@missing", ok=pkg_ok, kind="file", exts=[".pkg"], dirs=dirs,
                  title="@t5.choose_pkg", filter="@t5.pkg_filter",
                  hint="@package.hint", note=pkg_text),
@@ -764,6 +768,8 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             root = choices[0]
             if os.path.normcase(os.path.realpath(root)) != os.path.normcase(os.path.realpath(self.root)):
                 self.config.pop("t5dr_settings_copy", None)
+            from ..known_installs import remember
+            remember(self.config, self.m["id"], root, self.root or "")
             self.config.setdefault("roots", {})[self.m["id"]] = root
             return "reload"
         self.s[sid] = path

@@ -250,6 +250,7 @@ class Sections:
                                 run=None if blocked else lambda src=src: self._open_picker(
                                     "source:" + src["id"], "@picker.choose_zip", src["exts"], src["dirs"], "file",
                                     "@picker.zip_filter")))
+        out.extend(self._install_switch_items(g, state, source_state))
         # Build tools: never a list. Checked by themselves; missing ones are installed when Build is pressed; only a
         # failed install offers Try again / Help here.
         out.extend(self._prerequisite_items(g, state))
@@ -311,6 +312,28 @@ class Sections:
             out.append(dict(kind="hold", id="rebuild", label="@rebuild_all", verb="@hold", run=rebuild, hint="@rebuild_hint", card="more",
                             detail=dict(kicker="@takes_longer", title="@rebuild_all", lead="@rebuild_lead", rows=[])))
         return out
+
+    def _install_switch_items(self, g, state, source_state):
+        """0.1.3: the installs of this game the launcher knows, and which one is in use: picking another one makes it
+        the folder for Play, Build and Online (the same as choosing its folder by hand). Only with two or more."""
+        if not g.a.found() or g.m.get("adapter") not in ("t4", "t5dr"):
+            return []
+        installs = g.a.known_installs()
+        if len(installs) < 2:
+            return []
+        blocked = bool(state.get("running") or source_state.get("running"))
+        current = installs[0][0]
+        rows = [dict(k=i18n.literal(root), v=version or "@none_lower", accent=i == 0) for i, (root, version) in enumerate(installs)]
+
+        def switch():
+            self._open_choices("source:folder", "@build.install_switch_title",
+                               [root for root, _v in installs[1:]] + [current], os.path.dirname(current))
+        return [dict(kind="action", id="install_switch", label="@build.install_in_use",
+                     value=i18n.message("build.install_count", n=len(installs)), card="game", disabled=blocked,
+                     verb="" if blocked else "@build.install_switch", run=None if blocked else switch, ok=True,
+                     hint="@build.install_switch_hint",
+                     detail=dict(kicker="@section.build", title="@build.install_in_use", lead="@build.install_switch_hint",
+                                 rows=rows))]
 
     def _prerequisite_items(self, g, state=None):
         """The PC's build tools never show as a list (owner): the Build page's tools card says checking / ready /

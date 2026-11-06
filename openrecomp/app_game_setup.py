@@ -116,6 +116,9 @@ class GameSetupBackend:
         previous = dict(self.config)
         roots = dict(self.config.get("roots") or {})
         self.config["roots"] = roots
+        game = self.nav.game_by_id(gid)
+        from .known_installs import remember
+        remember(self.config, gid, root, roots.get(gid) or "", getattr(getattr(game, "a", None), "root", "") or "")
         roots[gid] = root
         if gid == "t5dr":
             self.config.pop("t5dr_settings_copy", None)

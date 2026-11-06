@@ -66,11 +66,13 @@ class GameSetupNav:
                          detail=dict(kicker="@setup.kicker", title="@setup.updated", lead="@setup.restart_hint", rows=[]))]
         label = "@setup.update_needed" if st.get("required") else "@setup.update_available"
         version = i18n.literal(f"{st.get('installed') or '?'} → {st.get('latest') or '?'}")
+        hint = "@setup.update_needed_hint" if st.get("required") else "@setup.update_hint"
+        folder = getattr(g.a, "root", None) or ""
         return [dict(kind="action", id="game_update", label=label, verb="@setup.update", value=version,
                      run=lambda: self.setup_offer_update(g),
-                     hint="@setup.update_needed_hint" if st.get("required") else "@setup.update_hint",
+                     hint=i18n.message("setup.update_in_folder", text=hint, folder=i18n.literal(folder)) if folder else hint,
                      detail=dict(kicker="@setup.kicker", title=label, lead="@setup.update_lead",
-                                 rows=[dict(k="@version", v=version),
+                                 rows=[dict(k="@version", v=version)] + ([dict(k="@game_folder", v=i18n.literal(folder))] if folder else []) + [
                                        dict(k="@setup.download", v=i18n.message("setup.megabytes", mb=self._mb(st.get("size"))))],
                                  primary="@setup.update"))]
 
@@ -370,6 +372,9 @@ class GameSetupNav:
                 title = "@t5.update_here"
                 text = i18n.message("t5.folder_update", text=text, folder=i18n.literal(game.a.setup_root()))
                 labels = ["@cancel", "@t5.update_here"]
+            elif game is not None and getattr(game.a, "root", None):
+                # 0.1.3: which install is updated (a player can have several)
+                text = i18n.message("setup.update_in_folder", text=text, folder=i18n.literal(game.a.root))
         elif kind == "setup_restart":
             title = "@setup.updated"
             text = i18n.message("setup.restart_text", name=name, version=i18n.literal(st.get("installed", "")))

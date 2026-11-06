@@ -18,6 +18,52 @@ CAPTURE_S = 5.0            # "Press a button": the countdown the page shows
 HOLD_CANCEL_S = 1.0        # holding the controller's Back button this long cancels a capture or ends the input test
 BACK_SOURCE = {"xinput": "B", "dinput": "B3"}     # the launcher's own Back (pad.py): B / Circle
 MAX_PLAYERS = 7            # [port1] .. [port7]
+TK_MODULES = ("tkinter", "tkinter.ttk", "tkinter.font", "tkinter.messagebox", "tkinter.filedialog",
+              "tkinter.simpledialog", "tkinter.colorchooser", "tkinter.scrolledtext", "tkinter.constants")
+
+
+class _TkStandIn(type(sys)):
+    """A name-only tkinter for T5DR's Controls screen module: launcher/controls_ui.py (1.1.2+) imports tkinter (and
+    t5lobby.theme / dialogs, which subclass tk.Canvas) at the top, but the two classes we use, DevicePoller and Capture,
+    never touch Tk. Our own Python has no Tk, so without this the import failed and the Pad bindings entry vanished
+    (player report 2026-11-06, T5DR 1.2.1). Every attribute is an inert class; nothing of it is ever drawn."""
+
+    def __getattr__(self, name):
+        if name.startswith("__"):
+            raise AttributeError(name)
+        value = type(name, (), {"__init__": lambda self, *a, **k: None})
+        setattr(self, name, value)
+        return value
+
+
+class _tk_stand_in:
+    """While T5DR's controls modules import: the real tkinter when it works, else _TkStandIn modules, which are taken
+    out of sys.modules again afterwards (nothing else of the launcher ever sees them)."""
+
+    def __enter__(self):
+        self.before = None
+        try:
+            import tkinter  # noqa: F401
+            import tkinter.font  # noqa: F401
+            import tkinter.ttk  # noqa: F401
+            return self
+        except Exception:  # ImportError, or a tkinter without its Tcl/Tk DLLs
+            pass
+        self.before = {name: sys.modules.get(name) for name in TK_MODULES}
+        for name in TK_MODULES:
+            sys.modules[name] = _TkStandIn(name)
+            if "." in name:
+                parent, _, child = name.rpartition(".")
+                setattr(sys.modules[parent], child, sys.modules[name])
+        return self
+
+    def __exit__(self, *exc):
+        for name, module in (self.before or {}).items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
+        return False
 
 
 class Controls:
@@ -59,11 +105,12 @@ class Controls:
                 if module is not None and not self._controls_origin(module, path):
                     return None
             modules = []
-            for name, path in zip(names, paths):
-                module = self._controls_import(name, path)
-                if not self._controls_origin(module, path):
-                    return None
-                modules.append(module)
+            with _tk_stand_in():
+                for name, path in zip(names, paths):
+                    module = self._controls_import(name, path)
+                    if not self._controls_origin(module, path):
+                        return None
+                    modules.append(module)
             _package, pm, pn, ce, ui = modules
             required = ((ce, ("DeviceRef", "controls_path", "mask_text")),
                         (ce.ControlsEditor, ("load", "controls", "sources", "table", "bind", "save")),
