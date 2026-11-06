@@ -47,7 +47,8 @@ PROGRAM_ITEMS = ("portable", "openrecomp", "games", "docs", "LICENSE", "README.m
                  "run.cmd", "release.json")
 REQUIRED_ITEMS = ("portable/pythonw.exe", "portable/python312._pth", "openrecomp/__main__.py", "openrecomp/app.py",
                   "run.cmd", "release.json")
-LOOSE_FILES = ("START_HERE.txt", "START_HIER.txt", "BUNDLE.txt")   # beside the folder in the zip; never installed
+LOOSE_FILES = ("START_HERE.txt", "START_HIER.txt", "BUNDLE.txt",   # beside the folder in the zip; never installed
+               "Start OpenRecomp-FGC.cmd")   # 0.1.4+: may sit there in a later launcher zip (0.1.2/0.1.3 refuse it)
 SETUP_RECORD = "OpenRecomp-install.txt"  # Setup's list of its files, beside the program folder
 _VERSION = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
                       r"(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z][0-9A-Za-z]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z][0-9A-Za-z]*))*))?\Z",

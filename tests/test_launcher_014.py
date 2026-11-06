@@ -99,9 +99,10 @@ class Nav014(unittest.TestCase):
     def test_logged_in_is_not_busy(self):
         nav = self.nav(Game5("t4"))
         nav.games[0].a.online_state = lambda: dict(phase="logged_in", busy=False)
-        self.assertFalse(nav._update_busy())
+        self.assertFalse(nav._update_busy(allow_lobby=True))     # a game install/update may run
+        self.assertTrue(nav._update_busy())                       # the launcher's own update (restart) waits
         nav.games[0].a.online_state = lambda: dict(phase="matched", busy=False)
-        self.assertTrue(nav._update_busy())
+        self.assertTrue(nav._update_busy(allow_lobby=True))
 
     def test_language_is_a_settings_row(self):
         nav = self.nav(Game5("t4"))

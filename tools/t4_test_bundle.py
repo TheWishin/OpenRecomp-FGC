@@ -425,7 +425,7 @@ def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None, note=()
     if portable_t4(t4_root):
         t4_entries = portable_t4_entries(t4_root)
         check_us_t4(t4_entries)
-        entries = _launcher_part(root, package.source_files(root), note, release, start)
+        entries = _launcher_part(root, package.source_files(root), note, release, start, starter=True)
         entries.extend((T4_FOLDER + "/" + name, data) for name, data in t4_entries)
         entries.extend(_runtime_part(runtime_root, runtime_cache))
         checked = scan_bundle_entries(entries, runtime_cache)
@@ -451,7 +451,7 @@ def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None, note=()
     if not originals:
         originals = list(t4_entries)
     t4_entries = clean_t4_entries(t4_entries)
-    entries = _launcher_part(root, selected, note, release, start)
+    entries = _launcher_part(root, selected, note, release, start, starter=True)
     # Re-scan T4's snapshots with the same scan used by its source test zip.
     checked_t4 = scan_clean_t4_entries(scanner, scan_entries, originals, t4_entries)
     check_us_t4(checked_t4)
@@ -462,10 +462,13 @@ def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None, note=()
     return checked
 
 
-def _launcher_part(root, selected, note, release, start):
+def _launcher_part(root, selected, note, release, start, starter=False):
+    """starter: the one file to start at the top (the T4 bundle zip only: a launcher 0.1.2/0.1.3 updater refuses any
+    top-level file it does not know in the LAUNCHER zip, so that one never gets it)."""
     here, hier = start if start else (START_HERE, START_HIER)
-    entries = [("START_HERE.txt", here), ("START_HIER.txt", hier), ("BUNDLE.txt", bundle_note(note)),
-               (STARTER, STARTER_TEXT)]
+    entries = [("START_HERE.txt", here), ("START_HIER.txt", hier), ("BUNDLE.txt", bundle_note(note))]
+    if starter:
+        entries.append((STARTER, STARTER_TEXT))
     for name, path in sorted(selected.items()):
         no_links(path)
         if name not in OMITTED_BRANDING:

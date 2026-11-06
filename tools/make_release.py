@@ -55,7 +55,7 @@ import t4_test_bundle as bundle  # noqa: E402
 
 LAUNCHER_ITEMS = ("openrecomp", "games", "docs", "LICENSE", "README.md", "requirements.txt", "run.cmd", "portable",
                   "release.json")
-LOOSE = ("START_HERE.txt", "START_HIER.txt", "BUNDLE.txt", "Start OpenRecomp-FGC.cmd")
+LOOSE = ("START_HERE.txt", "START_HIER.txt", "BUNDLE.txt")
 DEFAULT_OUT = ROOT / "dist"
 START_HERE = (
     "OpenRecomp-FGC {version}: launcher for Tekken 4 and Tekken 5 Dark Resurrection Online\n"
@@ -65,7 +65,7 @@ START_HERE = (
     "\n"
     "With this zip:\n"
     "1. Unpack everything into a new, empty folder such as C:\\Games\\OpenRecomp (not directly on C:\\ or D:\\).\n"
-    "2. Double-click \"Start OpenRecomp-FGC.cmd\". If Windows warns about a downloaded file, choose \"Run anyway\".\n"
+    "2. Double-click OpenRecomp-FGC\run.cmd. If Windows warns about a downloaded file, choose \"Run anyway\".\n"
     "3. Pick a game on the shelf. Install or choose folder installs Tekken 5 DR Online or Tekken 4 from their own\n"
     "   releases, then you build the game once from your own package or disc image.\n"
     "\n"
@@ -79,7 +79,7 @@ START_HIER = (
     "\n"
     "Mit diesem Zip:\n"
     "1. Alles in einen neuen, leeren Ordner entpacken, z. B. C:\\Spiele\\OpenRecomp (nicht direkt auf C:\\ oder D:\\).\n"
-    "2. \"Start OpenRecomp-FGC.cmd\" doppelklicken (fragt Windows nach: \"Trotzdem ausfuehren\").\n"
+    "2. OpenRecomp-FGC\run.cmd doppelklicken (fragt Windows nach: \"Trotzdem ausfuehren\").\n"
     "3. Im Regal ein Spiel waehlen. \"Installieren oder Ordner waehlen\" holt Tekken 5 DR Online oder Tekken 4 aus\n"
     "   ihren eigenen Releases; danach baust du das Spiel einmal aus deinem eigenen Paket bzw. ISO.\n"
     "\n"

@@ -54,22 +54,16 @@ class T4TestBundleTests(unittest.TestCase):
             self.assertEqual(result.read("OpenRecomp-FGC/run.cmd"), (self.root / "run.cmd").read_bytes())
             self.assertEqual(result.read("T4/LICENSE"), b"T4 license")
             guide = result.read("START_HIER.txt").decode("utf-8")
-            self.assertLessEqual(len(guide.splitlines()), 18)
-            self.assertNotIn("Python", guide)
-            self.assertNotIn("Internet", guide)
-            self.assertIn("run.cmd", guide)
-            for text in (guide, result.read("START_HERE.txt").decode("utf-8")):
-                # Both games: T4's build tools, T5DR's own folder and package.
-                for phrase in ("Visual Studio 2022 Build Tools", "Git", "CMake", "Ninja", "SLUS-20328",
-                               "T5DR-Online-1.2.0", ".pkg", ".rap", "T5DR Online.exe", "BUILD GAME", "7400"):
+            here = result.read("START_HERE.txt").decode("utf-8")
+            # 0.1.4: player texts -- one file to start at the top, nothing to install, never Visual Studio / winget.
+            self.assertEqual(result.read(bundle.STARTER), bundle.STARTER_TEXT)
+            self.assertIn(b'OpenRecomp-FGC\\run.cmd', bundle.STARTER_TEXT)
+            for text in (guide, here):
+                self.assertLessEqual(len(text.splitlines()), 22)
+                for phrase in ("Start OpenRecomp-FGC.cmd", "SLUS-20328", ".iso", ".pkg", ".rap", "Setup"):
                     self.assertIn(phrase, text)
-            # The new flow: OpenRecomp builds the T5DR folder itself, T5DR's own launcher stays usable.
-            for text in (guide, result.read("START_HERE.txt").decode("utf-8")):
-                self.assertIn("Tekken 5 > Build", text)
-            self.assertIn("builds that folder itself", result.read("START_HERE.txt").decode("utf-8"))
-            self.assertIn("Never let both launchers build", result.read("START_HERE.txt").decode("utf-8"))
-            self.assertIn("nie beide gleichzeitig", guide)
-            self.assertNotIn("in T5DR's own launcher", result.read("START_HERE.txt").decode("utf-8"))
+                for stale in ("Visual Studio", "winget", "Testpaket", "test bundle", "CMake", "Ninja"):
+                    self.assertNotIn(stale, text)
             self.assertIn("T5DR-Online-1.2.0", result.read("BUNDLE.txt").decode("utf-8"))
             self.assertFalse(any(name.startswith("T5DR") for name in result.namelist()))
             self.assertFalse(any(Path(name).suffix.lower() in bundle.IMAGE_SUFFIXES for name in result.namelist()))
@@ -350,3 +344,12 @@ class T4BundleEntryPointTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StarterOnlyInTheBundle(unittest.TestCase):
+    def test_the_launcher_zip_has_no_starter_but_the_t4_bundle_has(self):
+        # A launcher 0.1.2/0.1.3 updater refuses an unknown top-level file in the LAUNCHER zip.
+        names = [n for n, _ in bundle._launcher_part(ROOT, {}, (), None, None)]
+        self.assertNotIn(bundle.STARTER, names)
+        names = [n for n, _ in bundle._launcher_part(ROOT, {}, (), None, None, starter=True)]
+        self.assertIn(bundle.STARTER, names)

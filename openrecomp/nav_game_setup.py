@@ -116,7 +116,7 @@ class GameSetupNav:
         """Install: look up the newest release, then ask where."""
         if self._dry("@setup.install"):
             return
-        if self._update_busy() or self._setup(g.id).get("phase") in ("installing", "updating"):
+        if self._update_busy(allow_lobby=True) or self._setup(g.id).get("phase") in ("installing", "updating"):
             self.say("@setup.busy")
             return
         self.setup_game = g.id
@@ -164,7 +164,7 @@ class GameSetupNav:
     def setup_offer_update(self, g):
         if self._dry("@setup.update"):
             return
-        if self._update_busy() or self._setup(g.id).get("phase") in ("installing", "updating"):
+        if self._update_busy(allow_lobby=True) or self._setup(g.id).get("phase") in ("installing", "updating"):
             self.say("@setup.busy")
             return
         self.setup_game = g.id
@@ -184,7 +184,7 @@ class GameSetupNav:
         if self._dry("@t5.reinstall"):
             return
         st = self._setup(g.id)
-        if self._update_busy() or st.get("phase") in ("installing", "updating"):
+        if self._update_busy(allow_lobby=True) or st.get("phase") in ("installing", "updating"):
             self.say("@setup.busy")
             return
         self.setup_game = g.id
@@ -202,7 +202,7 @@ class GameSetupNav:
     def _setup_reinstall_start(self, gid):
         if not self._setup(gid).get("latest"):
             self._ask("setup_none")
-        elif self._update_busy() or not self.on_setup("reinstall", gid, None):
+        elif self._update_busy(allow_lobby=True) or not self.on_setup("reinstall", gid, None):
             self.overlay = None
             self.say("@setup.busy")
         else:
@@ -330,7 +330,7 @@ class GameSetupNav:
         elif kind == "setup_update":
             self.overlay = None
             if yes:
-                if self._update_busy():
+                if self._update_busy(allow_lobby=True):
                     self.say("@setup.busy")
                 elif self.on_setup("update", gid, None):
                     self.setup_cancelling = False
@@ -345,7 +345,7 @@ class GameSetupNav:
             self.overlay = None
             if yes:
                 need = self._setup(gid).get("needs_launcher", "")
-                if self._update_busy():
+                if self._update_busy():                 # the launcher restarts: not while in a lobby
                     self.say("@setup.busy")
                 elif self.on_setup("update_all", gid, need):
                     self.say("@setup.updating_launcher", 15)

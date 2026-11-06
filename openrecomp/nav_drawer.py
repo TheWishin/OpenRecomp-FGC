@@ -105,7 +105,9 @@ class Drawer:
         self.on_language(self.language)
         self.hint_toggle(self.language, step)
 
-    def _update_busy(self):
+    def _update_busy(self, allow_lobby=False):
+        """allow_lobby: a game install/update may run while logged in to a lobby (0.1.4); the launcher's own update
+        (it restarts the launcher) still waits."""
         if getattr(self, "library_busy", False):
             return True
         for g in self.games:
@@ -113,7 +115,8 @@ class Drawer:
                     or g.a.support_state().get("running")):
                 return True
             online = g.a.online_state()
-            if online.get("busy") or online.get("phase", "offline") not in ("", "offline", "error", "kicked", "logged_in"):
+            idle = ("", "offline", "error", "kicked") + (("logged_in",) if allow_lobby else ())
+            if online.get("busy") or online.get("phase", "offline") not in idle:
                 return True
         return False
 

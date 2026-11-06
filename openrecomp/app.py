@@ -219,7 +219,8 @@ class Backend(QObject, GameSetupBackend):
             self._library = Library(self.config)
         return self._library
 
-    def _update_busy(self):
+    def _update_busy(self, allow_lobby=False):
+        """allow_lobby: game installs/updates run while logged in to a lobby (0.1.4); the launcher's own update waits."""
         if getattr(self, "_library_work", None) is not None:
             return True
         if getattr(self, "_setup_busy", lambda: False)():
@@ -235,7 +236,8 @@ class Backend(QObject, GameSetupBackend):
             online = adapter.online_state()
             # Logged in to a lobby is not busy (0.1.4, owner: "busy" while merely logged in): only a request in
             # flight, a search, a match or a game start blocks installs and updates.
-            if online.get("busy") or online.get("phase", "offline") not in ("offline", "error", "kicked", "logged_in"):
+            idle = ("offline", "error", "kicked") + (("logged_in",) if allow_lobby else ())
+            if online.get("busy") or online.get("phase", "offline") not in idle:
                 return True
         return False
 

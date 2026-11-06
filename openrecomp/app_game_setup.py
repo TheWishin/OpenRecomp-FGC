@@ -82,7 +82,7 @@ class GameSetupBackend:
                 return False
             return self._setup_attach(gid, arg)
         if action == "install":
-            if self._update_busy() or self._setup_root(gid):
+            if self._update_busy(allow_lobby=True) or self._setup_root(gid):
                 return False
             game = self.nav.game_by_id(gid)
             allowed = getattr(self, "_setup_new_roots", {}).get(gid, set())
@@ -92,7 +92,7 @@ class GameSetupBackend:
             return self.setup.install(gid, arg)
         if action in ("update", "reinstall"):
             root = self._setup_root(gid)
-            if not root or self._update_busy():
+            if not root or self._update_busy(allow_lobby=True):
                 return False
             if gid == "t5dr":
                 self.nav.close_online(only="t5dr")   # the borrowed lobby client must not run during the exchange
@@ -147,7 +147,7 @@ class GameSetupBackend:
             mf.save_config(self.config)
         except (OSError, ValueError):
             pass
-        if st.get("needs_launcher") or not st.get("available") or self._update_busy():
+        if st.get("needs_launcher") or not st.get("available") or self._update_busy(allow_lobby=True):
             return False
         root = self._setup_root(gid)
         if not root or not self.setup.update(gid, root):
