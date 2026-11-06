@@ -113,7 +113,7 @@ class Drawer:
                     or g.a.support_state().get("running")):
                 return True
             online = g.a.online_state()
-            if online.get("busy") or online.get("phase", "offline") not in ("", "offline", "error", "kicked"):
+            if online.get("busy") or online.get("phase", "offline") not in ("", "offline", "error", "kicked", "logged_in"):
                 return True
         return False
 

@@ -65,7 +65,9 @@ class GameSetupNav:
                          run=(lambda: self._ask("setup_restart")) if st.get("restart") else None,
                          hint="@setup.restart_hint" if st.get("restart") else ("@setup.rebuild_hint" if st.get("rebuild") else "@setup.updated_hint"),
                          detail=dict(kicker="@setup.kicker", title="@setup.updated", lead="@setup.restart_hint", rows=[]))]
-        version = i18n.literal(f"{st.get('installed') or '?'} → {st.get('latest') or '?'}")
+        # A folder without a version marker (own copy, old bundle): "own version", never "?" (0.1.4)
+        installed = st.get("installed") or i18n.message("setup.own_version")
+        version = i18n.message("setup.version_arrow", old=installed, new=i18n.literal(st.get("latest") or ""))
         if st.get("needs_launcher"):
             # 0.1.4: this release needs a newer launcher -- say so (never a "damaged zip" later) and offer Update all
             text = i18n.message("setup.needs_launcher_row", launcher=i18n.literal(st["needs_launcher"]))
@@ -401,7 +403,8 @@ class GameSetupNav:
             labels = ["@cancel"]
         elif kind == "setup_update":
             title = "@setup.update"
-            text = i18n.message("setup.update_text", name=name, old=i18n.literal(st.get("installed") or "?"),
+            text = i18n.message("setup.update_text", name=name,
+                                old=i18n.literal(st["installed"]) if st.get("installed") else i18n.message("setup.own_version"),
                                 new=i18n.literal(st.get("latest", "")), mb=self._mb(st.get("size")),
                                 notes=i18n.literal(str(offer.get("notes", ""))[:300]))
             labels = ["@no", "@setup.update"]
@@ -417,7 +420,7 @@ class GameSetupNav:
             title = "@setup.needs_launcher_title"
             text = i18n.message("setup.needs_launcher_text", name=name, version=i18n.literal(st.get("latest", "")),
                                 launcher=i18n.literal(st.get("needs_launcher", "")),
-                                current=i18n.literal(st.get("launcher") or "?"))
+                                current=i18n.literal(st.get("launcher")) if st.get("launcher") else i18n.message("setup.own_version"))
             labels = ["@cancel", "@setup.update_all"]
         elif kind == "setup_restart":
             title = "@setup.updated"

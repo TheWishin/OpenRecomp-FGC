@@ -3,6 +3,24 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
+## v0.1.4
+
+Made so that Tekken 4 needs nothing from the internet and an update never ends in "damaged zip".
+
+- **Tekken 4 0.1.4 downloads nothing.** Its game program comes ready-made; Build only translates the code from your own
+  ISO with the compiler in the zip (about 2 minutes the first time, a few seconds when nothing changed). No Microsoft
+  files, no licence screen, no Visual Studio, Git or internet. Every PC gets the same build.
+- **Update all:** a game release names the launcher it needs. An older launcher says so ("This Tekken 4 needs
+  OpenRecomp-FGC X -- update the launcher first") and Update all updates the launcher, restarts it and then updates
+  the game by itself -- also when the needed launcher is still a test version (pre-release).
+- **"The launcher is up to date"** now also names a newer test version when there is one; Confirm installs it.
+- **Progress for game installs and updates:** MB, percent, speed and time left for each step (download, check, unpack).
+- **Language in Settings** (it was only in Quick access).
+- Being logged in to a lobby no longer blocks installs and updates (only a search, match or game start does).
+- A game folder without a version reads "own version" instead of "?".
+- The zips have one file to start at the top: `Start OpenRecomp-FGC.cmd`; START_HERE / START_HIER rewritten for
+  players (no more "install Visual Studio"). The Tekken 4 zip no longer carries the old standalone Tekken4.cmd.
+
 ## v0.1.3
 
 Made so that every player gets the same Tekken 4 build and the launcher always runs the folder you chose.

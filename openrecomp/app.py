@@ -233,7 +233,9 @@ class Backend(QObject, GameSetupBackend):
                     or adapter.support_state().get("running")):
                 return True
             online = adapter.online_state()
-            if online.get("busy") or online.get("phase", "offline") not in ("offline", "error", "kicked"):
+            # Logged in to a lobby is not busy (0.1.4, owner: "busy" while merely logged in): only a request in
+            # flight, a search, a match or a game start blocks installs and updates.
+            if online.get("busy") or online.get("phase", "offline") not in ("offline", "error", "kicked", "logged_in"):
                 return True
         return False
 

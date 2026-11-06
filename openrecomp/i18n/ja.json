@@ -1193,6 +1193,8 @@
  "setup.next_t4": "インストールしました。ここで自分のディスクイメージを選び、ゲームをビルドしてください。",
  "setup.update": "アップデート",
  "setup.update_available": "アップデートがあります",
+ "setup.own_version": "独自のバージョン",
+ "setup.version_arrow": "{old} → {new}",
  "setup.time_min_s": "{min}分{sec}秒",
  "setup.time_s": "{sec}秒",
  "setup.step_check": "確認中",

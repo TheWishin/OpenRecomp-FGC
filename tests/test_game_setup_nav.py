@@ -184,14 +184,14 @@ class SetupNav(unittest.TestCase):
         nav.act("confirm", device="xbox")
         self.assertEqual(self.setup.calls[-1], ("restart", "t5dr", None))
 
-    def test_an_unknown_installed_version_reads_as_a_question_mark(self):
+    def test_an_unknown_installed_version_reads_as_own_version(self):
         nav = self.nav(Game5("t4"))
         self.ready_state(nav, gid="t4", installed="", latest="0.1.1", available=True)
         nav.screen, nav.sec["t4"] = "hub", "build"
         row = nav.items()[0]
-        self.assertEqual((row["id"], text(nav, row["value"])), ("game_update", "? → 0.1.1"))
+        self.assertEqual((row["id"], text(nav, row["value"])), ("game_update", "own version → 0.1.1"))
         nav.setup_offer_update(nav.games[0])
-        self.assertIn("from ? to 0.1.1", text(nav, nav.view()["dialog"])["text"])
+        self.assertIn("from own version to 0.1.1", text(nav, nav.view()["dialog"])["text"])
 
     def test_t4_update_reloads_and_says_build_again(self):
         nav = self.nav(Game5("t4"))

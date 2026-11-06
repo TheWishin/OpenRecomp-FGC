@@ -24,6 +24,7 @@ GROUP_OF = {
     "unlock_all": "offline",
     "replays": "replays", "replay_names": "replays", "replay_dir": "replays", "reset:replay_dir": "replays",
     "launcher_update": "updates", "game_updates": "updates", "test_versions": "updates",
+    "language": "display",
 }
 SETTINGS_LINES = 12
 SETTINGS_TABS = ("video", "audio", "controls", "game", "help")
@@ -62,6 +63,12 @@ class SettingsPage:
                               detail=dict(kicker="@section.settings", title="@settings_ui.pad_bindings",
                                           lead="@settings_ui.pad_bindings_hint", rows=[]),
                               run=lambda: self._go(g, "controls")))
+        if getattr(self, "on_language", None) is not None:
+            # 0.1.4: the language is also a Settings row (it was only in Quick access)
+            extra.append(dict(kind="cycler", id="language", label="@language", value="@language." + self.language,
+                              options=[(code, "@language." + code) for code in i18n.LANGUAGES], current=self.language,
+                              set=self._settings_language, hint="@language_hint",
+                              detail=dict(kicker="@section.settings", title="@language", lead="@language_hint", rows=[])))
         if getattr(self, "on_update_check", None) is not None:
             version = (getattr(self, "update_state", None) or {}).get("version", "")
             extra.append(dict(kind="action", id="launcher_update", label="@updates.check", verb="@confirm",
@@ -207,3 +214,8 @@ class SettingsPage:
             tabs=[dict(id=tab, label=TAB_LABELS[tab], active=tab == active_tab)
                   for tab in SETTINGS_TABS if any(TAB_OF.get(line.get("group")) == tab for line in lines)],
             tabLines=[line for line in lines if TAB_OF.get(line.get("group")) == active_tab])
+
+    def _settings_language(self, code):
+        if code in i18n.LANGUAGES and code != self.language and not self._dry(i18n.message("dry_change", name="@language")):
+            self.language = code
+            self.on_language(code)
