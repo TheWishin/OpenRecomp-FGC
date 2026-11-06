@@ -19,6 +19,8 @@ class Dialog:
             return self._library_dialog(a)
         if self.confirm_kind.startswith("setup_"):
             return self._setup_dialog(a)
+        if self.confirm_kind == "update_progress":
+            return self._update_progress_dialog(a)
         if self.confirm_kind == "tools_help":
             return self._tools_dialog(a)
         if self.confirm_kind == "uninstall_all":
@@ -57,7 +59,33 @@ class Dialog:
                     self.say("@updates.busy")
                 elif self.update_state.get("phase") == "available" and self.update_state.get("version") == self.update_version:
                     if self.on_update_install and not self._dry("@updates.install"):
-                        self.on_update_install()
+                        if self.on_update_install() is not False:
+                            self._ask("update_progress")     # step, MB, speed, time left -- and Cancel
+
+    # ---- the launcher's own update: progress and cancel
+    def _update_progress_dialog(self, a):
+        if a not in ("back", "confirm"):
+            return
+        st = self.update_state
+        if st.get("phase") not in ("checking", "installing", "waiting"):
+            self.overlay = None
+        elif st.get("step") == "restart" or st.get("can_cancel") is False:
+            # Files are being replaced: nothing to cancel any more. The window says why and stays.
+            self.say("@updates.step_restart")
+        elif not st.get("cancelling"):
+            if self.on_update_cancel is not None:
+                self.on_update_cancel()
+            self.say("@setup.cancelling")
+
+    def _view_update_progress(self, v):
+        st = self.update_state
+        restart = st.get("step") == "restart" or st.get("can_cancel") is False
+        text = i18n.message("updates.progress_text", version=i18n.literal(str(st.get("version", ""))),
+                            progress=self._update_progress_line())
+        v["dialog"] = dict(title="@updates.progress_title", text=text,
+                           options=[dict(label="@setup.ok_wait" if restart else "@cancel", index=0, focused=True)])
+        v["hint"] = "@dialog_hint"
+        v["prompts"] = [self.prompt("confirm", "@setup.ok_wait" if restart else "@cancel"), self.prompt("back", "@setup.ok_wait" if restart else "@cancel")]
 
     # ---- complete uninstall (0.1.3): the list first, then Cancel / keep saves / remove everything
     def uninstall_ask(self):
@@ -105,6 +133,8 @@ class Dialog:
             return self._view_library_dialog(v)
         if self.confirm_kind.startswith("setup_"):
             return self._view_setup_dialog(v)
+        if self.confirm_kind == "update_progress":
+            return self._view_update_progress(v)
         if self.confirm_kind == "tools_help":
             return self._view_tools_dialog(v)
         if self.confirm_kind == "uninstall_all":

@@ -21,6 +21,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -63,6 +64,12 @@ class UpdateError(Exception):
         super().__init__(detail)
         self.key = key
         self.safe_to_unlock = safe_to_unlock
+
+
+class UpdateCancelled(UpdateError):
+    """The player cancelled: the download stopped, its partial files are gone, nothing of the launcher changed."""
+    def __init__(self):
+        super().__init__("Update cancelled.", key="update_cancelled", safe_to_unlock=True)
 
 
 @dataclass(frozen=True)
@@ -187,22 +194,69 @@ def _open(url, channel, kind="download"):
     return response
 
 
-def _download(url, channel, limit, destination=None):
+def _abort_on_cancel(cancel, response, done):
+    """A read blocked on a slow or silent server must not hold a cancel back: a watcher closes the connection
+    within a tenth of a second of the cancel."""
+    def watch():
+        while not done.wait(0.1):
+            if cancel.is_set():
+                for sock_of in (lambda: response.fp.raw._sock, lambda: response.fp._sock):
+                    try:
+                        sock_of().shutdown(2)
+                    except Exception:  # noqa: BLE001 -- best effort
+                        pass
+                try:
+                    response.close()
+                except Exception:  # noqa: BLE001
+                    pass
+                return
+    threading.Thread(target=watch, daemon=True, name="openrecomp-cancel-watch").start()
+
+
+def _download(url, channel, limit, destination=None, progress=None, cancel=None):
+    """The body of url (bytes), or written to `destination` (returns its size). progress(done, total) per chunk;
+    a cancel raises UpdateCancelled within a fraction of a second and removes a partly written destination."""
     size, chunks = 0, []
-    with _open(url, channel) as response:
-        output = open(destination, "wb") if destination else None
-        try:
+    done = threading.Event()
+    output = None
+    try:
+        with _open(url, channel) as response:
+            if cancel is not None:
+                _abort_on_cancel(cancel, response, done)
+            total = int(response.headers.get("Content-Length") or 0) if progress else 0
+            output = open(destination, "wb") if destination else None
             while True:
-                chunk = response.read(1024 * 1024)
+                if cancel is not None and cancel.is_set():
+                    raise UpdateCancelled()
+                try:
+                    chunk = response.read(256 * 1024)
+                except (OSError, ValueError):
+                    if cancel is not None and cancel.is_set():
+                        raise UpdateCancelled() from None
+                    raise
                 if not chunk:
                     break
                 size += len(chunk)
                 if size > limit:
                     raise UpdateError("The update exceeds its allowed size.")
                 output.write(chunk) if output else chunks.append(chunk)
-        finally:
-            if output:
-                output.close()
+                if progress:
+                    progress(size, total)
+        if cancel is not None and cancel.is_set():
+            raise UpdateCancelled()
+    except BaseException:
+        if output is not None:
+            output.close()
+            output = None
+            try:
+                os.remove(destination)
+            except OSError:
+                pass
+        raise
+    finally:
+        done.set()
+        if output is not None:
+            output.close()
     return size if destination else b"".join(chunks)
 
 
@@ -552,7 +606,10 @@ def _verify_staged(staged, release, channel):
     _manifest(staged, release, channel)
 
 
-def stage_update(root, release, channel=None):
+def stage_update(root, release, channel=None, progress=None, cancel=None):
+    """Download, verify and unpack a release beside the installation (the launcher itself is not touched).
+    progress(step, done, total) with step download / verify / unpack; a cancel raises UpdateCancelled and leaves
+    no folder behind."""
     channel = (channel or configured_channel()).validate()
     _check_user_home(root)
     if not version_key(release.get("version")):
@@ -569,7 +626,11 @@ def stage_update(root, release, channel=None):
         if expected != release["digest"]:
             raise UpdateError("Signed checksum and GitHub digest disagree.")
         archive_path = transaction / "release.zip"
-        count = _download(release["zip_url"], channel, min(MAX_ZIP, release["size"]), archive_path)
+        report = progress or (lambda *_: None)
+        count = _download(release["zip_url"], channel, min(MAX_ZIP, release["size"]), archive_path,
+                          progress=lambda done, total: report("download", done, total or release["size"]),
+                          cancel=cancel)
+        report("verify", 0, 0)
         with open(archive_path, "rb") as downloaded:
             digest = hashlib.file_digest(downloaded, "sha256").hexdigest()
         if count != release["size"] or digest != expected:
@@ -577,7 +638,11 @@ def stage_update(root, release, channel=None):
         staged = transaction / "new"
         staged.mkdir()
         with zipfile.ZipFile(archive_path) as archive:
-            for info, parts in _archive_members(archive, release["version"]):
+            members = list(_archive_members(archive, release["version"]))
+            total, unpacked = sum(info.file_size for info, _parts in members), 0
+            for info, parts in members:
+                if cancel is not None and cancel.is_set():
+                    raise UpdateCancelled()
                 target = staged.joinpath(*parts)
                 if info.is_dir():
                     target.mkdir(parents=True, exist_ok=True)
@@ -585,6 +650,10 @@ def stage_update(root, release, channel=None):
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with archive.open(info) as source, open(target, "xb") as output:
                         shutil.copyfileobj(source, output)
+                    unpacked += info.file_size
+                    report("unpack", unpacked, total)
+        if cancel is not None and cancel.is_set():
+            raise UpdateCancelled()
         _manifest(staged, release, channel)
         (transaction / "SHA256SUMS").write_bytes(sums)
         (transaction / "SHA256SUMS.sig").write_bytes(signature)
@@ -597,6 +666,21 @@ def stage_update(root, release, channel=None):
         except OSError:
             pass
         raise
+
+
+def discard_stage(staged):
+    """Remove a staged update that will not be installed (cancelled before the helper started): its whole
+    transaction folder, and the work folder when that leaves it empty. Nothing else is touched."""
+    staged = Path(staged)
+    transaction = staged.parent
+    if staged.name != "new" or not transaction.parent.name.endswith(".update"):
+        return False
+    shutil.rmtree(transaction, ignore_errors=True)
+    try:
+        transaction.parent.rmdir()
+    except OSError:
+        pass
+    return not transaction.exists()
 
 
 def prepare_update(root, staged, channel=None):

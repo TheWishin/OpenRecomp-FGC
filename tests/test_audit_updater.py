@@ -128,7 +128,7 @@ class UpdateSafety(unittest.TestCase):
             thread.join(timeout=30)
             self.assertFalse(thread.is_alive())
         api = SimpleNamespace(check_release=lambda _root, **_kw: dict(version="v1.2.3"),
-            stage_update=lambda _root, _release: staged, prepare_update=prepare, launch_update=launch)
+            stage_update=lambda _root, _release, **_kw: staged, prepare_update=prepare, launch_update=launch)
         quit_app = mock.Mock()
         service = UpdateService(self.root, api=api, worker=worker,
                                 busy=lambda: busy[0], quit=quit_app)

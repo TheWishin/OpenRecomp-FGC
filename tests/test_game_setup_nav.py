@@ -139,7 +139,7 @@ class SetupNav(unittest.TestCase):
         nav.setup_offer_update(nav.games[0])
         nav.act("right", device="xbox")
         nav.act("confirm", device="xbox")
-        nav.setup_state["t5dr"].update(phase="updating", step="swap", done=0, total=0)
+        nav.setup_state["t5dr"].update(phase="updating", step="download", done=0, total=0)
         self.assertEqual(nav.confirm_kind, "setup_progress")
 
     def test_quit_during_an_update_is_refused_and_shows_the_progress(self):

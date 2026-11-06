@@ -243,7 +243,7 @@ class UpdaterTests(unittest.TestCase):
         digest = hashlib.sha256(archive).hexdigest()
         offered = dict(version="v1.2.3", sums_url="sums", sig_url="sig", zip_url="zip", digest=digest, size=len(archive))
         sums = f"{digest}  OpenRecomp-v1.2.3.zip\n".encode()
-        def download(url, channel, limit, destination=None):
+        def download(url, channel, limit, destination=None, **_kw):
             if destination:
                 Path(destination).write_bytes(archive)
                 return len(archive)

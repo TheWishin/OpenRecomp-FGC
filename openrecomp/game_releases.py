@@ -24,6 +24,7 @@ import json
 import os
 import re
 import shutil
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -332,17 +333,45 @@ def offer_from_lobby(src, data):
 
 
 # ------------------------------------------------------------------------------------------------ download
+def _abort_on_cancel(cancel, response, done):
+    """A read blocked on a slow or silent server must not hold a cancel back: a watcher closes the connection
+    within a tenth of a second of the cancel (the blocked read then fails and download() reports the cancel)."""
+    def watch():
+        while not done.wait(0.1):
+            if cancel.is_set():
+                for sock_of in (lambda: response.fp.raw._sock, lambda: response.fp._sock):
+                    try:
+                        sock_of().shutdown(2)
+                    except Exception:  # noqa: BLE001 -- best effort: close() below is the general way
+                        pass
+                try:
+                    response.close()
+                except Exception:  # noqa: BLE001
+                    pass
+                return
+    threading.Thread(target=watch, daemon=True, name="openrecomp-cancel-watch").start()
+
+
 def download(src, url, dest, *, limit, expect=None, opener=None, progress=None, cancel=None):
-    """Stream url to dest; returns its SHA-256."""
+    """Stream url to dest; returns its SHA-256. A cancel stops it within a fraction of a second (even in a read
+    that waits for the server) and removes the partial file."""
     opener = opener or open_url
     h, n, tmp = hashlib.sha256(), 0, dest + ".part"
+    done = threading.Event()
     try:
         with opener(src, url, "download", {"Accept": "application/octet-stream"}, 60) as r, open(tmp, "wb") as f:
+            if cancel is not None:
+                _abort_on_cancel(cancel, r, done)
             total = expect or int(r.headers.get("Content-Length") or 0)
             while True:
                 if cancel is not None and cancel.is_set():
                     raise ReleaseError("@setup.cancelled")
-                block = r.read(1 << 18)
+                try:
+                    block = r.read(1 << 18)
+                except (OSError, ValueError):
+                    if cancel is not None and cancel.is_set():
+                        raise ReleaseError("@setup.cancelled") from None
+                    raise
                 if not block:
                     break
                 n += len(block)
@@ -352,6 +381,8 @@ def download(src, url, dest, *, limit, expect=None, opener=None, progress=None, 
                 f.write(block)
                 if progress:
                     progress(n, total)
+        if cancel is not None and cancel.is_set():
+            raise ReleaseError("@setup.cancelled")
         if expect and n != expect:
             raise ReleaseError("@setup.err_network", f"stopped at {n} of {expect} bytes")
         os.replace(tmp, dest)
@@ -361,6 +392,8 @@ def download(src, url, dest, *, limit, expect=None, opener=None, progress=None, 
     except (OSError, ValueError) as e:
         _remove(tmp)
         raise ReleaseError("@setup.err_network", str(e)) from None
+    finally:
+        done.set()
     return h.hexdigest()
 
 
@@ -513,10 +546,18 @@ def unpack(src, zip_path, dest, offer, progress=None, cancel=None):
             os.makedirs(os.path.dirname(target), exist_ok=True)
             try:
                 with zf.open(i) as s, open(target, "xb") as d:
-                    shutil.copyfileobj(s, d, 1 << 20)
+                    while True:
+                        block = s.read(1 << 20)
+                        if not block:
+                            break
+                        d.write(block)
+                        done += len(block)
+                        if cancel is not None and cancel.is_set():
+                            raise ReleaseError("@setup.cancelled")    # inside a big file too
+                        if progress:
+                            progress(done, total)
             except (zipfile.BadZipFile, EOFError) as e:
                 raise ReleaseError("@setup.err_zip", str(e)) from None
-            done += i.file_size
             if progress:
                 progress(done, total)
     root = os.path.join(dest, top)

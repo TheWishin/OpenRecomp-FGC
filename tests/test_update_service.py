@@ -228,7 +228,7 @@ class TestVersionAndUpdateAllTests(unittest.TestCase):
         def release_for(self, root, minimum):
             return dict(version="v0.1.4", size=5, test=True) if minimum == "0.1.4" else None
 
-        def stage_update(self, root, release):
+        def stage_update(self, root, release, **_kw):
             self.staged.append(release["version"])
             return "staged"
 

@@ -1,5 +1,8 @@
 """Quick access drawer actions and view."""
 from . import i18n, ui_sound
+from .nav_game_setup import UPDATE_STEP_TEXT
+
+UPDATE_BUSY = ("checking", "installing", "waiting")
 
 
 class Drawer:
@@ -9,7 +12,13 @@ class Drawer:
                dict(id="motion", label="@motion", value="@motion_reduced" if self.reduced_motion else "@motion_full", motion=True, hint="@motion_hint")]
         phase = self.update_state.get("phase", "idle")
         update_hint = {"checking": "@updates.checking", "installing": "@updates.installing", "current": "@updates.current",
-                       "waiting": "@updates.waiting", "unconfigured": "@updates.unconfigured", "error": "@updates.failed"}.get(phase, "@updates.hint")
+                       "waiting": "@updates.waiting", "unconfigured": "@updates.unconfigured", "error": self.update_failure_key(),
+                       "cancelled": "@updates.cancelled"}.get(phase, "@updates.hint")
+        if phase in UPDATE_BUSY:
+            # While it runs the row shows where it is (the same line as the progress window)
+            update_hint = self._update_progress_line()
+            if phase != "waiting" and self.update_state.get("can_cancel", True) and not self.update_state.get("cancelling"):
+                update_hint = i18n.message("updates.running_hint", progress=update_hint, cancel="@updates.cancel_hint")
         value = self.update_state.get("version", "")
         if phase == "current" and self.update_state.get("test_version"):
             # 0.1.4: stable is current, a newer test version (pre-release) is out: name it, Confirm installs it
@@ -120,10 +129,34 @@ class Drawer:
                 return True
         return False
 
+    def update_failure_key(self):
+        """The plain sentence for a failed launcher update: its reason in words (network, security check, free
+        space), else the general one. Every one of them says that nothing was changed."""
+        reason = self.update_state.get("reason", "")
+        return {"network": "@updates.err_network", "verify": "@updates.err_verify",
+                "space": "@updates.err_space"}.get(reason, "@updates.failed")
+
+    def _update_progress_line(self):
+        st = self.update_state
+        if st.get("cancelling"):
+            return "@setup.cancelling"
+        if st.get("phase") == "waiting":
+            return "@updates.waiting"
+        return self._setup_progress_text(st, UPDATE_STEP_TEXT)
+
+    def poll_update(self):
+        """Called with every new launcher-update state: the progress window closes when the run is over (the
+        outcome is said as a message by the backend)."""
+        if (self.overlay == "dialog" and self.confirm_kind == "update_progress"
+                and self.update_state.get("phase") not in UPDATE_BUSY):
+            self.overlay = None
+            return True
+        return False
+
     def _check_update(self):
-        if self.update_state.get("phase") in ("checking", "installing", "waiting"):
-            self.say({"checking": "@updates.checking", "installing": "@updates.installing",
-                      "waiting": "@updates.waiting"}[self.update_state["phase"]])
+        if self.update_state.get("phase") in UPDATE_BUSY:
+            # Pressing the entry again shows the running update's progress (and its Cancel); it never starts another
+            self._ask("update_progress")
             return
         if self._update_busy():
             self.say("@updates.busy")

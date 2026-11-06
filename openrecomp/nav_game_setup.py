@@ -11,6 +11,10 @@ from . import i18n
 SETUP_GAMES = ("t5dr", "t4")
 STEP_TEXT = {"download": "@setup.step_download", "check": "@setup.step_check", "unpack": "@setup.step_unpack",
              "swap": "@setup.step_swap"}
+# The launcher's own update: looking up the release, download, verify, unpack, copy the helper, restart.
+UPDATE_STEP_TEXT = {"lookup": "@updates.step_lookup", "download": "@setup.step_download", "verify": "@setup.step_check",
+                    "unpack": "@setup.step_unpack", "prepare": "@updates.step_prepare",
+                    "restart": "@updates.step_restart"}
 
 
 class GameSetupNav:
@@ -86,9 +90,10 @@ class GameSetupNav:
                                        dict(k="@setup.download", v=i18n.message("setup.megabytes", mb=self._mb(st.get("size"))))],
                                  primary="@setup.update"))]
 
-    def _setup_progress_text(self, st):
+    def _setup_progress_text(self, st, steps=None):
         """"Download 45 % · 120 of 274 MB · 8.3 MB/s · 19 s left" (0.1.4); steps without a size: their name."""
-        step = STEP_TEXT.get(st.get("step"), STEP_TEXT["download"])
+        steps = steps or STEP_TEXT
+        step = steps.get(st.get("step"), steps.get("download"))
         if st.get("total"):
             pct = min(100, int(st.get("done", 0) * 100 / max(1, st["total"])))
             text = i18n.message("setup.progress_mb", step=step, percent=pct, done=self._mb(st.get("done")),
@@ -116,7 +121,9 @@ class GameSetupNav:
         """Install: look up the newest release, then ask where."""
         if self._dry("@setup.install"):
             return
-        if self._update_busy(allow_lobby=True) or self._setup(g.id).get("phase") in ("installing", "updating"):
+        if self._setup_show_running():
+            return
+        if self._update_busy(allow_lobby=True):
             self.say("@setup.busy")
             return
         self.setup_game = g.id
@@ -135,6 +142,21 @@ class GameSetupNav:
             return False
         self.setup_existing_root = roots[0]
         self._ask("setup_existing")
+        return True
+
+    def _setup_running(self):
+        """The game whose install/update is running (one at a time), from the view the backend gave us."""
+        return next((gid for gid, st in (getattr(self, "setup_state", None) or {}).items()
+                     if (st or {}).get("phase") in ("installing", "updating")), None)
+
+    def _setup_show_running(self):
+        """Pressing an install/update entry while one runs shows that one's progress; it never starts a second."""
+        gid = self._setup_running()
+        if gid is None:
+            return False
+        self.setup_game = gid
+        if not (self.overlay == "dialog" and self.confirm_kind == "setup_progress"):
+            self._ask("setup_progress")
         return True
 
     def _setup_begin_release(self, gid):
@@ -164,7 +186,9 @@ class GameSetupNav:
     def setup_offer_update(self, g):
         if self._dry("@setup.update"):
             return
-        if self._update_busy(allow_lobby=True) or self._setup(g.id).get("phase") in ("installing", "updating"):
+        if self._setup_show_running():
+            return
+        if self._update_busy(allow_lobby=True):
             self.say("@setup.busy")
             return
         self.setup_game = g.id
@@ -184,7 +208,9 @@ class GameSetupNav:
         if self._dry("@t5.reinstall"):
             return
         st = self._setup(g.id)
-        if self._update_busy(allow_lobby=True) or st.get("phase") in ("installing", "updating"):
+        if self._setup_show_running():
+            return
+        if self._update_busy(allow_lobby=True):
             self.say("@setup.busy")
             return
         self.setup_game = g.id
@@ -237,7 +263,7 @@ class GameSetupNav:
                 if self.overlay == "dialog" and self.confirm_kind == "setup_progress":
                     self.overlay = None
                 if error:
-                    self.say(error[0], 12)
+                    self.say("@setup.cancelled_install" if error[0] == "@setup.cancelled" else error[0], 12)
                 else:
                     self.on_setup("attach", gid, result)
             elif kind == "update":
@@ -250,7 +276,8 @@ class GameSetupNav:
                     self._ask("setup_restart")
                 else:
                     self.on_setup("reload", gid, result)
-                    self.say("@setup.rebuild_hint" if result.get("rebuild") else "@setup.updated_hint", 12)
+                    self.say(i18n.message("setup.done_update", version=i18n.literal(result.get("version", "")),
+                                          hint="@setup.rebuild_hint" if result.get("rebuild") else "@setup.updated_hint"), 12)
         if self.overlay == "dialog" and self.confirm_kind == "setup_progress":
             changed = True
         return changed
@@ -265,7 +292,9 @@ class GameSetupNav:
         if "build" in self.sections(g):
             self.sec[g.id] = "build"
             self.focus[g.id + ":build"] = 0
-        self.say("@setup.next_t5dr" if gid == "t5dr" else "@setup.next_t4", 15)
+        version = self._setup(gid).get("installed") or ""
+        hint = "@setup.next_t5dr" if gid == "t5dr" else "@setup.next_t4"
+        self.say(i18n.message("setup.done_install", version=i18n.literal(version), hint=hint) if version else hint, 15)
 
     # ------------------------------------------------------------------------------------------ dialogs
     def _setup_dialog(self, a):
@@ -277,11 +306,16 @@ class GameSetupNav:
         gid = getattr(self, "setup_game", "")
         if kind == "setup_progress":
             if a in ("back", "confirm"):
-                # The dialog stays until the worker has stopped: no build, Play or quit against files being
-                # replaced (poll_setup closes it with the worker's result).
-                if self._setup(gid).get("phase") not in ("installing", "updating"):
+                st = self._setup(gid)
+                if st.get("phase") not in ("installing", "updating"):
                     self.overlay = None
+                elif st.get("step") == "swap" or st.get("can_cancel") is False:
+                    # Files are being replaced: no cancel (the dialog stays, it says to wait). Back/Confirm only
+                    # say it again, so nobody thinks the launcher ignored the press.
+                    self.say("@setup.installing_wait")
                 elif not getattr(self, "setup_cancelling", False):
+                    # The dialog stays until the worker has stopped: no build, Play or quit against files being
+                    # replaced (poll_setup closes it with the worker's result).
                     self.setup_cancelling = True
                     self.on_setup("cancel", gid, None)
                     self.say("@setup.cancelling")
@@ -349,6 +383,7 @@ class GameSetupNav:
                     self.say("@setup.busy")
                 elif self.on_setup("update_all", gid, need):
                     self.say("@setup.updating_launcher", 15)
+                    self._ask("update_progress")        # Cancel / progress of the launcher's own download
                 else:
                     self.say("@updates.busy")
 
@@ -398,9 +433,14 @@ class GameSetupNav:
             labels = ["@setup.other_folder", "@setup.install_here"]
         elif kind == "setup_progress":
             title = "@setup.working"
-            progress = "@setup.cancelling" if getattr(self, "setup_cancelling", False) else self._setup_progress_text(st)
-            text = i18n.message("setup.progress_text", name=name, progress=progress)
-            labels = ["@cancel"]
+            if st.get("step") == "swap":
+                # 0.1.4+: the point of no return -- no Cancel, and the player is told not to close the launcher
+                text = i18n.message("setup.progress_text", name=name, progress="@setup.installing_wait")
+                labels = ["@setup.ok_wait"]
+            else:
+                progress = "@setup.cancelling" if getattr(self, "setup_cancelling", False) else self._setup_progress_text(st)
+                text = i18n.message("setup.progress_text", name=name, progress=progress)
+                labels = ["@cancel"]
         elif kind == "setup_update":
             title = "@setup.update"
             text = i18n.message("setup.update_text", name=name,

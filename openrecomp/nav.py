@@ -105,6 +105,7 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
         self.support_snapshot = None
         self.on_update_check = on_update_check
         self.on_update_install = on_update_install
+        self.on_update_cancel = None            # set by the backend (UpdateService.cancel)
         self.update_state = dict(phase="idle", version="", notes="", size=0)
         self.update_offered = ""
         self.update_version = ""

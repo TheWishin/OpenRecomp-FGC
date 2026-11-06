@@ -11,6 +11,7 @@ import time
 
 from . import game_releases as gr
 from .manifest import user_dir
+from .progress_meter import Meter
 
 CACHE = "game-releases.json"
 # 0.1.3: a T4 build was checked in a 115-character folder; deeper ones are refused before anything is written, a
@@ -73,7 +74,8 @@ class GameSetup:
     def _st(self, gid):
         return self.state.setdefault(gid, dict(phase="idle", installed="", latest="", required=False,
                                                available=False, error="", detail="", step="", done=0, total=0,
-                                               result="", rebuild=None, restart=False, parent="", source=""))
+                                               result="", rebuild=None, restart=False, parent="", source="",
+                                               can_cancel=True))
 
     def busy(self, gid=None):
         ids = [gid] if gid else list(self.state)
@@ -196,22 +198,14 @@ class GameSetup:
     def _progress(self, gid):
         """step, done, total from the worker; the view also gets the speed (bytes/s over the last seconds) and the
         time left of the step (0.1.4: MB, %, speed, time left on the progress line)."""
-        samples = []
+        meter = Meter(lambda: self.now())
 
         def report(step, done, total):
-            st = self._st(gid)
-            now = self.now()
-            done, total = int(done or 0), int(total or 0)
-            if st.get("step") != step:
-                samples.clear()
-            samples.append((now, done))
-            while len(samples) > 2 and now - samples[0][0] > 5.0:
-                samples.pop(0)
-            speed = 0.0
-            if len(samples) > 1 and samples[-1][0] > samples[0][0]:
-                speed = max(0.0, (samples[-1][1] - samples[0][1]) / (samples[-1][0] - samples[0][0]))
-            left = int((total - done) / speed) if speed > 0 and total > done else 0
-            st.update(step=step, done=done, total=total, speed=int(speed), left=left)
+            fields = meter.update(step, done, total)
+            if fields is None:
+                return                  # throttled: the screen cannot show more than a few updates a second
+            # From "swap" on, files of the game are being replaced: no cancel any more (it would be ignored).
+            self._st(gid).update(fields, can_cancel=step != "swap")
         return report
 
     def install(self, gid, parent):
@@ -222,7 +216,7 @@ class GameSetup:
         cancel = threading.Event()
         self.cancels[gid] = cancel
         st.update(phase="installing", error="", detail="", step="download", done=0, total=offer["zip"]["size"],
-                  parent=os.path.abspath(parent), result="")
+                  parent=os.path.abspath(parent), result="", can_cancel=True, speed=0, left=0)
         self._run(gid, "install", lambda: self.install_fn(gid, offer, parent, progress=self._progress(gid), cancel=cancel))
         return True
 
@@ -233,16 +227,26 @@ class GameSetup:
         st = self._st(gid)
         cancel = threading.Event()
         self.cancels[gid] = cancel
-        st.update(phase="updating", error="", detail="", step="download", done=0, total=offer["zip"]["size"], result="")
+        st.update(phase="updating", error="", detail="", step="download", done=0, total=offer["zip"]["size"], result="",
+                  can_cancel=True, speed=0, left=0)
         options = dict(reinstall=True) if reinstall else {}
         self._run(gid, "update", lambda: self.update_fn(gid, offer, root, progress=self._progress(gid), cancel=cancel,
                                                       **options))
         return True
 
     def cancel(self, gid):
+        """Stop the running install/update of gid. False when there is none or it is past the point where files
+        are replaced (the exchange runs to its end or its own rollback; it is never interrupted half way)."""
         event = self.cancels.get(gid)
-        if event is not None:
-            event.set()
+        st = self.state.get(gid) or {}
+        if event is None or st.get("phase") not in ("installing", "updating") or st.get("step") == "swap":
+            return False
+        event.set()
+        return True
+
+    def running(self):
+        """The game whose install/update is running now (only one runs at a time), or None."""
+        return next((gid for gid, st in self.state.items() if st.get("phase") in ("installing", "updating")), None)
 
     def poll(self):
         """[(gid, kind, result, error)] finished since the last poll; the state is already updated."""

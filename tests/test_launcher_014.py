@@ -93,7 +93,7 @@ class Nav014(unittest.TestCase):
         line = text(nav, nav._setup_progress_text(dict(step="download", done=120_000_000, total=274_000_000,
                                                        speed=8_300_000, left=75)))
         self.assertEqual(line, "Downloading 43 % · 120 of 274 MB · 8.3 MB/s · 1 min 15 s left")
-        self.assertEqual(text(nav, nav._setup_progress_text(dict(step="check"))), "Checking")
+        self.assertEqual(text(nav, nav._setup_progress_text(dict(step="check"))), "Verifying")
 
     def test_up_to_date_names_the_test_version(self):
         nav = self.nav(Game5("t4"))

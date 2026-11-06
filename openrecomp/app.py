@@ -163,6 +163,7 @@ class Backend(QObject, GameSetupBackend):
         self.updates = UpdateService(busy=self._update_busy, quit=self._quit,
                                      prereleases=lambda: bool(self.config.get("game_prereleases")))
         self.nav.on_update_test = self._take_test_update          # "up to date -- test version X available"
+        self.nav.on_update_cancel = self._cancel_update           # Back / Esc / B / Cancel in the update window
         self._offered_update = False
         self._update_phase = "idle"
         if problems:
@@ -295,19 +296,34 @@ class Backend(QObject, GameSetupBackend):
     def _install_update(self):
         if not self.updates.install():
             self.nav.say("@updates.busy")
+            return False
+        return True
+
+    def _cancel_update(self):
+        return self.updates.cancel()
 
     def _poll_updates(self):
         if getattr(self, "_auto_update_pending", False):
             self._auto_check_updates()
         changed = self.updates.poll()
-        self.nav.update_state = dict(self.updates.state)
+        state = dict(self.updates.state)
+        if state != self.nav.update_state:
+            changed = True                    # progress moves the window and the Quick access row
+        self.nav.update_state = state
         phase = self.updates.state["phase"]
         if phase != self._update_phase:
             changed = True
             self._update_phase = phase
-            if phase in ("current", "unconfigured", "error") and not self.updates.quiet:
+            if phase == "cancelled":
+                self.nav.say("@updates.cancelled", 8)
+            elif phase in ("current", "unconfigured", "error") and not self.updates.quiet:
                 key = "failed" if phase == "error" else phase
-                self.nav.say("@updates." + key, 8)
+                reason = self.updates.state.get("reason", "") if phase == "error" else ""
+                self.nav.say({"network": "@updates.err_network", "verify": "@updates.err_verify",
+                              "space": "@updates.err_space"}.get(reason, "@updates." + key), 8)
+        close = getattr(self.nav, "poll_update", None)
+        if close is not None and close():
+            changed = True
         if phase == "available" and not self._offered_update and not self._update_busy():
             self._offered_update = self.nav.offer_update()
             changed = changed or self._offered_update
