@@ -241,8 +241,13 @@ def portable_t4_entries(t4_root):
     rules (no .exe, 32 MB) do not apply there: the bundled compiler is the point of that release."""
     root = Path(t4_root).absolute()
     no_links(root)
-    scanner = _module("t4_release_scan", root / "tools" / "package_release.py")
-    scanner.scan(root)
+    previous = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True          # never a __pycache__ inside the stage that is being scanned
+    try:
+        scanner = _module("t4_release_scan", root / "tools" / "package_release.py")
+        scanner.scan(root)
+    finally:
+        sys.dont_write_bytecode = previous
     entries = []
     for path in sorted(p for p in root.rglob("*") if p.is_file()):
         no_links(path)
