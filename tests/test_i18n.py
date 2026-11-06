@@ -140,7 +140,7 @@ def untranslated_literals(source):
         "folder", "file", "dir", "action", "dev", "auto", "1080p", "1440p", "4K", "SLUS-20328", "T5DR Online",
         "launcher", "runtime", "core.py", "t4core.py", "t4_launcher.pyw", "t5dr_launcher.pyw", "t5dr.exe",
         "reports", "t4-report-", "Tekken 4 Online",  # T4 report folder, temporary prefix and lobby metadata
-        "openrecomp-release.json", ".git", "TEKKEN/DATA.BIN", "IRX/IOPRP243.IMG",  # T4 folder checks and game files (0.1.3)
+        "openrecomp-release.json", ".git", "TEKKEN/DATA.BIN", "IRX/IOPRP243.IMG", "t4-game-files.json",  # T4 folder checks and game files (0.1.3)
         "T5DR Online.exe", "T5DROnline", "online.json", "release.json", "lobby", "t5lobby", "tools", "data",
         "cache", "fighters", "fighters.json", "python", "python.exe", "t4", "t5dr", "hero.png",
         "build_game.py", "ps3recomp", "-c", "from Crypto.Cipher import AES",
