@@ -50,17 +50,22 @@ def plan(config, program=None):
     program = program or program_dir()
     roots = (config.get("roots") or {}) if isinstance(config, dict) else {}
     games, skipped, seen = [], [], set()
+    from .known_installs import candidates
     for game in GAMES:
-        root = roots.get(game)
-        if not isinstance(root, str) or not root or not os.path.isdir(root) or _norm(root) in seen:
-            continue
-        seen.add(_norm(root))
-        if _unsafe(root):
-            skipped.append(dict(game=game, root=root, why="unsafe"))
-        elif not game_releases.managed(game, root):
-            skipped.append(dict(game=game, root=root, why="not_ours"))
-        else:
-            games.append(dict(game=game, root=root))
+        chosen = roots.get(game)
+        # 0.1.3: every install of the game this launcher knows (the folder in use, the ones used before, the ones it
+        # made), not only the one in use; still only those with its own install marker.
+        for root in [chosen] + (candidates(config, game) if isinstance(config, dict) else []):
+            if not isinstance(root, str) or not root or not os.path.isdir(root) or _norm(root) in seen:
+                continue
+            seen.add(_norm(root))
+            if _unsafe(root):
+                skipped.append(dict(game=game, root=root, why="unsafe"))
+            elif not game_releases.managed(game, root):
+                if root == chosen:
+                    skipped.append(dict(game=game, root=root, why="not_ours"))
+            else:
+                games.append(dict(game=game, root=root))
     data = user_dir()
     data = data if os.path.isdir(data) and not _unsafe(data) else ""
     setup = os.path.join(program, SETUP_UNINSTALLER)

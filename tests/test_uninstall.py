@@ -41,6 +41,16 @@ class Plan(unittest.TestCase):
         self.assertEqual(plan["setup_uninstaller"], "")
         self.assertTrue(self.t4.is_dir() and self.home.is_dir())
 
+    def test_every_known_install_it_made_is_listed_not_only_the_one_in_use(self):
+        old = managed_install(self.dir / "Old" / "T4", "t4")
+        foreign = self.dir / "Mine" / "T4"
+        foreign.mkdir(parents=True)
+        config = self.config()
+        config["known_roots"] = dict(t4=[str(old), str(foreign), str(self.dir / "gone" / "T4")])
+        plan = uninstall.plan(config, program=str(self.program))
+        self.assertEqual(sorted(g["root"] for g in plan["games"] if g["game"] == "t4"), sorted([str(self.t4), str(old)]))
+        self.assertNotIn(str(foreign), [g["root"] for g in plan["games"]])
+
     def test_folders_it_did_not_create_stay(self):
         foreign = self.dir / "Pictures" / "tekken4"
         foreign.mkdir(parents=True)
