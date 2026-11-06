@@ -401,6 +401,8 @@
  "controls.slot.ps2": "PS2 {name} 버튼",
  "controls.preset.t4_arcade": "Tekken 아케이드 1-2-3-4",
  "controls.preset.t4_arcade_hint": "1 2 3 4를 한 줄로: 컨트롤러는 X Y RB RT (A와 B는 R1과 R2), 키보드는 W A S D로 이동하고 U I J K가 1 2 3 4입니다.",
+ "controls.preset.t4_combos": "Tekken 아케이드 + 동시 입력",
+ "controls.preset.t4_combos_hint": "1 2 3 4는 그대로 두고 1+2와 3+4를 버튼 하나씩에 둡니다. 컨트롤러는 RB가 1+2, RT가 3+4입니다 (R1과 R2는 비워짐). 키보드는 O가 1+2, L이 3+4, U I J K가 1 2 3 4, W A S D로 이동합니다.",
  "controls.bind": "지정",
  "controls.current": "현재 지정",
  "controls.waiting.title": "패드 버튼을 누르세요",

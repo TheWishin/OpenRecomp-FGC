@@ -31,6 +31,13 @@ SLOTS = (("1", "attack", "1"), ("2", "attack", "2"), ("3", "attack", "3"), ("4",
          ("UP", "dir", "UP"), ("DOWN", "dir", "DOWN"), ("LEFT", "dir", "LEFT"), ("RIGHT", "dir", "RIGHT"))
 SLOT_IDS = tuple(s for s, _g, _t in SLOTS)
 GROUP = {s: g for s, g, _t in SLOTS}
+# Combo slots: one source pressing several attacks at once. The file has no such thing: the runtime presses every target
+# a source is listed under, so a combo is "this source is in the lists of 1 and 3 and 4". Page slot id = "1+3+4".
+COMBO_IDS = ("1+2", "3+4", "1+3", "2+4", "1+4", "2+3", "1+2+3", "1+3+4", "2+3+4", "1+2+4", "1+2+3+4")
+COMBO_TARGETS = {c: tuple(c.split("+")) for c in COMBO_IDS}
+COMBO_BY_SET = {frozenset(t): c for c, t in COMBO_TARGETS.items()}
+PAGE_SLOT_IDS = SLOT_IDS + COMBO_IDS               # what the page shows and edits (the file only has SLOT_IDS)
+GROUP.update({c: "macro" for c in COMBO_IDS})
 # the PS2 button each slot presses (the page's input test names)
 PS2_BUTTON = {"1": "SQUARE", "2": "TRIANGLE", "3": "CROSS", "4": "CIRCLE"}
 TARGET_SLOT = {"1": "1", "2": "2", "3": "3", "4": "4", "LP": "1", "RP": "2", "LK": "3", "RK": "4",
@@ -82,6 +89,11 @@ PRESETS = (
         "keys": {"1": ("U",), "2": ("I",), "3": ("J",), "4": ("K",), "L1": ("Y",), "R1": ("P",), "L2": ("H",),
                  "R2": ("SEMICOLON",), "START": ("ENTER",), "SELECT": ("BACKSPACE",), "UP": ("W",), "DOWN": ("S",),
                  "LEFT": ("A",), "RIGHT": ("D",)}}),
+    ("t4_combos", "@controls.preset.t4_combos", "@controls.preset.t4_combos_hint", {
+        # 1 2 on X Y and 3 4 on A B as before; 1+2 on RB, 3+4 on RT (they stop being R1 / R2), 1+3+4 left for you
+        "pad": {"1+2": ("RB",), "3+4": ("RT",)},
+        "keys": {"1": ("U",), "2": ("I",), "3": ("J",), "4": ("K",), "1+2": ("O",), "3+4": ("L",), "START": ("ENTER",),
+                 "SELECT": ("BACKSPACE",), "UP": ("W",), "DOWN": ("S",), "LEFT": ("A",), "RIGHT": ("D",)}}),
     ("numpad", "@controls.preset.numpad", "@controls.preset.numpad_hint", {
         "keys": {"1": ("NUM4",), "2": ("NUM5",), "3": ("NUM1",), "4": ("NUM2",), "L1": ("NUM7",), "R1": ("NUM8",),
                  "L2": ("NUM9",), "R2": ("NUM0",), "START": ("NUMADD",), "SELECT": ("NUMSUB",), "UP": ("UP",),
@@ -233,11 +245,79 @@ class Controls:
 
     # ------------------------------------------------------------------ what the buttons do
     def sources(self, player, kind, slot):
-        """The sources that press `slot` for this player: the file's list, else the fixed layout's."""
+        """The sources that press `slot` for this player: the file's list, else the fixed layout's. A combo slot id
+        ("1+3+4") answers with the sources that press exactly those attacks together."""
+        if slot in COMBO_TARGETS:
+            return self.combo_sources(player, kind, slot)
         p = self.players[player]
         if slot in p.maps[kind]:
             return list(p.maps[kind][slot])
         return list((PAD_DEFAULT if kind == "pad" else KEYS_DEFAULT[player])[slot])
+
+    # ------------------------------------------------------------------ combos
+    def attack_set(self, player, kind, source):
+        """The attacks (1 2 3 4) this source presses now."""
+        return frozenset(t for t in ("1", "2", "3", "4") if source in self.sources(player, kind, t))
+
+    def _attack_sources(self, player, kind):
+        out = []
+        for t in ("1", "2", "3", "4"):
+            out += [s for s in self.sources(player, kind, t) if s not in out]
+        return out
+
+    def combo_sources(self, player, kind, combo):
+        want = frozenset(COMBO_TARGETS[combo])
+        return [s for s in self._attack_sources(player, kind) if self.attack_set(player, kind, s) == want]
+
+    def is_combo_source(self, player, kind, source):
+        return len(self.attack_set(player, kind, source)) > 1
+
+    def plain_sources(self, player, kind, slot):
+        """What the page shows for a plain slot: its sources without the ones that are a combo."""
+        return [s for s in self.sources(player, kind, slot) if not (slot in ("1", "2", "3", "4")
+                                                                     and self.is_combo_source(player, kind, s))]
+
+    def holders(self, player, kind, source):
+        """The page slots this source presses now (a combo counts once, as its own slot)."""
+        attacks = self.attack_set(player, kind, source)
+        out = []
+        for slot in SLOT_IDS:
+            if slot in attacks and len(attacks) > 1:
+                continue
+            if source in self.sources(player, kind, slot):
+                out.append(slot)
+        if len(attacks) > 1 and attacks in COMBO_BY_SET:
+            out.append(COMBO_BY_SET[attacks])
+        return out
+
+    def bind_combo(self, player, kind, combo, sources):
+        """Makes `sources` press exactly the attacks of `combo`: each is added to those targets' lists (the targets' other
+        sources stay, defaults written out) and taken off every other slot. Sources the combo had before are dropped."""
+        targets = COMBO_TARGETS[combo]
+        for old in self.combo_sources(player, kind, combo):
+            if old not in sources:
+                self.unbind_source(player, kind, old, targets)
+        for source in dict.fromkeys(sources):
+            self.release(player, kind, source, keep=None, except_slots=targets)
+            for t in targets:
+                have = self.sources(player, kind, t)
+                if source not in have:
+                    self.bind(player, kind, t, have + [source])
+
+    def unbind_source(self, player, kind, source, slots):
+        for t in slots:
+            self.bind(player, kind, t, [s for s in self.sources(player, kind, t) if s != source])
+
+    def clear_combo(self, player, kind, combo):
+        """The combo's sources stop pressing those attacks; nothing else changes."""
+        for source in self.combo_sources(player, kind, combo):
+            self.unbind_source(player, kind, source, COMBO_TARGETS[combo])
+
+    def set_plain(self, player, kind, slot, sources):
+        """bind() for a plain slot that keeps the combo sources listed under it (a combo is not this slot's)."""
+        keep = [s for s in self.sources(player, kind, slot) if slot in ("1", "2", "3", "4")
+                and self.is_combo_source(player, kind, s)]
+        self.bind(player, kind, slot, list(sources) + [s for s in keep if s not in sources])
 
     def overridden(self, player, kind, slot):
         return slot in self.players[player].maps[kind]
@@ -256,10 +336,10 @@ class Controls:
     def clear(self, player, kind, slot):
         self.players[player].maps[kind][slot] = []
 
-    def release(self, player, kind, source, keep=None):
-        """Takes `source` off every slot but `keep` (a binding moved to another slot)."""
+    def release(self, player, kind, source, keep=None, except_slots=()):
+        """Takes `source` off every slot but `keep` / `except_slots` (a binding moved to another slot)."""
         for slot in SLOT_IDS:
-            if slot != keep and source in self.sources(player, kind, slot):
+            if slot != keep and slot not in except_slots and source in self.sources(player, kind, slot):
                 self.bind(player, kind, slot, [s for s in self.sources(player, kind, slot) if s != source])
 
     def reset(self, player, kind):
@@ -271,7 +351,11 @@ class Controls:
             raise KeyError(preset_id)
         self.reset(player, kind)
         for slot, sources in plans[kind].items():
-            self.bind(player, kind, slot, sources)
+            if slot not in COMBO_TARGETS:
+                self.bind(player, kind, slot, sources)
+        for slot, sources in plans[kind].items():
+            if slot in COMBO_TARGETS:
+                self.bind_combo(player, kind, slot, sources)
 
     def effective(self, player, kind):
         return {slot: self.sources(player, kind, slot) for slot in SLOT_IDS}

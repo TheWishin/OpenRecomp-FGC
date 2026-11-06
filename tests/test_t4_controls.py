@@ -101,13 +101,13 @@ class Rows(unittest.TestCase):
         for row in rows:
             self.assertFalse(row.get("fixed"))
             self.assertFalse(row["disabled"])
-            self.assertEqual(len(row["slots"]), 16)
+            self.assertEqual(len(row["slots"]), 27)
             self.assertTrue(all(s["glyphs"] for s in row["slots"] if s["sources"]))
             self.assertEqual(row["preset"], "default")
         self.assertEqual((rows[0]["port"], rows[1]["port"]), (0, 0))
         self.assertTrue(rows[0]["features"]["clear"] and rows[1]["features"]["player"])
-        self.assertEqual([p for p, _ in rows[0]["presets"]], ["default", "t4_arcade", "numpad"])
-        self.assertEqual([p for p, _ in rows[1]["presets"]], ["default", "t4_arcade"])
+        self.assertEqual([p for p, _ in rows[0]["presets"]], ["default", "t4_arcade", "t4_combos", "numpad"])
+        self.assertEqual([p for p, _ in rows[1]["presets"]], ["default", "t4_arcade", "t4_combos"])
         self.assertIsNone(self.adapter.file())            # looking at the page writes nothing
 
     def test_two_pads_and_none(self):
@@ -337,7 +337,7 @@ class Page(unittest.TestCase):
             items = nav.items()
             self.assertNotIn("ctl:fixed", [it.get("id") for it in items])
             slots = [it for it in items if it.get("ctl") == "slot"]
-            self.assertEqual(len(slots), 16)
+            self.assertEqual(len(slots), 27)
             self.assertTrue(all(it["run"] is not None and not it["disabled"] for it in slots))
             self.assertIn("ctl:preset", [it.get("id") for it in items])
             self.assertIn("ctl:reset", [it.get("id") for it in items])

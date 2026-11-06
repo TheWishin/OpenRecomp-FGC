@@ -401,6 +401,8 @@
  "controls.slot.ps2": "PS2 の {name} ボタン",
  "controls.preset.t4_arcade": "Tekken アーケード 1-2-3-4",
  "controls.preset.t4_arcade_hint": "1 2 3 4 を一列に並べます。コントローラーでは X Y RB RT (A と B は R1 と R2)、キーボードでは W A S D で移動、U I J K が 1 2 3 4 です。",
+ "controls.preset.t4_combos": "Tekken アーケード + 同時押し",
+ "controls.preset.t4_combos_hint": "1 2 3 4 はそのままで、1+2 と 3+4 をそれぞれ1つのボタンに割り当てます。コントローラーでは RB が 1+2、RT が 3+4 (R1 と R2 は空きます)。キーボードでは O が 1+2、L が 3+4、U I J K が 1 2 3 4、W A S D で移動です。",
  "controls.bind": "割り当て",
  "controls.current": "現在の割り当て",
  "controls.waiting.title": "パッドのボタンを押してください",

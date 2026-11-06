@@ -401,6 +401,8 @@
  "controls.slot.ps2": "PS2-Taste {name}",
  "controls.preset.t4_arcade": "Tekken Arcade 1-2-3-4",
  "controls.preset.t4_arcade_hint": "1 2 3 4 in einer Reihe: am Controller X Y RB RT (A und B werden R1 und R2), auf der Tastatur W A S D zum Bewegen und U I J K für 1 2 3 4.",
+ "controls.preset.t4_combos": "Tekken Arcade mit Kombis",
+ "controls.preset.t4_combos_hint": "1 2 3 4 wie gewohnt, dazu 1+2 und 3+4 auf je einer Taste: am Controller drückt RB 1+2 und RT 3+4 (R1 und R2 sind dann frei); auf der Tastatur ist O 1+2 und L 3+4, U I J K sind 1 2 3 4 und W A S D bewegen.",
  "controls.bind": "Belegen",
  "controls.current": "Aktuelle Belegung",
  "controls.waiting.title": "Pad-Taste drücken",

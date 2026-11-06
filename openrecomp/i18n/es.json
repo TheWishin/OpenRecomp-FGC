@@ -401,6 +401,8 @@
  "controls.slot.ps2": "Botón {name} de PS2",
  "controls.preset.t4_arcade": "Tekken arcade 1-2-3-4",
  "controls.preset.t4_arcade_hint": "1 2 3 4 en fila: en el mando X Y RB RT (A y B pasan a ser R1 y R2); en el teclado W A S D para moverse y U I J K para 1 2 3 4.",
+ "controls.preset.t4_combos": "Tekken arcade con combos",
+ "controls.preset.t4_combos_hint": "1 2 3 4 como siempre, más 1+2 y 3+4 en un botón cada uno: en el mando RB pulsa 1+2 y RT pulsa 3+4 (R1 y R2 quedan libres); en el teclado O es 1+2 y L es 3+4, U I J K son 1 2 3 4 y W A S D mueven.",
  "controls.bind": "Asignar",
  "controls.current": "Asignación actual",
  "controls.waiting.title": "Pulsa un botón del mando",
