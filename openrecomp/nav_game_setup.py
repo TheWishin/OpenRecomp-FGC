@@ -9,7 +9,8 @@ import os
 from . import i18n
 
 SETUP_GAMES = ("t5dr", "t4")
-STEP_TEXT = {"download": "@setup.step_download", "unpack": "@setup.step_unpack", "swap": "@setup.step_swap"}
+STEP_TEXT = {"download": "@setup.step_download", "check": "@setup.step_check", "unpack": "@setup.step_unpack",
+             "swap": "@setup.step_swap"}
 
 
 class GameSetupNav:
@@ -64,8 +65,15 @@ class GameSetupNav:
                          run=(lambda: self._ask("setup_restart")) if st.get("restart") else None,
                          hint="@setup.restart_hint" if st.get("restart") else ("@setup.rebuild_hint" if st.get("rebuild") else "@setup.updated_hint"),
                          detail=dict(kicker="@setup.kicker", title="@setup.updated", lead="@setup.restart_hint", rows=[]))]
-        label = "@setup.update_needed" if st.get("required") else "@setup.update_available"
         version = i18n.literal(f"{st.get('installed') or '?'} → {st.get('latest') or '?'}")
+        if st.get("needs_launcher"):
+            # 0.1.4: this release needs a newer launcher -- say so (never a "damaged zip" later) and offer Update all
+            text = i18n.message("setup.needs_launcher_row", launcher=i18n.literal(st["needs_launcher"]))
+            return [dict(kind="action", id="game_update", label="@setup.update_available", verb="@setup.update_all",
+                         value=version, run=lambda: self._ask_needs_launcher(g.id), hint=text,
+                         detail=dict(kicker="@setup.kicker", title="@setup.update_available", lead=text,
+                                     rows=[dict(k="@version", v=version)], primary="@setup.update_all"))]
+        label = "@setup.update_needed" if st.get("required") else "@setup.update_available"
         hint = "@setup.update_needed_hint" if st.get("required") else "@setup.update_hint"
         folder = getattr(g.a, "root", None) or ""
         return [dict(kind="action", id="game_update", label=label, verb="@setup.update", value=version,
@@ -77,11 +85,26 @@ class GameSetupNav:
                                  primary="@setup.update"))]
 
     def _setup_progress_text(self, st):
+        """"Download 45 % · 120 of 274 MB · 8.3 MB/s · 19 s left" (0.1.4); steps without a size: their name."""
         step = STEP_TEXT.get(st.get("step"), STEP_TEXT["download"])
         if st.get("total"):
             pct = min(100, int(st.get("done", 0) * 100 / max(1, st["total"])))
-            return i18n.message("setup.progress", step=step, percent=pct)
+            text = i18n.message("setup.progress_mb", step=step, percent=pct, done=self._mb(st.get("done")),
+                                total=self._mb(st.get("total")))
+            if st.get("speed"):
+                text = i18n.message("setup.progress_speed", text=text,
+                                    speed=i18n.literal(f"{st['speed'] / 1_000_000:.1f}"))
+            if st.get("left"):
+                left = int(st["left"])
+                left_text = (i18n.message("setup.time_min_s", min=left // 60, sec=left % 60) if left >= 60
+                             else i18n.message("setup.time_s", sec=left))
+                text = i18n.message("setup.progress_left", text=text, left=left_text)
+            return text
         return step
+
+    def _ask_needs_launcher(self, gid):
+        self.setup_game = gid
+        self._ask("setup_needs_launcher")
 
     def _prereleases(self):
         return bool(getattr(self, "game_prereleases", False))
@@ -130,6 +153,9 @@ class GameSetupNav:
             self.setup_parent = self.on_setup("default_parent", gid, None) or ""
         if self._setup_existing(gid):
             return
+        if st.get("needs_launcher"):
+            self._ask_needs_launcher(gid)
+            return
         self.setup_space = self.on_setup("space", gid, self.setup_parent) or {}
         self._ask("setup_install")
 
@@ -149,7 +175,7 @@ class GameSetupNav:
                 return
             self._ask("setup_loading")
             return
-        self._ask("setup_update")
+        self._ask("setup_needs_launcher" if st.get("needs_launcher") else "setup_update")
 
     def setup_reinstall(self, g):
         """Repair this install in place, using the same protected-file exchange as an update."""
@@ -199,7 +225,9 @@ class GameSetupNav:
                     elif reinstall:
                         self._setup_reinstall_start(gid)
                     elif update:
-                        self._ask("setup_update" if self._setup(gid).get("latest") else "setup_none")
+                        st = self._setup(gid)
+                        self._ask(("setup_needs_launcher" if st.get("needs_launcher") else "setup_update")
+                                  if st.get("latest") else "setup_none")
                     else:
                         self._setup_where(gid)
             elif kind == "install":
@@ -311,6 +339,16 @@ class GameSetupNav:
             self.overlay = None
             if yes:
                 self.on_setup("restart", gid, None)
+        elif kind == "setup_needs_launcher":
+            self.overlay = None
+            if yes:
+                need = self._setup(gid).get("needs_launcher", "")
+                if self._update_busy():
+                    self.say("@setup.busy")
+                elif self.on_setup("update_all", gid, need):
+                    self.say("@setup.updating_launcher", 15)
+                else:
+                    self.say("@updates.busy")
 
     def _setup_none_folder(self):
         """No release to install: the game's own "choose your game folder" row, when it has one."""
@@ -375,6 +413,12 @@ class GameSetupNav:
             elif game is not None and getattr(game.a, "root", None):
                 # 0.1.3: which install is updated (a player can have several)
                 text = i18n.message("setup.update_in_folder", text=text, folder=i18n.literal(game.a.root))
+        elif kind == "setup_needs_launcher":
+            title = "@setup.needs_launcher_title"
+            text = i18n.message("setup.needs_launcher_text", name=name, version=i18n.literal(st.get("latest", "")),
+                                launcher=i18n.literal(st.get("needs_launcher", "")),
+                                current=i18n.literal(st.get("launcher") or "?"))
+            labels = ["@cancel", "@setup.update_all"]
         elif kind == "setup_restart":
             title = "@setup.updated"
             text = i18n.message("setup.restart_text", name=name, version=i18n.literal(st.get("installed", "")))

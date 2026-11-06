@@ -110,7 +110,52 @@ class GameSetupBackend:
             return True
         if action == "restart":
             return self._setup_restart()
+        if action == "update_all":
+            return self._setup_update_all(gid, str(arg or ""))
         return False
+
+    def _setup_update_all(self, gid, launcher):
+        """Update all (0.1.4): this game release needs OpenRecomp-FGC `launcher`. The launcher updates itself first
+        (stable if that version is out, else the test version) and, after its restart, the game update starts by
+        itself (pending_game_update, _resume_game_update)."""
+        updates = getattr(self, "updates", None)
+        if updates is None or not launcher or self._update_busy():
+            return False
+        self.config["pending_game_update"] = dict(game=gid, launcher=launcher)
+        try:
+            mf.save_config(self.config)
+        except (OSError, ValueError):
+            self.config.pop("pending_game_update", None)
+            return False
+        if not updates.install_for(launcher):
+            self.config.pop("pending_game_update", None)
+            return False
+        return True
+
+    def _resume_game_update(self):
+        """After Update all restarted the launcher: start the game update the player already asked for, once its
+        check says it can (this launcher is new enough now). Dropped when the launcher is still too old."""
+        pending = self.config.get("pending_game_update")
+        if not isinstance(pending, dict) or self._setup is None:
+            return False
+        gid = pending.get("game")
+        st = self.setup.state.get(gid) or {}
+        if st.get("phase") != "ready":
+            return False
+        self.config.pop("pending_game_update", None)
+        try:
+            mf.save_config(self.config)
+        except (OSError, ValueError):
+            pass
+        if st.get("needs_launcher") or not st.get("available") or self._update_busy():
+            return False
+        root = self._setup_root(gid)
+        if not root or not self.setup.update(gid, root):
+            return False
+        self.nav.setup_game = gid
+        self.nav.setup_cancelling = False
+        self.nav._ask("setup_progress")
+        return True
 
     def _setup_attach(self, gid, root):
         previous = dict(self.config)
@@ -182,6 +227,8 @@ class GameSetupBackend:
                 if data and self.setup.note_lobby(gid, data, self._setup_root(gid)):
                     changed = True
         events = self.setup.poll()
+        if self.config.get("pending_game_update") and self._resume_game_update():
+            changed = True
         views = {gid: self.setup.view(gid) for gid in SETUP_GAMES}
         if views != self.nav.setup_state:
             self.nav.setup_state = views

@@ -245,9 +245,12 @@ def parse_release(src, data, channel="stable"):
     digest = re.fullmatch(r"sha256:([0-9a-fA-F]{64})", str(z.get("digest") or ""))
     body = str(data.get("body") or "")
     code = re.search(r"Code ID\s*\|\s*`?([0-9a-f]{16})`?", body)
+    needs = RE_MIN_LAUNCHER.search(body)
     return dict(game=src.id, tag=tag, version=version, prerelease=prerelease, name=str(data.get("name") or tag)[:200],
                 published=str(data.get("published_at") or "")[:10], notes=release_notes(body),
                 code_id=code.group(1) if code else None,
+                # 0.1.4: the oldest launcher that can install and build this release (release notes' marker line)
+                min_launcher=needs.group(1) if needs else "",
                 zip=dict(name=asset, url=z["browser_download_url"], size=size,
                          sha256=digest.group(1).lower() if digest else None),
                 # sums None: a manifest game whose releases carry none (its check needs GitHub's digest only)
@@ -255,12 +258,32 @@ def parse_release(src, data, channel="stable"):
                 sig=dict(url=sig["browser_download_url"]) if sig else None)
 
 
+# "Needs OpenRecomp-FGC 0.1.4" in a game release's notes (tools/make_release.py writes it; an HTML comment
+# <!-- min_launcher: 0.1.4 --> works too): the oldest launcher that installs and builds that release.
+RE_MIN_LAUNCHER = re.compile(r"(?i)(?:needs\s+openrecomp-fgc|min[_ -]launcher\s*[:=])\s*v?(\d{1,3}\.\d{1,3}\.\d{1,3})\b")
+
+
+def own_launcher_version():
+    """This launcher's version from its release.json ("" in a source checkout)."""
+    info = _read_json(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "release.json")) or {}
+    version = str(info.get("version") or "")
+    return version.lstrip("v") if version and version != "dev" else ""
+
+
+def launcher_too_old(offer, launcher_version):
+    """The launcher version a game offer needs when this launcher is older ("" when it is new enough or unknown)."""
+    need = (offer or {}).get("min_launcher") or ""
+    if not need or not launcher_version or not version_key("v" + str(launcher_version).lstrip("v")):
+        return ""
+    return need if is_newer("v" + need, "v" + str(launcher_version).lstrip("v")) else ""
+
+
 def release_notes(body):
     """The release text's first part as plain sentences: no tables (T5DR's Code ID / file rows), no markup."""
     lines = []
     for line in str(body or "").split("\n---")[0].splitlines():
         line = line.strip().lstrip("#>*- ").strip()
-        if line and not line.startswith("|") and not line.startswith("```"):
+        if line and not line.startswith("|") and not line.startswith("```") and not line.startswith("<!--"):
             lines.append(line)
     return " ".join(" ".join(lines).split())[:600]
 
@@ -421,6 +444,8 @@ def verified_zip(src, offer, work, *, keys=None, opener=None, progress=None, can
     zpath = os.path.join(work, offer["zip"]["name"])
     got = download(src, offer["zip"]["url"], zpath, limit=MAX_ZIP, expect=offer["zip"]["size"], opener=opener,
                    cancel=cancel, progress=lambda n, t: progress("download", n, t))
+    if progress:
+        progress("check", 0, 0)
     if got != want:
         _remove(zpath)
         raise ReleaseError("@setup.err_checksum", f"sha256 {got[:16]} != {want[:16]}")
@@ -502,6 +527,11 @@ def unpack(src, zip_path, dest, offer, progress=None, cancel=None):
         from .adapters.t4_install import source_root
         if not source_root(root):
             raise ReleaseError("@setup.err_zip", "not a T4 source tree")
+    # 0.1.4: the release says which launcher it needs (also checked before the download, from the notes)
+    info = _read_json(os.path.join(root, "release.json")) or {}
+    need = launcher_too_old(dict(min_launcher=str(info.get("min_launcher") or "")), own_launcher_version())
+    if need:
+        raise ReleaseError("@setup.needs_launcher", need)
     if src.id == "t5dr":
         info = _read_json(os.path.join(root, "release.json"))
         if not info or info.get("version") != offer["version"]:

@@ -162,6 +162,7 @@ class Backend(QObject, GameSetupBackend):
         self.nav.on_uninstall = self._uninstall                   # Settings > Uninstall OpenRecomp completely
         self.updates = UpdateService(busy=self._update_busy, quit=self._quit,
                                      prereleases=lambda: bool(self.config.get("game_prereleases")))
+        self.nav.on_update_test = self._take_test_update          # "up to date -- test version X available"
         self._offered_update = False
         self._update_phase = "idle"
         if problems:
@@ -280,6 +281,12 @@ class Backend(QObject, GameSetupBackend):
         else:
             self._auto_update_pending = False
             self.updates.check(quiet=True)
+
+    def _take_test_update(self):
+        if self.updates.take_test():
+            self.nav.update_state = dict(self.updates.state)
+            return True
+        return False
 
     def _install_update(self):
         if not self.updates.install():

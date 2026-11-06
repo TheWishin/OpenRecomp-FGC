@@ -10,7 +10,12 @@ class Drawer:
         phase = self.update_state.get("phase", "idle")
         update_hint = {"checking": "@updates.checking", "installing": "@updates.installing", "current": "@updates.current",
                        "waiting": "@updates.waiting", "unconfigured": "@updates.unconfigured", "error": "@updates.failed"}.get(phase, "@updates.hint")
-        out.append(dict(id="updates", label="@updates.check", value=self.update_state.get("version", ""), update=True, hint=update_hint))
+        value = self.update_state.get("version", "")
+        if phase == "current" and self.update_state.get("test_version"):
+            # 0.1.4: stable is current, a newer test version (pre-release) is out: name it, Confirm installs it
+            value = self.update_state["test_version"]
+            update_hint = i18n.message("updates.current_test", version=i18n.literal(value))
+        out.append(dict(id="updates", label="@updates.check", value=value, update=True, hint=update_hint))
         if getattr(self, "on_setup", None) is not None:
             out.append(dict(id="game_updates", label="@setup.check", value="", game_check=True, hint="@setup.check_hint"))
             out.append(dict(id="prereleases", label="@setup.test_versions", value="@on" if self.game_prereleases else "@off",
@@ -123,6 +128,11 @@ class Drawer:
         if self.update_state.get("phase") == "available":
             self.overlay = None
             self.offer_update(force=True)
+        elif (self.update_state.get("phase") == "current" and self.update_state.get("test_version")
+              and getattr(self, "on_update_test", None) and not self._dry("@updates.install")):
+            if self.on_update_test():
+                self.overlay = None
+                self.offer_update(force=True)
         elif self.on_update_check and not self._dry("@updates.check"):
             self.on_update_check()
         elif not self.on_update_check:

@@ -209,3 +209,57 @@ class Integration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class TestVersionAndUpdateAllTests(unittest.TestCase):
+    """0.1.4: "up to date -- test version X available" and Update all (install a launcher at or above X)."""
+
+    class Api:
+        def __init__(self):
+            self.staged = []
+
+        def check_release(self, root, prereleases=False):
+            return None
+
+        def release_offers(self, root):
+            return None, dict(version="v0.1.4", notes="test", size=5, test=True)
+
+        def release_for(self, root, minimum):
+            return dict(version="v0.1.4", size=5, test=True) if minimum == "0.1.4" else None
+
+        def stage_update(self, root, release):
+            self.staged.append(release["version"])
+            return "staged"
+
+        def prepare_update(self, root, staged):
+            return "prepared"
+
+        def launch_update(self, root, prepared):
+            pass
+
+    def service(self, api):
+        from openrecomp.update_service import UpdateService
+        return UpdateService(root=".", api=api, worker=lambda fn: fn(), quit=lambda: None)
+
+    def test_current_names_a_newer_test_version_and_take_test_offers_it(self):
+        s = self.service(self.Api())
+        s.check()
+        s.poll()
+        self.assertEqual(s.state["phase"], "current")
+        self.assertEqual(s.state["test_version"], "v0.1.4")
+        self.assertTrue(s.take_test())
+        self.assertEqual((s.state["phase"], s.state["version"]), ("available", "v0.1.4"))
+
+    def test_install_for_installs_the_needed_version_without_a_question(self):
+        api = self.Api()
+        s = self.service(api)
+        self.assertTrue(s.install_for("0.1.4"))
+        s.poll()
+        self.assertEqual(api.staged, ["v0.1.4"])
+
+    def test_install_for_reports_an_error_when_no_release_is_new_enough(self):
+        s = self.service(self.Api())
+        self.assertTrue(s.install_for("0.1.5"))
+        s.poll()
+        self.assertEqual(s.state["phase"], "error")

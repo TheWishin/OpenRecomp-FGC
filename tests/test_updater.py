@@ -106,9 +106,31 @@ class UpdaterTests(unittest.TestCase):
         self.assertEqual(sorted(order, key=u.version_key), order)
         test = dict(release("v1.3.0-beta.1"), prerelease=True)
         self.assertEqual(u.parse_release(test, CHANNEL, prereleases=True)["version"], "v1.3.0-beta.1")
-        for bad in (dict(test, prerelease=False), dict(release(), prerelease=True), dict(test, draft=True)):
+        for bad in (dict(test, prerelease=False), dict(test, draft=True)):
             with self.subTest(bad=bad["tag_name"]), self.assertRaises(u.UpdateError):
                 u.parse_release(bad, CHANNEL, prereleases=True)
+        # 0.1.4: a plain tag marked pre-release (the owner publishes every release as a pre-release first) is a
+        # test version: offered with prereleases=True, never on the stable channel.
+        plain_test = dict(release("v1.3.0"), prerelease=True)
+        self.assertTrue(u.parse_release(plain_test, CHANNEL, prereleases=True)["test"])
+        self.assertFalse(u.parse_release(release("v1.3.0"), CHANNEL, prereleases=True)["test"])
+        with self.assertRaises(u.UpdateError):
+            u.parse_release(plain_test, CHANNEL)
+
+    def test_release_offers_and_release_for_a_game_that_needs_a_newer_launcher(self):
+        program(self.root, "v0.1.2")
+        listing = [dict(release("v0.1.4"), prerelease=True), dict(release("v0.1.3"), prerelease=True),
+                   release("v0.1.2"), dict(release("v0.2.0"), draft=True)]
+        reply = lambda *a, **k: io.BytesIO(json.dumps(listing).encode())
+        with mock.patch.object(u, "_open", side_effect=reply):
+            stable, test = u.release_offers(self.root, CHANNEL)
+            self.assertIsNone(stable)                                  # nothing stable above 0.1.2
+            self.assertEqual(test["version"], "v0.1.4")
+            self.assertEqual(u.release_for(self.root, "0.1.4", CHANNEL)["version"], "v0.1.4")
+            self.assertIsNone(u.release_for(self.root, "0.1.5", CHANNEL))
+        listing.append(release("v0.1.5"))                             # a stable one at/above the need wins
+        with mock.patch.object(u, "_open", side_effect=reply):
+            self.assertEqual(u.release_for(self.root, "0.1.4", CHANNEL)["version"], "v0.1.5")
 
     def test_check_with_test_versions_picks_the_newest_published_one(self):
         program(self.root, "v1.0.0")

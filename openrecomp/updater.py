@@ -206,14 +206,18 @@ def _download(url, channel, limit, destination=None):
 
 
 def parse_release(data, channel, prereleases=False):
-    """The offer for one GitHub release. Stable: published plain vX.Y.Z only. prereleases=True (the player's
-    Test versions switch) also takes published pre-releases; a pre-release tag must carry a test suffix and a
-    suffixed tag must be marked pre-release on GitHub, so a stable player is never offered a test build."""
+    """The offer for one GitHub release. Stable: published plain vX.Y.Z only, not marked pre-release.
+    prereleases=True (the player's Test versions switch, a "test version available" offer, or Update all for a game
+    that needs a newer launcher) also takes published pre-releases: a suffixed tag (v1.2.0-beta.1) must be marked
+    pre-release on GitHub, and a plain tag marked pre-release (the owner's "pre-release first" rule, 0.1.3/0.1.4) is
+    a test version too. A stable player is never offered either. The offer's "test" says which it is."""
     channel.validate()
     if not isinstance(data, dict) or data.get("draft") is not False or not version_key(data.get("tag_name")):
         raise UpdateError("Only published vX.Y.Z releases are accepted.")
-    test = is_test_version(data["tag_name"])
-    if data.get("prerelease") is not test or (test and not prereleases):
+    suffixed = is_test_version(data["tag_name"])
+    test = suffixed or data.get("prerelease") is True
+    if (suffixed and data.get("prerelease") is not True) or data.get("prerelease") not in (True, False) \
+            or (test and not prereleases):
         raise UpdateError("Only published plain vX.Y.Z releases are accepted.")
     version = data["tag_name"]
     wanted = (f"OpenRecomp-{version}.zip", "SHA256SUMS", "SHA256SUMS.sig")
@@ -235,7 +239,7 @@ def parse_release(data, channel, prereleases=False):
     digest = archive.get("digest", "")
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest) or type(archive.get("size")) is not int or not 0 < archive["size"] <= MAX_ZIP:
         raise UpdateError("The release has no valid size and SHA-256 digest.")
-    return dict(version=version, notes=str(data.get("body") or "")[:6000], size=archive["size"],
+    return dict(version=version, test=test, notes=str(data.get("body") or "")[:6000], size=archive["size"],
                 zip_url=archive["browser_download_url"], sums_url=selected["SHA256SUMS"]["browser_download_url"],
                 sig_url=selected["SHA256SUMS.sig"]["browser_download_url"], digest=digest[7:])
 
@@ -276,6 +280,53 @@ def check_release(root, channel=None, prereleases=False):
             return None
         release = max(offers, key=lambda offer: version_key(offer["version"]))
     return release if version_key(release["version"]) > current else None
+
+
+def release_offers(root, channel=None):
+    """(newest stable, newest test version) above this installation's version, each an offer or None. One request
+    (the release list). For "The launcher is up to date -- 0.1.4 test version available" and for Update all."""
+    channel = (channel or configured_channel()).validate()
+    current = version_key(local_version(root))
+    if current is None:
+        return None, None
+    try:
+        with _open(api_root() + api_paths(channel)[1] + "?per_page=30", channel, "api") as response:
+            raw = response.read(4 * 1024 * 1024 + 1)
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None, None
+        raise UpdateError(f"GitHub answered {error.code}.") from None
+    if len(raw) > 4 * 1024 * 1024:
+        raise UpdateError("The release response is too large.")
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        raise UpdateError("The release response is not JSON.") from None
+    if not isinstance(data, list):
+        raise UpdateError("The release list is not a list.")
+    stable, test = [], []
+    for item in data[:100]:
+        try:
+            offer = parse_release(item, channel, prereleases=True)
+        except UpdateError:
+            continue
+        if version_key(offer["version"]) > current:
+            (test if offer["test"] else stable).append(offer)
+    pick = lambda offers: max(offers, key=lambda offer: version_key(offer["version"])) if offers else None
+    return pick(stable), pick(test)
+
+
+def release_for(root, minimum, channel=None):
+    """The launcher release to install so this launcher reaches `minimum` (a game release needs it): the newest
+    stable one at or above it, else the newest test version at or above it (only then a pre-release), else None."""
+    want = version_key(minimum if str(minimum).startswith("v") else "v" + str(minimum))
+    if want is None:
+        return None
+    stable, test = release_offers(root, channel)
+    for offer in (stable, test):
+        if offer is not None and version_key(offer["version"]) >= want:
+            return offer
+    return None
 
 
 # RFC 8032 Ed25519 verification, strict encodings and prime-order points. Verification

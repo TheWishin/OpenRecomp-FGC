@@ -26,9 +26,20 @@ def default_parent():
     return os.path.dirname(here)
 
 
+def launcher_version():
+    """This launcher's own version (release.json beside openrecomp\\), "" for a source checkout."""
+    try:
+        from . import updater
+        version = updater.local_version(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    except Exception:
+        return ""
+    return "" if version == "dev" else str(version).lstrip("v")
+
+
 class GameSetup:
-    def __init__(self, config, *, worker=None, latest=None, install=None, update=None, now=None):
+    def __init__(self, config, *, worker=None, latest=None, install=None, update=None, now=None, launcher=None):
         self.config = config                         # the launcher's config dict (read only here)
+        self.launcher = launcher if launcher is not None else launcher_version()
         self.worker = worker
         self.jobs = []                               # install/update threads: the launcher waits for them at exit
         self.latest = latest or gr.latest
@@ -154,6 +165,9 @@ class GameSetup:
             newest = lobby
         self.offers[gid] = newest
         required_from = lobby or offer
+        # 0.1.4: a game release names the oldest launcher that installs and builds it (min_launcher): an older
+        # launcher says so and offers Update all instead of failing on the zip.
+        st["needs_launcher"] = gr.launcher_too_old(newest, self.launcher) if newest else ""
         st.update(phase="ready", latest=newest["version"] if newest else "",
                   required=bool(installed and required_from and gr.is_newer(required_from["version"], installed)),
                   # A T4 tree of unknown version (no marker yet) is offered the newest release too.
@@ -176,14 +190,29 @@ class GameSetup:
                     long=len(target) > LONG_PATH_WARN)
 
     def _progress(self, gid):
+        """step, done, total from the worker; the view also gets the speed (bytes/s over the last seconds) and the
+        time left of the step (0.1.4: MB, %, speed, time left on the progress line)."""
+        samples = []
+
         def report(step, done, total):
             st = self._st(gid)
-            st.update(step=step, done=int(done or 0), total=int(total or 0))
+            now = self.now()
+            done, total = int(done or 0), int(total or 0)
+            if st.get("step") != step:
+                samples.clear()
+            samples.append((now, done))
+            while len(samples) > 2 and now - samples[0][0] > 5.0:
+                samples.pop(0)
+            speed = 0.0
+            if len(samples) > 1 and samples[-1][0] > samples[0][0]:
+                speed = max(0.0, (samples[-1][1] - samples[0][1]) / (samples[-1][0] - samples[0][0]))
+            left = int((total - done) / speed) if speed > 0 and total > done else 0
+            st.update(step=step, done=done, total=total, speed=int(speed), left=left)
         return report
 
     def install(self, gid, parent):
         offer = self.offers.get(gid)
-        if offer is None or self.busy():
+        if offer is None or self.busy() or self._st(gid).get("needs_launcher"):
             return False
         st = self._st(gid)
         cancel = threading.Event()
@@ -195,7 +224,7 @@ class GameSetup:
 
     def update(self, gid, root, *, reinstall=False):
         offer = self.offers.get(gid)
-        if offer is None or self.busy() or not root:
+        if offer is None or self.busy() or not root or self._st(gid).get("needs_launcher"):
             return False
         st = self._st(gid)
         cancel = threading.Event()
@@ -246,6 +275,8 @@ class GameSetup:
         st = dict(self._st(gid))
         offer = self.offers.get(gid)
         st["offer"] = dict(version=offer["version"], size=offer["zip"]["size"], name=offer["name"],
-                           prerelease=offer["prerelease"], notes=offer["notes"]) if offer else None
+                           prerelease=offer["prerelease"], notes=offer["notes"],
+                           min_launcher=offer.get("min_launcher", "")) if offer else None
+        st["launcher"] = self.launcher
         return st
 

@@ -15,9 +15,10 @@ class UpdateService:
         self.worker = worker or self._thread
         self.prereleases = prereleases or (lambda: False)     # the player's Quick access -> Test versions switch
         self.quiet = False                                     # an automatic check: no "up to date" message
-        self.state = dict(phase="idle", version="", notes="", size=0)
+        self.state = dict(phase="idle", version="", notes="", size=0, test_version="", target="")
         self.results = queue.Queue()
         self.release = None
+        self.test_release = None      # a newer test version (pre-release) while the launcher is current on stable
         self.prepared = None
         self.applying = False
 
@@ -38,10 +39,48 @@ class UpdateService:
         if self.state["phase"] in ("checking", "installing", "waiting") or self.prepared is not None:
             return
         self.release = None
+        self.test_release = None
         self.quiet = bool(quiet)
         test = bool(self.prereleases())
-        self.state.update(phase="checking", version="", notes="", size=0)
-        self._run("check", lambda: self.api.check_release(self.root, prereleases=test))
+        self.state.update(phase="checking", version="", notes="", size=0, test_version="", target="")
+
+        def work():
+            release = self.api.check_release(self.root, prereleases=test)
+            newer_test = None
+            if release is None and not test and hasattr(self.api, "release_offers"):
+                try:
+                    newer_test = self.api.release_offers(self.root)[1]
+                except Exception:
+                    newer_test = None          # only a hint: the stable answer stands
+            return dict(release=release, test=newer_test)
+        self._run("check", work)
+
+    def take_test(self):
+        """The player chose the test version named in "The launcher is up to date": offer it like a stable update."""
+        if self.state["phase"] != "current" or self.test_release is None:
+            return False
+        self.release = self.test_release
+        self.state.update(phase="available", version=self.release["version"], notes=self.release.get("notes", ""),
+                          size=self.release.get("size", 0))
+        return True
+
+    def install_for(self, minimum):
+        """Update all (a game release needs OpenRecomp-FGC `minimum`): find a launcher release at or above it -- the
+        newest stable one, else a test version -- and install it without another question (the player pressed
+        Update all). The game update continues after the restart (app_game_setup: pending game update)."""
+        if self.state["phase"] in ("checking", "installing", "waiting") or self.prepared is not None or self.busy():
+            return False
+        self.state.update(phase="installing", target=str(minimum))
+
+        def prepare():
+            release = self.api.release_for(self.root, minimum)
+            if release is None:
+                raise LookupError("no launcher release at or above " + str(minimum))
+            self.state.update(version=release["version"], size=release.get("size", 0))
+            staged = self.api.stage_update(self.root, release)
+            return self.api.prepare_update(self.root, staged)
+        self._run("stage", prepare)
+        return True
 
     def install(self):
         """Called only after the player confirms the offered release."""
@@ -66,8 +105,11 @@ class UpdateService:
             if error:
                 self.state["phase"] = error
             elif operation == "check":
+                if isinstance(result, dict) and "release" in result and "test" in result:
+                    result, self.test_release = result["release"], result["test"]
                 self.release = result
                 self.state.update(phase="available" if result else "current",
+                                  test_version=self.test_release["version"] if self.test_release and not result else "",
                                   **{key: result.get(key, default) if result else default
                                      for key, default in (("version", ""), ("notes", ""), ("size", 0))})
             elif operation == "stage":
