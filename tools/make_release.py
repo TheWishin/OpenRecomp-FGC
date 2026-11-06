@@ -391,8 +391,8 @@ def notes(kind, **facts):
     return (f"Tekken 4 recompiled (USA SLUS-20328), {facts['tag']}\n\n" + intro +
             "Beta. Installed and updated by OpenRecomp-FGC (Tekken 4 > Install). No game data: the game is built on your "
             "PC from your own disc image.\n\n"
-            "The zip also works alone: unpack it, run `OpenRecomp-FGC\\run.cmd`; the launcher uses the `T4` folder "
-            "beside it.\n\n---\n\n"
+            "The zip also works alone: unpack it, double-click `Start OpenRecomp-FGC.cmd`; the launcher uses the `T4` "
+            "folder beside it.\n\n---\n\n"
             f"| | |\n|---|---|\n| T4 source | `{facts['t4_commit'][:12]}` |\n| Launcher commit | `{facts['commit'][:12]}` |\n"
             f"| Release key | `{facts['key_id']}` (Ed25519, `SHA256SUMS.sig`) |\n"
             + "".join(f"| `{name}` | `{value}` |\n" for name, value in facts["sums"].items())
