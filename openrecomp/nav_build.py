@@ -17,7 +17,8 @@ CARD_ORDER = ("game", "files", "tools")
 CHIP = dict(done="@build.status.done", todo="@build.status.todo", work="@build.status.work",
             error="@build.status.error", wait="@build.status.wait")
 FILES_TEXT = dict(t4="@build.files_t4", t5dr="@build.files_t5dr")
-TYPICAL_MINUTES = dict(t4=(10, 30), t5dr=(3, 15))
+TYPICAL_MINUTES = dict(t4=(2, 5), t5dr=(3, 15))      # T4 0.1.4+: no download, the first build is a few minutes
+LEAD_READY = dict(t4="@build.lead_ready_t4")
 
 
 def clock_text(seconds):
@@ -160,6 +161,7 @@ class BuildPage:
             cards.append(dict(id=cid, num=len(cards) + 1, title=title, text=text, status=status, chip=CHIP[status],
                               note=note, focused=any(a["focused"] for a in acts), actions=acts))
 
+        files_first = False        # T4 with a good folder: the ISO is the step to do, so it comes first (0.1.5)
         # 1 -- the game itself: install / choose its folder, an update, or the install borrowed from T5DR's launcher
         game_items = by_card.get("game", [])
         if game_items or not found:
@@ -184,6 +186,7 @@ class BuildPage:
                 # one says what is wrong with it (it used to say "no bundled build tools" for every T4 folder)
                 folder = next((it for _i, it in game_items if it.get("id") == "folder"), None)
                 ok = folder is None or bool(folder.get("ok"))
+                files_first = ok and adapter == "t4"
                 card("game", "@build.card.game", "@build.folder_in_use" if ok else (folder.get("note") or folder.get("hint")
                                                                                    or "@t4.portable_required"),
                      "done" if ok else "todo", game_items)
@@ -201,6 +204,8 @@ class BuildPage:
                 status = "todo"
             note = next((it["note"] for it in sources if it.get("note") and not it.get("busy")), "")
             card("files", "@build.card.files", FILES_TEXT.get(adapter, "@build.files_text"), status, file_items, note=note)
+            if files_first:
+                cards.insert(0, cards.pop())
         # 3 -- build tools: one line, never the list
         checks = g.a.prerequisites() if found else []
         if checks:
@@ -220,6 +225,8 @@ class BuildPage:
                 card("tools", "@build.card.tools", "@build.tools_ready", "done")
             else:
                 card("tools", "@build.card.tools", "@build.tools_auto", "wait")
+        for n, c in enumerate(cards, 1):
+            c["num"] = n
         # the big card on the right
         main = self._build_main(g, state, clock, now, primary, fi, setup)
         more = [self._build_action(i, it, i == fi) for i, it in by_card.get("more", [])]
@@ -299,10 +306,11 @@ class BuildPage:
             main.update(kicker="@build.kicker.ready", tone="todo")
             tools_missing = any(row.get("ok") is not True for row in g.a.prerequisites())
             low_high = TYPICAL_MINUTES.get(g.m.get("adapter", ""))
+            lead_key = LEAD_READY.get(g.m.get("adapter", ""), "@build.lead_ready")
             if tools_missing:
                 main["lead"] = "@build.lead_tools"
             elif state.get("result") and state["result"] not in FINISHED:
                 main["lead"] = state["result"]
             elif low_high and not g.a.ready():
-                main["lead"] = i18n.message("build.lead_ready", low=low_high[0], high=low_high[1])
+                main["lead"] = i18n.message(lead_key[1:], low=low_high[0], high=low_high[1])
         return main

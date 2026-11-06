@@ -2,7 +2,7 @@
 from datetime import datetime
 
 from . import i18n, nav_playtime
-from .nav_common import uri
+from .nav_common import placing, provisional, uri
 
 
 _COUNT_LABELS = (("games", "@online.games"), ("wins", "@online.wins"), ("losses", "@online.losses"),
@@ -65,14 +65,15 @@ def player_art(g, player):
 def _profile_rows(nav, g, state, action):
     profile = state.get("profile") or {}
     title = i18n.literal(profile.get("name") or state.get("name") or "")
-    details = [dict(k=label, v=i18n.literal(profile[key])) for key, label in
+    plate = uri(g.a.rank_plate(profile["tier"])) if isinstance(profile.get("tier"), int) else ""
+    details = [dict(k=label, v=i18n.literal(profile[key]), **({"plate": plate} if plate and key == "rank" else {})) for key, label in
                (("rank", "@online.rank"), ("rating", "@rating"), ("rd", "@online.rating_uncertainty"),
                 ("place", "@online.place"), ("peak_rank", "@online.peak_rank"),
                 ("ranked_games", "@online.ranked_matches"), ("voids_24h", "@online.voids_24h"),
                 ("recovery_codes_left", "@online.recovery_left")) if key in profile]
     if profile.get("main"):
         details.append(dict(k="@fighter.main", v=i18n.literal(_fighter(g, profile["main"]))))
-    if profile.get("provisional"):
+    if provisional(profile):
         details.append(dict(k="@online.rank", v="@online.provisional"))
     if profile.get("badge") == "dev":
         details.append(dict(k="@online.name", v="@online.dev_badge"))

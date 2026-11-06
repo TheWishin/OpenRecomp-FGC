@@ -209,7 +209,7 @@ class Cards(unittest.TestCase):
         adapter = Page(state=dict(running=True, phase="build", fraction=0.0, title="unpack", step_no=[1, 7], line=""))
         nav = page(adapter)
         nav.clock = lambda: 50.0
-        self.assertEqual(nav.view()["build"]["main"]["eta"], "Usually 10-30 min")
+        self.assertEqual(nav.view()["build"]["main"]["eta"], "Usually 2-5 min")
 
     def test_last_builds_step_times_give_the_estimate_and_a_finished_build_is_remembered(self):
         adapter = Page(state=dict(running=True, phase="build", fraction=0.0, title="unpack", line="a"))

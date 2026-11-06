@@ -16,9 +16,11 @@ SORTS = (("recommended", "@community_ui.recommended"), ("name", "@community_ui.n
          ("status", "@community_ui.status"), ("main", "@online_ui.col.main"))
 
 
+STATUS_ORDER = {"idle": 0, "online": 0, "available": 0, "queue": 1, "room": 2, "match": 3, "in_match": 3, "playing": 4}
+
+
 def player_order(nav, g, state, players):
     mode = memory(nav, "sort").get(g.id, "recommended")
-    friends = {str(p.get("id") or p.get("name") or "").casefold() for p in state.get("friends") or []}
     def key(pair):
         p, own = pair
         name = str(p.get("name") or "").casefold()
@@ -27,12 +29,13 @@ def player_order(nav, g, state, players):
         elif mode == "rank": value = (-(p.get("tier") if isinstance(p.get("tier"), (int, float)) else -1), name)
         elif mode == "rating": value = (-(p.get("rating") if isinstance(p.get("rating"), (int, float)) else -1), name)
         elif mode == "ping": value = (ping, name)
-        elif mode == "status": value = (str(p.get("status") or ""), ping, name)
+        elif mode == "status": value = (STATUS_ORDER.get(p.get("status"), 0), name)
         elif mode == "main": value = (str(p.get("main") or ""), name)
         else:
-            friend = p.get("friend") or str(p.get("id") or "").casefold() in friends or name in friends
-            available = p.get("status") in (None, "idle", "online", "available")
-            value = (not friend, not available, ping, name)
+            # Like T5DR's own launcher: who can play now first, then who is in a match, then by rating (guests
+            # last), then name. Nothing that changes every second (ping) takes part, so rows do not jump (0.1.5).
+            rating = p.get("rating") if isinstance(p.get("rating"), (int, float)) and not isinstance(p.get("rating"), bool) else 0
+            value = (STATUS_ORDER.get(p.get("status"), 0), bool(p.get("guest")), -rating, name)
         return (not own,) + value
     ordered = sorted(players, key=key)
     if memory(nav, "sort_reverse").get(g.id, False):

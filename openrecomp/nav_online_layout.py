@@ -14,7 +14,7 @@ import collections
 
 from . import i18n
 from .nav_netext import where
-from .nav_common import uri
+from .nav_common import placing, provisional, uri
 
 CHAPTERS = ("lobby", "rooms", "friends", "leaderboard", "stats", "profile", "tournaments", "spectating", "account")
 CHAPTER_LABELS = {"lobby": "@online_ui.chapter.lobby", "rooms": "@online_ui.chapter.rooms",
@@ -742,15 +742,15 @@ class OnlineLayout:
         n = by_id.get("online_status", 0)
         progress, progress_text = -1, ""
         rating = me.get("rating")
-        if state.get("account") and not me.get("guest") and not me.get("placement"):
+        if state.get("account") and not me.get("guest") and not placing(me):
             bar = g.a.rank_progress(rating)
             if bar:
                 low, high, following = bar
                 progress = max(0.0, min(1.0, (rating - low) / max(1.0, high - low)))
                 progress_text = i18n.message("online_ui.to_next", points=int(round(max(0, high - rating))),
                                              rank=i18n.literal(following))
-        elif me.get("placement"):
-            done, total = me["placement"]
+        elif placing(me):
+            done, total = placing(me)
             progress = max(0.0, min(1.0, done / max(1, total)))
             progress_text = i18n.message("online_ui.placement_left", left=max(0, total - done))
         try:
@@ -858,10 +858,10 @@ class OnlineLayout:
         rank = i18n.literal(p.get("rank") or "") if p.get("rank") else ""
         if p.get("guest"):
             return "@online_ui.guest"
-        if p.get("placement"):
-            done, total = p["placement"]
-            return i18n.message("online_ui.placement", done=done, total=total)
-        if p.get("provisional"):
+        placement = placing(p)
+        if placement:
+            return i18n.message("online_ui.placement", done=placement[0], total=placement[1])
+        if provisional(p):
             return "@online_ui.provisional"
         return rank
 

@@ -138,11 +138,11 @@ class RankedPresentation(unittest.TestCase):
 
     def test_placement_uses_placement_progress(self):
         adapter, nav = hierarchy_nav()
-        adapter.snapshot["me"]["placement"] = (3, 10)
+        adapter.snapshot["me"]["placement"] = (2, 10)      # 0.1.5: placement shows for the first 3 ranked matches only
         nav.open_ranked(nav.game)
         ranked = nav.view()["online"]["ranked"]
         self.assertTrue(ranked["placement"])
-        self.assertAlmostEqual(ranked["profile"]["progress"], .3)
+        self.assertAlmostEqual(ranked["profile"]["progress"], .2)
 
     def test_missing_rating_is_unknown_and_zero_is_preserved(self):
         adapter, nav = hierarchy_nav()

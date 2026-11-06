@@ -119,6 +119,8 @@ class Hub:
     def _activate(self, it):
         if it.get("disabled"):
             self.hint_sound(ui_sound.ERROR)
+            if it.get("hint"):
+                self.say(it["hint"])          # a press that did nothing must say why (0.1.5)
             return
         kind = it.get("kind")
         if kind == "cycler":
@@ -259,6 +261,8 @@ class Hub:
     def click_row(self, index):
         if self.overlay:
             return
+        if self.screen == "launcher":
+            return self.click_launcher_row(index)
         self._cancel_hold()
         previous = self.online_rows.get(self.game.id) if self.section() == "online" else None
         items = self.items()
@@ -279,14 +283,14 @@ class Hub:
                     self._guard(self._activate, items[index])
 
     def click_tab(self, section):
-        if self.overlay:
+        if self.overlay or self.screen == "launcher":
             return
         self._cancel_hold()
         if section in self.sections():
             self.sec[self.game.id] = section
 
     def click_primary(self):
-        if self.overlay:
+        if self.overlay or self.screen == "launcher":
             return
         items = self.items()
         if items:

@@ -3,6 +3,9 @@ from . import i18n, nav_feedback, ui_sound
 from .nav_keyboard import ONLINE_PASSWORDS
 
 
+FRIEND_ORDER = {"online": 0, "in_match": 1}      # then offline: T5DR's friends list
+
+
 class Online:
     def challenge_player(self, player_id):
         """Double-click and pad confirmation share one guarded semantic challenge."""
@@ -586,31 +589,46 @@ class Online:
                 item["detail"]["rows"].append(dict(k="@online.friend_status", v=status))
             return item
 
-        friends = state.get("friends") or []
-        if not friends:
-            out.append(dict(kind="action", id="no_friends", label="@online.no_friends", hint="@online.friends_hint"))
-        for friend in friends:
-            if friend.get("invite"):
-                out.append(friend_action("invite_friend", "@online.invite_friend", friend))
-                if state.get("room"):
-                    out.append(friend_action("invite_room", "@online.invite_room", friend))
-            out.append(friend_action("remove_friend", "@online.remove_friend", friend))
-        for friend in state.get("friend_incoming") or []:
-            out.append(friend_action("accept_friend", "@online.accept_friend", friend))
-            out.append(friend_action("decline_friend", "@online.decline_friend", friend))
-        for friend in state.get("friend_outgoing") or []:
-            out.append(friend_action("cancel_friend", "@online.cancel_friend", friend))
-        for invite in state.get("invites") or []:
+        # Like T5DR's friends page: what wants an answer first (invites, requests), then the friends in groups --
+        # online, in a match, offline -- each by name. Grouped only in the default "status" order, so a sort the player
+        # chose (nav_list_sort) never splits a group.
+        invites = state.get("invites") or []
+        incoming = state.get("friend_incoming") or []
+        outgoing = state.get("friend_outgoing") or []
+        if invites or incoming or outgoing or state.get("outgoing_invite"):
+            out.append(dict(kind="heading", label="@online.friend_requests"))
+        for invite in invites:
             for prefix, label in (("accept_invite", "@online.accept_invite"),
                                   ("decline_invite", "@online.decline_invite")):
                 item = action(prefix + ":" + str(invite["id"]), label, "@online.friends_hint")
                 item["value"] = i18n.literal(invite.get("name") or "")
                 item["detail"]["rows"] = [dict(k="@online.name", v=i18n.literal(invite.get("name") or ""))]
                 out.append(item)
+        for friend in incoming:
+            out.append(friend_action("accept_friend", "@online.accept_friend", friend))
+            out.append(friend_action("decline_friend", "@online.decline_friend", friend))
+        for friend in outgoing:
+            out.append(friend_action("cancel_friend", "@online.cancel_friend", friend))
         if state.get("outgoing_invite"):
             item = action("cancel_invite", "@online.cancel_invite", "@online.friends_hint")
             item["detail"]["rows"] = [dict(k="@online.name", v=i18n.literal(state["outgoing_invite"].get("name") or ""))]
             out.append(item)
+        friends = state.get("friends") or []
+        if not friends:
+            out.append(dict(kind="action", id="no_friends", label="@online.no_friends", hint="@online.friends_hint"))
+        grouped = self.__dict__.get("community_sort", {}).get(g.id, {}).get("friends", "status") == "status"
+        heading = {"online": "@online.friend_online", "in_match": "@online.friend_in_match"}
+        shown = None
+        for friend in sorted(friends, key=lambda f: (FRIEND_ORDER.get(f.get("status"), 2), str(f.get("name") or "").casefold()))                 if grouped else friends:
+            group = friend.get("status") if friend.get("status") in heading else "offline"
+            if grouped and group != shown:
+                shown = group
+                out.append(dict(kind="heading", label=heading.get(group, "@online.friend_offline")))
+            if friend.get("invite"):
+                out.append(friend_action("invite_friend", "@online.invite_friend", friend))
+                if state.get("room"):
+                    out.append(friend_action("invite_room", "@online.invite_room", friend))
+            out.append(friend_action("remove_friend", "@online.remove_friend", friend))
 
     def poll_online(self):
         if self.dry:

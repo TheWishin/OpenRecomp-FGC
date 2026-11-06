@@ -113,6 +113,8 @@ class Shelf:
             scroll = self.__dict__.setdefault("shelf_scroll", {})
             tid = ids[self.start_focus]
             scroll[tid] = max(0, min(1000, scroll.get(tid, 0) + (1 if a == "down" else -1)))
+        elif a == "next":                  # RB / E: the launcher's own settings (also first in Quick access)
+            self.open_launcher_settings()
         elif a == "switchGame":
             if self.games:
                 self._select_game(self.games[(self.start_focus + 1) % len(self.games)])

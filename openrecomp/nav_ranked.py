@@ -1,6 +1,6 @@
 """Ranked standing and ranking presentation, using only the adapter's public snapshot."""
 from . import i18n
-from .nav_common import uri
+from .nav_common import placing, uri
 from .nav_profiles import _stamp
 
 
@@ -36,7 +36,7 @@ def ranked(nav, g, state, items, fi, profile, find):
     return dict(labels=LABELS, profile=profile, find=find, recent=recent[:6],
                 available=bool((state.get("capabilities") or {}).get("ranked")),
                 season=i18n.literal(state["season"]) if state.get("season") else "@official_ui.season",
-                placement=bool((state.get("me") or {}).get("placement")),
+                placement=bool(placing(state.get("me") or {})),
                 rating=_number((state.get("me") or {}).get("rating")))
 
 

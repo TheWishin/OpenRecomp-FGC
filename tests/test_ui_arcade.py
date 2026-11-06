@@ -314,7 +314,9 @@ class ArcadeRendering(unittest.TestCase):
                     label = next(item for item in scene_items(cancel) if item.objectName() == "arcadeActionLabel")
                     self.assertEqual(label.property("text"), i18n.text(language, "cancel"))
                     self.assertFalse(label.property("truncated"), label.property("text"))
-                    self.assertEqual(self.rect(action), idle_action)
+                    now = self.rect(action)       # (a real Japanese font's metrics may add under a pixel of height)
+                    self.assertEqual((now.x(), now.y(), now.width()), (idle_action.x(), idle_action.y(), idle_action.width()))
+                    self.assertLess(abs(now.height() - idle_action.height()), 1)
                     self.assertGreaterEqual(viewport.height(), idle_height)
                     complete = sum(card.y() >= viewport.property("contentY") and
                                    card.y() + card.height() <= viewport.property("contentY") + viewport.height() + .5

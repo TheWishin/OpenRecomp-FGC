@@ -44,7 +44,8 @@ class QtApiCompatibility(unittest.TestCase):
                 self.assertIs(app.make_engine(backend, full=False), engine)
             for family in families:
                 # Windows' CJK fonts first (as before), then the Linux ones Wine/Proton list (docs/LINUX_STEAM_DECK.md)
-                self.assertEqual([name.casefold() for name in QFont.substitutes(family)],
+                # (0.1.5: a font database without any CJK family also gets Windows' own fonts after these)
+                self.assertEqual([name.casefold() for name in QFont.substitutes(family)][:len(app.CJK_FALLBACKS)],
                                  [name.casefold() for name in app.CJK_FALLBACKS])
                 self.assertEqual([name.casefold() for name in QFont.substitutes(family)][:2],
                                  ["yu gothic ui", "malgun gothic"])

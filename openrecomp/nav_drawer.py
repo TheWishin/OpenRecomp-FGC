@@ -32,6 +32,7 @@ class Drawer:
         for g in self.games:
             if g.a.found() and g.a.native_label:
                 out.append(dict(id="native:" + g.id, label=g.a.native_label, value=g.short, game=g, hint=i18n.message("native_hint", name=g.a.native_label)))
+        out.append(dict(id="launcher", label="@launcher_settings.title", value="", launcher=True, hint="@launcher_settings.hint"))
         out.append(dict(id="discord", label="@community.discord", value="", discord=True, hint="@community.hint"))
         from . import nav_feedback
         activity = nav_feedback.activity_view(self)
@@ -66,6 +67,9 @@ class Drawer:
         elif a == "confirm":
             if self._drawer_cycle(items[self.drawer_focus], 1):
                 return
+            if items[self.drawer_focus].get("launcher"):
+                self.overlay = None
+                return self.open_launcher_settings()
             if items[self.drawer_focus].get("update"):
                 return self._check_update()
             if items[self.drawer_focus].get("discord"):

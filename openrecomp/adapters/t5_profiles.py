@@ -78,7 +78,7 @@ def _history(rows):
 
 def _profile(source):
     out = _fields(source, texts=("name", "rank", "main", "peak_rank"),
-                  numbers=("rating", "rd", "place", "ranked_games", "voids_24h"), flags=("account", "self", "provisional"))
+                  numbers=("rating", "rd", "place", "tier", "ranked_games", "voids_24h"), flags=("account", "self", "provisional"))
     if not isinstance(source, dict):
         return out
     if source.get("badge") == "dev":

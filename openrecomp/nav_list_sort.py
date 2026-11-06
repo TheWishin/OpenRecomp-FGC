@@ -35,7 +35,7 @@ def key(region, mode, row):
         open_seat = row.get("status") == "open" and maximum > count
         return not open_seat, ping, name
     if region == "friends":
-        return row.get("status") not in ("online", "in_match"), name
+        return {"online": 0, "in_match": 1}.get(row.get("status"), 2), name
     if region == "tournaments":
         return {"signup": 0, "checkin": 1, "running": 2, "finished": 3, "cancelled": 4}.get(row.get("state"), 5), name
     # Missing rank/ping stay unknown, after known values. Never manufacture a ranking.
