@@ -255,5 +255,46 @@ class GlyphStyle(unittest.TestCase):
         self.assertEqual(shapes, {"auto": "A", "ps": "cross", "xbox": "A"})
 
 
+class PlayStationPrompts(unittest.TestCase):
+    def nav(self):
+        from openrecomp.nav import Game, Nav
+        from test_nav import manifest
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        nav = Nav([Game(manifest(), T4Editable(tmp.name))], language="de")
+        nav.screen = "hub"
+        nav.sec[nav.game.id] = "controls"
+        nav._ctl_select(nav.game, "t4:xinput:0")
+        return nav
+
+    def test_every_prompt_follows_the_style(self):
+        nav = self.nav()
+        want = {"xbox": dict(confirm="A", back="B", x="X", social="Y", prev="LB", next="RB", chapterPrev="LT", chapterNext="RT"),
+                "ps": dict(confirm="✕", back="○", x="□", social="△", prev="L1", next="R1",
+                           chapterPrev="L2", chapterNext="R2")}
+        for style, table in want.items():
+            nav.prompt_style = style
+            for action, text in table.items():
+                self.assertEqual(nav.glyph(action)["text"], text, (style, action))
+
+    def test_the_hint_names_the_clear_button_of_the_style(self):
+        nav = self.nav()
+        for style, clear in (("xbox", "X"), ("ps", "□"), ("kb", "X")):
+            nav.prompt_style = style
+            item = next(it for it in nav.items() if it.get("ctl") == "slot")
+            for text in (item["hint"], item["detail"]["lead"]):
+                self.assertEqual((text["_text"], text["_values"]), ("controls.hint", {"clear": clear}), style)
+
+    def test_texts_players_can_read(self):
+        import json
+        folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "openrecomp", "i18n")
+        for lang in ("en", "de", "es", "fr", "ja", "ko", "pt-BR"):
+            with open(os.path.join(folder, lang + ".json"), encoding="utf-8") as stream:
+                cat = json.load(stream)
+            self.assertNotIn("SOCD", cat["controls.test_live"], lang)
+            self.assertLessEqual(len(cat["controls.t4_pad_none"]), 16, lang)      # it sits in a tab next to "P2"
+            self.assertIn("{clear}", cat["controls.hint"], lang)
+
+
 if __name__ == "__main__":
     unittest.main()
