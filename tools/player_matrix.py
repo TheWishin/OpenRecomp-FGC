@@ -167,14 +167,15 @@ def evaluate_case(case_id, evidence, launcher):
     if case_id == "no-winget" and evidence.get("guidance") and not evidence.get("build_started"):
         return "PASS", "No winget: clear manual build-tools guidance"
     root = evidence.get("root")
-    # Tekken 4 ships no Python of its own: it runs on the package's portable Python (never one found on PATH).
-    expected = (launcher / "portable" / "pythonw.exe" if case_id in T4_CASES
-                else Path(root or "") / "python" / "python.exe")
-    if not _same(evidence.get("build_python"), expected):
+    # Tekken 4's build runs on the package's portable Python (its console python.exe beside pythonw.exe; never one found
+    # on PATH); T5DR's on the game's own.
+    expected = ((launcher / "portable" / "pythonw.exe", launcher / "portable" / "python.exe") if case_id in T4_CASES
+                else (Path(root or "") / "python" / "python.exe",))
+    if not any(_same(evidence.get("build_python"), one) for one in expected):
         return "FAIL", ("Build did not use the package's portable Python" if case_id in T4_CASES
                         else "Build did not use the game's own python/python.exe")
     commands = evidence.get("commands", [])
-    if not commands or not any(_same(c[0], expected) and c[1:] not in (
+    if not commands or not any(any(_same(c[0], one) for one in expected) and c[1:] not in (
             ["--version"], ["-version"], ["/?"], ["-I", "-c", "from Crypto.Cipher import AES"])
             for c in commands if isinstance(c, list) and len(c) > 1):
         return "FAIL", "No observed build process using the game's Python"
