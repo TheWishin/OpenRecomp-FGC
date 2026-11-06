@@ -83,6 +83,12 @@ class SettingsPage:
                                           lead="@setup.test_versions_hint", rows=[])))
         if getattr(self, "on_ui_sound", None) is not None:
             extra += self._ui_sound_rows()
+        if getattr(self, "on_uninstall", None) is not None:
+            extra.append(dict(kind="action", id="uninstall_all", label="@uninstall.title", verb="@open", group="advanced",
+                              hint="@uninstall.hint",
+                              detail=dict(kicker="@section.settings", title="@uninstall.title", lead="@uninstall.hint",
+                                          rows=[]),
+                              run=self.uninstall_ask))
         by_group = {group: [] for group in GROUPS}
         for item in out + extra:
             if item.get("kind") == "heading":

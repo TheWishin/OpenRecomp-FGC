@@ -159,6 +159,7 @@ class Backend(QObject, GameSetupBackend):
         self.nav.build_history = {k: v for k, v in times.items() if isinstance(v, dict)} if isinstance(times, dict) else {}
         self.nav.on_build_history = self._save_build_history      # the Build page's "about N min left" next time
         self.nav.on_adapter_config = self._save_config            # e.g. the one-time T5DR folder notice
+        self.nav.on_uninstall = self._uninstall                   # Settings > Uninstall OpenRecomp completely
         self.updates = UpdateService(busy=self._update_busy, quit=self._quit,
                                      prereleases=lambda: bool(self.config.get("game_prereleases")))
         self._offered_update = False
@@ -244,6 +245,26 @@ class Backend(QObject, GameSetupBackend):
         if self.window is not None:
             self.window.setProperty("allowClose", True)
         QGuiApplication.quit()
+
+    def _uninstall(self, action, keep_saves):
+        """"plan": what a complete uninstall removes (nothing touched); "run": do it and close the launcher. No
+        settings are saved after that (they would make %LOCALAPPDATA%\\OpenRecomp again)."""
+        from . import uninstall
+        if action == "plan":
+            return uninstall.plan(self.config)
+        if self._update_busy():
+            self.nav.say("@uninstall.busy", 8)
+            return None
+        self._uninstalled = True
+        timer = getattr(self, "_save_timer", None)
+        if timer is not None:
+            timer.stop()
+        self._config_pending = False
+        result = uninstall.execute(uninstall.plan(self.config), keep_saves=bool(keep_saves))
+        if self.window is not None:
+            self.window.setProperty("allowClose", True)
+        QGuiApplication.quit()
+        return result
 
     def _check_updates(self):
         self.updates.check()
@@ -418,6 +439,8 @@ class Backend(QObject, GameSetupBackend):
             Backend._flush_config(self)
 
     def _flush_config(self):
+        if getattr(self, "_uninstalled", False):
+            return
         timer = getattr(self, "_save_timer", None)
         if timer is not None:
             if not self._config_pending:

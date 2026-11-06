@@ -21,6 +21,8 @@ class Dialog:
             return self._setup_dialog(a)
         if self.confirm_kind == "tools_help":
             return self._tools_dialog(a)
+        if self.confirm_kind == "uninstall_all":
+            return self._uninstall_dialog(a)
         if a in ("left", "right", "up", "down"):
             self.exit_focus = 1 - self.exit_focus
         elif a == "back":
@@ -57,6 +59,42 @@ class Dialog:
                     if self.on_update_install and not self._dry("@updates.install"):
                         self.on_update_install()
 
+    # ---- complete uninstall (0.1.3): the list first, then Cancel / keep saves / remove everything
+    def uninstall_ask(self):
+        on_uninstall = getattr(self, "on_uninstall", None)
+        if on_uninstall is None or self._dry("@uninstall.title"):
+            return
+        self.uninstall_plan = on_uninstall("plan", None) or {}
+        self._ask("uninstall_all")
+
+    def _uninstall_dialog(self, a):
+        if a in ("left", "right", "up", "down"):
+            self.exit_focus = (self.exit_focus + (1 if a in ("right", "down") else 2)) % 3
+        elif a == "back":
+            self.overlay = None
+        elif a == "confirm":
+            choice = self.exit_focus
+            self.overlay = None
+            if choice in (1, 2):
+                self.on_uninstall("run", choice == 1)        # keep saves and replays = option 1
+
+    def _view_uninstall_dialog(self, v):
+        plan = getattr(self, "uninstall_plan", None) or {}
+        lines = [i18n.message("uninstall.line_game", folder=i18n.literal(g["root"])) for g in plan.get("games", [])]
+        lines += [i18n.message("uninstall.line_skipped", folder=i18n.literal(s["root"])) for s in plan.get("skipped", [])]
+        if plan.get("data"):
+            lines.append(i18n.message("uninstall.line_data", folder=i18n.literal(plan["data"])))
+        if plan.get("program"):
+            lines.append(i18n.message("uninstall.line_program", folder=i18n.literal(plan["program"])))
+        text = i18n.message("uninstall.text_list", count=len(lines))
+        for line in lines:
+            text = i18n.message("uninstall.join", text=text, line=line)
+        v["dialog"] = dict(title="@uninstall.title", text=text,
+                           options=[dict(label=label, index=index, focused=self.exit_focus == index)
+                                    for index, label in enumerate(("@cancel", "@uninstall.keep_saves", "@uninstall.everything"))])
+        v["hint"] = "@dialog_hint"
+        v["prompts"] = [self.prompt("confirm", "@confirm"), self.prompt("right", "@switch"), self.prompt("back", "@cancel")]
+
     def _view_dialog(self, v):
         if self.confirm_kind == "online_challenge":
             return self._view_online_challenge(v)
@@ -69,6 +107,8 @@ class Dialog:
             return self._view_setup_dialog(v)
         if self.confirm_kind == "tools_help":
             return self._view_tools_dialog(v)
+        if self.confirm_kind == "uninstall_all":
+            return self._view_uninstall_dialog(v)
         if self.confirm_kind == "exit":
             title, text = "@dialog.quit.title", "@dialog.quit.text"
         elif self.confirm_kind == "stop_game":

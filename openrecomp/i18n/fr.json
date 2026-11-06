@@ -1759,5 +1759,16 @@
  "t4.version_release": "{release} (SLUS-20328)",
  "t4.folder_change_hint": "Le dossier Tekken 4 utilisé par Jouer, Compiler et En ligne. Choisissez le dossier d'une autre installation (ou un zip de version) pour l'utiliser à la place.",
  "setup.long_path": "{text}\n\nLe chemin de ce dossier est long. Si la compilation échoue, choisissez un dossier plus court, par exemple C:\\Jeux.",
- "setup.path_too_long": "Le chemin de ce dossier est trop long pour la compilation. Choisissez un dossier plus court, par exemple C:\\Jeux."
+ "setup.path_too_long": "Le chemin de ce dossier est trop long pour la compilation. Choisissez un dossier plus court, par exemple C:\\Jeux.",
+ "uninstall.title": "Désinstaller complètement OpenRecomp",
+ "uninstall.hint": "Supprime le launcher, les dossiers de jeux qu'il a installés, son dossier de données, les raccourcis et l'entrée Applications de Windows. Vous voyez d'abord la liste. Votre ISO, .pkg et .rap ne sont jamais supprimés.",
+ "uninstall.text_list": "Cela supprime les {count} éléments ci-dessous. Les sauvegardes et les replays peuvent rester (déplacés dans un dossier OpenRecomp-kept à côté du dossier du jeu).",
+ "uninstall.line_game": "Dossier du jeu : {folder}",
+ "uninstall.line_skipped": "Reste (non installé par OpenRecomp) : {folder}",
+ "uninstall.line_data": "Données du launcher : {folder}",
+ "uninstall.line_program": "Launcher, raccourcis et entrée Applications : {folder}",
+ "uninstall.keep_saves": "Supprimer, garder les sauvegardes",
+ "uninstall.everything": "Tout supprimer",
+ "uninstall.join": "{text}\n{line}",
+ "uninstall.busy": "Terminez d'abord l'installation, la mise à jour ou la compilation en cours."
 }

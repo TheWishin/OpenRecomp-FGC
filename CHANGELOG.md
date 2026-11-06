@@ -17,6 +17,13 @@ Made so that every player gets the same Tekken 4 build and the launcher always r
   so instead of quietly using another one (an older copy, a developer folder).
 - **Why can't I play him?** In the T4 lobby a player whose build differs shows the reason: another Tekken 4 version
   (both numbers), or the same version with other game files / another compiler. Direct IP names the same reasons.
+- **Choose and switch installs at any time**: the Build page lists the Tekken 4 folder in use; pick another install's
+  folder (or a release zip) to use that one. Installing asks where first and warns about long folder paths (over 60
+  characters; over 120 is refused: choose something like C:\Games).
+- **Uninstall OpenRecomp completely** (Settings > Advanced): shows the list first -- the game folders the launcher
+  installed, its data folder, the launcher with its shortcuts and Windows Apps entry -- then removes them, keeping
+  saves and replays if you want (moved to an OpenRecomp-kept folder). Your ISO, .pkg and .rap are never removed, nor
+  folders the launcher did not create.
 - The T4 online identity uses the game files from your ISO (SLUS_203.28, DATA.BIN, IRX) instead of the whole ISO file:
   two clean rips of the same disc can play each other.
 

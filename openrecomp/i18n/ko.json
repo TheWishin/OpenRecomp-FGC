@@ -1759,5 +1759,16 @@
  "t4.version_release": "{release} (SLUS-20328)",
  "t4.folder_change_hint": "플레이, 빌드, 온라인이 사용하는 Tekken 4 폴더입니다. 다른 설치 폴더(또는 릴리스 zip)를 선택하면 그 폴더를 사용합니다.",
  "setup.long_path": "{text}\n\n이 폴더 경로가 깁니다. 빌드가 실패하면 C:\\Games 같은 짧은 폴더를 선택하세요.",
- "setup.path_too_long": "이 폴더 경로는 빌드하기에 너무 깁니다. C:\\Games 같은 짧은 폴더를 선택하세요."
+ "setup.path_too_long": "이 폴더 경로는 빌드하기에 너무 깁니다. C:\\Games 같은 짧은 폴더를 선택하세요.",
+ "uninstall.title": "OpenRecomp 완전히 제거",
+ "uninstall.hint": "런처, 런처가 설치한 게임 폴더, 데이터 폴더, 바로 가기, Windows 앱 항목을 제거합니다. 먼저 목록이 표시됩니다. ISO, .pkg, .rap 파일은 삭제되지 않습니다.",
+ "uninstall.text_list": "아래 {count}개 항목을 제거합니다. 세이브와 리플레이는 남길 수 있습니다(게임 폴더 옆 OpenRecomp-kept 폴더로 이동).",
+ "uninstall.line_game": "게임 폴더: {folder}",
+ "uninstall.line_skipped": "남음(OpenRecomp가 설치하지 않음): {folder}",
+ "uninstall.line_data": "런처 데이터: {folder}",
+ "uninstall.line_program": "런처, 바로 가기, 앱 항목: {folder}",
+ "uninstall.keep_saves": "제거, 세이브 유지",
+ "uninstall.everything": "모두 제거",
+ "uninstall.join": "{text}\n{line}",
+ "uninstall.busy": "진행 중인 설치, 업데이트, 빌드를 먼저 끝내세요."
 }

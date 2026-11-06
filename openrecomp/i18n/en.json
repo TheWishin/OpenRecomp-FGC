@@ -1759,5 +1759,16 @@
  "t4.version_release": "{release} (SLUS-20328)",
  "t4.folder_change_hint": "The Tekken 4 folder Play, Build and Online use. Choose another install's folder (or a release zip) to use that one instead.",
  "setup.long_path": "{text}\n\nThis folder path is long. If the build fails, choose a shorter folder such as C:\\Games.",
- "setup.path_too_long": "This folder path is too long for the build. Choose a shorter folder, such as C:\\Games."
+ "setup.path_too_long": "This folder path is too long for the build. Choose a shorter folder, such as C:\\Games.",
+ "uninstall.title": "Uninstall OpenRecomp completely",
+ "uninstall.hint": "Removes the launcher, the game folders it installed, its data folder, shortcuts and the Windows Apps entry. You see the list first. Your ISO, .pkg and .rap are never removed.",
+ "uninstall.text_list": "This removes the {count} items below. Saves and replays can stay (moved to an OpenRecomp-kept folder beside the game folder).",
+ "uninstall.line_game": "Game folder: {folder}",
+ "uninstall.line_skipped": "Stays (not installed by OpenRecomp): {folder}",
+ "uninstall.line_data": "Launcher data: {folder}",
+ "uninstall.line_program": "Launcher, shortcuts and Apps entry: {folder}",
+ "uninstall.keep_saves": "Remove, keep saves",
+ "uninstall.everything": "Remove everything",
+ "uninstall.join": "{text}\n{line}",
+ "uninstall.busy": "Finish the running install, update or build first."
 }

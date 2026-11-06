@@ -1759,5 +1759,16 @@
  "t4.version_release": "{release} (SLUS-20328)",
  "t4.folder_change_hint": "プレイ、ビルド、オンラインが使う Tekken 4 フォルダー。別のインストールのフォルダー（またはリリース zip）を選ぶとそちらを使います。",
  "setup.long_path": "{text}\n\nこのフォルダーのパスは長いです。ビルドに失敗したら C:\\Games のような短いフォルダーを選んでください。",
- "setup.path_too_long": "このフォルダーのパスはビルドには長すぎます。C:\\Games のような短いフォルダーを選んでください。"
+ "setup.path_too_long": "このフォルダーのパスはビルドには長すぎます。C:\\Games のような短いフォルダーを選んでください。",
+ "uninstall.title": "OpenRecomp を完全にアンインストール",
+ "uninstall.hint": "ランチャー、ランチャーがインストールしたゲームフォルダー、データフォルダー、ショートカット、Windows のアプリ項目を削除します。先に一覧が表示されます。ISO、.pkg、.rap は削除されません。",
+ "uninstall.text_list": "下の {count} 項目を削除します。セーブとリプレイは残せます（ゲームフォルダーの横の OpenRecomp-kept フォルダーへ移動）。",
+ "uninstall.line_game": "ゲームフォルダー: {folder}",
+ "uninstall.line_skipped": "残ります（OpenRecomp がインストールしたものではありません）: {folder}",
+ "uninstall.line_data": "ランチャーのデータ: {folder}",
+ "uninstall.line_program": "ランチャー、ショートカット、アプリ項目: {folder}",
+ "uninstall.keep_saves": "削除（セーブは残す）",
+ "uninstall.everything": "すべて削除",
+ "uninstall.join": "{text}\n{line}",
+ "uninstall.busy": "実行中のインストール、更新、ビルドを先に終えてください。"
 }
