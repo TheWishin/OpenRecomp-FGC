@@ -85,6 +85,10 @@ class GameSetup:
                 self.results.put((gid, kind, fn(), None))
             except gr.ReleaseError as e:
                 self.results.put((gid, kind, None, (e.key, str(e))))
+            except PermissionError as e:
+                # 0.1.4: a file of the game folder held by another program (the game, an editor, an antivirus scan):
+                # the exchange never started or was rolled back -- say so ("a file is in use"), not "unknown".
+                self.results.put((gid, kind, None, ("@setup.err_busy", repr(e))))
             except Exception as e:  # noqa: BLE001 -- never a dead worker: the player sees a plain failure
                 self.results.put((gid, kind, None, ("@setup.err_unknown", repr(e))))
         if self.worker is None:

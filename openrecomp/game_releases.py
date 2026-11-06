@@ -102,7 +102,7 @@ SOURCES = {
         # 0.1.3: deps/ is part of the release (vendored PS2Recomp + libraries, the build output under it is
         # redone after an update anyway); save/ holds a release folder's memory cards.
         protected=("game", "generated", "out", "logs", "build", "save", "settings.json", MARKER),
-        build_bytes=6_000_000_000, markers=("tools/build_game.ps1",),
+        build_bytes=3_600_000_000, markers=("tools/build_game.ps1",),   # 0.1.4: disc 2.7 GB + build 0.8 GB
         # The release asset is OpenRecomp-Tekken4-<tag>.zip (tools/make_release.py); one zip named like the launcher
         # bundle is also taken.
         asset_pattern=r"(?i)(?:openrecomp|tekken4|t4)[-_.a-z0-9]*\.zip",

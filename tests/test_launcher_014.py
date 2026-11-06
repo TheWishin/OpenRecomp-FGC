@@ -57,6 +57,17 @@ class MinLauncher(unittest.TestCase):
         self.assertEqual(st["left"], 8)
 
 
+class LockedFile(unittest.TestCase):
+    def test_a_file_held_by_another_program_is_said_as_in_use(self):
+        def update(*a, **k):
+            raise PermissionError(13, "Permission denied")
+        setup = gs.GameSetup({}, launcher="0.1.4", worker=lambda fn: fn(), update=update)
+        setup.offers["t4"] = dict(version="0.1.4", zip=dict(size=1))
+        self.assertTrue(setup.update("t4", "C:/T4"))
+        (gid, kind, result, error), = setup.poll()
+        self.assertEqual(error[0], "@setup.err_busy")
+
+
 class Nav014(unittest.TestCase):
     nav = base.SetupNav.nav
     ready_state = base.SetupNav.ready_state
