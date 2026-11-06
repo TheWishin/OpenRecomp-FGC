@@ -1,0 +1,32 @@
+﻿{
+    "schema":  1,
+    "archives":  [
+                     {
+                         "id":  "fixture",
+                         "filename":  "fixture.zip",
+                         "target_prefix":  "",
+                         "url":  "https://example.invalid/never-downloaded.zip",
+                         "size":  327,
+                         "sha256":  "6e571dd3d0450da3834936e5469e2993e8db2f0108c7299a17d073e70d05058a"
+                     }
+                 ],
+    "files":  {
+                  "python.exe":  {
+                                     "archive":  "fixture",
+                                     "member":  "python.exe",
+                                     "size":  46,
+                                     "sha256":  "b5020f370df5c498fd5ed00f237c877dee6cc7094fee16c78e7177e8128b0c04"
+                                 },
+                  "LICENSE.txt":  {
+                                      "archive":  "fixture",
+                                      "member":  "LICENSE.txt",
+                                      "size":  68,
+                                      "sha256":  "45d93617ce92ece2e99bb5571b5865441cd9dad9c7d5891adffdc763bebd186e"
+                                  },
+                  "python312._pth":  {
+                                         "content_utf8":  "python312.zip\n.\nLib/site-packages\n..\n",
+                                         "size":  37,
+                                         "sha256":  "3d7695aa97c20cd2e6ae15b737488e1fb853711d6f1c1910bf806629864fe8fb"
+                                     }
+              }
+}

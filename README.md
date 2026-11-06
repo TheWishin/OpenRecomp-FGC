@@ -139,7 +139,19 @@ Reset to default, Plays as (player pin), Left + right at once (SOCD) and Left st
 the actions light up and the bottom strip shows held bindings in Tekken notation (d/f+1+2), before the game's
 SOCD filtering; opposite directions stay visible (b+f or u+d). Hold Back for a second to finish.
 Every change is the installed T5DR editor's own edit of `controls.ini`, so the file
-stays in the format the game reads. T4 reads a fixed layout (the game has no bindings file yet), so it has no Pad bindings page.
+stays in the format the game reads.
+
+**Pad bindings of Tekken 4** (a T4 release with the pad-bindings runtime, PS2Recomp patch 99). The same page, editable:
+the keyboard and every XInput controller found are tabs (`openrecomp/adapters/t4_controls.py`; XInput and the keyboard are
+read by `openrecomp/t4_pad_reader.py`, only while a button is captured or the input test runs). Each device plays as a
+player (Plays as: Automatic, P1, P2; the keyboard can be player 2), 1 2 3 4 are Square Triangle Cross Circle, and L1 R1 L2
+R2 L3 R3 Start Select and the directions can be bound too. Presets: Default (the game's fixed layout), Tekken arcade 1-2-3-4
+(controller X Y RB RT, keyboard W A S D and U I J K) and, for the keyboard, Number pad. Esc cancels a keyboard capture, F11
+is the game window's. The page writes `controls.ini` in the game's save folder (`openrecomp/t4_controls_ini.py`: `[playerN]
+device = ...`, `[playerN.pad]`, `[playerN.keys]`, only the buttons that differ from the fixed layout) and the launcher hands
+the path to the game as `TEKKEN4_CONTROLS`; the game re-reads it within a second, and the page asks to stop the game before
+an edit. No file = the game's old layout, exactly. DirectInput controllers (DualShock without DS4Windows or Steam) keep the
+fixed layout. Online play uses the mapped buttons: bindings change which input is which PS2 button, never what is sent.
 
 **Menu sounds.** Moving, confirming, going back, switching sections, toggling a setting, opening and closing a panel,
 a refused press and a found match each have a short sound (40-150 ms); the pad, the keyboard and the mouse make the
@@ -185,6 +197,7 @@ Tournament 2 has a placeholder in the small known-games catalog until its reposi
 | `openrecomp/pad.py` | Controllers to actions |
 | `openrecomp/ui_sound.py`, `openrecomp/nav_sound.py` | Menu sounds: which press makes which sound, the player |
 | `openrecomp/nav_controls_page.py`, `openrecomp/pad_glyphs.py`, `openrecomp/pad_presets.py` | Pad bindings page: rows, button glyphs, Tekken notation, presets |
+| `openrecomp/t4_controls_ini.py`, `openrecomp/t4_pad_reader.py`, `openrecomp/adapters/t4_controls.py` | Tekken 4 Pad bindings: `controls.ini` model (parse, write, devices, presets), XInput and keyboard reader, the page's edits |
 | `openrecomp/app.py` | Window, QML scene, timers |
 | `openrecomp/adapters/` | One per kind of game |
 | `openrecomp/ui/` | The QML screens, the bundled fonts and the menu sounds (`ui/sounds`) |

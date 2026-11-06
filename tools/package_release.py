@@ -31,7 +31,7 @@ SOURCE_GROUPS = {
                    "game_library.py", "game_updates.py", "nav_library.py",
                    "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py", "t4_art.py", "fighter_render.py",
                    "bundled_games.py", "game_manifest.py", "community.py", "report_upload.py", "t4_report.py", "wine.py",
-                   "ui_sound.py", "nav_sound.py", "nav_controls_page.py", "pad_glyphs.py", "pad_presets.py", "nav_rank_cue.py",
+                   "ui_sound.py", "nav_sound.py", "nav_controls_page.py", "pad_glyphs.py", "pad_presets.py", "t4_controls_ini.py", "t4_pad_reader.py", "nav_rank_cue.py",
                    "nav_feedback.py", "nav_main_menu.py", "nav_playtime.py", "playtime.py", "playtime_format.py", "player_main.py", "living_background.py"),
     "openrecomp/adapters": ("__init__.py", "base.py", "arcade_metadata.py", "launch_guard.py", "support.py", "t4.py", "t4_controls.py", "t4_install.py",
                            "t4_online.py", "t4_support.py", "t4_source.py", "t4_prerequisites.py", "build_tool_downloads.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py",
