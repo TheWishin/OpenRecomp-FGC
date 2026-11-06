@@ -192,7 +192,8 @@ def safety(events, *, full=False, worker=False, expected_python=None, extra_root
             crypto_probe = command[1:] == ["-I", "-c", "from Crypto.Cipher import AES"]
             if not crypto_probe:
                 own = sys.executable if worker else expected_python() if expected_python else None
-                if not own or not same_path(command[0], own):
+                owns = own if isinstance(own, (tuple, list)) else (own,)
+                if not own or not any(same_path(command[0], one) for one in owns if one):
                     event(events, "foreign_python", command=command)
                     raise PermissionError("build attempted a Python outside the game's own install")
                 flags = []
@@ -465,8 +466,9 @@ def run_case(request):
                 evidence["root"] = getattr(game.a, "root", "") or ""
                 evidence["expected_root"] = inputs.get("expected_root", "")
                 if gid == "t4" and evidence["root"] and (Path(evidence["root"]) / "python" / "python.exe").is_file():
-                    # T4 0.1.3+ carries its own Python (like T5DR): its ISO check and build run on it.
-                    own_python[0] = str(Path(evidence["root"]) / "python" / "python.exe")
+                    # T4 0.1.3+ carries its own Python: the ISO check runs on it, build_game.py on the package's
+                    # console Python (t4core.player_python). Both are bundled; nothing else is accepted.
+                    own_python[0] = (str(Path(evidence["root"]) / "python" / "python.exe"), str(console))
                 if not game.a.found():
                     if not inputs.get("t4_root" if gid == "t4" else "t5dr_existing"):
                         finish("BLOCKED", "existing game folder fixture is missing")
