@@ -197,10 +197,14 @@ def safety(events, *, full=False, worker=False, expected_python=None, extra_root
                     event(events, "foreign_python", command=command)
                     raise PermissionError("build attempted a Python outside the game's own install")
                 flags = []
-                for part in command[1:]:
-                    if part not in ("-B", "-u", "-I", "-E", "-s"):
+                rest = list(command[1:])
+                while rest:
+                    if rest[0] in ("-B", "-u", "-I", "-E", "-s"):
+                        flags.append(rest.pop(0))
+                    elif rest[0] == "-X" and len(rest) > 1:          # -X utf8 (T4's build_game runs its helpers so)
+                        flags += [rest.pop(0), rest.pop(0)]
+                    else:
                         break
-                    flags.append(part)
                 command = [command[0], *flags, "-B", str(Path(__file__).resolve()), "--build-worker", events,
                            *(["--full"] if full else []), "--", *command[1:]]
         if worker and not is_python and name not in compilers and not probe:
@@ -236,8 +240,8 @@ def safety(events, *, full=False, worker=False, expected_python=None, extra_root
 def build_worker(events, argv, full):
     safety(events, full=full, worker=True)
     argv = list(argv)
-    while argv and argv[0] in ("-B", "-u", "-I", "-E", "-s"):
-        argv.pop(0)
+    while argv and (argv[0] in ("-B", "-u", "-I", "-E", "-s") or argv[0] == "-X" and len(argv) > 1):
+        del argv[:2 if argv[0] == "-X" else 1]          # -X utf8: the flag takes effect in the worker's own Python
     try:
         if not argv:
             raise ValueError("Python build command has no program")
