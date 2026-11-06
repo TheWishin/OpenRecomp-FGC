@@ -109,7 +109,14 @@ def load_core(root):
     if source_root(root) and not (os.path.isfile(path) and portable):
         from .t4_source import create_core
         return create_core(root)
-    name = "_openrecomp_t4core_" + hashlib.sha256(os.path.normcase(path).encode("utf-8")).hexdigest()
+    # Keyed by the file's size and time too: after a game update the same folder has a NEW t4core.py, and the old
+    # module (e.g. 0.1.2's, which knows no bundled compiler) must not be reused until the launcher restarts.
+    try:
+        st = os.stat(path)
+        stamp = f"|{st.st_size}|{st.st_mtime_ns}"
+    except OSError:
+        stamp = ""
+    name = "_openrecomp_t4core_" + hashlib.sha256((os.path.normcase(path) + stamp).encode("utf-8")).hexdigest()
     if launcher in sys.path:
         sys.path.remove(launcher)
     add_path(launcher)
