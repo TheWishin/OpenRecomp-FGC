@@ -50,7 +50,7 @@ class UnsignedCandidate(unittest.TestCase):
         text = make_release.sign_commands(Path(r"D:\out"), "v0.1.3", "v0.1.3", "stable")
         self.assertIn("release_sign.py sign --key-file <keys>", text)
         self.assertIn("--channel stable --version v0.1.3", text)
-        self.assertIn("release_sign.py game --key-file <keys>", text)
+        self.assertIn("release_sign.py sign-t4 --key-file <keys>", text)
         self.assertIn("--version 0.1.3 ", text)
         self.assertIn(str(Path(r"D:\out") / "t4" / "SHA256SUMS.sig"), text)
 

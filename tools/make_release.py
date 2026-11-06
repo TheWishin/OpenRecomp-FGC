@@ -439,7 +439,7 @@ def sign_commands(out, version, t4_tag, channel):
         f"python tools\\release_sign.py sign --key-file <keys>\\openrecomp-release\\openrecomp-fgc-release.key "
         f"--channel {channel} --version {version} --sums \"{out / 'launcher' / 'SHA256SUMS'}\" "
         f"--out \"{out / 'launcher' / 'SHA256SUMS.sig'}\"",
-        f"python tools\\release_sign.py game --key-file <keys>\\tekken4-release\\tekken4-release.key "
+        f"python tools\\release_sign.py sign-t4 --key-file <keys>\\tekken4-release\\tekken4-release.key "
         f"--version {plain} --sums \"{out / 't4' / 'SHA256SUMS'}\" --out \"{out / 't4' / 'SHA256SUMS.sig'}\"",
         "#    then upload SHA256SUMS.sig with the other files of each release.",
     ]) + "\n"
