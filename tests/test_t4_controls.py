@@ -83,7 +83,10 @@ class Rows(unittest.TestCase):
 
     def test_keyboard_and_the_connected_pad_are_rows_with_the_fixed_layouts_as_defaults(self):
         rows = self.adapter.controls()
-        self.assertEqual([r["id"] for r in rows], ["t4:keyboard", "t4:xinput:0"])
+        self.assertEqual([r["id"] for r in rows], ["t4:keyboard", "t4:xinput:0", "t4:player:2"])    # P2 has no pad yet
+        placeholder = rows.pop()
+        self.assertEqual((placeholder["port"], placeholder["disabled"]), (1, False))
+        self.assertFalse(placeholder["features"]["test"])
         keyboard = {s["id"]: s["sources"] for s in rows[0]["slots"]}
         pad = {s["id"]: s["sources"] for s in rows[1]["slots"]}
         # patch 31 asyncPadMask: Square = Left / Z / Num0, Triangle = Up / V / Num1, Cross = Down / X / Space, Circle = Right / C / Esc
@@ -101,13 +104,13 @@ class Rows(unittest.TestCase):
         for row in rows:
             self.assertFalse(row.get("fixed"))
             self.assertFalse(row["disabled"])
-            self.assertEqual(len(row["slots"]), 16)
+            self.assertEqual(len(row["slots"]), 27)
             self.assertTrue(all(s["glyphs"] for s in row["slots"] if s["sources"]))
             self.assertEqual(row["preset"], "default")
         self.assertEqual((rows[0]["port"], rows[1]["port"]), (0, 0))
         self.assertTrue(rows[0]["features"]["clear"] and rows[1]["features"]["player"])
-        self.assertEqual([p for p, _ in rows[0]["presets"]], ["default", "t4_arcade", "numpad"])
-        self.assertEqual([p for p, _ in rows[1]["presets"]], ["default", "t4_arcade"])
+        self.assertEqual([p for p, _ in rows[0]["presets"]], ["default", "t4_arcade", "t4_combos", "numpad"])
+        self.assertEqual([p for p, _ in rows[1]["presets"]], ["default", "t4_arcade", "t4_combos"])
         self.assertIsNone(self.adapter.file())            # looking at the page writes nothing
 
     def test_two_pads_and_none(self):
@@ -337,7 +340,7 @@ class Page(unittest.TestCase):
             items = nav.items()
             self.assertNotIn("ctl:fixed", [it.get("id") for it in items])
             slots = [it for it in items if it.get("ctl") == "slot"]
-            self.assertEqual(len(slots), 16)
+            self.assertEqual(len(slots), 27)
             self.assertTrue(all(it["run"] is not None and not it["disabled"] for it in slots))
             self.assertIn("ctl:preset", [it.get("id") for it in items])
             self.assertIn("ctl:reset", [it.get("id") for it in items])

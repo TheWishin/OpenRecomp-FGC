@@ -157,15 +157,15 @@ class Edit(unittest.TestCase):
         c.apply_preset(1, "keys", "numpad")
         self.assertEqual(c.sources(1, "keys", "1"), ["NUM4"])
         self.assertEqual(c.current_preset(1, "keys"), "numpad")
-        self.assertEqual([p for p, _l in ini.presets_for("pad")], ["default", "t4_arcade"])
-        self.assertEqual([p for p, _l in ini.presets_for("keys")], ["default", "t4_arcade", "numpad"])
+        self.assertEqual([p for p, _l in ini.presets_for("pad")], ["default", "t4_arcade", "t4_combos"])
+        self.assertEqual([p for p, _l in ini.presets_for("keys")], ["default", "t4_arcade", "t4_combos", "numpad"])
         with self.assertRaises(KeyError):
             c.apply_preset(0, "pad", "numpad")
         # a preset's bindings are all valid names
         for _pid, _label, _hint, plans in ini.PRESETS:
             for kind, plan in plans.items():
                 for slot, sources in plan.items():
-                    self.assertIn(slot, ini.SLOT_IDS)
+                    self.assertIn(slot, ini.PAGE_SLOT_IDS)
                     for source in sources:
                         self.assertTrue(source in ini.PAD_SOURCES if kind == "pad" else ini.key_ok(source), source)
 

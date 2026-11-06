@@ -15,6 +15,7 @@ import time
 from .. import pad_glyphs, t4_controls_ini as ini
 from ..t4_pad_reader import Reader, pad_name
 
+PLAYER_PAD_ID = ini.PLAYER_PAD_ID
 CAPTURE_S = 5.0            # "Press a button": the countdown the page shows
 HOLD_CANCEL_S = 1.0        # holding the pad's Back button (B) this long cancels a capture or ends the input test
 LABELS = {"1": "@controls.slot.1", "2": "@controls.slot.2", "3": "@controls.slot.3", "4": "@controls.slot.4",
@@ -51,6 +52,14 @@ class T4Controls:
 
     # ---------------------------------------------------------------- what the page shows
     def _t4c_label(self, slot):
+        if slot in ini.COMBO_TARGETS and len(ini.COMBO_TARGETS[slot]) > 2:
+            return self.message("controls.slot.combo", keys=slot)        # "1+2+3+4 together": the names would not fit
+        if slot in ini.COMBO_TARGETS:
+            label = None
+            for part in ini.COMBO_TARGETS[slot]:
+                one = self._t4c_label(part)
+                label = one if label is None else self.message("controls.slot.join", a=label, b=one)
+            return label
         return LABELS.get(slot) or self.message("controls.slot.ps2", name=slot)
 
     def _t4c_device(self, session, pad_id):
@@ -58,6 +67,11 @@ class T4Controls:
         model = session["model"]
         if pad_id == ini.KEYBOARD_ID:
             return ini.KIND_KEYS, model.keyboard_player(), None
+        if isinstance(pad_id, str) and pad_id.startswith(PLAYER_PAD_ID) and pad_id[len(PLAYER_PAD_ID):] in ("1", "2"):
+            player = int(pad_id[len(PLAYER_PAD_ID):]) - 1       # a player whose pad is not plugged in: editable, not live
+            if player not in model.resolve(session["slots"]).values():
+                return ini.KIND_PAD, player, None
+            raise RuntimeError("@controls.disconnected")
         if isinstance(pad_id, str) and pad_id.startswith(ini.PAD_ID) and pad_id[len(ini.PAD_ID):].isdigit():
             slot = int(pad_id[len(ini.PAD_ID):])
             if slot in session["slots"]:
@@ -70,8 +84,9 @@ class T4Controls:
         dtype = pad_glyphs.device_type(device_kind)
         shown = 0 if player is None else player          # an unassigned device shows player 1's bindings, read only
         slots = []
-        for slot_id, group, _target in ini.SLOTS:
-            sources = model.sources(shown, kind, slot_id)
+        order = [(s, g) for s, g, _t in ini.SLOTS if g == "attack"] + [(c, "macro") for c in ini.COMBO_IDS]             + [(s, g) for s, g, _t in ini.SLOTS if g != "attack"]
+        for slot_id, group in order:
+            sources = model.plain_sources(shown, kind, slot_id) if slot_id in ini.SLOT_IDS                 else model.sources(shown, kind, slot_id)
             slots.append(dict(id=slot_id, label=self._t4c_label(slot_id), group=group, sources=sources,
                               value=" / ".join(sources) or "@controls.unbound",
                               glyphs=[pad_glyphs.glyph(dtype, s) for s in sources],
@@ -84,7 +99,8 @@ class T4Controls:
                     label=self.message("controls.pad", port=shown + 1, name=name) if player is not None
                     else self.message("controls.unassigned", name=name),
                     slots=slots, disabled=player is None,
-                    features=dict(test=True, clear=True, reset=True, presets=True, options=False, player=True),
+                    features=dict(test=slot is not None or kind == ini.KIND_KEYS, clear=True, reset=True, presets=True,
+                                  options=False, player=slot is not None or kind == ini.KIND_KEYS),
                     presets=ini.presets_for(kind), preset=model.current_preset(shown, kind), player=pinned)
 
     def controls(self):
@@ -95,10 +111,16 @@ class T4Controls:
         for slot in sorted(slots):
             rows.append(self._t4c_row(session, ini.PAD_ID + str(slot), ini.KIND_PAD, resolved.get(slot), pad_name(slot),
                                       slot))
+        if slots:       # a player without a pad still has bindings: a tab to edit them (P2 before the second pad comes)
+            for player in range(ini.PLAYERS):
+                if player not in resolved.values():
+                    rows.append(self._t4c_row(session, PLAYER_PAD_ID + str(player + 1), ini.KIND_PAD, player,
+                                              "@controls.t4_pad_none"))
         if not slots:
             row = self._t4c_row(session, ini.NO_PAD_ID, ini.KIND_PAD, None, "@controls.t4_pad_none")
             row.update(features={}, presets=[], preset=ini.PRESET_DEFAULT, player=None, label="@controls.t4_pad_none")
             rows.append(row)
+        rows.sort(key=lambda r: r["port"] if r["port"] >= 0 else 9)     # P1's tabs, then P2's (stable)
         return rows
 
     # ---------------------------------------------------------------- the live strip and the input test
@@ -106,22 +128,33 @@ class T4Controls:
         return session["reader"].keys_held() if kind == ini.KIND_KEYS else session["reader"].pad_held(slot)
 
     def controls_input(self, pad_id):
-        """Held bindings: dict(lit=[slot ids], notation). Only while the input test runs (the keyboard is not read otherwise)."""
+        """Held bindings: dict(lit=[slot ids], notation). A pad is read whenever the page asks (the live strip); the
+        keyboard only while the input test runs (it is a global key state, never read just because the page is open)."""
         session = getattr(self, "_t4c_session", None)
-        pending = session["pending"] if session else None
-        if not pending or not pending.get("test") or pending["pad"] != pad_id:
+        if session is None:
             return dict(lit=[], notation="")
-        held = self._t4c_held(session, pending["kind"], pending["devslot"])
-        model, player, kind = session["model"], pending["player"], pending["kind"]
+        pending = session["pending"]
+        if pending and pending.get("test") and pending["pad"] == pad_id:
+            kind, player, devslot = pending["kind"], pending["player"], pending["devslot"]
+        else:
+            try:
+                kind, player, devslot = self._t4c_device(session, pad_id)
+            except RuntimeError:
+                return dict(lit=[], notation="")
+            if kind != ini.KIND_PAD or player is None or devslot is None:
+                return dict(lit=[], notation="")
+        held = self._t4c_held(session, kind, devslot)
+        model = session["model"]
         lit = [slot for slot in ini.SLOT_IDS if held & set(model.sources(player, kind, slot))]
         names = [ini.PS2_BUTTON.get(slot, slot) for slot in lit]
+        lit += [c for c in ini.COMBO_IDS if held & set(model.sources(player, kind, c))]
         return dict(lit=lit, notation=pad_glyphs.notation(names))
 
     def begin_input_test(self, pad_id):
         session = self._t4c_open()
         self.poll_binding()
         kind, player, slot = self._t4c_device(session, pad_id)
-        if player is None:
+        if player is None or kind == ini.KIND_PAD and slot is None:
             raise RuntimeError("@controls.disconnected")
         session["pending"] = dict(pad=pad_id, test=True, kind=kind, player=player, devslot=slot, back_since=None,
                                   baseline=set())
@@ -139,8 +172,10 @@ class T4Controls:
 
     def begin_binding(self, pad_id, slot_id):
         session, kind, player, slot = self._t4c_editable(pad_id)
-        if slot_id not in ini.SLOT_IDS:
+        if slot_id not in ini.PAGE_SLOT_IDS:
             raise ValueError("@controls.unsupported")
+        if kind == ini.KIND_PAD and slot is None:
+            raise RuntimeError("@controls.disconnected")        # no pad plays as this player yet
         self.poll_binding()
         now = self._t4c_clock()
         session["pending"] = dict(pad=pad_id, slot=slot_id, kind=kind, player=player, devslot=slot, deadline=now + CAPTURE_S,
@@ -229,14 +264,15 @@ class T4Controls:
         """A button was chosen: ready, or a conflict naming the action(s) that have it and what the old owner would get."""
         model, source, slot = session["model"], pending["source"], pending["slot"]
         player, kind = pending["player"], pending["kind"]
-        others = model.users(player, kind, source, exclude=slot)
+        others = [o for o in model.holders(player, kind, source) if o != slot]
         if not others:
             session["state"] = dict(state="ready", source=source)
             return
         state = dict(state="conflict", source=source, conflicts=[self._t4c_label(o) for o in others])
         given = [s for s in model.sources(player, kind, slot) if s != source]
         pending.pop("swap_slot", None)
-        if len(others) == 1 and given:
+        combo = slot in ini.COMBO_TARGETS or others[0] in ini.COMBO_TARGETS
+        if len(others) == 1 and given and not combo:
             pending["swap_slot"], pending["given"] = others[0], given
             state["swap"] = dict(slot=self._t4c_label(others[0]), sources=given)
         session["state"] = state
@@ -253,11 +289,14 @@ class T4Controls:
         other, given = pending.get("swap_slot"), pending.get("given") or []
 
         def change(model):
-            model.bind(player, kind, slot, [source])
+            if slot in ini.COMBO_TARGETS:
+                model.bind_combo(player, kind, slot, [source])
+                return
+            model.set_plain(player, kind, slot, [source])
             model.release(player, kind, source, keep=slot)
             if swap and other is not None:
                 kept = model.sources(player, kind, other)
-                model.bind(player, kind, other, kept + [s for s in given if s not in kept])
+                model.set_plain(player, kind, other, kept + [s for s in given if s not in kept])
 
         self._t4c_write(session, change)
         session["pending"] = None
@@ -282,9 +321,12 @@ class T4Controls:
     # ---------------------------------------------------------------- whole-device edits
     def clear_binding(self, pad_id, slot_id):
         session, kind, player, _slot = self._t4c_editable(pad_id)
-        if slot_id not in ini.SLOT_IDS:
+        if slot_id not in ini.PAGE_SLOT_IDS:
             raise ValueError("@controls.unsupported")
-        self._t4c_write(session, lambda model: model.clear(player, kind, slot_id))
+        if slot_id in ini.COMBO_TARGETS:
+            self._t4c_write(session, lambda model: model.clear_combo(player, kind, slot_id))
+        else:
+            self._t4c_write(session, lambda model: model.set_plain(player, kind, slot_id, []))
 
     def reset_controls(self, pad_id):
         session, kind, player, _slot = self._t4c_editable(pad_id)

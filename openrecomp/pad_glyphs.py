@@ -87,6 +87,24 @@ def glyph(dtype, source):
     return dict(shape="num", text=src, tone="", dir="")
 
 
+# The same physical button in the other family's names (XInput <-> a PlayStation pad's DirectInput numbering).
+_XBOX_TO_PS = {"X": "B1", "A": "B2", "B": "B3", "Y": "B4", "LB": "B5", "RB": "B6", "LT": "B7", "RT": "B8",
+               "BACK": "B9", "START": "B10", "LS": "B11", "RS": "B12"}
+_PS_TO_XBOX = {v: k for k, v in _XBOX_TO_PS.items()}
+
+
+def restyle(dtype, source, style):
+    """The glyph of `source` on a `dtype` pad drawn in the launcher's button-prompt style ("xbox", "ps"; anything else,
+    a keyboard, or a button without a counterpart keeps the pad's own look)."""
+    if style not in (XBOX, PS) or dtype not in (XBOX, PS) or style == dtype:
+        return glyph(dtype, source)
+    src = str(source or "").strip().upper()
+    table = _XBOX_TO_PS if dtype == XBOX else _PS_TO_XBOX
+    if src in table:
+        return glyph(style, table[src])
+    return glyph(dtype, source)           # d-pad and sticks look the same in both families
+
+
 def glyph_text(dtype, source):
     """The same input as plain words (screen readers, the old row value, tests)."""
     g = glyph(dtype, source)
