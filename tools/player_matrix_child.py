@@ -464,6 +464,9 @@ def run_case(request):
                     return
                 evidence["root"] = getattr(game.a, "root", "") or ""
                 evidence["expected_root"] = inputs.get("expected_root", "")
+                if gid == "t4" and evidence["root"] and (Path(evidence["root"]) / "python" / "python.exe").is_file():
+                    # T4 0.1.3+ carries its own Python (like T5DR): its ISO check and build run on it.
+                    own_python[0] = str(Path(evidence["root"]) / "python" / "python.exe")
                 if not game.a.found():
                     if not inputs.get("t4_root" if gid == "t4" else "t5dr_existing"):
                         finish("BLOCKED", "existing game folder fixture is missing")

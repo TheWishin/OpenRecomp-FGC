@@ -54,7 +54,7 @@ There are 13 required cases:
 Every successful T5DR build case needs an observed process using `<game>/python/python.exe`,
 successful early build steps, and the compile boundary. Tekken 4 has no Python of its own: its
 disc image check and build run on the package's console `portable/python.exe` beside `pythonw.exe`
-(`-I -u`), and that is the one Python the T4 cases accept; any other Python, found on PATH or not, is a failure.
+(`-I -u`); a T4 0.1.3+ release folder carries its own `python\python.exe`, which its cases then require. That is the one Python the T4 cases accept; any other Python, found on PATH or not, is a failure.
 A launcher-Python fallback in T5DR is a failure. Known older packages may therefore fail this gate.
 Tekken 4's build is a PowerShell pipeline (`tools/build_game.ps1`): the guard cannot audit it, so
 `t4-iso` is **BLOCKED** until an externally isolated offline machine or sandbox exists. The owner has approved one
