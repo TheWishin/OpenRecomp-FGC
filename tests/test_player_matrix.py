@@ -395,6 +395,21 @@ class ScratchFixtures(MatrixFixture):
         self.assertEqual(original["t5dr_existing"], str(self.source))
         return home, case, inputs
 
+    def test_a_verified_microsoft_cache_is_copied_into_each_t4_case(self):
+        cache = self.temp / "cache" / "msvc-0123456789abcdef"
+        (cache / "msvc" / "include").mkdir(parents=True)
+        (cache / "sysroot.json").write_text("{}", encoding="utf-8")
+        (cache / "msvc" / "include" / "vector").write_text("x", encoding="utf-8")
+        case = next(dict(c) for c in matrix.cases() if c["id"] == "t4-iso")
+        home = self.temp / "scratch" / "t4"
+        home.mkdir(parents=True)
+        matrix.prepare_case(home, case, {"t4_msvc_cache": str(cache)})
+        self.assertTrue((home / "OpenRecomp" / "cache" / cache.name / "msvc" / "include" / "vector").is_file())
+        with self.assertRaises(matrix.MatrixError):
+            other = self.temp / "scratch" / "t4b"
+            other.mkdir(parents=True)
+            matrix.prepare_case(other, dict(case), {"t4_msvc_cache": str(self.temp)})
+
     def test_wrong_folder_variants_map_to_one_private_copy_of_expected_root(self):
         for name, suffix in (("existing-t5dr", ""), ("parent-t5dr", ".."),
                              ("native-t5dr", "native"), ("child-t5dr", "launcher")):

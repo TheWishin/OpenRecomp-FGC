@@ -294,7 +294,10 @@ def run_case(request):
     sys.dont_write_bytecode = True
     # Tekken 4 has no Python of its own: its ISO import and build run on the package's portable Python (-I -B), which
     # the foreign-python / no-python cases keep honest. T5DR builds with python/python.exe inside the game folder.
-    own_python = [sys.executable if case.get("game") == "t4" else None]
+    # Tekken 4 has no Python of its own before the build: the launcher runs its ISO check and build_game.py on the
+    # package's console python.exe beside the pythonw.exe it runs on (t4core.player_python), the same package Python.
+    console = Path(sys.executable).with_name("python.exe")
+    own_python = [(str(console) if console.is_file() else sys.executable) if case.get("game") == "t4" else None]
     # The game copy sits under the profile, except in the long-profile case where it is a sibling folder inside the
     # same case; only copies made by the matrix count, never the read-only inputs.
     case_dir = home.parent if case.get("id") == "unicode-long-path" else home

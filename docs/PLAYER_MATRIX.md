@@ -27,6 +27,7 @@ The private JSON object accepts these fields:
 | `t4_iso` | The owner's ISO path, read from their configuration |
 | `t5dr_keys` | Optional. A `ps3.keys` made offline (`tools/make_keys.py --source <folder with key_vault.h/.cpp>`); copied into each T5DR case's `native/keys` because the build's first step otherwise downloads the key data from github.com, which the offline guard refuses |
 | `t5dr_existing_managed` | Optional, `true`: the private copy of `t5dr_existing` gets OpenRecomp's install marker (an install an earlier OpenRecomp made). Without it (the default, and the real situation of a player who used T5DR's own launcher) the folder is one T5DR's launcher set up, which OpenRecomp builds after a one-time notice while T5DR's launcher keeps working on it (`T5DR_COEXISTENCE.md` "Building a folder from the T5DR launcher") |
+| `t4_msvc_cache` | Optional. A verified Microsoft sysroot folder from a T4 0.1.3 build (`%LOCALAPPDATA%\OpenRecomp\cache\msvc-<lock>`), copied into each T4 case's own OpenRecomp home: T4's first build would download it, which the offline guard refuses |
 | `tools_path` | Optional list of folders put first on PATH in the `t4-iso` case only (a PC that has Git installed); folders containing a `python*.exe` are ignored |
 
 The tool never reads account fields, logs in or starts a game. It copies the
@@ -52,8 +53,8 @@ There are 13 required cases:
 
 Every successful T5DR build case needs an observed process using `<game>/python/python.exe`,
 successful early build steps, and the compile boundary. Tekken 4 has no Python of its own: its
-disc image check and build run on the package's `portable/pythonw.exe` (`-I -B`), and that
-is the one Python the T4 cases accept; any other Python, found on PATH or not, is a failure.
+disc image check and build run on the package's console `portable/python.exe` beside `pythonw.exe`
+(`-I -u`), and that is the one Python the T4 cases accept; any other Python, found on PATH or not, is a failure.
 A launcher-Python fallback in T5DR is a failure. Known older packages may therefore fail this gate.
 Tekken 4's build is a PowerShell pipeline (`tools/build_game.ps1`): the guard cannot audit it, so
 `t4-iso` is **BLOCKED** until an externally isolated offline machine or sandbox exists. The owner has approved one

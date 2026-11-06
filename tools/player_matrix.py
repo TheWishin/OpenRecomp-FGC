@@ -322,6 +322,15 @@ def prepare_case(home, case, inputs):
         # A poison executable, never a working Python: selecting it must fail the gate.
         (folder / "python.exe").write_bytes(b"player-matrix foreign Python must never run\r\n")
         (folder / "python3.exe").write_bytes(b"player-matrix foreign Python must never run\r\n")
+    cache = inputs.get("t4_msvc_cache")
+    if case["game"] == "t4" and cache:
+        # T4 0.1.3's first build downloads Microsoft's headers/libraries (network: refused here). A verified copy of
+        # that shared cache folder (config `t4_msvc_cache`, read only: <...>\OpenRecomp\cache\msvc-<lock>) goes into
+        # the case's own OPENRECOMP_HOME, where the build looks: what a player's second build finds.
+        source_cache = Path(cache)
+        if not (source_cache / "sysroot.json").is_file():
+            raise MatrixError("t4_msvc_cache is not a verified Microsoft sysroot folder (no sysroot.json)")
+        shutil.copytree(source_cache, home / "OpenRecomp" / "cache" / source_cache.name)
     source_key = "t4_root" if case["game"] == "t4" else "t5dr_existing"
     source = inputs.get(source_key)
     if source and case["id"] != "fresh-t5dr":
