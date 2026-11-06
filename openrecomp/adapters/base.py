@@ -374,9 +374,12 @@ class Missing(Adapter):
     def sources(self):
         t4 = self.m.get("adapter") == "t4"
         if t4:
+            wrong = getattr(self, "wrong_folder", "")
+            note = self._source_state["result"] if self._source_state["result"] != "reload" else ""
+            if wrong and not note:
+                note = self.message("t4.folder_not_install", folder=wrong)
             return [dict(id="folder", label="@t4.game_folder", title="@t4.choose_game_folder", value="@missing", ok=False,
-                         kind="file_or_folder", exts=[".zip"], dirs=[], hint="@folder_hint",
-                         note=self._source_state["result"] if self._source_state["result"] != "reload" else "")]
+                         kind="file_or_folder", exts=[".zip"], dirs=[], hint="@folder_hint", note=note)]
         return [dict(id="folder", label="@game_folder", value="@missing", ok=False, kind="folder", exts=[], dirs=[],
                      hint="@folder_hint", note="")]
 

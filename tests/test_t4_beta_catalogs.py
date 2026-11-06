@@ -41,7 +41,9 @@ class T4BetaCatalogs(unittest.TestCase):
             catalog = i18n.catalog(language)
             with self.subTest(language=language):
                 self.assertIn("IPv4", catalog["t4.direct_invalid_address"])
-                self.assertIn("MSVC", catalog["t4.direct_compiler_mismatch"])
+                # 0.1.3: every player builds with the release's bundled compiler; the text says that, not MSVC.
+                self.assertNotIn("MSVC", catalog["t4.direct_compiler_mismatch"])
+                self.assertEqual(re.findall(r"\{[^{}]*\}", catalog["t4.mismatch_version"]), ["{theirs}", "{mine}"])
                 self.assertIn("1.00", catalog["t4.direct_iso_mismatch"])
                 self.assertIn("UDP", catalog["t4.direct_unreachable"])
                 self.assertIn("7400", catalog["t4.direct_unreachable"])

@@ -13,6 +13,10 @@ from . import game_releases as gr
 from .manifest import user_dir
 
 CACHE = "game-releases.json"
+# 0.1.3: a T4 build was checked in a 115-character folder; deeper ones are refused before anything is written, a
+# folder longer than 60 characters gets a note (shorter is safer: C:\Games is enough).
+LONG_PATH_WARN = 60
+LONG_PATH_REFUSE = 120
 CACHE_SECONDS = 3600
 
 
@@ -164,8 +168,12 @@ class GameSetup:
         if not offer:
             return dict(problem="@setup.err_release", need=0, free=0, target="")
         src = gr.SOURCES[gid]
-        return dict(problem=gr.check_target(src, offer, parent), need=gr.space_needed(src, offer),
-                    free=gr.free_space(parent), target=gr.target_folder(src, offer, parent))
+        target = gr.target_folder(src, offer, parent)
+        problem = gr.check_target(src, offer, parent)
+        if not problem and len(target) > LONG_PATH_REFUSE:
+            problem = "@setup.path_too_long"            # the build's deepest files would pass Windows' 260 limit
+        return dict(problem=problem, need=gr.space_needed(src, offer), free=gr.free_space(parent), target=target,
+                    long=len(target) > LONG_PATH_WARN)
 
     def _progress(self, gid):
         def report(step, done, total):

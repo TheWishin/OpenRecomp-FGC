@@ -223,6 +223,48 @@ def load_t4_scanner(root):
             sys.modules["publish_source"] = old_publish
 
 
+def portable_t4(t4_root):
+    """A T4 path-B release stage (0.1.3+): T4's tools/package_release.py made it, with the bundled compiler,
+    CMake, Ninja, Python and the vendored sources (toolchain/toolchain.json + release.json)."""
+    root = Path(t4_root)
+    return (root / "toolchain" / "toolchain.json").is_file() and (root / "release.json").is_file()
+
+
+def _portable_names(names):
+    names = set(names)
+    return {T4_FOLDER + "/toolchain/toolchain.json", T4_FOLDER + "/release.json"} <= names
+
+
+def portable_t4_entries(t4_root):
+    """The stage's files as they are, after T4's own release scanner passed on the folder again (no game data,
+    no Microsoft sysroot, no lifted code; binaries only in its approved tool folders). The launcher's source
+    rules (no .exe, 32 MB) do not apply there: the bundled compiler is the point of that release."""
+    root = Path(t4_root).absolute()
+    no_links(root)
+    scanner = _module("t4_release_scan", root / "tools" / "package_release.py")
+    scanner.scan(root)
+    entries = []
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        no_links(path)
+        entries.append((path.relative_to(root).as_posix(), path.read_bytes()))
+    return entries
+
+
+def private_terms_for(entries, terms):
+    """Scan the launcher part with every term; a portable T4's binaries and Python standard library with every
+    term but the bare Windows user name (Python's pydoc.py credits "Tommy Burnette"; T5DR's zip is checked the same
+    way in make_release.verify_t5dr). Its profile path, the computer name and the e-mail stay terms."""
+    names = [name for name, _ in entries]
+    if not _portable_names(names):
+        return scan_private_terms(entries, terms)
+    user = os.environ.get("USERNAME", "").casefold()
+    t4_terms = [t for t in terms if t.casefold() != user]
+    prefix = T4_FOLDER + "/"
+    scan_private_terms(((n, d) for n, d in entries if not n.startswith(prefix)), terms)
+    scan_private_terms(((n, d) for n, d in entries if n.startswith(prefix)), t4_terms)
+    return len(terms)
+
+
 def scan_bundle_entries(entries, runtime_cache=None, t4=True):
     """Check source bytes and the exact pinned portable-runtime inventory. t4=False: a launcher-only zip."""
     entries = list(entries)
@@ -232,6 +274,7 @@ def scan_bundle_entries(entries, runtime_cache=None, t4=True):
     if runtime:
         _module("t4_bundle_portable", ROOT / "tools/portable_runtime.py").validate_entries(runtime, cache_root=runtime_cache)
     checked, seen = [], {}
+    portable = t4 and _portable_names(name for name, _ in entries)
     for name, data in entries:
         path = package.safe_name(name)
         for count in range(1, len(path.parts) + 1):
@@ -244,6 +287,11 @@ def scan_bundle_entries(entries, runtime_cache=None, t4=True):
         if name.startswith(runtime_prefix):
             # The complete inventory above binds each path, size and SHA-256 to
             # the pinned upstream artifacts; no other binary path is exempt.
+            checked.append((name, data))
+            continue
+        if portable and name.startswith(T4_FOLDER + "/"):
+            # A portable T4 stage was scanned by T4's own release scanner (portable_t4_entries) and is written
+            # byte for byte; create_bundle compares the written members with the stage again.
             checked.append((name, data))
             continue
         if len(data) > MAX_FILE_SIZE:
@@ -380,6 +428,15 @@ def bundle_entries(root, t4_root, runtime_root=None, runtime_cache=None, note=()
         return launcher_entries(root, runtime_root, runtime_cache, note, terms, release, start)
     t4_root = Path(t4_root).absolute()
     no_links(t4_root)
+    if portable_t4(t4_root):
+        t4_entries = portable_t4_entries(t4_root)
+        check_us_t4(t4_entries)
+        entries = _launcher_part(root, package.source_files(root), note, release, start)
+        entries.extend((T4_FOLDER + "/" + name, data) for name, data in t4_entries)
+        entries.extend(_runtime_part(runtime_root, runtime_cache))
+        checked = scan_bundle_entries(entries, runtime_cache)
+        private_terms_for(checked, local_terms(root) if terms is None else terms)
+        return checked
     # Existing independent scanners are authoritative for their own catalogs.
     selected = package.source_files(root)
     scanner = load_t4_scanner(t4_root)
@@ -472,7 +529,11 @@ def create_bundle(root, t4_root, archive=None, runtime_root=None, runtime_cache=
             if output.testzip() is not None:
                 raise ValueError("Bundle CRC check failed")
             written = [(name, output.read(name)) for name in output.namelist()]
-        scan_private_terms(scan_bundle_entries(written, runtime_cache, t4=t4_root is not None), terms)
+        private_terms_for(scan_bundle_entries(written, runtime_cache, t4=t4_root is not None), terms)
+        if t4_root is not None and _portable_names(name for name, _ in written):
+            stage = {name: data for name, data in entries if name.startswith(T4_FOLDER + "/")}
+            if {name: data for name, data in written if name.startswith(T4_FOLDER + "/")} != stage:
+                raise ValueError("The written T4 folder differs from the scanned release stage")
     except BaseException:
         archive.unlink(missing_ok=True)
         raise

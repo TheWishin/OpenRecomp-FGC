@@ -349,6 +349,8 @@ class GameSetupNav:
                                 need=self._gb(space.get("need")), free=self._gb(space.get("free")))
             if offer.get("prerelease"):
                 text = i18n.message("setup.test_version", text=text)
+            if space.get("long") and not space.get("problem"):
+                text = i18n.message("setup.long_path", text=text)
             if space.get("problem"):
                 text = i18n.message("setup.problem", text=text, problem=space["problem"])
             labels = ["@setup.other_folder", "@setup.install_here"]

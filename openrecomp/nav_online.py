@@ -492,6 +492,11 @@ class Online:
             item["detail"]["rows"] = [dict(k="@online.name", v=i18n.literal(player["name"]))]
             if player.get("rank"):
                 item["detail"]["rows"].append(dict(k="@online.rank", v=i18n.literal(player["rank"])))
+            if player.get("build_note"):
+                # Another build cannot be paired: say why (other version / other game files or compiler).
+                item["detail"]["rows"].append(dict(k="@t4.build_differs", v=player["build_note"]))
+                if not item.get("disabled"):
+                    item["hint"] = player["build_note"]
             out.append(item)
         if not state.get("players"):
             out.append(dict(kind="action", id="no_players", label="@online.no_players", hint="@online.challenge_hint"))

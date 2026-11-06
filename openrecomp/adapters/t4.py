@@ -46,12 +46,56 @@ DEFAULT_SOURCE_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirna
 
 
 def find_root(manifest, config):
-    chosen = (config.get("roots") or {}).get(manifest["id"]) or os.environ.get("OPENRECOMP_T4_ROOT")
-    for path in ([chosen] if chosen else []) + expand_locations(manifest.get("locations", [])) + [DEFAULT_SOURCE_ROOT]:
+    """ONE folder for Play, Build, Online, Direct IP and logs (0.1.3). The folder the player chose (config roots) is
+    the only one ever used when it is set: when it is not a T4 install the page says so (configured_problem) and
+    nothing else is tried -- no Pictures\\, dev tree or old folder beside the launcher. Only without a choice: the
+    developer override OPENRECOMP_T4_ROOT, the manifest's folders, then the T4 folder a bundle zip put beside this
+    launcher (the fresh install itself)."""
+    chosen = (config.get("roots") or {}).get(manifest["id"])
+    if chosen:
+        return install_root(chosen) if isinstance(chosen, str) else None
+    env = os.environ.get("OPENRECOMP_T4_ROOT")
+    for path in ([env] if env else []) + expand_locations(manifest.get("locations", [])) + [DEFAULT_SOURCE_ROOT]:
         root = install_root(path)
         if root:
             return root
     return None
+
+
+def configured_problem(manifest, config):
+    """The chosen folder, when it is set but is not a T4 install ("" otherwise)."""
+    chosen = (config.get("roots") or {}).get(manifest["id"])
+    return chosen if isinstance(chosen, str) and chosen and not install_root(chosen) else ""
+
+
+def release_version(root):
+    """The T4 release this folder holds: release.json (portable release zip) or the launcher's marker; "" = a source
+    tree / unknown."""
+    for name, key in (("release.json", "version"), ("openrecomp-release.json", "version")):
+        try:
+            with open(os.path.join(root, name), encoding="utf-8") as stream:
+                value = json.load(stream).get(key)
+        except (OSError, ValueError, AttributeError):
+            continue
+        if isinstance(value, str) and re.fullmatch(r"[0-9A-Za-z.+-]{1,40}", value):
+            return value
+    return ""
+
+
+def folder_problem(root):
+    """What is wrong with a found T4 folder for this launcher, or "": an old source-only release (0.1.2 and older
+    built with the PC's Visual Studio -- another compiler, another build id) or a release zip missing its compiler.
+    A developer checkout (.git) builds as before."""
+    if not root:
+        return ""
+    portable = os.path.isfile(os.path.join(root, "toolchain", "toolchain.json"))
+    if portable:
+        return ""
+    if os.path.exists(os.path.join(root, ".git")):
+        return ""
+    if os.path.isfile(os.path.join(root, "release.json")):
+        return "@t4.folder_incomplete"
+    return "@t4.folder_old"
 
 
 def load_core(root):
@@ -138,6 +182,12 @@ class T4(T4Support, T4Online, Adapter):
     def found(self):
         return True
 
+    def release_version(self):
+        return release_version(self.root)
+
+    def folder_problem(self):
+        return folder_problem(self.root)
+
     def problems(self):
         problems = list(self.core.play_problems(self.s))
         region = self.region_problem()
@@ -155,10 +205,14 @@ class T4(T4Support, T4Online, Adapter):
         last = self.s.get("last_run")
         if not isinstance(last, dict):
             last = {}
-        detail = problems[0] if problems else "@t4.ready_detail"
+        # An old source-only release still plays its own build offline; the page says what it is (0.1.3).
+        detail = problems[0] if problems else (self.folder_problem() or "@t4.ready_detail")
         if not problems and last.get("ok") is False:
             detail = self.message("t4.play_failed", error=last.get("note") or str(last.get("exit", "?")))
-        return dict(status="@ready" if not problems else "@not_built", version="SLUS-20328",
+        release = self.release_version()
+        return dict(status="@ready" if not problems else "@not_built",
+                    version=self.message("t4.version_release", release=release) if release else "SLUS-20328",
+                    folder=self.root, release=release,
                     players="@t4.lobby_mode", last=friendly_time(last.get("time", "")),
                     detail=detail)
 
@@ -516,11 +570,19 @@ class T4(T4Support, T4Online, Adapter):
                      title="@t4.choose_iso", filter="@t4.iso_filter", exts=[".iso"],
                      dirs=[os.path.dirname(iso) if iso else "", os.path.join(home, "Downloads"), os.path.join(home, "Desktop"), self.root],
                      hint="@iso.hint", note=self.iso_note, busy=self._source_state["running"])]
+        folder_note = self._source_state["result"] if self._source_state["id"] == "folder" else ""
         if self._needs_toolchain():
-            folder_note = self._source_state["result"] if self._source_state["id"] == "folder" else ""
             out.insert(0, dict(id="folder", label="@t4.complete_release", title="@t4.choose_game_folder", value="@missing", ok=False,
                                kind="file_or_folder", exts=[".zip"], dirs=[os.path.join(home, "Downloads")],
                                hint="@t4.portable_required", note=folder_note if folder_note != "reload" else "",
+                               busy=self._source_state["running"]))
+        else:
+            # 0.1.3: the folder in use, always on the page, and "use an existing install" at any time: picking another
+            # T4 folder (or a release zip) makes it THE folder for Play, Build and Online.
+            out.append(dict(id="folder", label="@t4.game_folder", title="@t4.choose_game_folder", value=self.root,
+                               ok=not self.folder_problem(), kind="file_or_folder", exts=[".zip"],
+                               dirs=[os.path.dirname(self.root), os.path.join(home, "Downloads")],
+                               hint="@t4.folder_change_hint", note=folder_note if folder_note != "reload" else "",
                                busy=self._source_state["running"]))
         return out
 
@@ -843,7 +905,12 @@ class T4(T4Support, T4Online, Adapter):
 
     def _start_process(self, force=False):
         iso = self.core.effective_iso(self.s)
-        cmd = self.core.build_command(iso)
+        if self._bundled_release():
+            # The release's bundled compiler needs Microsoft's C++ headers/libraries, fetched once from Microsoft
+            # with fixed checksums (never in our zip). The Build card names the licence before this press.
+            cmd = self.core.build_command(iso, accept_microsoft_license=True)
+        else:
+            cmd = self.core.build_command(iso)
         if force:
             cmd.append("-Force")
         self.build_lines = []
@@ -894,6 +961,26 @@ class T4(T4Support, T4Online, Adapter):
                                               "@t4.no_build_output")
             self.build_failed = "build"
             self.last_result = self.message("t4.build_failed", name=self.build_step or "?", error=error)
+
+    def _bundled_release(self):
+        if getattr(self.core, "source_only", False):
+            return False
+        bundled = getattr(self.core, "bundled_toolchain", None)
+        return bool(callable(bundled) and bundled())
+
+    def microsoft_note(self):
+        """The Build card's line: what is wrong with this folder (an old source-only release builds with the PC's
+        own Visual Studio: another build id than everyone on 0.1.3), else the licence line while Microsoft's headers
+        are not on this PC yet ("" once they are)."""
+        folder = self.folder_problem()
+        if folder:
+            return folder
+        if not self._bundled_release():
+            return ""
+        ready = getattr(self.core, "sysroot_ready", None)
+        if callable(ready) and ready():
+            return ""
+        return "@t4.microsoft_note"
 
     def build_state(self):
         """Also: phase ("tools" while missing tools are installed, "build"), tools (done, total), lines (the last

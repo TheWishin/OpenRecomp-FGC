@@ -77,11 +77,27 @@ HEX_DIGEST = re.compile(r"[0-9a-f]{40,64}")
 _hash_cache = {}
 
 
-def lobby_code(code_id, compiler, iso_sha):
-    """The code field a lobby launcher sends: SHA-1 over the build's code id, the compiler and the ISO (40 hex digits
-    like a code id). Equal only for the same code, the same compiler and the same disc image."""
-    fields = (str(code_id).lower(), str(compiler), str(iso_sha).lower())
+def lobby_code(code_id, compiler, files_sha):
+    """The code field a lobby launcher sends: SHA-1 over the build's code id, the compiler and the game files taken
+    from the ISO (game_files_sha256; 40 hex digits like a code id). Equal only for the same code, the same compiler
+    and the same game files -- two clean rips of SLUS-20328 give the same files, whatever their ISO bytes (0.1.3)."""
+    fields = (str(code_id).lower(), str(compiler), str(files_sha).lower())
     return hashlib.sha1(LOBBY_CODE_PREFIX + b":".join(field.encode() for field in fields)).hexdigest()
+
+
+# The files build_game extracts from the ISO and the game reads (game\disc). SYSTEM.CNF is only the boot line.
+GAME_FILES = ("SLUS_203.28", "TEKKEN/DATA.BIN", "IRX/IOPRP243.IMG")
+GAME_FILES_PREFIX = b"t4-game-files-v1\n"
+
+
+def game_files_sha256(root):
+    """SHA-256 over the extracted game files of the install at `root` (names + their SHA-256), the same value
+    tools/net_preflight.py puts into Direct IP's identity. Raises OSError when one is missing."""
+    h = hashlib.sha256(GAME_FILES_PREFIX)
+    for name in GAME_FILES:
+        path = os.path.join(root, "game", "disc", *name.split("/"))
+        h.update(name.encode() + b"\0" + _file_hash(path, hashlib.sha256).encode() + b"\n")
+    return h.hexdigest()
 
 
 def stamp_compiler(path):
@@ -762,8 +778,8 @@ class T4Online(T4Direct, Online):
 
     def _t4_identity_build(self, api, info, out):
         """The lobby identity holds what Direct IP's check compares (net_preflight.ps1 New-T4NetIdentity): the
-        build id's fields (ELF, code, netplay version) AND the compiler and the ISO. The ELF on disk must be the
-        stamp's (a stale extraction is another game). Compiler and ISO go into the code field the server hashes
+        build id's fields (ELF, code, netplay version) AND the compiler and the game files from the ISO. The ELF on disk must be the
+        stamp's (a stale extraction is another game). Compiler and game files go into the code field the server hashes
         (lobby_code): the server recomputes the id from elf/code/net as before, so it needs no change, and
         only builds with the same compiler and ISO are paired; the game gets that id as TEKKEN4_NET_BUILD and
         compares it in its HELLO, the same on both PCs."""
@@ -774,14 +790,12 @@ class T4Online(T4Direct, Online):
             compiler = stamp_compiler(os.path.join(out, "t4net_build.json"))
         except (OSError, ValueError):
             raise RuntimeError("@t4.direct_identity_failed") from None
-        iso = self.core.effective_iso(self.s) if callable(getattr(self.core, "effective_iso", None)) else ""
-        if not iso:
-            raise RuntimeError("@iso.choose_first")
         try:
-            iso_sha = iso_sha256(iso)
+            files_sha = game_files_sha256(self.root)
         except OSError:
-            raise RuntimeError("@iso.choose_first") from None
-        return api["build"](info.elf_sha1, lobby_code(info.code_id, compiler, iso_sha), info.release, info.net)
+            raise RuntimeError("@online.build_required") from None
+        self._t4_identity_note = dict(release=info.release, compiler=compiler)
+        return api["build"](info.elf_sha1, lobby_code(info.code_id, compiler, files_sha), info.release, info.net)
 
     def _t4_release(self):
         """The T4 release's version (release.json), for the server's update notice; "dev" for a source build."""
@@ -830,10 +844,26 @@ class T4Online(T4Direct, Online):
         out = super()._online_player(player)
         if out:
             out["rank"] = "" if out.get("guest") else t4_ranks.display_name(out)
+            note = self._t4_build_note(player)
+            if note:
+                out["build_note"] = note
         # The server sends the developer badge only for a marked account; a client cannot set it.
         if out and player.get("badge") == "dev":
             out["badge"] = "dev"
         return out
+
+    def _t4_build_note(self, player):
+        """Why this lobby player cannot be paired with us, in plain words (0.1.3), or None when the builds match.
+        The lobby list carries each player's build id and T4 release: another release = another T4 version; the
+        same release with another id = other game files (another ISO rip) or a copy built with another compiler."""
+        if not isinstance(player, dict) or self._online_same_build(player):
+            return None
+        theirs = player.get("release")
+        theirs = theirs if isinstance(theirs, str) and re.fullmatch(r"[0-9A-Za-z.+-]{1,40}", theirs) else "?"
+        mine = self._t4_release()
+        if theirs != mine:
+            return self.message("t4.mismatch_version", theirs=theirs, mine=mine)
+        return "@t4.mismatch_same_version"
 
     def online_state(self):
         if self.online_direct_ip:

@@ -192,10 +192,12 @@ def sign_t4(folder, tag, key_file, sums):
     return raw
 
 
-def verify_launcher(folder, version, channel, zip_name, setup_name):
-    """What a player's launcher does with this release (updater.stage_update's checks, without the download)."""
+def verify_launcher(folder, version, channel, zip_name, setup_name, unsigned=False):
+    """What a player's launcher does with this release (updater.stage_update's checks, without the download).
+    unsigned: everything but the signature (the owner signs SHA256SUMS afterwards, COMMANDS.txt)."""
     sums = (folder / "SHA256SUMS").read_bytes()
-    updater.verify_signature((folder / "SHA256SUMS.sig").read_bytes(), sums, dict(version=version), channel)
+    if not unsigned:
+        updater.verify_signature((folder / "SHA256SUMS.sig").read_bytes(), sums, dict(version=version), channel)
     if updater._signed_checksum(sums, dict(version=version)) != digest(folder / zip_name):
         raise ReleaseFailed("SHA256SUMS does not match the launcher zip")
     lines = dict(reversed(line.split("  ", 1)) for line in sums.decode("ascii").splitlines())
@@ -251,12 +253,13 @@ def _setup_payload(setup):
     raise ReleaseFailed("Setup.exe has no payload")
 
 
-def verify_t4(folder, tag, zip_name, work):
+def verify_t4(folder, tag, zip_name, work, unsigned=False):
     """What a player's launcher does with the T4 release (game_releases.verified_zip + unpack)."""
     src = game_releases.SOURCES["t4"]
     sums = (folder / "SHA256SUMS").read_bytes()
     version = game_releases.plain(tag)
-    game_releases.check_signature(src, version, sums, (folder / "SHA256SUMS.sig").read_bytes(), keys=src.keys)
+    if not unsigned:
+        game_releases.check_signature(src, version, sums, (folder / "SHA256SUMS.sig").read_bytes(), keys=src.keys)
     if game_releases.parse_sums(sums.decode("ascii"), zip_name) != digest(folder / zip_name):
         raise ReleaseFailed("T4 SHA256SUMS does not match its zip")
     offer = dict(version=version, tag=tag)
@@ -421,6 +424,20 @@ def commands(out, version, t4_tag, launcher_files, t4_files, commit, t4_commit, 
     return "\n".join(lines) + "\n"
 
 
+def sign_commands(out, version, t4_tag, channel):
+    """--unsigned: the owner's two signing commands (keys stay on the owner's PC), then the checks."""
+    plain = game_releases.plain(t4_tag)
+    return "\n".join([
+        "# 0. UNSIGNED build: sign both SHA256SUMS with the owner's keys first (never copy a key into a repository).",
+        f"python tools\\release_sign.py sign --key-file <keys>\\openrecomp-release\\openrecomp-fgc-release.key "
+        f"--channel {channel} --version {version} --sums \"{out / 'launcher' / 'SHA256SUMS'}\" "
+        f"--out \"{out / 'launcher' / 'SHA256SUMS.sig'}\"",
+        f"python tools\\release_sign.py game --key-file <keys>\\tekken4-release\\tekken4-release.key "
+        f"--version {plain} --sums \"{out / 't4' / 'SHA256SUMS'}\" --out \"{out / 't4' / 'SHA256SUMS.sig'}\"",
+        "#    then upload SHA256SUMS.sig with the other files of each release.",
+    ]) + "\n"
+
+
 def make(args):
     check_environment()
     version, t4_tag = args.version, args.t4_tag
@@ -428,6 +445,10 @@ def make(args):
         raise ReleaseFailed("--version and --t4-tag must look like v0.1.0 (or v0.2.0-beta.1)")
     commit, channel = check_tree(version, args.rehearsal)
     t4_commit = git("rev-parse", f"{args.t4_ref}^{{commit}}", cwd=args.t4_repo)
+    unsigned = bool(getattr(args, "unsigned", False))
+    stage = Path(args.t4_stage).absolute() if getattr(args, "t4_stage", None) else None
+    if stage is not None and not bundle.portable_t4(stage):
+        raise ReleaseFailed(f"--t4-stage {stage} is not a T4 release stage (toolchain/toolchain.json, release.json)")
     out = Path(args.out or DEFAULT_OUT / f"release-{version}").absolute()
     if out.exists() and any(out.iterdir()):
         raise ReleaseFailed(f"{out} exists and is not empty (nothing is overwritten)")
@@ -445,7 +466,9 @@ def make(args):
     try:
         print(f"launcher {version} from {commit[:12]}, T4 {t4_tag} from {t4_commit[:12]} ({args.t4_ref})", flush=True)
         tree = export(ROOT, commit, work / "launcher-src")
-        t4_src = export(args.t4_repo, t4_commit, work / "t4-src")
+        # 0.1.3: the T4 folder is T4's portable release stage (bundled compiler; T4's tools/package_release.py
+        # made and scanned it from t4_commit), not a git archive of its sources.
+        t4_src = stage if stage is not None else export(args.t4_repo, t4_commit, work / "t4-src")
         release = bundle.release_manifest(version, channel.name)
         start = (START_HERE.format(version=version, plain=plain).encode("utf-8"),
                  START_HIER.format(version=version, plain=plain).encode("utf-8"))
@@ -472,8 +495,9 @@ def make(args):
                                               terms=terms, release=release)
         print(f"T4 zip: {archive.name}, {count} files, {archive.stat().st_size:,} bytes", flush=True)
         t4_sums = write_sums(t4_dir, [t4_zip])
-        sign_t4(t4_dir, t4_tag, args.t4_key, t4_sums)
-        t4_files = verify_t4(t4_dir, t4_tag, t4_zip, work / "t4-check")
+        if not unsigned:
+            sign_t4(t4_dir, t4_tag, args.t4_key, t4_sums)
+        t4_files = verify_t4(t4_dir, t4_tag, t4_zip, work / "t4-check", unsigned=unsigned)
         print(f"T4 release: signature, checksum and T4 source tree ({t4_files} files) verified", flush=True)
 
         # 3. (--full) the full Setup: the launcher Setup + T5DR's and T4's signed release files, installed by the
@@ -484,8 +508,9 @@ def make(args):
             full_name = make_full_setup(args, work, launcher_zip, launcher_dir, t4_dir, t4_zip, plain, terms)
             launcher_names.append(full_name)
         sums = write_sums(launcher_dir, launcher_names)
-        sign_launcher(launcher_dir, version, channel, args.launcher_key, sums)
-        verify_launcher(launcher_dir, version, channel, zip_name, setup_name)
+        if not unsigned:
+            sign_launcher(launcher_dir, version, channel, args.launcher_key, sums)
+        verify_launcher(launcher_dir, version, channel, zip_name, setup_name, unsigned=unsigned)
         if full_name:
             verify_full_setup(launcher_dir, zip_name, full_name,
                               games=(Path(args.t5dr_release), Path(args.t4_release) if args.t4_release else t4_dir))
@@ -493,8 +518,9 @@ def make(args):
 
         launcher_key = hashlib.sha256(bytes.fromhex(channel.public_keys[0])).hexdigest()[:16]
         t4_key = hashlib.sha256(bytes.fromhex(game_releases.SOURCES["t4"].keys[0])).hexdigest()[:16]
-        launcher_sums = {n: digest(launcher_dir / n) for n in (*launcher_names, "SHA256SUMS", "SHA256SUMS.sig")}
-        t4_all = {n: digest(t4_dir / n) for n in (t4_zip, "SHA256SUMS", "SHA256SUMS.sig")}
+        signature = () if unsigned else ("SHA256SUMS.sig",)
+        launcher_sums = {n: digest(launcher_dir / n) for n in (*launcher_names, "SHA256SUMS", *signature)}
+        t4_all = {n: digest(t4_dir / n) for n in (t4_zip, "SHA256SUMS", *signature)}
         full_games = (dict(t5dr=bundled_version("t5dr", Path(args.t5dr_release)),
                            t4=bundled_version("t4", Path(args.t4_release) if args.t4_release else t4_dir)) if full_name else None)
         (launcher_dir / "NOTES.md").write_text(notes("launcher", version=version, plain=plain, commit=commit,
@@ -505,9 +531,15 @@ def make(args):
                                                sums=t4_all, rehearsal=args.rehearsal), encoding="utf-8")
         launcher_files = [*launcher_names, "SHA256SUMS", "SHA256SUMS.sig"]
         t4_assets = [t4_zip, "SHA256SUMS", "SHA256SUMS.sig"]
-        (out / "COMMANDS.txt").write_text(commands(out, version, t4_tag, launcher_files, t4_assets, commit, t4_commit,
-                                                   not args.t4_stable), encoding="utf-8")
+        text = commands(out, version, t4_tag, launcher_files, t4_assets, commit, t4_commit, not args.t4_stable)
+        if unsigned:
+            text = sign_commands(out, version, t4_tag, channel.name) + "\n" + text
+        (out / "COMMANDS.txt").write_text(text, encoding="utf-8")
+        if unsigned:            # the facts name what the owner's signature will add
+            launcher_files = [n for n in launcher_files if n != "SHA256SUMS.sig"]
+            t4_assets = [n for n in t4_assets if n != "SHA256SUMS.sig"]
         result = dict(version=version, commit=commit, rehearsal=args.rehearsal, t4_tag=t4_tag, t4_ref=args.t4_ref,
+                      unsigned=unsigned, t4_stage=str(stage) if stage is not None else None,
                       t4_commit=t4_commit, t4_prerelease=not args.t4_stable,
                       launcher={n: dict(sha256=launcher_sums[n], bytes=(launcher_dir / n).stat().st_size) for n in launcher_files},
                       t4={n: dict(sha256=t4_all[n], bytes=(t4_dir / n).stat().st_size) for n in t4_assets},
@@ -532,8 +564,12 @@ def main(argv=None):
     parser.add_argument("--t4-repo", type=Path, required=True, help="the Tekken 4 source checkout (git)")
     parser.add_argument("--t4-ref", required=True, help="T4 source commit or branch (exported with git archive)")
     parser.add_argument("--t4-stable", action="store_true", help="the T4 release is a full release, not a pre-release")
-    parser.add_argument("--launcher-key", required=True, help="private launcher key file (outside every repository)")
-    parser.add_argument("--t4-key", required=True, help="private T4 key file (outside every repository)")
+    parser.add_argument("--launcher-key", help="private launcher key file (outside every repository)")
+    parser.add_argument("--t4-key", help="private T4 key file (outside every repository)")
+    parser.add_argument("--unsigned", action="store_true",
+                        help="build and check everything but the signatures; COMMANDS.txt names the owner's signing steps")
+    parser.add_argument("--t4-stage", type=Path,
+                        help="T4's portable release stage (T4 tools/package_release.py --stage): the T4 folder of the zip")
     parser.add_argument("--out", help=r"default dist\release-<version> in this checkout")
     parser.add_argument("--runtime", help="verified portable runtime (default dist\\portable-runtime)")
     parser.add_argument("--runtime-cache", help="its pinned archive cache (default dist\\portable-cache)")
@@ -551,6 +587,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.full and not args.t5dr_release:
         parser.error("--full needs --t5dr-release")
+    if not args.unsigned and not (args.launcher_key and args.t4_key):
+        parser.error("--launcher-key and --t4-key are required (or --unsigned)")
     try:
         make(args)
     except (ReleaseFailed, ValueError, OSError, updater.UpdateError, game_releases.ReleaseError,

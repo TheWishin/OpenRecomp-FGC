@@ -92,7 +92,8 @@ class SourceBuild(unittest.TestCase):
     def test_source_build_requires_tools_instead_of_portable_release(self):
         self.core.bundled_toolchain = lambda: False
         self.assertEqual(self.adapter.build_ready(), "@t4.tools.required")
-        self.assertEqual([row["id"] for row in self.adapter.sources()], ["iso"])
+        # 0.1.3: the folder in use is always listed (after the ISO) and can be switched to another install.
+        self.assertEqual([row["id"] for row in self.adapter.sources()], ["iso", "folder"])
         self.adapter._prerequisite_rows = [dict(id="synthetic", ok=True)]
         self.assertEqual(self.adapter.build_ready(), "")
         self.assertEqual(self.adapter.native_label, "")

@@ -124,7 +124,7 @@ def parent(args):
             env = {key: value for key, value in os.environ.items() if not key.startswith(("TEKKEN4_", "QT_"))}
             env.update(QT_QPA_PLATFORM="offscreen", QT_QUICK_BACKEND="software", QT_QUICK_CONTROLS_STYLE="Basic",
                        QML_DISABLE_DISK_CACHE="1", OPENRECOMP_HOME=str(home), OPENRECOMP_PAD_ALWAYS="1",
-                       OPENRECOMP_T4_ROOT=str(Path(args.t4_root).resolve()),
+                       OPENRECOMP_T4_ROOT=str(Path(args.t4_root2 if who == "Bob" and args.t4_root2 else args.t4_root).resolve()),
                        OPENRECOMP_T4_SERVER="127.0.0.1:" + str(port),
                        TEMP=str(home / "tmp"), TMP=str(home / "tmp"),
                        T5_NET_BIND="127.0.0.1", T5_PORTMAP="0", PYTHONIOENCODING="utf-8")
@@ -708,7 +708,9 @@ def child(args):
 
     # Settings a player has after picking their ISO in the launcher (the source core keeps them per launcher home).
     root = os.environ["OPENRECOMP_T4_ROOT"]
-    core = t4_source.SourceCore(root)
+    # A portable T4 release (0.1.3+) keeps them in its own launcher\settings.json (T4's core), a source tree here.
+    from openrecomp.adapters import t4 as t4_adapter
+    core = t4_adapter.load_core(root) if os.path.isfile(os.path.join(root, "toolchain", "toolchain.json"))         else t4_source.SourceCore(root)
     settings = core.load_settings()
     settings.update(iso=args.iso, sound=False)
     core.save_settings(settings)
@@ -745,6 +747,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--lobby")
     parser.add_argument("--t4-root")
+    parser.add_argument("--t4-root2", help="Bob's own T4 install (default: --t4-root): two installs built apart")
     parser.add_argument("--iso", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--stub")

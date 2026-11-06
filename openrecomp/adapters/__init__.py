@@ -41,10 +41,15 @@ def make(manifest, config):
                     return LegacyT5DR(manifest, config, root)
                 return T5DR(manifest, config, root)
         elif kind == "t4":
-            from .t4 import T4, find_root
+            from .t4 import T4, configured_problem, find_root
             root = find_root(manifest, config)
             if root:
                 return T4(manifest, config, root)
+            wrong = configured_problem(manifest, config)
+            if wrong:
+                missing = Missing(manifest, config)
+                missing.wrong_folder = wrong
+                return missing
     except Exception as e:  # noqa: BLE001 -- one broken game must not take the launcher down
         missing = Missing(manifest, config)
         missing.problem = f"{manifest['short']}: {e}"

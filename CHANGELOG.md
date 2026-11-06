@@ -3,6 +3,23 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
+## v0.1.3
+
+Made so that every player gets the same Tekken 4 build and the launcher always runs the folder you chose.
+
+- **Tekken 4 0.1.3 brings its own compiler.** The T4 release now carries clang-cl, lld-link, CMake, Ninja and Python;
+  Build never uses a Visual Studio (2022, 2026 or none) or Git installed on the PC. The first Build downloads
+  Microsoft's C++ headers and libraries once, straight from Microsoft with fixed checksums (the Build card names the
+  licence). Two players on 0.1.3 now always get the same build id, whatever Microsoft tools their PCs have. Everybody
+  builds once more after updating (the new compiler is a new build).
+- **One Tekken 4 folder for everything.** Play, Build, Online, Direct IP and the logs use the folder you chose, and the
+  Play and Build pages show it with its version. When that folder is gone or is not a Tekken 4 install the page says
+  so instead of quietly using another one (an older copy, a developer folder).
+- **Why can't I play him?** In the T4 lobby a player whose build differs shows the reason: another Tekken 4 version
+  (both numbers), or the same version with other game files / another compiler. Direct IP names the same reasons.
+- The T4 online identity uses the game files from your ISO (SLUS_203.28, DATA.BIN, IRX) instead of the whole ISO file:
+  two clean rips of the same disc can play each other.
+
 ## v0.1.2
 
 v0.1.1 was an earlier pre-release; v0.1.2 contains everything planned for it.

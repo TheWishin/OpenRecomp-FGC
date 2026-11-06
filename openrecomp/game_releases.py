@@ -99,7 +99,9 @@ SOURCES = {
         # T4 source's build scripts run on the player's PC, so its release is signed like T5DR's.
         signature="SHA256SUMS.sig", sig_format="tekken4-release-sig/1", statement="Tekken4Recomp-release-signature-v1",
         keys=("19f5844ad99435605c4fc6585dbb87a5e620b672c81537830878ed3f2da4a79f",),
-        protected=("deps", "game", "generated", "out", "logs", "build", "settings.json", MARKER),
+        # 0.1.3: deps/ is part of the release (vendored PS2Recomp + libraries, the build output under it is
+        # redone after an update anyway); save/ holds a release folder's memory cards.
+        protected=("game", "generated", "out", "logs", "build", "save", "settings.json", MARKER),
         build_bytes=6_000_000_000, markers=("tools/build_game.ps1",),
         # The release asset is OpenRecomp-Tekken4-<tag>.zip (tools/make_release.py); one zip named like the launcher
         # bundle is also taken.

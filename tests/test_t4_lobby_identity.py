@@ -1,8 +1,11 @@
-"""The T4 lobby identity holds what Direct IP's check holds: build id fields, compiler and ISO, and the ELF on disk.
+"""The T4 lobby identity holds what Direct IP's check holds: build id fields, compiler and game files, and the ELF.
 
-Review t4-online-b740a3a finding 1. Test files only (no game data, no server): the lobby server recomputes the id
-from elf/code/net as before (BuildInfo.wire_id), so builds that differ only in compiler or ISO get different ids.
+Review t4-online-b740a3a finding 1; 0.1.3: the game files extracted from the ISO (game\\disc: SLUS_203.28,
+TEKKEN\\DATA.BIN, IRX\\IOPRP243.IMG) replace the whole ISO file, so two clean rips of SLUS-20328 pair. Test files
+only (no game data, no server): the lobby server recomputes the id from elf/code/net as before
+(BuildInfo.wire_id), so builds that differ only in compiler or game files get different ids.
 """
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -37,18 +40,22 @@ class LobbyIdentity(unittest.TestCase):
         self.enterContext(mock.patch.dict(t4_online._hash_cache, clear=True))
         self.api = dict(build=BuildInfo)
 
-    def install(self, name, elf=b"elf v1", iso=b"iso image", compiler=("MSVC", "19.44.35211.0")):
+    def install(self, name, elf=b"elf v1", data=b"data bin", irx=b"ioprp", iso=b"iso image",
+                compiler=("Clang", "23.1.3")):
         root = self.dir / name
-        (root / "game" / "disc").mkdir(parents=True)
-        (root / "game" / "disc" / "SLUS_203.28").write_bytes(elf)
+        disc = root / "game" / "disc"
+        (disc / "TEKKEN").mkdir(parents=True)
+        (disc / "IRX").mkdir()
+        (disc / "SLUS_203.28").write_bytes(elf)
+        (disc / "TEKKEN" / "DATA.BIN").write_bytes(data)
+        (disc / "IRX" / "IOPRP243.IMG").write_bytes(irx)
         out = root / "bin"
         out.mkdir()
         (out / "t4net_build.json").write_text(json.dumps(dict(
             id="0" * 16, toolchain=["CXX_ID=" + compiler[0], "CXX_VERSION=" + compiler[1], "GENERATOR=Ninja"])),
             encoding="utf-8")
         (root / "game.iso").write_bytes(iso)
-        import hashlib
-        info = BuildInfo(hashlib.sha1(b"elf v1").hexdigest(), CODE, "0.1.0")
+        info = BuildInfo(hashlib.sha1(b"elf v1").hexdigest(), CODE, "0.1.3")
         return Holder(str(root), str(root / "game.iso")), info, str(out)
 
     def ident(self, name, **kw):
@@ -61,14 +68,24 @@ class LobbyIdentity(unittest.TestCase):
         self.assertEqual(BuildInfo.wire_id(a.as_wire()), a.build_id)      # the live server's rule, unchanged
         self.assertNotEqual(a.code_id, CODE)
         self.assertRegex(a.code_id, r"^[0-9a-f]{40}$")
-        self.assertNotEqual(a.build_id, BuildInfo(a.elf_sha1, CODE, "0.1.0").build_id)
+        self.assertNotEqual(a.build_id, BuildInfo(a.elf_sha1, CODE, "0.1.3").build_id)
 
-    def test_another_compiler_or_iso_is_another_build(self):
+    def test_two_rips_with_the_same_game_files_pair(self):
+        """Another ISO file (other padding, other dump tool) but the same extracted files: the same id (0.1.3)."""
+        self.assertEqual(self.ident("a", iso=b"rip one").build_id, self.ident("b", iso=b"rip two, other bytes").build_id)
+
+    def test_the_folder_and_the_launcher_copy_do_not_matter(self):
+        short = self.ident("x").build_id
+        deep = self.ident(os.path.join("Very Long Folder Name", "Another Deep Folder", "Tekken 4")).build_id
+        self.assertEqual(short, deep)
+
+    def test_another_compiler_or_other_game_files_is_another_build(self):
         base = self.ident("a").build_id
-        self.assertNotEqual(self.ident("b", compiler=("MSVC", "19.43.34808.0")).build_id, base)
-        self.assertNotEqual(self.ident("c", iso=b"another dump").build_id, base)
+        self.assertNotEqual(self.ident("b", compiler=("MSVC", "19.51.36000.0")).build_id, base)
+        self.assertNotEqual(self.ident("c", data=b"another data.bin").build_id, base)
+        self.assertNotEqual(self.ident("d", irx=b"another irx").build_id, base)
 
-    def test_a_stale_elf_a_stamp_without_compiler_or_no_iso_is_refused(self):
+    def test_a_stale_elf_a_stamp_without_compiler_or_missing_game_files_is_refused(self):
         holder, info, out = self.install("a", elf=b"elf v0")
         with self.assertRaisesRegex(RuntimeError, "t4.direct_identity_failed"):
             holder._t4_identity_build(self.api, info, out)
@@ -77,25 +94,30 @@ class LobbyIdentity(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "t4.direct_identity_failed"):
             holder._t4_identity_build(self.api, info, out)
         holder, info, out = self.install("c")
-        os.remove(os.path.join(holder.root, "game.iso"))
-        with self.assertRaisesRegex(RuntimeError, "iso.choose_first"):
+        os.remove(os.path.join(holder.root, "game", "disc", "TEKKEN", "DATA.BIN"))
+        with self.assertRaisesRegex(RuntimeError, "online.build_required"):
             holder._t4_identity_build(self.api, info, out)
+
+    def test_no_iso_needed_once_the_game_is_built(self):
+        holder, info, out = self.install("a")
+        os.remove(os.path.join(holder.root, "game.iso"))
+        self.assertRegex(holder._t4_identity_build(self.api, info, out).build_id, r"^[0-9a-f]{16}$")
 
     def test_the_refusals_reach_the_player_as_their_own_texts(self):
         from test_t4_online import Subject
         subject = Subject(str(self.dir))
         self.addCleanup(subject.online_close)
-        for key in ("@t4.direct_identity_failed", "@iso.choose_first"):
+        for key in ("@t4.direct_identity_failed", "@online.build_required"):
             self.assertEqual(subject._online_error(RuntimeError(key)), key)
 
-    def test_the_iso_is_hashed_once_and_again_when_it_changes(self):
+    def test_the_game_files_are_hashed_once_and_again_when_they_change(self):
         holder, info, out = self.install("a")
-        iso = os.path.join(holder.root, "game.iso")
+        data = os.path.join(holder.root, "game", "disc", "TEKKEN", "DATA.BIN")
         reads = []
         real = open
 
         def counting(path, *args, **kwargs):
-            if os.path.normcase(str(path)) == os.path.normcase(iso):
+            if os.path.normcase(str(path)) == os.path.normcase(data):
                 reads.append(path)
             return real(path, *args, **kwargs)
         with mock.patch("builtins.open", side_effect=counting):
@@ -103,10 +125,18 @@ class LobbyIdentity(unittest.TestCase):
             t4_online._hash_cache.clear()                                 # a new launcher run: the cache file
             self.assertEqual(holder._t4_identity_build(self.api, info, out).build_id, first)
             self.assertEqual(len(reads), 1)
-            Path(iso).write_bytes(b"iso image changed")
-            os.utime(iso, ns=(1, 1))
+            Path(data).write_bytes(b"data bin changed")
+            os.utime(data, ns=(1, 1))
             self.assertNotEqual(holder._t4_identity_build(self.api, info, out).build_id, first)
             self.assertEqual(len(reads), 2)
+
+    def test_the_formula_is_the_direct_ip_preflight_formula(self):
+        """tools/net_preflight.py (T4) hashes the same three files the same way: Direct IP and the lobby agree."""
+        holder, _info, _out = self.install("a")
+        expected = hashlib.sha256(b"t4-game-files-v1\n")
+        for name, content in (("SLUS_203.28", b"elf v1"), ("TEKKEN/DATA.BIN", b"data bin"), ("IRX/IOPRP243.IMG", b"ioprp")):
+            expected.update(name.encode() + b"\0" + hashlib.sha256(content).hexdigest().encode() + b"\n")
+        self.assertEqual(t4_online.game_files_sha256(holder.root), expected.hexdigest())
 
 
 if __name__ == "__main__":

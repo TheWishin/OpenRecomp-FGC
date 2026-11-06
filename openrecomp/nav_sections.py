@@ -12,7 +12,9 @@ class Sections:
         ready = g.a.ready()
         running = g.a.running()
         detail = dict(kicker=st["status"], title=i18n.literal(g.short), lead=st["detail"],
-                      rows=[dict(k="@version", v=st["version"]), dict(k="@last_played", v=st["last"])] + nav_playtime.details(g, self.language),
+                      rows=[dict(k="@version", v=st["version"])]
+                      + ([dict(k="@game_folder", v=i18n.literal(st["folder"]))] if st.get("folder") else [])
+                      + [dict(k="@last_played", v=st["last"])] + nav_playtime.details(g, self.language),
                       results=g.a.recent_results(), image="")
         by_id = {s["id"]: s for s in g.a.settings()}
         for sid in g.a.quick_settings():
@@ -278,6 +280,9 @@ class Sections:
             else:
                 self._start_build(g)
         lead = state["result"] or problem or ("@built_hint" if g.a.ready() else "@build_hint")
+        note = getattr(g.a, "microsoft_note", lambda: "")()
+        if note and not problem and not state["result"]:
+            lead = note
         first_play = (g.a.ready() and (
             g.m.get("adapter") == "t4" and (not state["result"] or state["result"] in ("@build_finished", "@t4.build_finished"))
             or state["result"] == "@build_finished"))
@@ -288,7 +293,10 @@ class Sections:
                         verb="@play" if first_play else ("@files_missing" if problem else ("@build.retry" if retry else "@build")),
                         run=(lambda: self.start_game(g)) if first_play else build, card="main", primary=True,
                         blocked=bool(problem) and not first_play, first_play=first_play,
-                        hint=lead, detail=dict(kicker=st["status"], title="@start_game" if first_play else "@build_game", lead=lead, rows=state["steps"], primary="@play" if first_play else ("" if problem else "@build"))))
+                        hint=lead, detail=dict(kicker=st["status"], title="@start_game" if first_play else "@build_game", lead=lead,
+                                               rows=([dict(k="@game_folder", v=i18n.literal(st["folder"])),
+                                                      dict(k="@version", v=st["version"])] if st.get("folder") else []) + state["steps"],
+                                               primary="@play" if first_play else ("" if problem else "@build"))))
         out.extend(more)
         if g.m.get("adapter") == "t4" and g.a.ready():
             out.append(dict(kind="action", id="online_setup", label="@t4.direct_title", verb="@confirm", card="more",
