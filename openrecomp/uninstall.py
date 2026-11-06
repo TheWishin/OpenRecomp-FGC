@@ -21,6 +21,7 @@ KEEP = {"t4": ("save", "launcher/save", "logs/netplay-results"),
         "t5dr": ("native/gamedata", "native/gamedata-online", "native/replays", "native/save-backups",
                  "gamedata", "gamedata-online", "replays", "save-backups")}
 SETUP_UNINSTALLER = "Uninstall OpenRecomp.exe"
+WAIT_SECONDS = 6            # the zip copy's folder goes this long after the launcher quit
 SETUP_RECORD = "OpenRecomp-install.txt"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 DETACHED = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
@@ -136,9 +137,14 @@ def execute(the_plan, keep_saves=True, start=None):
         result["program_started"] = True
     elif the_plan.get("program"):
         folder = the_plan["program"]
-        # Waits until this launcher (its Python) has exited, then removes the zip copy's program folder.
-        script = f'ping -n 6 127.0.0.1 >nul & rmdir /s /q "{folder}"'
-        start(["cmd.exe", "/d", "/c", script], creationflags=DETACHED | NO_WINDOW, close_fds=True,
-              cwd=os.path.dirname(folder))
-        result["program_started"] = True
+        if '"' in folder or "%" in folder:
+            result["errors"].append(f"{folder}: remove this folder by hand")     # cmd would read these characters
+        else:
+            # Waits until this launcher (its Python) has exited, then removes the zip copy's program folder. One
+            # ready command line: a list made Python escape the quotes as \" (cmd does not know that), rmdir got a
+            # wrong path and the folder stayed (0.1.3 real test); /s keeps the inner quotes as they are.
+            cmd = os.path.join(os.environ.get("SystemRoot") or r"C:\Windows", "System32", "cmd.exe")
+            line = f'"{cmd}" /d /s /c "ping -n {WAIT_SECONDS} 127.0.0.1 >nul & rmdir /s /q "{folder}""'
+            start(line, creationflags=DETACHED | NO_WINDOW, close_fds=True, cwd=os.path.dirname(folder))
+            result["program_started"] = True
     return result

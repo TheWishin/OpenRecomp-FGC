@@ -17,6 +17,27 @@ def managed_install(root, game):
     return root
 
 
+class ZipCopyRemoval(unittest.TestCase):
+    """The zip copy's program folder really goes once the launcher quit: a folder with spaces, a real cmd.exe."""
+
+    @unittest.skipUnless(os.name == "nt", "Windows only")
+    def test_the_folder_is_removed_for_real(self):
+        import subprocess
+        import time
+        with tempfile.TemporaryDirectory() as temp:
+            program = Path(temp) / "Games With Spaces" / "OpenRecomp-FGC"
+            (program / "openrecomp").mkdir(parents=True)
+            (program / "openrecomp" / "app.py").write_text("x", encoding="utf-8")
+            with mock.patch.object(uninstall, "WAIT_SECONDS", 1):
+                result = uninstall.execute(dict(program=str(program)), start=subprocess.Popen)
+            self.assertTrue(result["program_started"])
+            deadline = time.monotonic() + 20
+            while program.exists() and time.monotonic() < deadline:
+                time.sleep(0.2)
+            self.assertFalse(program.exists())
+            self.assertTrue(program.parent.is_dir())               # only the program folder
+
+
 class Plan(unittest.TestCase):
     def setUp(self):
         self.dir = Path(self.enterContext(tempfile.TemporaryDirectory()))
@@ -92,8 +113,8 @@ class Plan(unittest.TestCase):
         self.assertEqual(names, ["Tekken 4 (USA).iso", "game.pkg", "replays", "save", "x.rap"])
         self.assertTrue(all("OpenRecomp-kept-" in str(p) for p in kept))
         self.assertTrue((kept[names.index("save")] / "card0.ps2").is_file() or any((p / "card0.ps2").is_file() for p in kept))
-        self.assertEqual(started[0][0], "cmd.exe")                  # the zip copy's folder goes after the launcher
-        self.assertIn(str(self.program), started[0][-1])
+        self.assertIn("cmd.exe\" /d /s /c \"ping", started[0])     # the zip copy's folder goes after the launcher
+        self.assertIn('rmdir /s /q "' + str(self.program) + '""', started[0])
 
     def test_without_keeping_saves_only_the_disc_files_stay(self):
         (self.t4 / "save").mkdir()
