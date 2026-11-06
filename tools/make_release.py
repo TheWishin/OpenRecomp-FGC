@@ -383,7 +383,7 @@ def notes(kind, **facts):
                 f"| | |\n|---|---|\n| Launcher commit | `{facts['commit'][:12]}` |\n"
                 f"| Release key | `{facts['key_id']}` (Ed25519, `SHA256SUMS.sig`) |\n"
                 + "".join(f"| `{name}` | `{value}` |\n" for name, value in facts["sums"].items())
-                + ("\nREHEARSAL BUILD: not from a tagged commit. Do not publish.\n" if facts["rehearsal"] else ""))
+                + _candidate_line(facts))
     return (f"Tekken 4 recompiled (USA SLUS-20328), {facts['tag']}\n\n"
             "Beta. Installed and updated by OpenRecomp-FGC (Tekken 4 > Install). No game data: the game is built on your "
             "PC from your own disc image.\n\n"
@@ -392,7 +392,14 @@ def notes(kind, **facts):
             f"| | |\n|---|---|\n| T4 source | `{facts['t4_commit'][:12]}` |\n| Launcher commit | `{facts['commit'][:12]}` |\n"
             f"| Release key | `{facts['key_id']}` (Ed25519, `SHA256SUMS.sig`) |\n"
             + "".join(f"| `{name}` | `{value}` |\n" for name, value in facts["sums"].items())
-            + ("\nREHEARSAL BUILD: not from a tagged commit. Do not publish.\n" if facts["rehearsal"] else ""))
+            + _candidate_line(facts))
+
+
+def _candidate_line(facts):
+    if facts.get("unsigned"):
+        return ("\nUNSIGNED CANDIDATE: sign both SHA256SUMS (COMMANDS.txt, step 0) and tag the launcher commit before "
+                "publishing; remove this line from the published notes.\n")
+    return "\nREHEARSAL BUILD: not from a tagged commit. Do not publish.\n" if facts["rehearsal"] else ""
 
 
 def commands(out, version, t4_tag, launcher_files, t4_files, commit, t4_commit, t4_prerelease):
@@ -525,10 +532,10 @@ def make(args):
                            t4=bundled_version("t4", Path(args.t4_release) if args.t4_release else t4_dir)) if full_name else None)
         (launcher_dir / "NOTES.md").write_text(notes("launcher", version=version, plain=plain, commit=commit,
                                                      key_id=launcher_key, sums=launcher_sums, rehearsal=args.rehearsal,
-                                                     full=full_name, full_games=full_games),
+                                                     full=full_name, full_games=full_games, unsigned=unsigned),
                                                encoding="utf-8")
         (t4_dir / "NOTES.md").write_text(notes("t4", tag=t4_tag, commit=commit, t4_commit=t4_commit, key_id=t4_key,
-                                               sums=t4_all, rehearsal=args.rehearsal), encoding="utf-8")
+                                               sums=t4_all, rehearsal=args.rehearsal, unsigned=unsigned), encoding="utf-8")
         launcher_files = [*launcher_names, "SHA256SUMS", "SHA256SUMS.sig"]
         t4_assets = [t4_zip, "SHA256SUMS", "SHA256SUMS.sig"]
         text = commands(out, version, t4_tag, launcher_files, t4_assets, commit, t4_commit, not args.t4_stable)
