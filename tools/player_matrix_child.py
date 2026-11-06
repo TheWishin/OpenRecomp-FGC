@@ -536,18 +536,20 @@ def run_case(request):
                 if build is not None:
                     evidence["build_started"] = True
                     evidence["lock_held"] = (Path(evidence["root"]) / "openrecomp-build.lock").is_file()
-                    command = getattr(build, "cmd", None)
+                    command = getattr(build, "cmd", None) or getattr(getattr(build, "proc", None), "args", None)
                     if command:
                         evidence["build_python"] = command[0]
                 phase = "build"
                 return
             state = game.a.build_state()
             build = getattr(game.a, "build", None)
-            command = getattr(build, "cmd", None)
+            # ProcessBuild keeps its argv on the process (T4); T5DR's build object names it cmd.
+            command = getattr(build, "cmd", None) or getattr(getattr(build, "proc", None), "args", None)
             if command:
                 evidence["build_python"] = command[0]
-                own = Path(sys.executable) if gid == "t4" else Path(evidence["root"]) / "python" / "python.exe"
-                if not same_path(command[0], own):
+                owns = ((Path(sys.executable), console, Path(evidence["root"]) / "python" / "python.exe") if gid == "t4"
+                        else (Path(evidence["root"]) / "python" / "python.exe",))
+                if not any(same_path(command[0], own) for own in owns):
                     raise AssertionError("build selected a Python outside the game install")
             evidence["build_started"] = evidence["build_started"] or bool(state.get("running") and build)
             evidence["first_steps"] = [row.get("k", "") for row in state.get("steps", [])
