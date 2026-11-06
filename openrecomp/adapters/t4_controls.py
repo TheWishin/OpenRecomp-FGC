@@ -15,7 +15,7 @@ import time
 from .. import pad_glyphs, t4_controls_ini as ini
 from ..t4_pad_reader import Reader, pad_name
 
-PLAYER_PAD_ID = "t4:player:"   # + 1 or 2: that player's pad bindings while no pad plays as the player
+PLAYER_PAD_ID = ini.PLAYER_PAD_ID
 CAPTURE_S = 5.0            # "Press a button": the countdown the page shows
 HOLD_CANCEL_S = 1.0        # holding the pad's Back button (B) this long cancels a capture or ends the input test
 LABELS = {"1": "@controls.slot.1", "2": "@controls.slot.2", "3": "@controls.slot.3", "4": "@controls.slot.4",

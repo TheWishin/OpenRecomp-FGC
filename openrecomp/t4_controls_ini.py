@@ -44,6 +44,7 @@ PLAYERS = 2
 KIND_PAD, KIND_KEYS = "pad", "keys"
 KINDS = (KIND_PAD, KIND_KEYS)
 DEVICE_KEYS, DEVICE_PAD = "keys1", "xinput"         # the page's device kinds (pad_glyphs.device_type)
+PLAYER_PAD_ID = "t4:player:"     # + 1 or 2: that player's pad bindings while no pad plays as the player
 KEYBOARD_ID, PAD_ID, NO_PAD_ID = "t4:keyboard", "t4:xinput:", "t4:pad"      # the page's row ids
 FILE_NAME = "controls.ini"
 PRESET_DEFAULT = "default"
