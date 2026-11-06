@@ -112,7 +112,10 @@ def safety(events, *, full=False, worker=False, expected_python=None, extra_root
     them. Shell build pipelines cannot inherit a Python audit hook and are refused.
     """
     original_popen = subprocess.Popen
-    compilers = {"cl", "clang", "clang++", "clang-cl", "gcc", "g++", "ninja", "cmake", "msbuild", "make"}
+    # T4 0.1.4: the release's prebuilt recompiler (bin\tools\ps2_recomp.exe) and lld-link are the first native tools of
+    # its build (no CMake any more): the same boundary as a compiler.
+    compilers = {"cl", "clang", "clang++", "clang-cl", "gcc", "g++", "ninja", "cmake", "msbuild", "make", "ps2_recomp",
+                 "lld-link"}
     network = {"git", "curl", "wget", "winget", "msiexec", "bitsadmin", "certutil"}
     shells = {"powershell", "pwsh", "cmd", "wscript", "cscript"}
     pending = threading.local()
