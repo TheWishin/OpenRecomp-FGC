@@ -14,6 +14,31 @@ The launcher stores overrides only, so a file that lists nothing and says `devic
 import os
 import re
 import tempfile
+import time
+
+
+def _replace_with_retry(temporary, path, text, seconds=2.0):
+    """os.replace onto an existing controls.ini fails on Windows while another program has it open (the running game
+    re-reads it every second, an antivirus scans the file the first save just wrote): a player's FIRST binding saved,
+    the second did not. Retry for a moment; if the file stays held, write it in place (the runtime ignores a file it
+    cannot parse and re-reads it a second later), and only fail when even that is refused."""
+    deadline = time.monotonic() + seconds
+    delay = 0.05
+    while True:
+        try:
+            os.replace(temporary, path)
+            return
+        except PermissionError:
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(delay)
+            delay = min(delay * 2, 0.4)
+    with open(path, "w", encoding="utf-8", newline="\r\n") as stream:
+        stream.write(text)
+    try:
+        os.unlink(temporary)
+    except OSError:
+        pass
 
 PLAYERS = 2
 KIND_PAD, KIND_KEYS = "pad", "keys"
@@ -438,7 +463,7 @@ class Controls:
         try:
             with os.fdopen(handle, "w", encoding="utf-8", newline="\r\n") as stream:
                 stream.write(self.text())
-            os.replace(temporary, path)
+            _replace_with_retry(temporary, path, self.text())
         except Exception:
             if os.path.exists(temporary):
                 os.unlink(temporary)
