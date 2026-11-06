@@ -3,6 +3,13 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
+## Unreleased
+
+- **Tekken 4 key and button bindings** (needs a Tekken 4 with the pad-bindings runtime): the Pad bindings page is
+  editable like T5DR's. Pick the keyboard or a controller, select an action, press the new key or button (X clears),
+  presets Default and Tekken arcade 1-2-3-4. Every device can play as player 1 or 2. Without changes the game keeps its
+  old layout exactly. Stop the game before editing.
+
 ## v0.1.4
 
 Made so that Tekken 4 needs nothing from the internet and an update never ends in "damaged zip".

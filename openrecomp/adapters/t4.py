@@ -390,6 +390,8 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
             env["TEKKEN4_HUD"] = graphics["hud"]
             env["TEKKEN4_ANISO"] = graphics["anisotropic"]
             env["TEKKEN4_WIDESCREEN"] = "1" if graphics["aspect"] == "16:9" else "0"
+            if getattr(self.core, "SAVE_DIR", ""):
+                env["TEKKEN4_CONTROLS"] = self._t4c_path()        # the Pad bindings page's file (a missing file = default)
             env.update(extra_env or {})
             env.update(self._beta_env())
             if getattr(self.core, "source_only", False) and (extra_env or {}).get("TEKKEN4_NET"):

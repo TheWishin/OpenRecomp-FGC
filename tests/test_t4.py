@@ -1,5 +1,6 @@
 """T4 settings and controller actions with a core that never opens a game or a file."""
 import json
+import os
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -16,6 +17,8 @@ AA_LEVELS = ["off", "fxaa", "smaa", "ssaa2", "ssaa3", "ssaa4", "msaa2", "msaa4",
 
 class FakeCore:
     RESOLUTIONS = [("auto", "Auto", 1)]
+
+    SAVE_DIR = os.path.join("fake-root", "save")
 
     def __init__(self, aa=True, supports_aa=True):
         self.saved = dict(aa=aa)
@@ -148,6 +151,11 @@ class Graphics(unittest.TestCase):
                     self.assertEqual(self.core.game_env, original)
         self.assertEqual(len(self.core.locks), len(self.core.started))
         self.thread.assert_called()
+
+    def test_the_pad_bindings_file_reaches_the_game(self):
+        self.adapter.start()
+        self.assertEqual(self.core.started[-1]["TEKKEN4_CONTROLS"], os.path.join("fake-root", "save", "controls.ini"))
+        self.assertEqual(self.adapter._t4c_path(), self.core.started[-1]["TEKKEN4_CONTROLS"])
 
     def test_defaults_replace_inherited_hud_and_filter_values(self):
         self.adapter.start()
