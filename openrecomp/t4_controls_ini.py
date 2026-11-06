@@ -58,7 +58,7 @@ SLOT_IDS = tuple(s for s, _g, _t in SLOTS)
 GROUP = {s: g for s, g, _t in SLOTS}
 # Combo slots: one source pressing several attacks at once. The file has no such thing: the runtime presses every target
 # a source is listed under, so a combo is "this source is in the lists of 1 and 3 and 4". Page slot id = "1+3+4".
-COMBO_IDS = ("1+2", "3+4", "1+3", "2+4", "1+4", "2+3", "1+2+3", "1+3+4", "2+3+4", "1+2+4", "1+2+3+4")
+COMBO_IDS = ("1+2", "3+4", "1+3", "2+4", "1+2+3+4", "1+4", "2+3", "1+2+3", "1+3+4", "2+3+4", "1+2+4")
 COMBO_TARGETS = {c: tuple(c.split("+")) for c in COMBO_IDS}
 COMBO_BY_SET = {frozenset(t): c for c, t in COMBO_TARGETS.items()}
 PAGE_SLOT_IDS = SLOT_IDS + COMBO_IDS               # what the page shows and edits (the file only has SLOT_IDS)

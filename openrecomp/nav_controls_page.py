@@ -4,7 +4,7 @@ the controller's own button glyphs, presets, reset, and a live input test. No Qt
 Rows stay the hub's usual items (up/down, confirm, click), so the page works by pad, keyboard and mouse alike:
 LT/RT (PgUp/PgDn) or the Controller row switch controllers, Confirm binds the focused action, X clears it. The
 capture itself, the conflict question and the input test live in nav_tools.Tools."""
-from . import i18n, pad_presets, ui_sound
+from . import i18n, pad_glyphs, pad_presets, ui_sound
 
 GROUPS = (("attack", "@controls.group.attack"), ("macro", "@controls.group.macro"),
           ("menu", "@controls.group.menu"), ("dir", "@controls.group.dir"))
@@ -141,8 +141,12 @@ class ControlsPage:
         unbound = not slot.get("sources") and slot.get("value") in ("", "@controls.unbound")
         value = slot.get("text") or slot.get("value") or ""
         rows = [dict(k="@controls.current", v=value or "@controls.unbound")]
+        glyphs = list(slot.get("glyphs") or [])
+        style, dtype = getattr(self, "prompt_style", "auto"), pad.get("type")
+        if style in ("xbox", "ps") and style != dtype and dtype in ("xbox", "ps") and slot.get("sources"):
+            glyphs = [pad_glyphs.restyle(dtype, s, style) for s in slot["sources"]]      # Settings > Button prompts
         return dict(kind="action", id=str(pad["id"]) + ":" + slot["id"], slot=slot["id"], ctl="slot",
-                    label=slot["label"], notation=slot["id"], value=value, glyphs=list(slot.get("glyphs") or []),
+                    label=slot["label"], notation=slot["id"], value=value, glyphs=glyphs,
                     unbound=unbound, verb="" if disabled else "@controls.bind",
                     hint="@controls.fixed_hint" if fixed else "@controls.hint", disabled=disabled and not fixed,
                     clear=bool(features.get("clear")) and not disabled and not unbound,

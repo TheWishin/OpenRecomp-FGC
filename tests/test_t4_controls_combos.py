@@ -163,5 +163,97 @@ class Combos(unittest.TestCase):
         self.assertEqual(set(self.adapter.controls_input("t4:xinput:0")["lit"]), {"1", "3", "4", "1+3+4"})
 
 
+class PageShape(unittest.TestCase):
+    """The page like Tekken 8's button config: the owner's row order, per-player tabs, live strip, glyph style."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.adapter = T4Editable(self.tmp.name)
+
+    def test_rows_come_in_the_owners_order(self):
+        ids = [s["id"] for s in self.adapter.row("t4:xinput:0")["slots"]]
+        self.assertEqual(ids, ["1", "2", "3", "4", "1+2", "3+4", "1+3", "2+4", "1+2+3+4", "1+4", "2+3", "1+2+3",
+                               "1+3+4", "2+3+4", "1+2+4", "START", "SELECT", "L1", "R1", "L2", "R2", "L3", "R3",
+                               "UP", "DOWN", "LEFT", "RIGHT"])
+        groups = [s["group"] for s in self.adapter.row("t4:xinput:0")["slots"]]
+        self.assertEqual(groups[:4], ["attack"] * 4)
+        self.assertEqual(set(groups[4:15]), {"macro"})
+
+    def test_player_two_has_a_tab_before_the_second_pad_is_plugged_in(self):
+        rows = self.adapter.controls()
+        self.assertEqual([(r["id"], r["port"]) for r in rows],
+                         [("t4:keyboard", 0), ("t4:xinput:0", 0), ("t4:player:2", 1)])
+        self.adapter.clear_binding("t4:player:2", "1")
+        self.adapter.apply_preset("t4:player:2", "t4_combos")
+        c = ini.Controls.load(self.adapter._t4c_path())
+        self.assertEqual(c.combo_sources(1, "pad", "1+2"), ["RB"])
+        self.assertEqual(c.sources(0, "pad", "1"), ["X"])
+        with self.assertRaises(RuntimeError):
+            self.adapter.begin_binding("t4:player:2", "1")
+        with self.assertRaises(RuntimeError):
+            self.adapter.begin_input_test("t4:player:2")
+        # the second pad arrives: the placeholder is gone, the pad shows the same bindings
+        self.adapter.reader.connected.add(1)
+        self.adapter.poll_binding()
+        self.assertEqual([r["id"] for r in self.adapter.controls()], ["t4:keyboard", "t4:xinput:0", "t4:xinput:1"])
+        self.assertEqual(self.adapter.slot("t4:xinput:1", "1+2")["sources"], ["RB"])
+
+    def test_reset_is_per_player(self):
+        self.adapter.reader.connected.add(1)
+        self.adapter.apply_preset("t4:xinput:0", "t4_combos")
+        self.adapter.apply_preset("t4:xinput:1", "t4_combos")
+        self.adapter.reset_controls("t4:xinput:1")
+        c = ini.Controls.load(self.adapter._t4c_path())
+        self.assertEqual(c.combo_sources(0, "pad", "1+2"), ["RB"])
+        self.assertEqual(c.players[1].maps["pad"], {})
+
+    def test_the_strip_is_live_for_a_pad_without_an_input_test_and_not_for_the_keyboard(self):
+        self.adapter.controls()
+        self.adapter.reader.pads[0] = {"X", "A", "DDOWN"}
+        live = self.adapter.controls_input("t4:xinput:0")
+        self.assertEqual(set(live["lit"]), {"1", "3", "DOWN"})
+        self.assertEqual(live["notation"], "d+1+3")
+        self.adapter.reader.keys = {"Z"}
+        self.assertEqual(self.adapter.controls_input("t4:keyboard"), dict(lit=[], notation=""))
+        self.adapter.reader.pads[0] = {"X", "A"}
+        self.assertEqual(self.adapter.controls_input("t4:player:2"), dict(lit=[], notation=""))
+
+    def test_a_combo_lights_with_the_buttons_that_trigger_it(self):
+        self.adapter.apply_preset("t4:xinput:0", "t4_combos")
+        self.adapter.reader.pads[0] = {"RB"}
+        self.assertEqual(set(self.adapter.controls_input("t4:xinput:0")["lit"]), {"1", "2", "1+2"})
+
+
+class GlyphStyle(unittest.TestCase):
+    def test_restyle_maps_the_same_physical_button(self):
+        from openrecomp import pad_glyphs as pg
+        self.assertEqual(pg.restyle("xbox", "A", "ps")["text"], "cross")
+        self.assertEqual(pg.restyle("xbox", "LT", "ps")["text"], "L2")
+        self.assertEqual(pg.restyle("xbox", "DUP", "ps")["shape"], "dpad")
+        self.assertEqual(pg.restyle("ps", "B1", "xbox")["text"], "X")
+        self.assertEqual(pg.restyle("ps", "B2", "xbox")["text"], "A")
+        self.assertEqual(pg.restyle("xbox", "A", "xbox"), pg.glyph("xbox", "A"))
+        self.assertEqual(pg.restyle("xbox", "A", "kb"), pg.glyph("xbox", "A"))
+        self.assertEqual(pg.restyle("keyboard", "Z", "ps"), pg.glyph("keyboard", "Z"))
+
+    def test_the_page_draws_the_launchers_button_prompt_style(self):
+        from openrecomp.nav import Game, Nav
+        from test_nav import manifest
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        adapter = T4Editable(tmp.name)
+        nav = Nav([Game(manifest(), adapter)])
+        nav.screen = "hub"
+        nav.sec[nav.game.id] = "controls"
+        nav._ctl_select(nav.game, "t4:xinput:0")
+        shapes = {}
+        for style in ("auto", "ps", "xbox"):
+            nav.prompt_style = style
+            item = next(it for it in nav.items() if it.get("slot") == "3" and it.get("ctl") == "slot")
+            shapes[style] = item["glyphs"][0]["text"]
+        self.assertEqual(shapes, {"auto": "A", "ps": "cross", "xbox": "A"})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -83,7 +83,10 @@ class Rows(unittest.TestCase):
 
     def test_keyboard_and_the_connected_pad_are_rows_with_the_fixed_layouts_as_defaults(self):
         rows = self.adapter.controls()
-        self.assertEqual([r["id"] for r in rows], ["t4:keyboard", "t4:xinput:0"])
+        self.assertEqual([r["id"] for r in rows], ["t4:keyboard", "t4:xinput:0", "t4:player:2"])    # P2 has no pad yet
+        placeholder = rows.pop()
+        self.assertEqual((placeholder["port"], placeholder["disabled"]), (1, False))
+        self.assertFalse(placeholder["features"]["test"])
         keyboard = {s["id"]: s["sources"] for s in rows[0]["slots"]}
         pad = {s["id"]: s["sources"] for s in rows[1]["slots"]}
         # patch 31 asyncPadMask: Square = Left / Z / Num0, Triangle = Up / V / Num1, Cross = Down / X / Space, Circle = Right / C / Esc
