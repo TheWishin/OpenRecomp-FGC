@@ -31,6 +31,8 @@ from ..fighter_render import t5_cache_name
 from ..game_releases import managed as _managed_install
 from ..player_main import choose_main, local_main
 
+RANK_BADGES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "assets", "ranks")
+
 DISPLAY = [("window", "@display.window"), ("window1080", "@display.1080"), ("window1440", "@display.1440"),
            ("maximized", "@display.max"), ("borderless", "@display.borderless")]
 RES_NAMES = {"lowest": "@resolution.lowest", "lower": "@resolution.lower", "native": "@resolution.native", "1080p": "1080p",
@@ -586,13 +588,41 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         return next((f["name"] for f in self._fighter_table() if f["key"] == key), key or "")
 
     def rank_plate(self, tier):
-        """The plate the T5DR launcher read from this build (output folder, cache, ranks). Looked up once per tier: the
-        online table asks for every player on every redraw."""
+        """The plate the T5DR launcher reads from this build (output folder, cache, ranks). Looked up once per tier:
+        the online table asks for every player on every redraw. A build whose plates were never read (this launcher
+        built it, T5DR's own never ran) gets them read once in the background (0.1.5); until they are there -- or when
+        they cannot be read -- the drawn badge of the same tier stands in, so a rank never shows without an emblem."""
+        if isinstance(tier, bool) or not isinstance(tier, int) or not 0 <= tier < 64:
+            return ""
         plates = self.__dict__.setdefault("_plates", {})
-        if tier not in plates:
-            path = os.path.join(self.s.out_dir, "cache", "ranks", "rank_%02d.png" % tier) if isinstance(tier, int) else ""
-            plates[tier] = path if path and os.path.isfile(path) else ""
-        return plates[tier]
+        if plates.get(tier):
+            return plates[tier]
+        path = os.path.join(self.s.out_dir, "cache", "ranks", "rank_%02d.png" % tier)
+        if os.path.isfile(path):
+            plates[tier] = path
+            return path
+        self._start_rank_plates()
+        badge = os.path.join(RANK_BADGES, "t4_rank_%02d.svg" % tier)       # the same 37-rank ladder
+        return badge if os.path.isfile(badge) else ""
+
+    def _start_rank_plates(self):
+        """Read the game's own plates once per launcher run, on a thread (never on the screen's)."""
+        try:
+            if self.__dict__.get("_plates_tried") or not self.state().get("built"):
+                return
+        except Exception:  # noqa: BLE001 -- not a built game yet: nothing to read
+            return
+        self._plates_tried = True
+        threading.Thread(target=self._make_rank_plates, daemon=True).start()
+
+    def _make_rank_plates(self):
+        try:
+            with readonly_imports():
+                ra = importlib.import_module("t5lobby.rank_art")
+            if not ra.is_ready(ra.folder_for(self.s.out_dir)):
+                ra.extract(self.s.out_dir)
+        except Exception:  # noqa: BLE001 -- the drawn badges stay; a missing picture never stops the launcher
+            pass
 
     def fighter_image(self, key):
         gid = next((f["id"] for f in self._fighter_table() if f["key"] == key), None)

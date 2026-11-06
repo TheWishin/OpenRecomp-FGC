@@ -12,7 +12,7 @@ from PySide6.QtGui import QAccessible, QAccessibleAnnouncementEvent, QFont, QFon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401 -- so the scene's root comes back as a QQuickWindow
 
-from . import adapters, file_dialog, i18n, manifest as mf, stall, ui_sound
+from . import adapters, file_dialog, i18n, launcher_prefs, manifest as mf, stall, ui_sound
 from .nav import Game, Nav
 from .pad import Pads, PlayStationReader, WinMMPlayStationReader, XInputReader
 from .update_service import UpdateService
@@ -99,6 +99,30 @@ def picker_dirs(config):
     return {k: v for k, v in dirs.items() if isinstance(k, str) and isinstance(v, str) and len(k) <= 16 and v}
 
 
+SYSTEM_CJK_FILES = ("YuGothM.ttc", "YuGothR.ttc", "malgun.ttf", "meiryo.ttc", "msgothic.ttc")
+
+
+def load_system_cjk_fonts(fonts_dir=None):
+    """Language names (日本語, 한국어) must always show. When the font database lists none of the CJK families the
+    substitution names (a window system that exposes no system fonts to Qt, a stripped Windows), load Windows' own
+    Japanese and Korean fonts from its Fonts folder -- read at run time, never shipped -- and substitute those.
+    -> the family names loaded (empty on a normal PC)."""
+    have = set(QFontDatabase.families())
+    if any(family in have for family in CJK_FALLBACKS):
+        return []
+    fonts_dir = fonts_dir or os.path.join(os.environ.get("WINDIR") or r"C:\Windows", "Fonts")
+    loaded = []
+    for name in SYSTEM_CJK_FILES:
+        path = os.path.join(fonts_dir, name)
+        if os.path.isfile(path):
+            ident = QFontDatabase.addApplicationFont(path)
+            loaded += [f for f in QFontDatabase.applicationFontFamilies(ident) if f not in loaded] if ident >= 0 else []
+    if loaded:
+        for family in ("Big Shoulders", "IBM Plex Sans"):
+            QFont.insertSubstitutions(family, loaded)
+    return loaded
+
+
 def load_games(config):
     from .playtime import shared_store
 
@@ -160,6 +184,9 @@ class Backend(QObject, GameSetupBackend):
         self.nav.on_build_history = self._save_build_history      # the Build page's "about N min left" next time
         self.nav.on_adapter_config = self._save_config            # e.g. the one-time T5DR folder notice
         self.nav.on_uninstall = self._uninstall                   # Settings > Uninstall OpenRecomp completely
+        self.nav.on_launcher = self._launcher_action              # the launcher's own Settings page (nav_launcher.py)
+        style = self.config.get("prompt_style")
+        self.nav.prompt_style = style if style in launcher_prefs.PROMPT_STYLES else "auto"
         self.updates = UpdateService(busy=self._update_busy, quit=self._quit, ask_restart=True,
                                      prereleases=lambda: bool(self.config.get("game_prereleases")))
         self.nav.on_update_test = self._take_test_update          # "up to date -- test version X available"
@@ -253,6 +280,29 @@ class Backend(QObject, GameSetupBackend):
             self.window.setProperty("allowClose", True)
         QGuiApplication.quit()
 
+    registry = None                       # tests put a fake registry layer here (launcher_prefs.WinRegistry)
+    folder_opener = None                  # ... and a fake "open this folder"
+
+    def _launcher_action(self, action, value):
+        """The launcher's own Settings page: "get" -> what it shows; "startup" (bool), "prompt_style" (str), "open_data".
+        Only per-user things: the Run key of this user, config.json, the data folder."""
+        if action == "get":
+            return dict(startup=launcher_prefs.startup_enabled(self.registry) if launcher_prefs.available() or self.registry else None,
+                        data_dir=launcher_prefs.data_dir(), prompt_style=self.nav.prompt_style)
+        if action == "startup":
+            ok = launcher_prefs.set_startup(bool(value), self.registry)
+            if ok:
+                self.config["start_with_windows"] = bool(value)
+                self._save_config()
+            return ok
+        if action == "prompt_style":
+            self.config["prompt_style"] = value if value in launcher_prefs.PROMPT_STYLES else "auto"
+            self._save_config()
+            return True
+        if action == "open_data":
+            return launcher_prefs.open_folder(launcher_prefs.data_dir(), self.folder_opener)
+        return None
+
     def _uninstall(self, action, keep_saves):
         """"plan": what a complete uninstall removes (nothing touched); "run": do it and close the launcher. No
         settings are saved after that (they would make %LOCALAPPDATA%\\OpenRecomp again)."""
@@ -267,6 +317,8 @@ class Backend(QObject, GameSetupBackend):
         if timer is not None:
             timer.stop()
         self._config_pending = False
+        if launcher_prefs.startup_enabled(self.registry):
+            launcher_prefs.set_startup(False, self.registry)      # no Run entry left pointing at a removed launcher
         result = uninstall.execute(uninstall.plan(self.config), keep_saves=bool(keep_saves))
         if self.window is not None:
             self.window.setProperty("allowClose", True)
@@ -1035,6 +1087,7 @@ def make_engine(backend, full):
     for name in os.listdir(os.path.join(UI_DIR, "fonts")):
         if name.lower().endswith(".ttf"):
             QFontDatabase.addApplicationFont(os.path.join(UI_DIR, "fonts", name))
+    load_system_cjk_fonts()
     engine = QQmlApplicationEngine()
     engine.setInitialProperties({"backend": backend, "wantFull": full})
     engine.load(QUrl.fromLocalFile(os.path.join(UI_DIR, "Main.qml")))

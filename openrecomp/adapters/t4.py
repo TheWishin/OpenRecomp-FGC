@@ -574,7 +574,7 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
         ok = bool(iso) and os.path.isfile(iso)
         home = os.path.expanduser("~")
         # The ISO's own folder first, then Downloads: the T4 game folder is never where a disc image is kept.
-        out = [dict(id="iso", label="@game_iso", value=os.path.basename(iso) if ok else "@missing", ok=ok, kind="file",
+        out = [dict(id="iso", label="@t4.iso_row", value=os.path.basename(iso) if ok else "@missing", ok=ok, kind="file",
                      title="@t4.choose_iso", filter="@t4.iso_filter", exts=[".iso"],
                      dirs=[os.path.dirname(iso) if iso else "", os.path.join(home, "Downloads"), os.path.join(home, "Desktop"), self.root],
                      hint="@iso.hint", note=self.iso_note, busy=self._source_state["running"])]
@@ -587,7 +587,7 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
         else:
             # 0.1.3: the folder in use, always on the page, and "use an existing install" at any time: picking another
             # T4 folder (or a release zip) makes it THE folder for Play, Build and Online.
-            out.append(dict(id="folder", label="@t4.game_folder", title="@t4.choose_game_folder", value=self.root,
+            out.append(dict(id="folder", label="@t4.folder_row", title="@t4.choose_game_folder", value=self.root,
                                ok=not self.folder_problem(), kind="file_or_folder", exts=[".zip"],
                                dirs=[os.path.dirname(self.root), os.path.join(home, "Downloads")],
                                hint="@t4.folder_change_hint", note=folder_note if folder_note != "reload" else "",
@@ -962,6 +962,7 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
         elif build.code == 0:
             self.build_done[self.build_step] = True
             clear_rebuild("t4", self.root)
+            self.refresh_after_build()
             self.last_result = "@t4.build_finished" if self.ready() else "@t4.build_incomplete"
         else:
             error = self.build_error or next((line for line in reversed(self.build_lines)
@@ -969,6 +970,24 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
                                               "@t4.no_build_output")
             self.build_failed = "build"
             self.last_result = self.message("t4.build_failed", name=self.build_step or "?", error=error)
+
+    def refresh_after_build(self):
+        """The build changed files on disk: nothing remembered from before it may stay (0.1.5). A match started right
+        after a build once did not start the game until the launcher was restarted. Settings are read again (the
+        saved values win, nothing is dropped), the tool check runs again, and an Online error that only said "build
+        first" is cleared."""
+        try:
+            fresh = self.core.load_settings()
+        except Exception:  # noqa: BLE001 -- the old settings still work
+            fresh = None
+        if isinstance(fresh, dict):
+            with self._settings_lock:
+                self.s = dict(self.s, **fresh)
+        if getattr(self.core, "source_only", False):
+            self.refresh_prerequisites()
+        if (self.__dict__.get("_online_phase") == "error" and self.__dict__.get("_online_message") == "@online.build_required"
+                and self.__dict__.get("_online_client") is None and not self.__dict__.get("_online_busy")):
+            self._online_phase, self._online_message = "offline", "@online.offline"
 
     def _bundled_release(self):
         if getattr(self.core, "source_only", False):

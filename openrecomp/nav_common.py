@@ -39,3 +39,33 @@ def badge(g):
     """What kind of recomp a game is, from its manifest: PS3 RECOMP."""
     platform = g.m.get("platform", "")
     return f"{platform} RECOMP".upper() if platform else ""
+
+
+PROVISIONAL_GAMES = 3        # "provisional" / placement is for a player's first 3 ranked matches only (0.1.5)
+
+
+def ranked_count(p):
+    """How many ranked matches this player (lobby row, profile, leaderboard row) has played, or None when the data
+    does not say. The server's own provisional flag follows rating uncertainty and stays on for many matches."""
+    placement = p.get("placement")
+    if isinstance(placement, (list, tuple)) and placement:
+        return placement[0]
+    games = p.get("ranked_games")
+    if isinstance(games, int) and not isinstance(games, bool):
+        return games
+    won, lost = p.get("ranked_wins"), p.get("ranked_losses")
+    if all(isinstance(n, int) and not isinstance(n, bool) for n in (won, lost)):
+        return won + lost
+    return None
+
+
+def provisional(p):
+    """True only while the first PROVISIONAL_GAMES ranked matches are not played yet."""
+    count = ranked_count(p)
+    return bool(p.get("provisional") or p.get("placement")) and count is not None and count < PROVISIONAL_GAMES
+
+
+def placing(p):
+    """The (done, total) placement of a player who is still inside the first matches, else None."""
+    placement = p.get("placement")
+    return tuple(placement) if placement and placement[0] < PROVISIONAL_GAMES else None

@@ -36,6 +36,8 @@ TAB_OF = dict(display="video", audio="audio", controls="controls", online="game"
 
 class SettingsPage:
     def select_settings_tab(self, tab):
+        if self.screen == "launcher" and not self.overlay:
+            return self.select_launcher_tab(tab)
         if self.overlay or self.section() != "settings" or tab not in SETTINGS_TABS:
             return
         items = self.items()

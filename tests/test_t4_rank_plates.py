@@ -45,7 +45,8 @@ class T4RankPlateTests(unittest.TestCase):
 
     def test_missing_t5dr_plate_uses_our_drawn_badge(self):
         self.a.account_peers = (self.t5,)
-        self.assertEqual(self.t5.rank_plate(13), "")
+        self.t5.state = lambda: dict(built=False)
+        self.assertEqual(self.t5.rank_plate(13), os.fspath(BADGES / "t4_rank_13.svg"))   # (0.1.5: T5DR draws it too)
         self.assertEqual(self.a.rank_plate(13), os.fspath(BADGES / "t4_rank_13.svg"))
 
     def test_no_known_t5dr_uses_our_drawn_badge(self):

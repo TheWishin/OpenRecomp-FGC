@@ -20,6 +20,7 @@ from .nav_grid import Grid
 from .nav_hub import Hub
 from .nav_main_menu import MainMenu
 from .nav_keyboard import Keyboard
+from .launcher_page import LauncherSettings
 from .nav_library import Library
 from .nav_online import Online
 from .nav_online_layout import OnlineLayout
@@ -41,7 +42,7 @@ class Game:
         self.accent = manifest["accent"]
 
 
-class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, ControlsPage, Online, OnlineLayout, OnlineLogin, SettingsPage, Library, Sound):
+class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawer, Grid, Keyboard, Picker, Tools, ControlsPage, Online, OnlineLayout, OnlineLogin, SettingsPage, LauncherSettings, Library, Sound):
     def __init__(self, games, on_quit=None, install=None, launch_env=None, language=None, on_language=None,
                  last_game=None, on_game=None, fullscreen=True, reduced_motion=False, on_preferences=None,
                  on_update_check=None, on_update_install=None, on_game_preview=None, on_game_accept=None,
@@ -243,6 +244,10 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
             return self._fighters(a)
         if self.overlay == "drawer":
             return self._drawer(a)
+        if self.screen == "launcher":
+            return self._launcher(a)
+        if a == "launcherSettings":         # the top bar's Launcher settings (mouse); pads: Quick access
+            return self.open_launcher_settings()
         if a == "social":
             from . import nav_arcade
             if nav_arcade.action(self, a):
@@ -339,10 +344,16 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
             return False
 
     def glyph(self, action, ink=False):
-        table = GLYPHS["kb"] if self.device == "kb" else GLYPHS[self.pad_kind]
+        device, pad_kind = self.device, self.pad_kind
+        style = getattr(self, "prompt_style", "auto")
+        if style in ("xbox", "ps"):                    # Launcher settings > Button prompts: one style for ever
+            device, pad_kind = style, style
+        elif style == "kb":
+            device = "kb"
+        table = GLYPHS["kb"] if device == "kb" else GLYPHS[pad_kind]
         text = table[action]
         symbol = text in ("✕", "○", "□", "△")
-        return dict(text=text, round=len(text) == 1 and self.device != "kb", ink=ink, key=self.device == "kb", symbol=symbol)
+        return dict(text=text, round=len(text) == 1 and device != "kb", ink=ink, key=device == "kb", symbol=symbol)
 
     def prompt(self, action, label):
         return dict(action=action, label=label, g=self.glyph(action))
@@ -358,6 +369,8 @@ class Nav(GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, Dialog, Drawe
                  picker=dict(rows=[], title="", path="", up=False, down=False), drawer=dict(rows=[]), build=dict(show=False, cards=[], main=dict(button={}, logLines=[]), more=[]), online=dict(layout=""), settingsPage=dict(layout=""), bindingsPage=dict(layout="", tabs=[], lines=[]), bindCapture=dict(options=[], glyphs=[]), ctlPreset=dict(rows=[]), quickAccess="@quick_access", discord="@community.discord", recentSets="@recent_sets", folder="@folder", file="@file", pick="@picker.pick", mainLabel="@main", fighterTitle="@fighter.choose", fighterMain="@fighter.main")
         if self.screen == "start":
             self._view_start(v)
+        elif self.screen == "launcher":
+            self._view_launcher(v)
         else:
             self._view_hub(v)
         over = getattr(self, "_view_" + self.overlay, None) if self.overlay else None
