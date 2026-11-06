@@ -1894,5 +1894,7 @@
  "progress.failed_unknown": "It did not finish. Nothing was changed.",
  "progress.show": "Show progress",
  "progress.drawer_hint": "Shows the install or update that runs in the background.",
- "progress.update_running": "Update running"
+ "progress.update_running": "Update running",
+ "progress.row_label": "Updating",
+ "progress.row_value": "Updating · {percent} %"
 }

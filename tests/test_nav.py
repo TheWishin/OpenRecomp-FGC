@@ -55,7 +55,7 @@ class Fake(Adapter):
         self.calls.append(("native",))
 
     def settings(self):
-        return [dict(id="res", label="Auflösung", options=[("a", "A"), ("b", "B"), ("c", "C")], value=self.values["res"], hint="h", lead="l")]
+        return [dict(id="res", label="Resolution", options=[("a", "A"), ("b", "B"), ("c", "C")], value=self.values["res"], hint="h", lead="l")]
 
     def set_setting(self, sid, value):
         self.values[sid] = value

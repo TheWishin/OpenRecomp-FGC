@@ -1894,5 +1894,7 @@
  "progress.failed_unknown": "完了しませんでした。何も変更されていません。",
  "progress.show": "進行状況を表示",
  "progress.drawer_hint": "バックグラウンドで実行中のインストールまたは更新を表示します。",
- "progress.update_running": "更新中"
+ "progress.update_running": "更新中",
+ "progress.row_label": "更新中",
+ "progress.row_value": "更新中 · {percent} %"
 }

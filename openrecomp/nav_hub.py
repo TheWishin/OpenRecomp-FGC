@@ -243,7 +243,7 @@ class Hub:
             "send" if any(it.get("id") == "send" for it in items) else "report") if section == "support" else ""
         rows = [dict(index=i, id=it.get("id", ""), heading=it.get("kind") == "heading",
                      label=it.get("label") or ("@support.not_checked" if section == "support" else ""), value=it.get("value") or "", verb=it.get("verb", ""),
-                     focused=i == focus, disabled=bool(it.get("disabled")), primary=it.get("id") == primary,
+                     focused=i == focus, disabled=bool(it.get("disabled")), primary=it.get("id") == primary and not it.get("disabled"),
                      hint=it.get("hint", ""), cells=it.get("cells", []), **self.field_metadata(it.get("id", "")))
                 for i, it in indexed[start:start + 10]]
         state = g.a.support_state() if section == "support" else {}

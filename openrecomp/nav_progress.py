@@ -235,7 +235,5 @@ class ProgressNav:
             if it.get("kind") in ("action", "hold") and it.get("id") not in ("game_setup", "game_update"):
                 it = dict(it, disabled=True, run=None, verb="", value="@progress.update_running",
                           hint="@progress.update_running")
-                if it.get("id") in ("start", "build"):
-                    it["label"] = "@progress.update_running"
             out.append(it)
         return out

@@ -1894,5 +1894,7 @@
  "progress.failed_unknown": "Não terminou. Nada foi alterado.",
  "progress.show": "Mostrar progresso",
  "progress.drawer_hint": "Mostra a instalação ou atualização em segundo plano.",
- "progress.update_running": "Atualização em andamento"
+ "progress.update_running": "Atualização em andamento",
+ "progress.row_label": "Atualizando",
+ "progress.row_value": "Atualizando · {percent} %"
 }

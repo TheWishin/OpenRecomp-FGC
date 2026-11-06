@@ -69,6 +69,16 @@ class GameSetupNav:
                          run=(lambda: self._ask("setup_restart")) if st.get("restart") else None,
                          hint="@setup.restart_hint" if st.get("restart") else ("@setup.rebuild_hint" if st.get("rebuild") else "@setup.updated_hint"),
                          detail=dict(kicker="@setup.kicker", title="@setup.updated", lead="@setup.restart_hint", rows=[]))]
+        if st.get("phase") == "updating":
+            from .nav_progress import cancel_safe
+            # Running: the row shows the job (selecting it opens the progress window); never a second start.
+            total = int(st.get("total") or 0)
+            value = (i18n.message("progress.row_value", percent=min(100, int(int(st.get("done") or 0) * 100 / total)))
+                     if total and cancel_safe(st) else "@progress.row_label")
+            return [dict(kind="action", id="game_update", label="@progress.row_label", verb="@open", value=value,
+                         run=lambda: self.setup_offer_update(g), hint="@progress.drawer_hint",
+                         detail=dict(kicker="@setup.kicker", title="@progress.row_label", lead="@progress.drawer_hint",
+                                     rows=[], primary="@progress.show"))]
         # A folder without a version marker (own copy, old bundle): "own version", never "?" (0.1.4)
         installed = st.get("installed") or i18n.message("setup.own_version")
         version = i18n.message("setup.version_arrow", old=installed, new=i18n.literal(st.get("latest") or ""))

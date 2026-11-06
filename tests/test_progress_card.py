@@ -340,7 +340,7 @@ class UpdateRunning(Env):
                     self.assertEqual(text(nav, item["hint"]), "Update running")
         nav.sec["t5dr"] = "play"
         start = next(i for i in nav.items() if i["id"] == "start")
-        self.assertEqual(text(nav, start["label"]), "Update running")
+        self.assertEqual(text(nav, start["value"]), "Update running")
         nav.focus[nav.key()] = nav.items().index(start)
         nav.act("confirm", device="xbox")
         self.assertEqual(game.calls, [])
@@ -375,3 +375,34 @@ class Catalogs(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RunningRow(Env):
+    def test_the_update_row_shows_the_job_and_opens_the_window_never_a_second_start(self):
+        nav = self.nav(Game5())
+        nav.setup_state = {"t5dr": running()}
+        nav.screen, nav.sec["t5dr"] = "hub", "play"
+        row = nav.items()[0]
+        self.assertEqual(row["id"], "game_update")
+        self.assertEqual(text(nav, row["value"]), "Updating · 45 %")
+        nav.act("confirm", device="xbox")
+        self.assertEqual((nav.overlay, nav.confirm_kind), ("dialog", "setup_progress"))
+        self.assertEqual([c for c in self.setup.calls if c[0] in ("update", "install", "check")], [])
+
+    def test_the_locked_play_row_keeps_its_normal_label(self):
+        nav = self.nav(Game5())
+        nav.setup_state = {"t5dr": running()}
+        nav.screen, nav.sec["t5dr"] = "hub", "play"
+        start = next(i for i in nav.items() if i["id"] == "start")
+        self.assertEqual(text(nav, start["label"]), "Start game")
+        self.assertEqual(text(nav, start["value"]), "Update running")
+
+    def test_a_disabled_play_row_is_not_drawn_as_the_primary_button(self):
+        nav = self.nav(Game5())
+        nav.setup_state = {"t5dr": running()}
+        v = dict()
+        nav._view_session_page(v, nav.game, "play", nav.items(), 0)
+        self.assertFalse(next(r for r in v["sessionPage"]["rows"] if r["id"] == "start")["primary"])
+        nav.setup_state = {}
+        nav._view_session_page(v, nav.game, "play", nav.items(), 0)
+        self.assertTrue(next(r for r in v["sessionPage"]["rows"] if r["id"] == "start")["primary"])
