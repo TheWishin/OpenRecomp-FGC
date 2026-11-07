@@ -3,6 +3,13 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
+## v0.1.6
+
+- **Fixed: the launcher could not update itself** ("The update could not be completed. Nothing was installed.").
+  Launchers 0.1.4 and 0.1.5 downloaded and checked the new version, then failed at the last check because the verified
+  download was kept under another name. Players on 0.1.4 or 0.1.5 install 0.1.6 once by hand (Setup or zip from the
+  release page); from 0.1.6 on, updates from inside the launcher work again. Settings, games and saves stay.
+
 ## v0.1.5
 
 Updates you can hide, and button bindings like in Tekken 8.

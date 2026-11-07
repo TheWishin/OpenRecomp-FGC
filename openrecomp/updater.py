@@ -666,6 +666,14 @@ def stage_update(root, release, channel=None, progress=None, cancel=None):
         if cancel is not None and cancel.is_set():
             raise UpdateCancelled()
         _manifest(staged, release, channel)
+        # prepare_update (_verify_staged) re-authenticates the retained bytes from transaction/release.zip; since the
+        # download moved to cache-<version>.zip (0.1.4) nothing put them there and every self-update failed with
+        # "could not be completed". Keep the verified archive in the transaction too (a hard link, else a copy).
+        retained = transaction / "release.zip"
+        try:
+            os.link(archive_path, retained)
+        except OSError:
+            shutil.copyfile(archive_path, retained)
         (transaction / "SHA256SUMS").write_bytes(sums)
         (transaction / "SHA256SUMS.sig").write_bytes(signature)
         (transaction / "verified.json").write_text(json.dumps(dict(version=release["version"], channel=channel.name)), encoding="utf-8")
