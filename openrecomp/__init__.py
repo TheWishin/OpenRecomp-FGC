@@ -1,2 +1,2 @@
 """OpenRecomp-FGC: Launcher for all your Recomps."""
-__version__ = "0.1.4"
+__version__ = "0.1.5"

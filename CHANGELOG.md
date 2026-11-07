@@ -3,12 +3,22 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
-## Unreleased
+## v0.1.5
 
-- **Tekken 4 key and button bindings** (needs a Tekken 4 with the pad-bindings runtime): the Pad bindings page is
-  editable like T5DR's. Pick the keyboard or a controller, select an action, press the new key or button (X clears),
-  presets Default and Tekken arcade 1-2-3-4. Every device can play as player 1 or 2. Without changes the game keeps its
-  old layout exactly. Stop the game before editing.
+Updates you can hide, and button bindings like in Tekken 8.
+
+- **Updates run in the background.** The progress window blocks the page behind it; Hide (the default) closes it and the
+  update keeps going. A small card at the bottom right shows every running install or update -- both games at once --
+  with step, %, MB and time left; click it, press F7 or use Quick access > Show progress to open it again. Cancel is
+  only offered while it is safe (download, check, unpack); once files are being replaced it says "Installing, please
+  wait". While a game updates, its Play, Build and Online say "Update running".
+- **Tekken 4 Pad bindings like Tekken 8:** one row per action -- 1 2 3 4, then the combos, Start, Select, shoulder
+  buttons, movement -- with the assigned button shown as its symbol (Xbox or PlayStation, following Settings > Button
+  prompts; keys as key caps), tabs per player, Reset to default and a live strip of what your buttons trigger.
+- **Combos:** 1+2, 3+4, 1+3, 2+4, 1+4, 2+3, 1+2+3, 1+3+4, 2+3+4, 1+2+4 and 1+2+3+4 on one button, for pad and keyboard,
+  plus the preset "Tekken arcade with combos". Combos written by hand in controls.ini show up and are kept.
+- **Fixed:** a second binding was not saved while the game or an antivirus held controls.ini; the bottom bar of a
+  progress window showed an old prompt; PlayStation symbols were drawn as boxes on some PCs.
 
 ## v0.1.4
 
