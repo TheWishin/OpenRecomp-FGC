@@ -232,7 +232,7 @@
  "old_stages.hint": "Tekken-5-Stages ohne Arcade-Durchlauf. Der Spielstand bleibt.",
  "offline_only": "Nur offline.",
  "free_items": "Items gratis offline",
- "free_items.hint": "Alle Items im Shop kostenlos. Der Spielstand wird vorher gesichert.",
+ "free_items.hint": "Schaltet alle Customization-Items offline frei, damit Kostümteile nicht mehr ausgegraut sind. Der Spielstand wird vorher gesichert.",
  "unknown_opponent": "Unbekannt",
  "rollback": "Rollback",
  "lockstep": "Lockstep",

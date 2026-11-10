@@ -232,7 +232,7 @@
  "old_stages.hint": "Tekken 5 stages without clearing Arcade. Your save stays as it is.",
  "offline_only": "Offline only.",
  "free_items": "Free items offline",
- "free_items.hint": "All shop items free. Your save is backed up first.",
+ "free_items.hint": "Unlocks all customization items offline, so other players' costume parts are no longer greyed out. Your save is backed up first.",
  "unknown_opponent": "Unknown",
  "rollback": "Rollback",
  "lockstep": "Lockstep",

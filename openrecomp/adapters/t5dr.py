@@ -26,6 +26,7 @@ from .t5_coexist import load_settings, readonly_imports
 from .t5_compatibility import build_compatibility
 from .t5_build_runtime import start_build_with_python
 from . import t5_buildlock
+from .. import t5_art_child, t5_startlog
 from ..manifest import art_dir
 from ..fighter_render import t5_cache_name
 from ..game_releases import managed as _managed_install
@@ -393,6 +394,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             game = self.core.GameRun(self.s.out_dir, self.s)
             self.game = game
             result = game.start(extra_env=extra_env)
+            t5_startlog.write(self, result, extra_env)
             self._track_playtime(game.running, process=getattr(game, "proc", None), extra_env=extra_env)
             self._game_guard = guard
             guard.watch(game.running)
@@ -605,10 +607,22 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         badge = os.path.join(RANK_BADGES, "t4_rank_%02d.svg" % tier)       # the same 37-rank ladder
         return badge if os.path.isfile(badge) else ""
 
-    def _start_rank_plates(self):
-        """Read the game's own plates once per launcher run, on a thread (never on the screen's)."""
+    def _art_idle(self):
+        """Pictures are read before a match or after it, never while a game runs or an online match is being set up."""
         try:
-            if self.__dict__.get("_plates_tried") or not self.state().get("built"):
+            game = getattr(self, "game", None)
+            return not (game and game.running()) and getattr(self, "_online_driver", None) is None
+        except Exception:  # noqa: BLE001 -- unknown state: wait
+            return False
+
+    def _art_child(self, job):
+        """One picture job in a child process (t5_art_child.run): (exit code, last error line)."""
+        return t5_art_child.run(self.root, self.s.out_dir, job)
+
+    def _start_rank_plates(self):
+        """Read the game's own plates once per launcher run: in a child process, and only while no match runs."""
+        try:
+            if self.__dict__.get("_plates_tried") or not self.state().get("built") or not self._art_idle():
                 return
         except Exception:  # noqa: BLE001 -- not a built game yet: nothing to read
             return
@@ -617,10 +631,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
 
     def _make_rank_plates(self):
         try:
-            with readonly_imports():
-                ra = importlib.import_module("t5lobby.rank_art")
-            if not ra.is_ready(ra.folder_for(self.s.out_dir)):
-                ra.extract(self.s.out_dir)
+            self._art_child(t5_art_child.plates())
         except Exception:  # noqa: BLE001 -- the drawn badges stay; a missing picture never stops the launcher
             pass
 
@@ -640,7 +651,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         with lock:
             tried = self.__dict__.setdefault("_render_tried", set())
             busy = self.__dict__.setdefault("_render_busy", set())
-            if token in tried or token in busy or not self.state().get("built"):
+            if token in tried or token in busy or not self.state().get("built") or not self._art_idle():
                 return ""
             busy.add(token)
             tried.add(token)
@@ -654,13 +665,10 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         return ""
 
     def _make_fighter_render(self, gid, path, mirrored=False):
-        from ..fighter_render import t5_cutout, write_render
         try:
-            with readonly_imports():
-                decoder = importlib.import_module("t5lobby.fighter_art")
-            sources = decoder.ra.find_sources(self.s.out_dir)
-            if sources:
-                write_render(path, *t5_cutout(decoder, sources, gid, mirrored=mirrored))
+            code, last = self._art_child(t5_art_child.render(gid, path, mirrored))
+            if code:
+                self.problem = self.message("picture_error", error=last or str(code))
         except Exception as error:  # noqa: BLE001 -- optional pictures never stop a screen
             self.problem = self.message("picture_error", error=str(error))
         finally:

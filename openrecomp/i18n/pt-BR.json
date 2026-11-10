@@ -232,7 +232,7 @@
  "old_stages.hint": "Cenários de Tekken 5 sem terminar o Arcade. Sua partida salva fica como está.",
  "offline_only": "Só sem conexão.",
  "free_items": "Itens grátis sem conexão",
- "free_items.hint": "Todos os itens da loja grátis. Sua partida salva é copiada antes.",
+ "free_items.hint": "Desbloqueia offline todos os itens de personalização, e as peças de roupa deixam de aparecer em cinza. Seu save é copiado antes.",
  "unknown_opponent": "Desconhecido",
  "rollback": "Rollback",
  "lockstep": "Lockstep",
