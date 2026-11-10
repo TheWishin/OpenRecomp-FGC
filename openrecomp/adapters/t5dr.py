@@ -700,8 +700,53 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         """The same field of the same file the T5DR launcher's character grid writes; the rest stays as it is."""
         if getattr(self, "_online_character_locked", False):
             raise RuntimeError("@online.character_locked")
+        self._online_cfg_update(lambda cfg: dict(char=key))
+
+    # The ranked costume (T5DR 1.2.3, docs/RANKED.md "Costumes in ranked"): the install's own fighters module says which
+    # costumes a fighter has; remembered per fighter in online.json `costumes` {key: button}, as T5DR's launcher does.
+    COSTUME_BUTTON_NAMES = {1: "LP", 2: "RP", 3: "LK", 4: "RK"}
+
+    def _costume_table(self):
+        try:
+            self._online_modules()                       # this install's package on the path, checked
+            with readonly_imports():
+                module = importlib.import_module(self.online_package + ".fighters")
+        except (ImportError, OSError, RuntimeError, ValueError):
+            return None
+        if not callable(getattr(module, "costume_buttons", None)) or not callable(getattr(module, "costume_button", None)):
+            return None                                  # an install from before 1.2.3: no choice here
+        return module
+
+    def costumes(self, key):
+        module = self._costume_table()
+        buttons = tuple(module.costume_buttons(key)) if module else ()
+        if len(buttons) < 2:
+            return []
+        return [dict(button=b, name=self.COSTUME_BUTTON_NAMES.get(b, "?")) for b in buttons]
+
+    def chosen_costume(self, key):
+        module = self._costume_table()
+        if module is None:
+            return 0
+        saved = self._online_cfg().get("costumes")
+        b = saved.get(key) if isinstance(saved, dict) else None
+        return module.costume_button(key, b if isinstance(b, int) and not isinstance(b, bool) else 0)
+
+    def set_costume(self, key, button):
+        if button not in [c["button"] for c in self.costumes(key)]:
+            return
+
+        def change(cfg):
+            saved = cfg.get("costumes")
+            saved = dict(saved) if isinstance(saved, dict) else {}
+            saved[key] = button
+            return dict(costumes=saved)
+        self._online_cfg_update(change)
+
+    def _online_cfg_update(self, changes):
+        """changes(cfg) -> the fields to set in online.json; the rest of the file stays as it is."""
         if getattr(getattr(self, "s", None), "coexistence", False):
-            self._online_write_preferences(dict(char=key))
+            self._online_write_preferences(changes(self._online_config()))
             return
         path = self.online_cfg_path()
         try:
@@ -711,7 +756,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             cfg = {}
         if not isinstance(cfg, dict):
             raise ValueError("@not_ready")
-        cfg["char"] = key
+        cfg.update(changes(cfg))
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tmp = None
         try:

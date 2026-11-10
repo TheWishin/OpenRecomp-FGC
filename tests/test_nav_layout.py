@@ -95,7 +95,7 @@ class Layout(unittest.TestCase):
         self.assertEqual(set(check()["dialog"]), {"title", "text", "options"})
         state.act("back")
         state._open_fighters()
-        self.assertEqual(set(check()["grid"]), {"main", "cells", "mosaic"})
+        self.assertEqual(set(check()["grid"]), {"main", "cells", "mosaic", "costume"})
         state.act("back")
         state._open_osk("name")
         self.assertEqual(check()["osk"]["text"], "alt_")

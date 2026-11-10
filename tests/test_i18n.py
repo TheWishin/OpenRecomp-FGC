@@ -147,7 +147,7 @@ def untranslated_literals(source):
         "Downloads", "Desktop", "APPDATA", "OPENRECOMP_T4_ROOT", "OPENRECOMP_T5DR_ROOT", "T5_ONLINE_DIR",
         "%USERPROFILE%/Downloads/T5DR-Online-*", "%USERPROFILE%/Desktop/T5DR-Online-*", "T5DR-Online-*",
         ".json", ".iso", "*.iso", ".pkg", ".rap", ".openrecomp.tmp", "logs\\build_game.log",
-        "--search", "-Force", "openrecomp", "taskkill", "/T", "/F", "/PID", "W", "L",
+        "--search", "-Force", "openrecomp", "taskkill", "/T", "/F", "/PID", "W", "L", "LP", "RP", "LK", "RK",  # Tekken button notation (ranked costume buttons)
         "controls_edit.py", "controls_ui.py", "padmap.py", "padnav.py", "__init__.py", ".py", "replays.py", "launcher.log",
         "openrecomp-build.lock", "build.log", "OpenRecomp-FGC", "build_game.py", "build_game_dll.py", "clang-cl", "lld-link", "clang.exe",  # t5_buildlock: the lock file, T5DR's build log, the lock's owner
         "controls_edit", "controls_ui", "t5lobby.padmap", "t5lobby.padnav", "problem_report", "problem_check",

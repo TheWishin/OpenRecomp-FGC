@@ -115,6 +115,21 @@ Item {
             Text { textFormat: Text.PlainText; text: ov.v.fighterTitle; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(56)}
             Text { textFormat: Text.PlainText; visible: !!ov.v.grid.main; text: ov.v.fighterMain + (ov.v.grid.main || ""); color: ov.root.muted; font.family: ov.root.sans; font.pixelSize: Theme.px(26); anchors.baseline: parent.children[0].baseline }
         }
+        // The focused fighter's ranked costume (T5DR 1.2.3): X or a click shows the next one.
+        Row {
+            objectName: "fighterCostume"
+            readonly property var cos: (ov.v.grid || {}).costume || ({})
+            visible: !!cos.show
+            anchors.right: parent.right; anchors.rightMargin: 32; y: 34; spacing: 14
+            Text { textFormat: Text.PlainText; text: parent.cos.caption || ""; color: ov.root.muted; font.family: ov.root.sans; font.pixelSize: Theme.px(22); anchors.verticalCenter: parent.verticalCenter }
+            Rectangle {
+                width: costumeValue.implicitWidth + 28; height: costumeValue.implicitHeight + 14; radius: 4
+                color: Theme.raised; border.width: 1; border.color: Theme.border
+                Text { id: costumeValue; objectName: "fighterCostumeValue"; anchors.centerIn: parent; textFormat: Text.PlainText; text: parent.parent.cos.value || ""; color: ov.root.textC; font.family: ov.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(22) }
+                TapHandler { id: costumeTap; onTapped: ov.root.backend.press("x") }
+                Interaction { handler: costumeTap; name: (parent.parent.cos.caption || "") + ". " + (parent.parent.cos.value || ""); onActivated: ov.root.backend.press("x") }
+            }
+        }
         Grid {
             x: 32; y: 96; columns: 9; spacing: 6
             Repeater {

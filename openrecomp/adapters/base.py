@@ -262,6 +262,18 @@ class Adapter:
     def set_fighter(self, key):
         pass
 
+    def costumes(self, key):
+        """Fighter `key`'s costumes the launcher may choose for ranked: [dict(button, name)] (button = the game's confirm
+        button 1-4, name = its short label, costume 1 first); empty = no choice (one costume, Random, an older game)."""
+        return []
+
+    def chosen_costume(self, key):
+        """The remembered costume (its button) of fighter `key`; 0 = none / the game's default."""
+        return 0
+
+    def set_costume(self, key, button):
+        pass
+
     def main_fighter(self):
         return ""
 

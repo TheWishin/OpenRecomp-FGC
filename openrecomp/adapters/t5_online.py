@@ -847,6 +847,10 @@ class Online:
         client, generation, char = self._online_client, self._online_generation, self.chosen_fighter()
         strict = bool(getattr(self, "_online_strict", False))
         options = t5_netext.options(self, client) if t5_features.enabled(self) else {}
+        # the ranked costume of the chosen fighter, only to a client whose server and game take it (1.2.3)
+        costume_ok = getattr(client, "costume_ok", None)
+        if callable(costume_ok) and costume_ok() is True:
+            options = dict(options, costume=self.chosen_costume(char))
 
         def work():
             problem = self._online_game_check()
