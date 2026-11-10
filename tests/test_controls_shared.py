@@ -213,6 +213,9 @@ class AgainstT5DRLauncher(unittest.TestCase):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.out = self.folder.name
+        # the install's modules (t5lobby, controls_edit ...) must not stay imported for the tests that run after this one
+        modules, path = dict(sys.modules), list(sys.path)
+        self.addCleanup(lambda: (sys.modules.clear(), sys.modules.update(modules), sys.path[:] == path or sys.path.__setitem__(slice(None), path)))
         self.pad_file = os.path.join(self.out, "pad.txt")
         env = mock.patch.dict(os.environ, {"T5_PAD_FILE": self.pad_file})
         env.start()
