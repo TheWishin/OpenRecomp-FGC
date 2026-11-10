@@ -47,12 +47,15 @@ class RecordingCore:
 
 
 class Tag2Case(unittest.TestCase):
+    LIVE = True                 # the account / online / Ranked rows are switched on for these tests
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.base = Path(self.tmp.name)
         patcher = mock.patch.dict(os.environ, {"OPENRECOMP_HOME": str(self.base / "home"),
-                                               "USERPROFILE": str(self.base / "profile")})
+                                               "USERPROFILE": str(self.base / "profile"),
+                                               "OPENRECOMP_TAG2_ONLINE": "1" if self.LIVE else "0"})
         patcher.start()
         self.addCleanup(patcher.stop)
         self.root = self.base / "profile" / "Downloads" / "TAG2-PC"
@@ -95,6 +98,29 @@ class Making(Tag2Case):
     def test_user_agent_names_openrecomp_and_the_product(self):
         from openrecomp import __version__
         self.assertEqual(user_agent(), f"OpenRecomp-FGC/{__version__} (tag2-pc)")
+
+
+class LiveRowsOff(Tag2Case):
+    LIVE = False
+
+    def test_by_default_the_online_section_is_the_manifests_and_nothing_is_sent(self):
+        self.sign_in()
+        self.assertEqual([r["id"] for r in self.a.online_items()], ["own"])
+        for row in ("tag2_sign_in", "tag2_register", "tag2_play_online", "tag2_ranked", "tag2_progress"):
+            self.a.set_text_value("online_name", "name")
+            self.a.set_text_value("online_password", "password")
+            self.assertEqual(self.a.run_online(row), "")
+        self.assertEqual(self.core.requests, [])
+        self.assertEqual(self.core.calls, [])
+
+    def test_the_config_switch_turns_the_rows_on(self):
+        self.config["tag2"] = {"online": True}
+        self.assertIn("tag2_sign_in", self.rows())
+
+    def test_offline_start_still_goes_through_the_core(self):
+        self.a.start()
+        self.assertEqual(len(self.core.calls), 1)
+        self.popen.assert_not_called()
 
 
 class WithoutTheCore(Tag2Case):

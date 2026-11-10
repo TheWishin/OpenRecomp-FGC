@@ -9,6 +9,9 @@ Rules kept (TAG2 0.16.33 integration handover):
 - account.dat stays where the Core keeps it, protected for this Windows user; it is never read, copied or shown.
 - A refused saved sign-in ("sign in again") is shown once; nothing is retried by itself.
 - Every request to TAG2's service follows a button the player pressed.
+- The rows that talk to TAG2's live service (sign in, play online, Ranked) are off unless switched on
+  (OPENRECOMP_TAG2_ONLINE=1 or "tag2": {"online": true} in the config): without the switch the Online section is the
+  manifest's (TAG2's own launcher), and no request is sent.
 """
 import json
 import os
@@ -43,6 +46,9 @@ SETTINGS = (          # id, Core field, label, [(value, label)]
 )
 DEFAULTS = dict(SkipStartupIntros=False, GraphicsBackend="d3d12", RenderScale=1, PresentVSync=False)
 MAX_SETTINGS_BYTES = 1024 * 1024
+LIVE_ENV = "OPENRECOMP_TAG2_ONLINE"
+LIVE_ROWS = ("tag2_sign_in", "tag2_register", "tag2_other_account", "tag2_play_online", "tag2_ranked",
+             "tag2_ranked_cancel", "tag2_progress")
 
 
 class Tag2(ManifestGame):
@@ -71,6 +77,11 @@ class Tag2(ManifestGame):
         self._saved = None              # the Core's settings once it was asked
         self.audio_output = default_audio_output     # True / False / None (cannot tell); tests replace it
         self._stop_timer = None
+
+    def live(self):
+        """The account, online and Ranked rows: only when the player (or a tester) switched them on."""
+        stored = self.config.get("tag2") if isinstance(self.config, dict) else None
+        return os.environ.get(LIVE_ENV) == "1" or (isinstance(stored, dict) and stored.get("online") is True)
 
     # ---------------------------------------------------------------- the Core
     def core_problem(self):
@@ -361,6 +372,8 @@ class Tag2(ManifestGame):
         why = self.core_problem()
         if why:
             return [self._row("tag2_core", "@tag2.account", why, disabled=True)] + super().online_items()
+        if not self.live():
+            return super().online_items()               # TAG2's own launcher signs in and finds matches
         busy = self._busy()
         line = i18n.literal(self._status) if busy and self._status else ("@tag2.working" if busy else self._message)
         signed = self._has_account() and not self._need_sign_in
@@ -434,6 +447,8 @@ class Tag2(ManifestGame):
         """A row the player pressed. Each one is at most one request to the Core; none repeats by itself."""
         if item_id == "own":
             self.open_native()
+            return ""
+        if item_id in LIVE_ROWS and not self.live():
             return ""
         if item_id in ("tag2_sign_in", "tag2_register"):
             if not (self._name.strip() and self._password):

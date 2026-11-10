@@ -31,6 +31,10 @@ neither that font nor that map.
   Core). Any other version shows "not known to this launcher yet" and everything works as with the manifest alone
   (TAG2's own launcher). The Core is loaded from a private copy under the launcher's data folder, so the install's
   file is never held open and TAG2's updater can replace it.
+- **Live rows are off by default**: sign in / create account, *Play online*, the Ranked team, *Search Ranked* and
+  the Ranked record appear only with `OPENRECOMP_TAG2_ONLINE=1` or `"tag2": {"online": true}` in the launcher's
+  config. Without the switch the Online section is the manifest's (TAG2's own launcher) and the adapter sends no
+  request to TAG2's service; Play offline, the quick settings and the no-audio warning work either way.
 - **No extra tools**: Windows PowerShell and the .NET Framework compiler are part of Windows; TAG2's Core itself
   starts its update scripts the same way. Without Windows PowerShell (Linux, Steam Deck) the adapter falls back
   to the manifest behaviour.
