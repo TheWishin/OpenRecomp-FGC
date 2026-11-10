@@ -997,7 +997,7 @@
  "t5.coexist.install_invalid": "Wähle einen T5DR-Online-Installationsordner. Es wurde nichts verändert.",
  "t5.coexist.title": "T5DR-Installation verwenden",
  "t5.coexist.hint": "Verwendet dein vorhandenes Spiel und deine Replays. Es wird nichts automatisch kopiert.",
- "t5.coexist.settings": "Änderungen an Einstellungen bleiben in OpenRecomp. Die Einstellungen deines alten Launchers bleiben erhalten.",
+ "t5.coexist.settings": "Einstellungen und Steuerung teilst du mit deinem alten Launcher: Was du hier änderst, gilt auch dort, und umgekehrt.",
  "t5.coexist.login": "Deine gespeicherte Anmeldung kann hier verwendet werden. Die Anmeldedatei deines alten Launchers bleibt erhalten.",
  "t5.coexist.build_match": "Das erstellte Spiel passt zur Code ID dieser Installation.",
  "t5.coexist.build_differs": "Das erstellte Spiel hat eine andere Code ID. Diese gemeinsame Installation muss neu gebaut werden. Das geht auch hier; der T5DR-Launcher funktioniert danach weiter damit.",

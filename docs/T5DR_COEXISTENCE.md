@@ -20,22 +20,23 @@ finding `runtime/t5dr.exe` does not prove that the player's game is built.
 | Item | During the transition |
 | --- | --- |
 | T5DR program and built game | Used from the selected installation; no program, game data or build is copied or moved by attachment. Keep the original launcher available. |
-| Launcher settings | Existing preferences supply the starting values. OpenRecomp saves its own changes separately; it does not rewrite the old launcher's settings file. Unknown source fields remain intact. |
+| Launcher settings | One set for both launchers ([SETTINGS_SYNC.md](SETTINGS_SYNC.md)): the shared settings live in `%APPDATA%\T5DROnline\settings.json`, which both read and write. A change made in either launcher is what the other shows after its next start. OpenRecomp also writes the changed shared settings (only those keys) into the folder's `launcher.json`, so a T5DR launcher of 1.2.2 or older shows them too; every other field stays intact. Package, licence and output folder chosen in OpenRecomp, and each launcher's language, stay separate. |
 | Saved login | Reading a saved-login indicator makes no connection. Use saved login explicitly resumes an existing token without asking for a newly remembered login. Only a login OpenRecomp saved in its private file logs in by itself (once, when Online is first shown); the native launcher's token never does (that would push the native launcher out). New password logins save only in OpenRecomp's private file. Bad borrowed tokens are suppressed for this session without deleting the old file. Tokens and passwords never appear in the public view or drill report. Account actions still affect the server account. |
 | Replays | Browsing uses the selected replay folder, including a custom folder. No recordings are copied or moved. A server history row cannot restore a missing recording. |
 | Controls | Existing bindings supply the starting controls. There is one `controls.ini`, the file T5DR's own launcher edits and the game reads (`PS3_CONTROLS` from Settings wins, as there). A binding saved in either launcher is what the game uses and what the other shows. Saves are atomic and retried while the game or an antivirus holds the file. A private `controls.json` from OpenRecomp 0.1.6 or older is moved in once (the newer of the two wins; the other is kept as `controls-*.ini` beside it, and the old file is renamed `.migrated`). |
 | OpenRecomp settings and artwork cache | Belong to `OPENRECOMP_HOME`, normally `%LOCALAPPDATA%\OpenRecomp`. Keep that directory outside both program installations. |
 
-Changes made in one launcher's preferences do not automatically become edits in
-the other launcher. Keep both launchers closed while changing an installation or
+Settings and controls changed in one launcher show in the other after its next
+start (SETTINGS_SYNC.md). Keep both launchers closed while changing an installation or
 running an updater. Do not run two game sessions against the same installation.
 The old launcher's native utilities remain available from that launcher.
 
-The separate preference files live under
-`OPENRECOMP_HOME/t5dr/<installation-id>/`; the installation ID is derived from the
-selected root so different installs do not share overrides. OpenRecomp suppresses
-the native settings constructor's `save()` and saves private preference edits
-through its own persistence path. Unobserved direct writes by a native settings
+OpenRecomp's own choices for a folder (package, licence, output folder, its saved
+login) live under `OPENRECOMP_HOME/t5dr/<installation-id>/`; the installation ID is
+derived from the selected root so different installs do not share them. Shared
+settings an OpenRecomp of 0.1.x kept there move into the shared file at the first
+start (the newer file wins, both are backed up: SETTINGS_SYNC.md). OpenRecomp suppresses
+the native settings constructor's `save()` and saves through its own persistence path. Unobserved direct writes by a native settings
 constructor remain part of the real 1.1.9 verification below. Gameplay itself uses
 the native runtime and can write saves, recordings and other runtime output to
 its existing output folder. The real runtime's launch-time writes and control
@@ -62,7 +63,7 @@ readiness to the selected installation's `core.game_state`.
 ## Building a folder from the T5DR launcher
 
 A folder the T5DR launcher set up (it has no OpenRecomp install marker) can be built from OpenRecomp too, and **both
-launchers keep working on it afterwards**. Nothing the T5DR launcher relies on is changed: not its `launcher.json`, not
+launchers keep working on it afterwards**. Nothing the T5DR launcher relies on is changed by a build: not its `launcher.json`, not
 `release.json`, not its Python, tools or `native` layout. OpenRecomp builds with that folder's own Python and writes
 exactly what the T5DR launcher's BUILD GAME writes (the output folder, normally `native`). The package and licence you
 choose in OpenRecomp stay in OpenRecomp's own home, like every other setting; the T5DR launcher keeps its own choices.
