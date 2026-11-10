@@ -3,6 +3,19 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
+## Unreleased
+
+- **Fixed: Tekken 5 Pad bindings gave errors on L1, R2 and every second binding.** Only the first binding of a session
+  was saved; the next one failed with "changed on disk". Fixed.
+- **One controls.ini for Tekken 5 DR:** a binding saved here or in T5DR Online's own launcher is the one the game uses
+  and the one the other shows. Saves are atomic and retried while the game or an antivirus holds the file. Controls
+  OpenRecomp kept of its own before are moved in once and backed up; nothing is lost.
+- A PlayStation pad's trigger resting position is no longer taken for a press while binding.
+- **PlayStation pads read directly (DualShock 4, DualSense, Edge):** Tekken 4's Pad bindings page now sees them like the
+  game does (XInput slots 5-8, USB and Bluetooth, also the extended Bluetooth report Steam/DS4Windows switch them to),
+  and the launcher can be navigated with them without a T5DR install. Read-only, shared with the game, only while the
+  page is open; a pad Steam Input hands on as an Xbox pad is left to Steam.
+
 ## v0.1.6
 
 - **Fixed: the launcher could not update itself** ("The update could not be completed. Nothing was installed.").

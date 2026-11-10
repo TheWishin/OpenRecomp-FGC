@@ -8,6 +8,7 @@ import os
 import sys
 import time
 
+from . import ps_hid
 from .adapters.t5_coexist import readonly_imports
 
 # (source name of a pressed thing, action); the names are padnav's, so both readers end in one table
@@ -230,6 +231,33 @@ class PlayStationReader:
                 self.source.pause()
             except Exception:  # a disconnected reader must still let the launcher yield input
                 pass
+        self.next_scan = 0.0
+
+
+class HidPlayStationReader:
+    """PlayStation pads read directly as HID devices (every report mode, also the Bluetooth extended one WinMM never
+    sees) for navigating the launcher, with no T5DR install needed. Nothing is ever sent to a pad."""
+    kind = "ps"
+
+    def __init__(self, hid=None):
+        self.hid = hid if hid is not None else ps_hid.HidPads()
+        self.next_scan = 0.0
+
+    def read(self):
+        now = time.monotonic()
+        try:
+            if now >= self.next_scan:
+                self.next_scan = now + 1.0
+                self.hid.scan()
+            return ps_held(self.hid.read())
+        except Exception:  # noqa: BLE001 -- a pad pulled out must not end the launcher
+            return set()
+
+    def pause(self):
+        try:
+            self.hid.pause()
+        except Exception:  # noqa: BLE001
+            pass
         self.next_scan = 0.0
 
 

@@ -100,7 +100,8 @@ class T4Controls:
                     else self.message("controls.unassigned", name=name),
                     slots=slots, disabled=player is None,
                     features=dict(test=slot is not None or kind == ini.KIND_KEYS, clear=True, reset=True, presets=True,
-                                  options=False, player=slot is not None or kind == ini.KIND_KEYS),
+                                  options=False,
+                                  player=(slot is not None and slot < 4) or kind == ini.KIND_KEYS),
                     presets=ini.presets_for(kind), preset=model.current_preset(shown, kind), player=pinned)
 
     def controls(self):
@@ -109,7 +110,8 @@ class T4Controls:
         resolved = model.resolve(slots)
         rows = [self._t4c_row(session, ini.KEYBOARD_ID, ini.KIND_KEYS, model.keyboard_player(), "@controls.t4_keyboard")]
         for slot in sorted(slots):
-            rows.append(self._t4c_row(session, ini.PAD_ID + str(slot), ini.KIND_PAD, resolved.get(slot), pad_name(slot),
+            rows.append(self._t4c_row(session, ini.PAD_ID + str(slot), ini.KIND_PAD, resolved.get(slot),
+                                      getattr(session["reader"], "name", pad_name)(slot),
                                       slot))
         if slots:       # a player without a pad still has bindings: a tab to edit them (P2 before the second pad comes)
             for player in range(ini.PLAYERS):
@@ -190,6 +192,7 @@ class T4Controls:
             session = self._t4c_open()
         session["active"] = bool(active)
         if not active:
+            self._t4c_pause(session)
             return dict(session["state"])
         now = self._t4c_clock()
         session["slots"] = set(session["reader"].step())
@@ -348,5 +351,14 @@ class T4Controls:
         else:
             self._t4c_write(session, lambda model: model.assign_pad(slot, port))
 
+    @staticmethod
+    def _t4c_pause(session):
+        pause = getattr(session["reader"], "pause", None)
+        if callable(pause):
+            pause()
+
     def controls_close(self):
+        session = getattr(self, "_t4c_session", None)
+        if session is not None:
+            self._t4c_pause(session)
         self._t4c_session = None
