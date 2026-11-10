@@ -260,11 +260,16 @@ class OneBuildAtATime(Folder):
         process = subprocess.Popen([sys.executable, str(fake), "--out", str(self.root / "native")], stdin=subprocess.DEVNULL)
         self.addCleanup(process.wait)
         self.addCleanup(process.kill)
-        # A process that was started this instant has no readable command line yet, and on a busy PC some other
-        # Python or compiler can be unreadable for a moment (the scan then says "could not look"): look again.
+        # A process that was started this instant has no readable command line yet: look again. Where some other
+        # Python or compiler on the PC cannot be read (another account, a sandbox) the strict scan answers "could
+        # not look" (None) by design; what it could read is then taken from the same scan without that rule.
+        def scan():
+            from openrecomp.adapters import other_launchers
+            strict = REAL_SCAN()
+            return other_launchers._command_lines(t5_buildlock._wanted) if strict is None else strict
         deadline = time.monotonic() + 10
         while True:
-            lines = [l for l in (REAL_SCAN() or []) if l[0] == process.pid]
+            lines = [l for l in scan() if l[0] == process.pid]
             if lines or time.monotonic() >= deadline:
                 break
             time.sleep(0.1)
@@ -273,7 +278,7 @@ class OneBuildAtATime(Folder):
         self.assertFalse(t5_buildlock.t5dr_build_process(str(self.temp / "other" / "native"), str(self.temp / "other"), lines))
         process.kill()
         process.wait()
-        self.assertFalse(t5_buildlock.t5dr_build_process(str(self.root / "native"), str(self.root), [l for l in REAL_SCAN() if l[0] == process.pid]))
+        self.assertFalse(t5_buildlock.t5dr_build_process(str(self.root / "native"), str(self.root), [l for l in scan() if l[0] == process.pid]))
 
     def test_build_anyway_skips_the_t5dr_check_once(self):
         self.start_foreign_build()
