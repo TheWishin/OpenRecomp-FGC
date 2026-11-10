@@ -65,10 +65,10 @@ class FirstRunBridge(unittest.TestCase):
         sony = mock.Mock()
         sony.read.return_value = set()
         with mock.patch.object(app, "XInputReader") as xbox, \
-                mock.patch.object(app, "WinMMPlayStationReader", return_value=sony) as factory:
+                mock.patch.object(app, "WinMMPlayStationReader", return_value=sony) as factory,                 mock.patch.object(app, "HidPlayStationReader") as hid:
             app.Backend._load_pads(backend, [])
         factory.assert_called_once_with()
-        self.assertEqual(backend.pads.readers, [xbox.return_value, sony])
+        self.assertEqual(backend.pads.readers, [xbox.return_value, sony, hid.return_value])
 
     def test_window_close_uses_navigation_quit_guard(self):
         backend = SimpleNamespace(nav=SimpleNamespace(request_quit=mock.Mock()), refresh=mock.Mock())

@@ -83,7 +83,7 @@ class FocusSafety(unittest.TestCase):
         root = str(Path(__file__).parent / "synthetic-install")
         backend = SimpleNamespace(pads=Pads([]), _pad_root="")
         game = SimpleNamespace(id="t5dr", a=SimpleNamespace(root=root, found=lambda: True))
-        ps = SimpleNamespace(kind="ps", read=lambda: {"A"})
+        ps = SimpleNamespace(kind="ps", read=lambda: {"A"}, source="synthetic")
         with mock.patch.object(app, "XInputReader", return_value=SimpleNamespace(kind="xbox", read=set)), \
                 mock.patch.object(app, "PlayStationReader", return_value=ps) as factory:
             app.Backend._load_pads(backend, [game])
