@@ -997,7 +997,7 @@
  "t5.coexist.install_invalid": "Escolha uma pasta de instalação do T5DR Online. Nada foi alterado.",
  "t5.coexist.title": "Usar sua instalação do T5DR",
  "t5.coexist.hint": "Usa seu jogo e seus replays existentes. Nada é copiado automaticamente.",
- "t5.coexist.settings": "As alterações de configurações ficam no OpenRecomp. As configurações do seu launcher antigo são mantidas.",
+ "t5.coexist.settings": "As configurações e os controles são compartilhados com o seu launcher antigo: o que você muda aqui vale lá também, e vice-versa.",
  "t5.coexist.login": "Seu login salvo pode ser usado aqui. O arquivo de login do seu launcher antigo é mantido.",
  "t5.coexist.build_match": "O jogo compilado corresponde ao Code ID desta instalação.",
  "t5.coexist.build_differs": "O jogo compilado tem outro Code ID. Esta instalação compartilhada precisa ser recompilada. Você pode fazer isso aqui; o launcher do T5DR continua funcionando com ela.",

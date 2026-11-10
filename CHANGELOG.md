@@ -5,6 +5,7 @@ TheWishin/Tekken4Recomp).
 
 ## Unreleased
 
+- **Tekken 5 DR: one set of settings for both launchers.** What you set in OpenRecomp (display, resolution, graphics, input delay, training, sounds, replays, name ...) is what T5DR's own launcher shows, and the other way round, like the controls since 0.1.7. Nothing to do: your existing settings are taken over at the first start (where both launchers had a different value, the one saved last wins; the old files are kept as backups in `%APPDATA%\T5DROnline\settings-backup`). Package, licence and language stay per launcher. Details: docs/SETTINGS_SYNC.md.
 - **New: `--offline` starts the game at once.** `OpenRecomp.exe --offline` (or `--offline t5dr` / `--offline t4`)
   starts the game offline in fullscreen without the main menu or the Online page: for a desktop shortcut or Steam's
   launch options, and for playing with a controller only.
