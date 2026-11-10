@@ -199,9 +199,13 @@ class Backend(QObject, GameSetupBackend):
             self.nav.say(problems[0], 8)
         try:
             result = updater.update_result(self.updates.root)
-            updater.clean_finished(self.updates.root)
         except (OSError, ValueError, TypeError):
             result = None
+        try:                                                    # tidying up never hides the result
+            updater.release_stale_lock(self.updates.root)       # a helper killed mid-way must not block updates
+            updater.clean_finished(self.updates.root)
+        except (OSError, ValueError, TypeError):
+            pass
         if result and result.get("status") == "updated" and result.get("version") == updater.local_version(self.updates.root):
             self.nav.say(i18n.message("updates.updated", version=i18n.literal(result["version"])), 8)
         elif result and result.get("status") == "rolled_back":
@@ -649,6 +653,11 @@ class Backend(QObject, GameSetupBackend):
         self.pads = Pads(readers)
         self._pad_root = root
         self.pads.suppress()
+
+    def direct_offline(self, name=""):
+        started = self.nav.direct_offline(name)
+        self.refresh()
+        return started
 
     def _install(self, path):
         """path = a player's manifest; None = a game's folder was chosen. Both: load the games again."""
@@ -1121,6 +1130,9 @@ def make_engine(backend, full):
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="openrecomp-fgc", description="OpenRecomp-FGC: Launcher for all your Recomps")
     ap.add_argument("--windowed", action="store_true", help="in a window instead of fullscreen")
+    ap.add_argument("--offline", nargs="?", const="", default=None, metavar="GAME",
+                    help="start a game offline in fullscreen at once (t5dr, t4 or another game's id; "
+                         "without a name: the game played last)")
     args = ap.parse_args(argv)
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
     app = QGuiApplication(sys.argv[:1])
@@ -1141,6 +1153,8 @@ def main(argv=None):
     engine = make_engine(backend, full=backend.nav.fullscreen)
     # A broken QML scene must never acknowledge an update. The old helper owns rollback.
     QTimer.singleShot(updater.CONFIRM_AFTER_MS, lambda: updater.confirm_startup(backend.updates.root))
+    if args.offline is not None:        # the window is up first: whatever stands in the way is shown on it
+        QTimer.singleShot(0, lambda: backend.direct_offline(args.offline))
     # The launcher's own update check runs with the game checks a few seconds after the start (quiet unless an
     # update is there: app_game_setup._poll_setup -> _auto_check_updates), never here.
     code = app.exec()

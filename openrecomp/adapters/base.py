@@ -77,6 +77,10 @@ class Adapter:
         return []
 
     # ---------------------------------------------------------------- playing
+    def fullscreen_env(self):
+        """Environment that opens the game in fullscreen for one start, whatever its saved setting ({} = unknown)."""
+        return {}
+
     def start(self, extra_env=None):
         raise RuntimeError("@not_ready")
 

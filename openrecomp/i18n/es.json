@@ -1910,5 +1910,6 @@
  "progress.row_value": "Actualizando · {percent} %",
  "t5.build_anyway": "Compilar igualmente",
  "dialog.build_anyway.title": "¿Compilar igualmente?",
- "dialog.build_anyway.text": "No se ha encontrado con seguridad ninguna compilación aquí, pero el registro del lanzador de T5DR es reciente. Si su compilación sigue en marcha, dos compilaciones a la vez estropean la carpeta. ¿Compilar ahora?"
+ "dialog.build_anyway.text": "No se ha encontrado con seguridad ninguna compilación aquí, pero el registro del lanzador de T5DR es reciente. Si su compilación sigue en marcha, dos compilaciones a la vez estropean la carpeta. ¿Compilar ahora?",
+ "direct.unknown_game": "No hay ningún juego llamado {name} en este launcher. Elige uno aquí."
 }

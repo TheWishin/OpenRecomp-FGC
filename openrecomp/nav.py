@@ -349,6 +349,29 @@ class Nav(ProgressNav, GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, 
         if self._offline_action(g.a.start, extra_env=self.launch_env or None):
             self.say(i18n.message("game_starting", name=i18n.literal(g.short)))
 
+    def direct_offline(self, name=""):
+        """`--offline [game]` (a desktop shortcut, a Steam launch option): start the game offline in fullscreen at
+        once -- no main menu, no Online page, nothing to click. `name`: a game's id or short name; none = the game
+        played last. What stands in the way (not built yet, an update running) is said on the page that fixes it,
+        which a controller reaches like any other. -> True when the game was started."""
+        wanted = str(name or "").strip().casefold()
+        game = self.game
+        if wanted:
+            game = next((g for g in self.games if wanted in (g.id.casefold(), str(g.short).casefold())), None)
+        if game is None:
+            self.screen = "start"
+            if wanted:
+                self.say(i18n.message("direct.unknown_game", name=i18n.literal(str(name))), 12)
+            return False
+        self._select_game(game)
+        saved = self.launch_env
+        self.launch_env = dict(saved, **game.a.fullscreen_env())
+        try:
+            self.start_game(game)
+        finally:
+            self.launch_env = saved
+        return not self.dry and bool(game.a.running())
+
     def _offline_action(self, fn, *args, **kwargs):
         try:
             fn(*args, **kwargs)

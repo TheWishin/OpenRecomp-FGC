@@ -5,6 +5,18 @@ TheWishin/Tekken4Recomp).
 
 ## Unreleased
 
+- **New: `--offline` starts the game at once.** `OpenRecomp.exe --offline` (or `--offline t5dr` / `--offline t4`)
+  starts the game offline in fullscreen without the main menu or the Online page: for a desktop shortcut or Steam's
+  launch options, and for playing with a controller only.
+- **Fixed: Tekken 4's Build could stay at "Checking the build tools" for ever.** A tool on the PC that did not answer
+  (a PATH shim whose helper kept running) held the check, and with it the build. Each tool now gets 8 seconds.
+- **A cut-off launcher update no longer blocks later updates.** When the PC was switched off or the update helper was
+  killed mid-way, every later update was refused ("another update owns this installation"). The next start now sees
+  that the helper is gone; files that were half exchanged are put back before the next update.
+- **A cut-off game install cleans up after itself:** the work folder of an install whose launcher is gone (download and
+  half unpacked game, several GB) is removed at the next install instead of staying for good.
+- The "another OpenRecomp is building here" lock is only believed while that very launcher process lives (not when
+  Windows gave its process number to another program after a restart).
 - **Fixed: Tekken 5 Pad bindings gave errors on L1, R2 and every second binding.** Only the first binding of a session
   was saved; the next one failed with "changed on disk". Fixed.
 - **One controls.ini for Tekken 5 DR:** a binding saved here or in T5DR Online's own launcher is the one the game uses

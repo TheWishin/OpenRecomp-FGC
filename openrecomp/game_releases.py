@@ -32,6 +32,7 @@ import urllib.request
 import zipfile
 from dataclasses import dataclass, field
 
+from . import safety
 from . import updater as _sig   # verify_ed25519 (RFC 8032), the same arithmetic the launcher updater uses
 
 MAX_META = 4_000_000
@@ -723,13 +724,47 @@ def check_target(src, offer, parent):
     return ""
 
 
+def drop_dead_stages(game, parent):
+    """Remove what an install that was cut off (launcher closed or killed, PC switched off) left beside the game:
+    its work folder `.openrecomp-setup-<game>-<pid>-<time>` with a download and a half unpacked game. Only folders
+    whose launcher process is gone; one of a running install is never touched. Returns the number removed."""
+    removed = 0
+    try:
+        names = os.listdir(parent)
+    except OSError:
+        return 0
+    for name in names:
+        m = re.fullmatch(rf"\.openrecomp-setup-{re.escape(game)}-(\d+)-\d+", name)
+        path = os.path.join(parent, name)
+        if not m or not os.path.isdir(path) or os.path.islink(path):
+            continue
+        pid = int(m.group(1))
+        if pid == os.getpid() or _sig._pid_alive(pid) and _stage_fresh(path):
+            continue
+        safety.require_removable(path)
+        shutil.rmtree(path, ignore_errors=True)
+        removed += not os.path.exists(path)
+    return removed
+
+
+def _stage_fresh(path, seconds=86400):
+    """A pid that lives may be another program by now (Windows hands the numbers out again): a work folder older
+    than a day belongs to no running install."""
+    try:
+        return time.time() - os.path.getmtime(path) < seconds
+    except OSError:
+        return False
+
+
 def install_fresh(game, offer, parent, *, opener=None, progress=None, cancel=None, keys=None):
     """Download, verify, unpack into parent/<folder>. Returns the new install's root."""
     src = SOURCES[game]
+    safety.require_removable(parent)
     problem = check_target(src, offer, parent)
     if problem:
         raise ReleaseError(problem)
     target = target_folder(src, offer, parent)
+    drop_dead_stages(game, os.path.abspath(parent))
     stage = os.path.join(os.path.abspath(parent), f".openrecomp-setup-{game}-{os.getpid()}-{int(time.time())}")
     os.makedirs(stage)
     keep, finished = download_keep(game, parent), False
@@ -816,6 +851,7 @@ def swap(src, root, new, backup):
 
     A journal beside backup (backup + ".json") names what moves: when the old files cannot all be put back
     (a file locked by another program), the backup stays and recover_update() finishes the rollback later."""
+    safety.require_removable(root)
     protected = {n.lower() for n in src.protected}
     names = sorted(os.listdir(new))
     if any(n.lower() in protected for n in names):
@@ -845,6 +881,7 @@ def swap(src, root, new, backup):
 def undo_swap(root, new, backup, moved_old, moved_new):
     """Take the new items out of root again and put the old ones back from backup. Returns the names that could
     not be put back (a file held by another program): the backup keeps them."""
+    safety.require_removable(root)
     left = []
     for n in reversed(moved_new):
         try:
@@ -931,6 +968,7 @@ def recover_update(game, root):
     backup = os.path.join(stage, "backup")
     if not interrupted_update(root):
         return False
+    safety.require_removable(root)
     root = os.path.abspath(root)
     journal = _read_json(backup + ".json") or {}
     if journal.get("state") != "swapped":
@@ -986,6 +1024,7 @@ def update_in_place(game, offer, root, *, opener=None, progress=None, cancel=Non
     """Download, verify and exchange the program files of root. Returns dict(version, rebuild: True/False/None)."""
     src = SOURCES[game]
     root = os.path.abspath(root)
+    safety.require_removable(root)
     current = installed_version(game, root)
     current_key = version_key(current)
     same_release = current_key is not None and version_key(offer["version"]) == current_key

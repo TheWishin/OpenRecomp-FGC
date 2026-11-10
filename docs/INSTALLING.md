@@ -44,6 +44,17 @@ the pad. Inside the player's own T4 release folder, choose **Use this folder** (
 in the player's language), or select its original release `.zip`. The adapter looks for
 `launcher/t4core.py`, either directly or inside one enclosing release folder.
 
+## Straight into the game: `--offline`
+
+`OpenRecomp.exe --offline` starts the game played last, offline and in fullscreen, at once: no main menu, no Online
+page, nothing to click. `--offline t5dr` or `--offline t4` names the game. For a desktop shortcut, add it after the
+program in the shortcut's **Target**; as a Steam non-Steam game, put it into **Launch options**. The launcher stays
+open behind the game. When the game cannot start yet (not built, an update running), the launcher shows the page
+that fixes it instead, and a controller works there like everywhere else.
+
+Without the option everything is reachable by controller alone as well (Xbox pads, and PlayStation pads read
+directly over USB or Bluetooth): choose the game, then **Offline** or one of the Online entries, then **Play**.
+
 ## Choosing files and folders
 
 Every place that asks for a file or folder (Tekken 4 game folder, T4 ISO, T5DR package `.pkg`

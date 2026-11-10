@@ -95,6 +95,7 @@ def _move_out(source, target):
 def remove_game(game, root, keep_saves=True, stamp=None):
     """Remove one game folder this launcher installed. Disc images/packages/licences and (keep_saves) saves and
     replays are moved to OpenRecomp-kept-<stamp> beside it first. -> dict(kept=[paths], removed=root)."""
+    safety.require_removable(root)       # first: saves are moved out before the folder goes
     if _unsafe(root) or not game_releases.managed(game, root):
         raise ValueError("not a folder this launcher installed: " + root)
     stamp = stamp or datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -123,7 +124,7 @@ def execute(the_plan, keep_saves=True, start=None):
     # Only what the confirmed plan listed, and (test runs) nothing outside the temp folders.
     for item in the_plan.get("games", []):
         safety.require_removable(item["root"])
-    for key in ("data", "program"):
+    for key in ("data", "program", "setup_uninstaller"):
         if the_plan.get(key):
             safety.require_removable(the_plan[key])
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")

@@ -374,6 +374,9 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             self.problem = self.message("picture_error", error=str(e))
 
     # ---------------------------------------------------------------- playing
+    def fullscreen_env(self):
+        return {"PS3_FULLSCREEN": "1"}          # the game's own borderless fullscreen
+
     def start(self, extra_env=None):
         if not self.ready():
             raise RuntimeError(self.status()["detail"])

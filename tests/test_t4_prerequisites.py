@@ -1,6 +1,8 @@
 """Source-bundle tool checks use synthetic responses, never an installer or build."""
 from pathlib import Path
 import subprocess
+import sys
+import time
 from types import SimpleNamespace
 import unittest
 from unittest import mock
@@ -103,16 +105,33 @@ class T4Prerequisites(unittest.TestCase):
             output.assert_called_once_with(["broken-cmake", "--version"])
 
     def test_version_probes_are_hidden_bounded_and_never_use_a_shell(self):
-        with mock.patch.object(tools.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout="git version 2.48.1\n")) as run:
-            self.assertEqual(tools._output(["git", "--version"]), "git version 2.48.1")
-        self.assertEqual(run.call_args.args[0], ["git", "--version"])
-        self.assertFalse(run.call_args.kwargs.get("shell", False))
-        self.assertEqual(run.call_args.kwargs["creationflags"], tools.NO_WINDOW)
-        self.assertEqual(run.call_args.kwargs["timeout"], 8)
-        self.assertEqual(run.call_args.kwargs["stdin"], subprocess.DEVNULL)
-        for error in (OSError(), subprocess.TimeoutExpired("synthetic", 8)):
-            with self.subTest(error=error), mock.patch.object(tools.subprocess, "run", side_effect=error):
-                self.assertEqual(tools._output(["git", "--version"]), "")
+        process = mock.Mock()
+        process.wait.return_value = 0
+        with mock.patch.object(tools.subprocess, "Popen", return_value=process) as popen:
+            self.assertEqual(tools._output(["git", "--version"]), "")
+        self.assertEqual(popen.call_args.args[0], ["git", "--version"])
+        self.assertFalse(popen.call_args.kwargs.get("shell", False))
+        self.assertEqual(popen.call_args.kwargs["creationflags"], tools.NO_WINDOW)
+        self.assertEqual(popen.call_args.kwargs["stdin"], subprocess.DEVNULL)
+        self.assertNotEqual(popen.call_args.kwargs["stdout"], subprocess.PIPE)      # a pipe can outlive the tool
+        process.wait.assert_called_once_with(tools.PROBE_SECONDS)
+        with mock.patch.object(tools.subprocess, "Popen", side_effect=OSError()):
+            self.assertEqual(tools._output(["git", "--version"]), "")
+
+    def test_a_real_tool_answers_and_a_failing_one_is_empty(self):
+        self.assertEqual(tools._output([sys.executable, "-c", "print('tool version 1.2.3')"]), "tool version 1.2.3")
+        self.assertEqual(tools._output([sys.executable, "-c", "print('x'); raise SystemExit(3)"]), "")
+
+    def test_a_hanging_tool_whose_helper_keeps_the_output_open_ends_the_check(self):
+        """Massot's rebuild that stayed at "Checking the build tools": subprocess.run(timeout=) waits on Windows for
+        the output pipe after killing the tool, and the tool's own child kept it open."""
+        helper = "import time; time.sleep(12)"
+        tool = ("import subprocess, sys, time; "
+                f"subprocess.Popen([sys.executable, '-c', {helper!r}]); time.sleep(12)")
+        started = time.monotonic()
+        with mock.patch.object(tools, "PROBE_SECONDS", 1):
+            self.assertEqual(tools._output([sys.executable, "-c", tool]), "")
+        self.assertLess(time.monotonic() - started, 6)
 
     def test_unknown_tool_output_is_not_ready_and_does_not_expose_raw_output(self):
         with mock.patch.object(tools.shutil, "which", return_value="git"), \

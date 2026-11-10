@@ -24,6 +24,12 @@ EVERY = 3.0
 
 
 # ---------------------------------------------------------------- processes and their command lines (Windows)
+def _still_running(k32, handle):
+    import ctypes
+    code = ctypes.c_ulong()
+    return not k32.GetExitCodeProcess(handle, ctypes.byref(code)) or code.value == 259
+
+
 def _command_lines(names=None, strict=False):
     """[(pid, command line)] of this user's Python processes (or, with `names`, the processes whose lower-case exe name
     that function accepts); [] where that cannot be read (not Windows). `strict`: None instead when the process list
@@ -69,8 +75,8 @@ def _command_lines(names=None, strict=False):
             wanted = names(name) if names else (name.startswith("python") or name in ("py.exe", "pyw.exe"))
             if entry.pid and entry.pid != own and wanted:
                 handle = k32.OpenProcess(0x1000, False, entry.pid)   # PROCESS_QUERY_LIMITED_INFORMATION
-                if not handle:
-                    unreadable = True
+                if not handle and ctypes.get_last_error() != 87:
+                    unreadable = True        # (87: the process ended since the snapshot -- gone, not hidden)
                 if handle:
                     try:
                         size = wintypes.ULONG(0)
@@ -80,10 +86,10 @@ def _command_lines(names=None, strict=False):
                             text = UnicodeString.from_buffer(buffer)
                             if text.buffer and text.length:
                                 out.append((entry.pid, ctypes.wstring_at(text.buffer, text.length // 2)))
-                            else:
+                            elif _still_running(k32, handle):
                                 unreadable = True
-                        else:
-                            unreadable = True
+                        elif _still_running(k32, handle):
+                            unreadable = True      # (a process that is ending has no command line any more)
                     finally:
                         k32.CloseHandle(handle)
             ok = k32.Process32NextW(snap, ctypes.byref(entry))

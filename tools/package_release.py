@@ -27,7 +27,7 @@ SOURCE_GROUPS = {
                    "nav_accounts.py", "nav_challenges.py", "nav_community.py", "nav_moderation.py", "nav_netext.py",
                    "nav_private_chat.py", "nav_profiles.py", "nav_ranked.py", "nav_list_sort.py", "nav_lobby_chat.py",
                    "nav_rules.py", "nav_spectating.py", "nav_tournaments.py",
-                   "pad.py", "ranks.py", "stall.py", "updater.py", "update_service.py", "progress_meter.py", "uninstall.py", "known_installs.py", "file_dialog.py",
+                   "pad.py", "ranks.py", "stall.py", "updater.py", "update_service.py", "progress_meter.py", "uninstall.py", "safety.py", "known_installs.py", "file_dialog.py",
                    "game_library.py", "game_updates.py", "nav_library.py",
                    "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py", "t4_art.py", "fighter_render.py", "t5_art_child.py", "t5_startlog.py",
                    "bundled_games.py", "game_manifest.py", "community.py", "report_upload.py", "t4_report.py", "wine.py",

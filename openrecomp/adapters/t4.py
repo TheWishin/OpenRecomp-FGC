@@ -319,6 +319,9 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
         return (getattr(self, "_direct_busy", False)
                 or getattr(self, "_online_phase", "") in ("checking", "checked", "starting", "playing"))
 
+    def fullscreen_env(self):
+        return {"TEKKEN4_FULLSCREEN": "1"}
+
     def start(self, extra_env=None):
         with self._play_lock:
             if self._source_state["running"] or self._building():

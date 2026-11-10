@@ -38,6 +38,8 @@ RELEASE_PUBLIC_KEYS = ("155380e01c2fd2b5b13bc4a6f3590402294db672a2ffb5c20afb402d
 PROJECT = "openrecomp-fgc"
 CONFIRM_AFTER_MS = 15000
 CONFIRM_WAIT = 120
+LOCK_OWNER = "owner.json"
+STALE_LOCK_AFTER = 900         # s: a lock without an owner record whose helper cannot be alive any more
 CONFIRM_ENV = "OPENRECOMP_UPDATE_CONFIRM"
 TEST_ENV, TEST_KEY_ENV = "OPENRECOMP_RELEASES_TEST", "OPENRECOMP_RELEASES_TEST_KEY"
 MAX_ZIP = 1024 * 1024 * 1024
@@ -508,7 +510,25 @@ def _archive_members(archive, version):
     return members
 
 
+def _refuse_real_folder(root):
+    """A test run never stages, swaps or cleans beside a real installation (this file also runs alone as the
+    update helper, so the rule of openrecomp/safety.py is repeated here)."""
+    safety = sys.modules.get("openrecomp.safety")
+    if not (safety.testing() if safety else os.environ.get("OPENRECOMP_TESTING") == "1"):
+        return
+    import tempfile
+    real = os.path.normcase(os.path.realpath(root))
+    made = getattr(sys.modules.get("openrecomp.safety"), "_CREATED", [])       # folders this test run created
+    listed = os.environ.get("OPENRECOMP_TEST_DIRS", "").split(os.pathsep)
+    for base in [tempfile.gettempdir(), os.environ.get("OPENRECOMP_TEST_ROOT")] + list(made) + listed:
+        base = os.path.normcase(os.path.realpath(base)) if base else ""
+        if base and (real == base or real.startswith(base.rstrip(os.sep) + os.sep)):
+            return
+    raise ValueError("refusing to update outside the test temp folders: " + str(root))
+
+
 def _work_root(root):
+    _refuse_real_folder(root)
     root = Path(root).resolve()
     work = root.with_name(root.name + ".update")
     if work.is_symlink() or work.is_junction():
@@ -756,7 +776,8 @@ def launch_update(root, prepared, channel=None):
 def launcher_args(argv=None):
     """The launcher's own switches, so the restarted launcher opens the same way (e.g. --windowed)."""
     argv = sys.argv[1:] if argv is None else argv
-    return [a for a in argv if isinstance(a, str) and re.fullmatch(r"--[a-z][a-z-]{1,30}", a)][:8]
+    # (not --offline: a launcher restarted after its update must not start a game by itself)
+    return [a for a in argv if isinstance(a, str) and re.fullmatch(r"--[a-z][a-z-]{1,30}", a) and a != "--offline"][:8]
 
 
 def _pid_alive(pid):
@@ -776,6 +797,141 @@ def _pid_alive(pid):
         os.kill(pid, 0)
         return True
     except ProcessLookupError:
+        return False
+
+
+def pid_started(pid):
+    """When the process started (Windows: its creation time as an integer), or None when that cannot be read.
+    A pid alone proves nothing after a restart of the PC: Windows hands the same numbers out again."""
+    if os.name != "nt" or not isinstance(pid, int) or pid <= 0:
+        return None
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.OpenProcess.restype = ctypes.c_void_p
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    kernel.GetProcessTimes.argtypes = [ctypes.c_void_p] + [ctypes.c_void_p] * 4
+    handle = kernel.OpenProcess(0x1000, False, pid)
+    if not handle:
+        return None
+    try:
+        times = [ctypes.c_ulonglong() for _ in range(4)]
+        if not kernel.GetProcessTimes(handle, *[ctypes.byref(t) for t in times]):
+            return None
+        return int(times[0].value)
+    finally:
+        kernel.CloseHandle(handle)
+
+
+def _lock_stale(lock, alive=None, now=None):
+    """True when the helper that took apply.lock is gone (killed, PC switched off): its pid is dead, or belongs to
+    a process started at another time. A lock without an owner record (older helpers) is stale after
+    STALE_LOCK_AFTER seconds: no helper lives that long."""
+    alive = alive or _pid_alive
+    try:
+        owner = _json(lock / LOCK_OWNER)
+        pid = int(owner.get("pid") or 0)
+    except (OSError, ValueError, TypeError, AttributeError):
+        owner, pid = {}, 0
+    if pid > 0:
+        if pid == os.getpid():
+            return False
+        if not alive(pid):
+            return True
+        started = pid_started(pid)
+        return started is not None and owner.get("started") is not None and started != owner.get("started")
+    try:
+        age = (time.time() if now is None else now) - lock.stat().st_mtime
+    except OSError:
+        return False
+    return age >= STALE_LOCK_AFTER
+
+
+def _take_lock(lock):
+    lock.mkdir()
+    try:
+        (lock / LOCK_OWNER).write_text(json.dumps(dict(pid=os.getpid(), started=pid_started(os.getpid()))), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _drop_lock(lock):
+    try:
+        (lock / LOCK_OWNER).unlink()
+    except OSError:
+        pass
+    lock.rmdir()
+
+
+def _transaction_status(transaction):
+    for name in ("result.json", "consumed.json"):
+        try:
+            value = _json(transaction / name)
+            if isinstance(value, dict) and value.get("status"):
+                return value["status"]
+        except (OSError, ValueError):
+            continue
+    return None
+
+
+def _needs_restore(transaction):
+    """A transaction whose backup still holds old program files although no helper finished it: it never wrote a
+    result (killed), or its rollback could not put everything back (recovery_required)."""
+    backup = transaction / "backup"
+    try:
+        if (transaction.is_symlink() or not transaction.is_dir() or not re.fullmatch(r"[0-9a-f]{24}", transaction.name)
+                or not backup.is_dir() or backup.is_symlink() or not any(backup.iterdir())):
+            return False
+    except OSError:
+        return False
+    return _transaction_status(transaction) in (None, "recovery_required")
+
+
+def _recover_stale(work, root, move=os.replace):
+    """What a helper that died mid-update left: its lock is stale. Every transaction whose backup still holds the
+    old program files and that never wrote a result gets them back (the newer ones wait in its `discard`), so the
+    installation is whole again before anything else happens. OSError when a file is held: the lock stays."""
+    for transaction in sorted(work.iterdir()):
+        if not _needs_restore(transaction):
+            continue
+        backup = transaction / "backup"
+        items = [item for item in PROGRAM_ITEMS if (backup / item).exists()]
+        whole = False
+        try:
+            _manifest(root, _json(transaction / "plan.json"), configured_channel())
+            # all of the new version arrived and no earlier rollback began: the exchange was complete
+            whole = (_transaction_status(transaction) is None
+                     and not any((transaction / "new" / item).exists() for item in PROGRAM_ITEMS))
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, UpdateError):
+            pass
+        status = "updated"
+        if items and not whole:
+            discard = transaction / "discard"
+            discard.mkdir(exist_ok=True)
+            for item in items:
+                if (root / item).exists():
+                    move(root / item, discard / item)
+                move(backup / item, root / item)
+            status = "rolled_back"
+        (transaction / "consumed.json").write_text(json.dumps(dict(status=status)), encoding="utf-8")
+        try:
+            (transaction / "result.json").unlink()
+        except OSError:
+            pass
+
+
+def release_stale_lock(root, alive=None, now=None):
+    """The launcher's start: an apply.lock whose helper is gone and that left no backup to put back is removed, so
+    the next update is not refused for ever. One that left a backup waits for the next helper (it restores the
+    files while no launcher runs). Returns True when a lock was removed."""
+    try:
+        work = _work_root(root)
+        lock = work / "apply.lock"
+        if not lock.is_dir() or lock.is_symlink() or not _lock_stale(lock, alive, now):
+            return False
+        if any(_needs_restore(transaction) for transaction in work.iterdir()):
+            return False
+        _drop_lock(lock)
+        return True
+    except (OSError, UpdateError, ValueError):
         return False
 
 
@@ -838,9 +994,17 @@ def apply_plan(plan_path, *, wait=CONFIRM_WAIT, alive=_pid_alive, processes=_ins
     plan_path, _plan, _root, _staged, transaction = _validated_plan(plan_path)
     lock = transaction.parent / "apply.lock"
     try:
-        lock.mkdir()
+        _take_lock(lock)
     except FileExistsError:
-        raise UpdateError("Another update or an interrupted recovery owns this installation.") from None
+        # A helper that was killed (PC switched off mid-update) left its lock: it must not refuse every later update.
+        if not _lock_stale(lock):
+            raise UpdateError("Another update or an interrupted recovery owns this installation.") from None
+        try:
+            _recover_stale(transaction.parent, _root, move)
+            _drop_lock(lock)
+            _take_lock(lock)
+        except OSError:
+            raise UpdateError("An interrupted update could not be put back; close programs using the launcher folder.") from None
     release_lock = False
     try:
         result = _apply_plan(plan_path, wait=wait, alive=alive, processes=processes,
@@ -852,7 +1016,7 @@ def apply_plan(plan_path, *, wait=CONFIRM_WAIT, alive=_pid_alive, processes=_ins
         raise
     finally:
         if release_lock:
-            lock.rmdir()
+            _drop_lock(lock)
 
 
 def _write_result(transaction, status, version):

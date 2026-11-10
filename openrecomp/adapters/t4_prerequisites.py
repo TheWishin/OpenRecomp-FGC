@@ -6,6 +6,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 
 from .base import NO_WINDOW
 from . import build_tool_downloads as downloads
@@ -20,12 +21,29 @@ COMMANDS = dict(python="winget install --id Python.Python.3.12 --exact",
                 vs2022=VS_COMMAND, msvc=VS_COMMAND)
 
 
+PROBE_SECONDS = 8
+
+
 def _output(command):
+    """A tool's answer, or "" after PROBE_SECONDS. The output goes to a file, not a pipe: subprocess.run(timeout=)
+    on Windows waits for the pipe to close after it killed the tool, and a helper the tool started (a PATH shim's
+    real program) keeps that pipe open -- the check, and with it Build ("Checking the build tools"), never ended."""
     try:
-        result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace",
-                                timeout=8, creationflags=NO_WINDOW, check=False)
-        return result.stdout.strip() if result.returncode == 0 else ""
+        with tempfile.TemporaryFile() as out:
+            process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
+                                       creationflags=NO_WINDOW)
+            try:
+                code = process.wait(PROBE_SECONDS)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                try:
+                    process.wait(2)
+                except subprocess.TimeoutExpired:
+                    pass
+                return ""
+            out.seek(0)
+            text = out.read(1 << 20).decode("utf-8", "replace")
+        return text.strip() if code == 0 else ""
     except (OSError, subprocess.SubprocessError):
         return ""
 

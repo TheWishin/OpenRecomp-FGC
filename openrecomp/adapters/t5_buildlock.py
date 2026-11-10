@@ -69,7 +69,21 @@ def held_by_other(root):
     info = _read(lock_path(root))
     if info is None:
         return False
-    return int(info.get("pid") or 0) != os.getpid() and _alive(info.get("pid"))
+    try:
+        pid = int(info.get("pid") or 0)
+    except (TypeError, ValueError):
+        return False
+    if pid == os.getpid() or not _alive(pid):
+        return False
+    # The pid lives, but is it the launcher that wrote the lock? After a restart of the PC the number can belong to
+    # any program: only the same start time counts (a lock without one, from 0.1.7 and older, is believed).
+    started = _started(pid)
+    return not (started is not None and info.get("started_at") is not None and started != info.get("started_at"))
+
+
+def _started(pid):
+    from ..updater import pid_started
+    return pid_started(pid)
 
 
 def _norm(path):
@@ -161,7 +175,8 @@ def acquire(root, out_dir):
     path = lock_path(root)
     try:
         with open(path, "w", encoding="utf-8") as stream:
-            json.dump(dict(pid=os.getpid(), started=time.strftime("%Y-%m-%dT%H:%M:%S"), by="OpenRecomp-FGC"), stream)
+            json.dump(dict(pid=os.getpid(), started=time.strftime("%Y-%m-%dT%H:%M:%S"), started_at=_started(os.getpid()),
+                           by="OpenRecomp-FGC"), stream)
     except OSError as error:
         raise RuntimeError("@t5.build_lock_failed") from error
     _HELD.add(path)

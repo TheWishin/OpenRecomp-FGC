@@ -17,7 +17,7 @@ EMBEDDED = ROOT / "dist/portable-runtime"
 class PortableRunTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix=".run-test-", dir=ROOT)
-        self.addCleanup(self.temporary.cleanup)
+        self.addCleanup(self.remove_folder)
         self.root = Path(self.temporary.name)
         shutil.copyfile(ROOT / "run.cmd", self.root / "run.cmd")
         module = self.root / "openrecomp"
@@ -32,6 +32,18 @@ class PortableRunTests(unittest.TestCase):
             "    report['python'] = list(sys.version_info[:2])\n"
             "pathlib.Path(__file__).parents[1].joinpath('started.json').write_text("
             "json.dumps(report), encoding='utf-8')\n", encoding="utf-8")
+
+    def remove_folder(self):
+        # run.cmd starts pythonw detached: it may still be closing (its exe locked) when the test is over
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                self.temporary.cleanup()
+                return
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(.1)
 
     def interpreter(self, location, *, console=True, windowed=True):
         folder = self.root / location

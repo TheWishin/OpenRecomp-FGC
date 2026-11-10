@@ -1910,5 +1910,6 @@
  "progress.row_value": "Updating · {percent} %",
  "t5.build_anyway": "Build anyway",
  "dialog.build_anyway.title": "Build anyway?",
- "dialog.build_anyway.text": "Nothing building here was found for sure, but the T5DR launcher's log looks recent. If its build is really running, two builds at once break the folder. Build now?"
+ "dialog.build_anyway.text": "Nothing building here was found for sure, but the T5DR launcher's log looks recent. If its build is really running, two builds at once break the folder. Build now?",
+ "direct.unknown_game": "There is no game called {name} in this launcher. Choose one here."
 }

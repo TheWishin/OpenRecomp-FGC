@@ -1910,5 +1910,6 @@
  "progress.row_value": "Aktualisiere · {percent} %",
  "t5.build_anyway": "Trotzdem bauen",
  "dialog.build_anyway.title": "Trotzdem bauen?",
- "dialog.build_anyway.text": "Es wurde nicht sicher erkannt, dass hier gebaut wird, aber das Protokoll des T5DR-Launchers ist frisch. Läuft sein Build wirklich, zerstören zwei Builds gleichzeitig den Ordner. Jetzt bauen?"
+ "dialog.build_anyway.text": "Es wurde nicht sicher erkannt, dass hier gebaut wird, aber das Protokoll des T5DR-Launchers ist frisch. Läuft sein Build wirklich, zerstören zwei Builds gleichzeitig den Ordner. Jetzt bauen?",
+ "direct.unknown_game": "In diesem Launcher gibt es kein Spiel namens {name}. Wähle hier eines aus."
 }
