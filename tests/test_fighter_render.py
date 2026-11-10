@@ -111,7 +111,8 @@ class T5RenderCache(unittest.TestCase):
             finally:
                 release.set()
 
-    def test_worker_uses_readonly_build_and_writes_only_private_large_cache(self):
+    def test_child_job_uses_readonly_build_and_writes_only_private_large_cache(self):
+        from openrecomp import t5_art_child
         source = Path(self.adapter.s.out_dir)
         source.mkdir()
         marker = source / "synthetic-data.txt"
@@ -121,22 +122,28 @@ class T5RenderCache(unittest.TestCase):
             ra=SimpleNamespace(find_sources=mock.Mock(return_value=(str(marker),))),
             render_dxt=mock.Mock(return_value=b"synthetic DXT5"),
             dxt5_square=mock.Mock(return_value=pixels))
+        path = self.folder / "art" / "fighters" / "render_09_p1.png"
+        with mock.patch("openrecomp.t5_art_child.importlib.import_module", return_value=decoder):
+            t5_art_child.make_render(str(source), 9, str(path))
+        self.assertEqual(read_png(str(path))[:2], (768, 768))
+        self.assertEqual(marker.read_bytes(), b"unchanged synthetic data")
+        self.assertEqual(list(source.iterdir()), [marker])
+
+    def test_worker_runs_in_a_child_process_and_clears_busy(self):
         self.adapter._render_lock = threading.Lock()
         self.adapter._render_busy = {(9, False)}
         path = self.folder / "art" / "fighters" / "render_09_p1.png"
-        with mock.patch("openrecomp.adapters.t5dr.importlib.import_module", return_value=decoder):
+        with mock.patch.object(self.adapter, "_art_child", return_value=(0, "")) as child:
             self.adapter._make_fighter_render(9, str(path))
-        self.assertEqual(read_png(str(path))[:2], (768, 768))
+        self.assertEqual(child.call_args.args[0], {"job": "render", "gid": 9, "path": str(path), "mirrored": False})
         self.assertEqual(self.adapter._render_busy, set())
-        self.assertEqual(marker.read_bytes(), b"unchanged synthetic data")
-        self.assertEqual(list(source.iterdir()), [marker])
         self.assertEqual(self.adapter.problem, "")
 
     def test_worker_failure_leaves_no_partial_cache_and_clears_busy(self):
         self.adapter._render_lock = threading.Lock()
         self.adapter._render_busy = {(9, False)}
         path = self.folder / "art" / "fighters" / "render_09_p1.png"
-        with mock.patch("openrecomp.adapters.t5dr.importlib.import_module", side_effect=ImportError("synthetic missing decoder")):
+        with mock.patch.object(self.adapter, "_art_child", return_value=(1, "ImportError: synthetic missing decoder")):
             self.adapter._make_fighter_render(9, str(path))
         self.assertFalse(path.exists())
         self.assertEqual(self.adapter._render_busy, set())

@@ -29,7 +29,7 @@ SOURCE_GROUPS = {
                    "nav_rules.py", "nav_spectating.py", "nav_tournaments.py",
                    "pad.py", "ranks.py", "stall.py", "updater.py", "update_service.py", "progress_meter.py", "uninstall.py", "known_installs.py", "file_dialog.py",
                    "game_library.py", "game_updates.py", "nav_library.py",
-                   "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py", "t4_art.py", "fighter_render.py",
+                   "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py", "t4_art.py", "fighter_render.py", "t5_art_child.py", "t5_startlog.py",
                    "bundled_games.py", "game_manifest.py", "community.py", "report_upload.py", "t4_report.py", "wine.py",
                    "ui_sound.py", "nav_sound.py", "nav_controls_page.py", "pad_glyphs.py", "pad_presets.py", "t4_controls_ini.py", "t4_pad_reader.py", "nav_rank_cue.py",
                    "nav_feedback.py", "nav_main_menu.py", "launcher_page.py", "launcher_prefs.py", "nav_playtime.py", "nav_progress.py", "playtime.py", "playtime_format.py", "player_main.py", "living_background.py"),
