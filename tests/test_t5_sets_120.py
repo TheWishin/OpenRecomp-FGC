@@ -132,6 +132,51 @@ class SetTests(unittest.TestCase):
                              dict(sets=True, ingame_pick=False, ingame_rematch=False, auto_skip_after_round=False,
                                   ranked_costume=False))
 
+    def rematch_option(self, value, own_rule=True, supported=True):
+        """(what OpenRecomp announces, what the install's own launcher announces) for one T5_INGAME_REMATCH."""
+        def wanted(env=None):          # lobby/t5lobby/match_driver.py ingame_rematch_wanted, word for word
+            return (os.environ if env is None else env).get("T5_INGAME_REMATCH", "1").strip() != "0"
+        module = SimpleNamespace(__file__=self.directory.name + "/lobby/t5lobby/match_driver.py",
+                                 game_files=mock.Mock(return_value=["inert-file"]),
+                                 game_supports_pick=mock.Mock(return_value=True),
+                                 game_supports_ingame_ui=mock.Mock(return_value=supported),
+                                 game_supports_auto_skip=mock.Mock(return_value=True))
+        if own_rule:
+            module.ingame_rematch_wanted = wanted
+        env = {k: v for k, v in os.environ.items() if k != "T5_INGAME_REMATCH"}
+        if value is not None:
+            env["T5_INGAME_REMATCH"] = value
+        with mock.patch("openrecomp.adapters.t5_match.importlib.import_module", return_value=module),                 mock.patch.dict(os.environ, env, clear=True):
+            ours = self.a._online_match_client_options()
+            # tk_tab._game_has_ingame_ui: ingame_rematch_wanted() and game_supports_ingame_ui(game_files(out))
+            theirs = (wanted() if own_rule else os.environ.get("T5_INGAME_REMATCH") == "1") and bool(supported)
+        return ours, theirs
+
+    def test_in_game_rematch_is_announced_exactly_as_the_installs_own_launcher_does(self):
+        for value, expected in ((None, True), ("0", False), ("1", True), (" 0 ", False), ("", True)):
+            with self.subTest(value=value):
+                ours, theirs = self.rematch_option(value)
+                self.assertEqual(ours["ingame_rematch"], theirs)
+                self.assertEqual(ours["ingame_rematch"], expected)
+                self.assertEqual(ours["auto_skip_after_round"], expected)        # only with the in-game question
+                self.assertTrue(ours["ingame_pick"])
+        ours, theirs = self.rematch_option(None, supported=False)                # a game build without the screen
+        self.assertEqual((ours["ingame_rematch"], theirs), (False, False))
+
+    def test_an_install_without_the_rule_keeps_its_opt_in(self):
+        for value, expected in ((None, False), ("0", False), ("1", True)):
+            with self.subTest(value=value):
+                ours, theirs = self.rematch_option(value, own_rule=False)
+                self.assertEqual(ours["ingame_rematch"], theirs)
+                self.assertEqual(ours["ingame_rematch"], expected)
+
+    def test_the_lobby_must_agree_before_the_in_game_rematch_is_used(self):
+        from openrecomp.adapters import t5_community
+        client = SimpleNamespace(ingame_rematch_ok=lambda: False, auto_skip_ok=lambda: False)
+        self.assertFalse(t5_community._cap(client, "ingame_rematch_ok"))
+        client.ingame_rematch_ok = lambda: True
+        self.assertTrue(t5_community._cap(client, "ingame_rematch_ok"))
+
     def test_native_game_capabilities_drive_opt_ins_and_driver_parameter(self):
         client = self.match()
         client.ingame_rematch = True

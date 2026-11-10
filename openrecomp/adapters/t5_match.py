@@ -110,9 +110,13 @@ class T5Match(Online):
                                  ("ingame_rematch", "game_supports_ingame_ui")):
                 check = getattr(module, helper, None)
                 options[flag] = bool(check and check(paths))
-            # 1.2.0's in-game rematch is opt-in: its own launcher announces it only with T5_INGAME_REMATCH=1
-            # (tk_tab._game_has_ingame_ui), so both launchers offer the same matches on the same build.
-            options["ingame_rematch"] = options["ingame_rematch"] and os.environ.get("T5_INGAME_REMATCH") == "1"
+            # Both launchers must announce the same thing on the same build, so the install's own rule decides
+            # (tk_tab._game_has_ingame_ui = ingame_rematch_wanted() and game_supports_ingame_ui): on unless
+            # T5_INGAME_REMATCH=0. An install whose client has no such rule (1.2.0) had it opt-in, with =1.
+            # The server's side is unchanged: the client only uses it when the lobby agreed (ingame_rematch_ok).
+            wanted = getattr(module, "ingame_rematch_wanted", None)
+            asked = wanted() if callable(wanted) else os.environ.get("T5_INGAME_REMATCH") == "1"
+            options["ingame_rematch"] = options["ingame_rematch"] and bool(asked)
             # 1.2.3 ranked costume (T5DR docs/RANKED.md "Costumes in ranked"): a game with the in-game select also
             # starts a fight with buttons=, so ranked fighter and costume can come from the launcher. Older installs'
             # clients do not take the flag (t5_features.options drops it); an older server ignores it.
