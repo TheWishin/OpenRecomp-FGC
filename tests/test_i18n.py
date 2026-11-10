@@ -149,7 +149,7 @@ def untranslated_literals(source):
         ".json", ".iso", "*.iso", ".pkg", ".rap", ".openrecomp.tmp", "logs\\build_game.log",
         "--search", "-Force", "openrecomp", "taskkill", "/T", "/F", "/PID", "W", "L",
         "controls_edit.py", "controls_ui.py", "padmap.py", "padnav.py", "__init__.py", ".py", "replays.py", "launcher.log",
-        "openrecomp-build.lock", "build.log", "OpenRecomp-FGC",  # t5_buildlock: the lock file, T5DR's build log, the lock's owner
+        "openrecomp-build.lock", "build.log", "OpenRecomp-FGC", "build_game.py", "build_game_dll.py", "clang-cl", "lld-link", "clang.exe",  # t5_buildlock: the lock file, T5DR's build log, the lock's owner
         "controls_edit", "controls_ui", "t5lobby.padmap", "t5lobby.padnav", "problem_report", "problem_check",
         "Context", "settings_lines", "build_info_for", "discover", "build", "desktop_dir",
         "controls_path", "DeviceRef", "load", "sources", "table", "bind", "save", "mask_text",

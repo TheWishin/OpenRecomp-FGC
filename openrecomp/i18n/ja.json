@@ -1779,7 +1779,7 @@
  "dialog.t5_folder.title": "このT5DRフォルダーをビルドしますか?",
  "dialog.t5_folder.text": "このT5DRフォルダーはT5DRランチャーで設定されたものです。OpenRecompでビルドでき、その後もT5DRランチャーで使えます。セーブと設定は保持されます。2つのランチャーで同時にビルドしないでください。今すぐビルドしますか?",
  "t5.build_locked_openrecomp": "OpenRecompがこのフォルダーでビルド中です。そのビルドが終わるまでお待ちください。",
- "t5.build_locked_t5dr": "T5DRランチャーがこのフォルダーでビルド中です。終わるまで待ってから、ここでビルドしてください。",
+ "t5.build_locked_t5dr": "T5DRランチャーがこのフォルダーでビルド中のようです。終わるまで待つか、ビルドしていない場合は「それでもビルド」を選んでください。",
  "t5.build_lock_failed": "OpenRecompはこのフォルダーにビルドロックを書き込めませんでした。Windowsで書き込みが許可されているか確認してください。",
  "t5.install_path_too_long": "フォルダーのパスがWindowsには長すぎます。ゲームフォルダー全体をC:\\Games\\T5DRのような短いパスへ移動してから、もう一度選んでください。",
  "t5.build_path_too_long": "フォルダーのパスがWindowsには長すぎるため、ビルドが止まりました。ゲームフォルダーをC:\\Games\\T5DRのような短いパスへ移動してから、もう一度ビルドしてください。",
@@ -1898,5 +1898,8 @@
  "progress.drawer_hint": "バックグラウンドで実行中のインストールまたは更新を表示します。",
  "progress.update_running": "更新中",
  "progress.row_label": "更新中",
- "progress.row_value": "更新中 · {percent} %"
+ "progress.row_value": "更新中 · {percent} %",
+ "t5.build_anyway": "それでもビルド",
+ "dialog.build_anyway.title": "それでもビルドしますか？",
+ "dialog.build_anyway.text": "ここでビルドが動いている確かな形跡はありませんが、T5DRランチャーのログは新しいままです。本当にビルド中なら、2つ同時のビルドはフォルダーを壊します。今すぐビルドしますか？"
 }

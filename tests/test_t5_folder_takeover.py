@@ -191,7 +191,26 @@ class Building(Folder):
         self.assertFalse(a.foreign_notice_pending())
 
 
+REAL_SCAN = t5_buildlock._scan
+
+
 class OneBuildAtATime(Folder):
+    def setUp(self):
+        super().setUp()
+        t5_buildlock.forget_scan()
+        self.addCleanup(t5_buildlock.forget_scan)
+        self.addCleanup(t5_buildlock._ANYWAY.clear)
+        self.processes = []                     # what the process list holds; None = cannot be read
+        self.enterContext(mock.patch.object(t5_buildlock, "_scan", lambda: self.processes))
+
+    def adapter(self):
+        t5_buildlock.forget_scan()              # (the scan is cached for a few seconds; the tests change what it sees)
+        return super().adapter()
+
+    def build_line(self):
+        return r'"%s\python\python.exe" "%s\tools\build_game.py" --pkg a.pkg --out "%s"' % (
+            self.root, self.root, self.root / "native")
+
     def start_foreign_build(self, age=5, last="# step"):
         log = self.root / "native" / "build.log"
         log.write_text("# T5DR Online build log\n" + last + "\n", encoding="utf-8")
@@ -200,6 +219,7 @@ class OneBuildAtATime(Folder):
 
     def test_a_running_t5dr_launcher_build_stops_this_one_with_a_clear_message(self):
         self.start_foreign_build()
+        self.processes = [(4242, self.build_line())]
         a = self.adapter()
         self.assertEqual(a.build_ready(), "@t5.build_locked_t5dr")
         with self.assertRaisesRegex(RuntimeError, "t5.build_locked_t5dr"):
@@ -207,11 +227,119 @@ class OneBuildAtATime(Folder):
         self.assertEqual(self.runs, [])
         self.assertFalse((self.root / t5_buildlock.LOCK_NAME).exists())
 
+    def test_a_compiler_of_that_folder_counts_as_the_build_too(self):
+        self.start_foreign_build(age=900)       # a quiet compile step: the log is old, the compiler is there
+        self.processes = [(77, r'"%s\toolchain\llvm\bin\clang-cl.exe" /c x.c' % self.root)]
+        self.assertEqual(self.adapter().build_ready(), "@t5.build_locked_t5dr")
+
+    def test_a_cut_off_build_with_no_process_does_not_block(self):
+        # OpenRecomp or T5DR's launcher closed mid-build: build.log changed seconds ago, no exit line, nothing running.
+        self.start_foreign_build(age=3)
+        for processes in ([], [(5, "python.exe other.py")], [(6, self.build_line().replace(str(self.root), r"D:\Other"))]):
+            with self.subTest(processes=processes):
+                self.processes = processes
+                t5_buildlock.forget_scan()
+                self.assertEqual(self.adapter().build_ready(), "")
+        self.adapter().build_start()
+        self.assertEqual(len(self.runs), 1)
+
+    def test_when_the_processes_cannot_be_read_the_log_decides_with_a_short_window(self):
+        self.processes = None
+        for age, blocked in ((5, True), (t5_buildlock.BLIND_SECONDS - 20, True), (t5_buildlock.BLIND_SECONDS + 20, False),
+                             (t5_buildlock.RUNNING_SECONDS - 20, False)):
+            with self.subTest(age=age):
+                self.start_foreign_build(age)
+                self.assertEqual(self.adapter().build_ready(), "@t5.build_locked_t5dr" if blocked else "")
+        self.start_foreign_build(5, "# exit code 1")
+        self.assertEqual(self.adapter().build_ready(), "")
+
+    @unittest.skipUnless(os.name == "nt", "the process list is read on Windows")
+    def test_the_real_process_scan_sees_a_live_fake_build_and_not_a_dead_one(self):
+        fake = self.root / "tools" / "build_game.py"
+        fake.write_text("import time\ntime.sleep(60)\n", encoding="utf-8")
+        process = subprocess.Popen([sys.executable, str(fake), "--out", str(self.root / "native")], stdin=subprocess.DEVNULL)
+        self.addCleanup(process.wait)
+        self.addCleanup(process.kill)
+        lines = [l for l in (REAL_SCAN() or []) if l[0] == process.pid]
+        self.assertEqual(len(lines), 1)
+        self.assertTrue(t5_buildlock.t5dr_build_process(str(self.root / "native"), str(self.root), lines))
+        self.assertFalse(t5_buildlock.t5dr_build_process(str(self.temp / "other" / "native"), str(self.temp / "other"), lines))
+        process.kill()
+        process.wait()
+        self.assertFalse(t5_buildlock.t5dr_build_process(str(self.root / "native"), str(self.root), [l for l in REAL_SCAN() if l[0] == process.pid]))
+
+    def test_build_anyway_skips_the_t5dr_check_once(self):
+        self.start_foreign_build()
+        self.processes = [(4242, self.build_line())]
+        a = self.adapter()
+        self.assertEqual(a.build_ready(), "@t5.build_locked_t5dr")
+        a.build_anyway()
+        self.assertEqual(a.build_ready(), "")
+        a.build_start()
+        self.finish(a)
+        self.assertEqual(len(self.runs), 1)
+        self.start_foreign_build()
+        self.assertEqual(a.build_ready(), "@t5.build_locked_t5dr", "the override was for that one build")
+
+    def test_the_build_page_offers_build_anyway_and_asks_before_it(self):
+        class LockedPage(Page):
+            def __init__(self):
+                super().__init__(adapter="t5dr", checks=[], sources=[
+                    dict(id="pkg", label="@package", value="@found", ok=True, kind="file", exts=[".pkg"], dirs=[], hint="@package.hint"),
+                    dict(id="rap", label="@license", value="@found", ok=True, kind="file", exts=[".rap"], dirs=[], hint="@license.hint")])
+                self.locked = True
+
+            def build_ready(self):
+                return "@t5.build_locked_t5dr" if self.locked else ""
+
+            def build_install_problem(self):
+                return ""
+
+            def build_anyway(self):
+                self.locked = False
+                self.calls.append(("anyway",))
+
+        adapter = LockedPage()
+        nav = Nav([Game(adapter.m, adapter)], language="en")
+        nav.screen = "hub"
+        nav.sec["t5dr"] = "build"
+        items = nav.items()
+        build = next(i for i, it in enumerate(items) if it.get("id") == "build")
+        self.assertEqual(i18n.localize(items[build]["verb"], "en"), "Build anyway")
+        self.assertFalse(items[build].get("blocked"))
+        nav.focus["t5dr:build"] = build
+        nav.act("confirm", device="kb")
+        self.assertEqual((nav.overlay, nav.confirm_kind), ("dialog", "build_anyway"))
+        self.assertEqual(adapter.calls, [], "asks first")
+        nav.act("confirm", device="kb")                     # default answer: No
+        self.assertEqual(adapter.calls, [])
+        nav.focus["t5dr:build"] = build
+        nav.act("confirm", device="kb")
+        nav.act("right", device="kb")
+        nav.act("confirm", device="kb")
+        self.assertEqual(adapter.calls, [("anyway",), ("build", False)])
+
     def test_a_finished_or_old_t5dr_build_log_does_not_block(self):
-        for age, last in ((5, "# exit code 0"), (5, "# exit code 1"), (t5_buildlock.RUNNING_SECONDS + 60, "# step")):
+        self.processes = [(4242, self.build_line())]
+        for age, last in ((5, "# exit code 0"), (5, "# exit code 1")):
             with self.subTest(age=age, last=last):
                 self.start_foreign_build(age, last)
                 self.assertEqual(self.adapter().build_ready(), "")
+        self.processes = None
+        self.start_foreign_build(t5_buildlock.RUNNING_SECONDS + 60, "# step")
+        self.assertEqual(self.adapter().build_ready(), "")
+
+    def test_a_lock_whose_process_is_dead_is_replaced(self):
+        dead = subprocess.Popen([sys.executable, "-c", "pass"])
+        dead.wait()
+        lock = self.root / t5_buildlock.LOCK_NAME
+        lock.write_text(json.dumps(dict(pid=dead.pid)), encoding="utf-8")
+        a = self.adapter()
+        self.assertEqual(a.build_ready(), "")
+        a.build_start()
+        self.assertEqual(json.loads(lock.read_text(encoding="utf-8"))["pid"], os.getpid())
+        self.finish(a)
+        self.assertFalse(lock.exists())
 
     def test_our_own_lock_is_held_during_the_build_and_removed_at_its_end(self):
         a = self.adapter()
@@ -408,7 +536,7 @@ class PathTooLong(Folder):
 
 
 class Texts(unittest.TestCase):
-    KEYS = ("dialog.t5_folder.title", "dialog.t5_folder.text", "t5.build_locked_openrecomp", "t5.build_locked_t5dr",
+    KEYS = ("dialog.t5_folder.title", "dialog.t5_folder.text", "t5.build_locked_openrecomp", "t5.build_locked_t5dr", "t5.build_anyway", "dialog.build_anyway.title", "dialog.build_anyway.text",
             "t5.build_lock_failed", "t5.install_path_too_long", "t5.build_path_too_long", "t5.coexist.build_differs")
 
     def test_every_text_exists_in_all_seven_languages_and_is_translated(self):

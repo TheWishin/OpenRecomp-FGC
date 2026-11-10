@@ -1779,7 +1779,7 @@
  "dialog.t5_folder.title": "Build this T5DR folder?",
  "dialog.t5_folder.text": "This T5DR folder was set up by the T5DR launcher. OpenRecomp can build it, and the T5DR launcher keeps working with it too. Your saves and settings stay. Never build with both launchers at the same time. Build now?",
  "t5.build_locked_openrecomp": "OpenRecomp is already building in this folder. Wait until that build is done.",
- "t5.build_locked_t5dr": "The T5DR launcher is building in this folder right now. Wait until it is done, then build here.",
+ "t5.build_locked_t5dr": "The T5DR launcher seems to be building in this folder right now. Wait until it is done, or choose Build anyway if it is not.",
  "t5.build_lock_failed": "OpenRecomp could not write its build lock into this folder. Check that Windows lets you write there.",
  "t5.install_path_too_long": "The folder path is too long for Windows. Move the whole game folder to a shorter path like C:\\Games\\T5DR, then choose it again.",
  "t5.build_path_too_long": "The build stopped because the folder path is too long for Windows. Move the game folder to a shorter path like C:\\Games\\T5DR, then build again.",
@@ -1898,5 +1898,8 @@
  "progress.drawer_hint": "Shows the install or update that runs in the background.",
  "progress.update_running": "Update running",
  "progress.row_label": "Updating",
- "progress.row_value": "Updating · {percent} %"
+ "progress.row_value": "Updating · {percent} %",
+ "t5.build_anyway": "Build anyway",
+ "dialog.build_anyway.title": "Build anyway?",
+ "dialog.build_anyway.text": "Nothing building here was found for sure, but the T5DR launcher's log looks recent. If its build is really running, two builds at once break the folder. Build now?"
 }

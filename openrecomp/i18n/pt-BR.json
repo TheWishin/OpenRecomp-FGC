@@ -1779,7 +1779,7 @@
  "dialog.t5_folder.title": "Compilar esta pasta do T5DR?",
  "dialog.t5_folder.text": "Esta pasta do T5DR foi preparada pelo launcher do T5DR. O OpenRecomp pode compilá-la e o launcher do T5DR continua funcionando com ela. Suas partidas salvas e configurações são mantidas. Nunca compile com os dois launchers ao mesmo tempo. Compilar agora?",
  "t5.build_locked_openrecomp": "O OpenRecomp já está compilando nesta pasta. Aguarde essa compilação terminar.",
- "t5.build_locked_t5dr": "O launcher do T5DR está compilando nesta pasta agora. Aguarde ele terminar e compile aqui depois.",
+ "t5.build_locked_t5dr": "O launcher do T5DR parece estar compilando nesta pasta agora. Aguarde ele terminar ou escolha Compilar mesmo assim, se não estiver.",
  "t5.build_lock_failed": "O OpenRecomp não conseguiu gravar o bloqueio de compilação nesta pasta. Verifique se o Windows permite gravar ali.",
  "t5.install_path_too_long": "O caminho da pasta é longo demais para o Windows. Mova a pasta inteira do jogo para um caminho mais curto, como C:\\Games\\T5DR, e escolha-a de novo.",
  "t5.build_path_too_long": "A compilação parou porque o caminho da pasta é longo demais para o Windows. Mova a pasta do jogo para um caminho mais curto, como C:\\Games\\T5DR, e compile de novo.",
@@ -1898,5 +1898,8 @@
  "progress.drawer_hint": "Mostra a instalação ou atualização em segundo plano.",
  "progress.update_running": "Atualização em andamento",
  "progress.row_label": "Atualizando",
- "progress.row_value": "Atualizando · {percent} %"
+ "progress.row_value": "Atualizando · {percent} %",
+ "t5.build_anyway": "Compilar mesmo assim",
+ "dialog.build_anyway.title": "Compilar mesmo assim?",
+ "dialog.build_anyway.text": "Não foi encontrada com certeza nenhuma compilação aqui, mas o registro do launcher do T5DR é recente. Se a compilação dele estiver mesmo rodando, duas compilações ao mesmo tempo estragam a pasta. Compilar agora?"
 }

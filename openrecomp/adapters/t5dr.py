@@ -871,6 +871,10 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
         return [dict(id="t5_install", label="@support.finding.t5_install.title", seen="", fix=problem,
                      kind="problem")] if problem else []
 
+    def build_anyway(self):
+        """The player confirmed "Build anyway" over the T5DR launcher's apparently running build."""
+        t5_buildlock.build_anyway(self.s.out_dir)
+
     def build_start(self, force=False):
         problem = self.build_install_problem()
         if problem:
