@@ -46,7 +46,6 @@ SETTINGS = (          # id, Core field, label, [(value, label)]
 )
 DEFAULTS = dict(SkipStartupIntros=False, GraphicsBackend="d3d12", RenderScale=1, PresentVSync=False)
 MAX_SETTINGS_BYTES = 1024 * 1024
-LIVE_ENV = "OPENRECOMP_TAG2_ONLINE"
 LIVE_ROWS = ("tag2_sign_in", "tag2_register", "tag2_other_account", "tag2_play_online", "tag2_ranked",
              "tag2_ranked_cancel", "tag2_progress")
 
@@ -81,7 +80,7 @@ class Tag2(ManifestGame):
     def live(self):
         """The account, online and Ranked rows: only when the player (or a tester) switched them on."""
         stored = self.config.get("tag2") if isinstance(self.config, dict) else None
-        return os.environ.get(LIVE_ENV) == "1" or (isinstance(stored, dict) and stored.get("online") is True)
+        return os.environ.get("OPENRECOMP_TAG2_ONLINE") == "1" or (isinstance(stored, dict) and stored.get("online") is True)
 
     # ---------------------------------------------------------------- the Core
     def core_problem(self):
