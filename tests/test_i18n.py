@@ -377,7 +377,7 @@ def untranslated_literals(source):
     })
     technical.update({
         # another launcher of the same game (other_launchers): row ids, choices, lock files, Windows structure fields
-        "other_here", "other_keep", "other", "here", "kernel32", "ntdll", "dwSize", "cntUsage", "pid", "heap",
+        "other_here", "other_keep", "other", "here", "kernel32", "ntdll", "user32", "dwSize", "cntUsage", "pid", "heap",
         "module", "threads", "ppid", "prio", "flags", "exe", "length", "buffer", "%s-%d.lock",
         "OpenRecomp-FGC-presence", "openrecomp-other-launchers", "online-",
     })
