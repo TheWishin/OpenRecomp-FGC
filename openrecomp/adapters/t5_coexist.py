@@ -151,7 +151,7 @@ class _CoexistSettings:
         if not shared:
             return {}
         try:
-            with tempfile.TemporaryDirectory(prefix="openrecomp-settings-") as folder:
+            with tempfile.TemporaryDirectory(prefix=settings_sync.CHECK_PREFIX) as folder:
                 path = os.path.join(folder, "launcher.json")
                 with open(path, "w", encoding="utf-8") as stream:
                     json.dump(dict(self._coexist_local or {}, **shared), stream)
@@ -269,7 +269,7 @@ class _CoexistSettings:
 def shared_folder():
     """Where the shared T5DR settings are. A test run never uses the per-user folder: each test's own home has one."""
     if safety.testing() and not os.environ.get("T5_SETTINGS_DIR"):
-        return os.path.join(user_dir(), "t5dr-shared")
+        return os.path.join(user_dir(), settings_sync.TEST_FOLDER)
     return settings_sync.shared_dir()
 
 
