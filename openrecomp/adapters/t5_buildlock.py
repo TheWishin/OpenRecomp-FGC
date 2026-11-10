@@ -3,8 +3,10 @@
 A folder set up by T5DR's own launcher can be built from OpenRecomp, and both launchers keep using it afterwards. Two
 builds at once would write the same files, so OpenRecomp takes a lock file in the folder while its build runs and refuses
 to start when it finds one. T5DR's own launcher writes no lock, but its build leaves a `build.log` in the output folder
-that is written to every few seconds and ends with an exit-code line: a log changed in the last minutes without that
-line is a build still running. Nothing here writes anywhere else, and the lock file is removed again.
+that is written to every few seconds and ends with an exit-code line. That log alone proves nothing: a build cut off
+mid-way (a launcher closed or crashed) leaves exactly the same log. So "running" needs a real build process (build_game.py
+or the compiler it started) for this folder. Only where the process list cannot be read does the log decide, with a short
+window. The player can always choose "Build anyway". Nothing here writes anywhere else, and the lock file is removed again.
 """
 import atexit
 import json
@@ -13,7 +15,13 @@ import time
 
 LOCK_NAME = "openrecomp-build.lock"
 RUNNING_SECONDS = 600           # the quietest build step prints at least this often (T5DR's QUIET_S compile = 600)
+BLIND_SECONDS = 120             # the log's window when the process list cannot be read
+SCAN_CACHE_SECONDS = 3.0
+SCRIPTS = ("build_game.py", "build_game_dll.py")
+COMPILERS = ("clang-cl", "lld-link", "clang.exe", "ninja")
 _HELD = set()
+_ANYWAY = set()
+_SCAN = {"at": -1e9, "value": None}
 
 
 def lock_path(root):
@@ -64,28 +72,82 @@ def held_by_other(root):
     return int(info.get("pid") or 0) != os.getpid() and _alive(info.get("pid"))
 
 
-def t5dr_build_running(out_dir, now=None):
-    """True when T5DR's own launcher is building into `out_dir`: build.log changed lately and has no exit line yet."""
+def _norm(path):
+    if not path:
+        return ""
+    return os.path.normcase(os.path.abspath(str(path))).replace("/", "\\").rstrip("\\")
+
+
+def _wanted(name):
+    return name.startswith("python") or name in ("py.exe", "pyw.exe") or any(c in name for c in COMPILERS)
+
+
+def _scan():
+    """[(pid, command line)] of the Python and compiler processes, or None when that cannot be read completely."""
+    from . import other_launchers
+    return other_launchers._command_lines(_wanted, strict=True)
+
+
+def _processes():
+    now = time.monotonic()
+    if now - _SCAN["at"] > SCAN_CACHE_SECONDS:
+        _SCAN.update(at=now, value=_scan())
+    return _SCAN["value"]
+
+
+def forget_scan():
+    _SCAN.update(at=-1e9, value=None)
+
+
+def _is_build(line, folders):
+    """A build_game script or a compiler of the build, for one of `folders` (its command line names it)."""
+    low = str(line).replace("/", "\\").lower()
+    if not any(f in low for f in folders):
+        return False        # (a relative script path says nothing about which folder it builds: not counted)
+    return any(s in low for s in SCRIPTS) or any(c in low for c in COMPILERS)
+
+
+def t5dr_build_process(out_dir, root=None, lines=None):
+    """True / False when a build process for this folder exists / does not; None when the processes cannot be listed."""
+    lines = _processes() if lines is None else lines
+    if lines is None:
+        return None
+    folders = [f.lower() for f in {_norm(out_dir), _norm(root) or _norm(os.path.dirname(_norm(out_dir)))} if f]
+    own = os.getpid()
+    return any(pid != own and _is_build(line, folders) for pid, line in lines)
+
+
+def t5dr_build_running(out_dir, now=None, root=None):
+    """True when T5DR's own launcher is building into `out_dir`: a build process for the folder exists and build.log has
+    no exit line. Where the process list cannot be read: the log changed in the last BLIND_SECONDS without that line."""
     log = os.path.join(out_dir, "build.log")
+    process = t5dr_build_process(out_dir, root)
+    if process is False:
+        return False
     try:
         age = (time.time() if now is None else now) - os.path.getmtime(log)
-        if age > RUNNING_SECONDS:
+        if process is None and age > BLIND_SECONDS:
             return False
         with open(log, "rb") as stream:
             stream.seek(0, os.SEEK_END)
             stream.seek(max(0, stream.tell() - 400))
             tail = stream.read().decode("utf-8", "replace")
     except OSError:
-        return False
+        return bool(process)
     last = [line for line in tail.splitlines() if line.strip()][-1:]
     return not (last and last[0].startswith("# exit code"))
+
+
+def build_anyway(out_dir):
+    """The player chose to build although T5DR's launcher looks busy: skip that check for the next build here."""
+    _ANYWAY.add(_norm(out_dir))
 
 
 def blocker(root, out_dir):
     """"" when a build may start, else the catalog key of the reason."""
     if held_by_other(root):
         return "@t5.build_locked_openrecomp"
-    if t5dr_build_running(out_dir):
+    if _norm(out_dir) not in _ANYWAY and t5dr_build_running(out_dir, root=root):
         return "@t5.build_locked_t5dr"
     return ""
 
@@ -95,6 +157,7 @@ def acquire(root, out_dir):
     reason = blocker(root, out_dir)
     if reason:
         raise RuntimeError(reason)
+    _ANYWAY.discard(_norm(out_dir))
     path = lock_path(root)
     try:
         with open(path, "w", encoding="utf-8") as stream:

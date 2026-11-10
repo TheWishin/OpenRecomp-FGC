@@ -279,7 +279,9 @@ class Sections:
             return out + more
 
         def build():
-            if problem:
+            if problem == "@t5.build_locked_t5dr" and hasattr(g.a, "build_anyway"):
+                self._ask("build_anyway")       # the page shows why it waits; this is the way out
+            elif problem:
                 self.say(problem)
             else:
                 self._start_build(g)
@@ -293,10 +295,11 @@ class Sections:
         if first_play:
             lead = "@t4.build_next" if g.m.get("adapter") == "t4" else "@build.next_play"
         retry = bool(state.get("failed")) and not problem
+        anyway = problem == "@t5.build_locked_t5dr" and hasattr(g.a, "build_anyway") and not first_play
         out.append(dict(kind="action", id="build", label="@start_game" if first_play else ("@build.retry" if retry else "@build_game"),
-                        verb="@play" if first_play else ("@files_missing" if problem else ("@build.retry" if retry else "@build")),
+                        verb="@play" if first_play else ("@t5.build_anyway" if anyway else ("@files_missing" if problem else ("@build.retry" if retry else "@build"))),
                         run=(lambda: self.start_game(g)) if first_play else build, card="main", primary=True,
-                        blocked=bool(problem) and not first_play, first_play=first_play,
+                        blocked=bool(problem) and not first_play and not anyway, first_play=first_play,
                         hint=lead, detail=dict(kicker=st["status"], title="@start_game" if first_play else "@build_game", lead=lead,
                                                rows=([dict(k="@game_folder", v=i18n.literal(st["folder"])),
                                                       dict(k="@version", v=st["version"])] if st.get("folder") else []) + state["steps"],

@@ -24,10 +24,13 @@ EVERY = 3.0
 
 
 # ---------------------------------------------------------------- processes and their command lines (Windows)
-def _command_lines():
-    """[(pid, command line)] of this user's Python processes; [] where that cannot be read (not Windows)."""
+def _command_lines(names=None, strict=False):
+    """[(pid, command line)] of this user's Python processes (or, with `names`, the processes whose lower-case exe name
+    that function accepts); [] where that cannot be read (not Windows). `strict`: None instead when the process list
+    cannot be taken, or when a matching process's command line cannot be read (access denied), so a caller can tell
+    "nothing is running" from "could not look"."""
     if os.name != "nt":
-        return []
+        return None if strict else []
     import ctypes
     from ctypes import wintypes
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -53,8 +56,9 @@ def _command_lines():
                                                 ctypes.POINTER(wintypes.ULONG)]
     snap = k32.CreateToolhelp32Snapshot(2, 0)                 # TH32CS_SNAPPROCESS
     if not snap or snap == ctypes.c_void_p(-1).value:
-        return []
+        return None if strict else []
     out = []
+    unreadable = False
     own = os.getpid()
     try:
         entry = Entry()
@@ -62,8 +66,11 @@ def _command_lines():
         ok = k32.Process32FirstW(snap, ctypes.byref(entry))
         while ok:
             name = entry.exe.lower()
-            if entry.pid and entry.pid != own and (name.startswith("python") or name in ("py.exe", "pyw.exe")):
+            wanted = names(name) if names else (name.startswith("python") or name in ("py.exe", "pyw.exe"))
+            if entry.pid and entry.pid != own and wanted:
                 handle = k32.OpenProcess(0x1000, False, entry.pid)   # PROCESS_QUERY_LIMITED_INFORMATION
+                if not handle:
+                    unreadable = True
                 if handle:
                     try:
                         size = wintypes.ULONG(0)
@@ -73,11 +80,17 @@ def _command_lines():
                             text = UnicodeString.from_buffer(buffer)
                             if text.buffer and text.length:
                                 out.append((entry.pid, ctypes.wstring_at(text.buffer, text.length // 2)))
+                            else:
+                                unreadable = True
+                        else:
+                            unreadable = True
                     finally:
                         k32.CloseHandle(handle)
             ok = k32.Process32NextW(snap, ctypes.byref(entry))
     finally:
         k32.CloseHandle(snap)
+    if strict and unreadable:
+        return None
     return out
 
 

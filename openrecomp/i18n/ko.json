@@ -1779,7 +1779,7 @@
  "dialog.t5_folder.title": "이 T5DR 폴더를 빌드할까요?",
  "dialog.t5_folder.text": "이 T5DR 폴더는 T5DR 런처가 설정한 것입니다. OpenRecomp이 빌드할 수 있으며, 이후에도 T5DR 런처로 계속 사용할 수 있습니다. 저장 데이터와 설정은 유지됩니다. 두 런처로 동시에 빌드하지 마세요. 지금 빌드할까요?",
  "t5.build_locked_openrecomp": "OpenRecomp이 이 폴더에서 이미 빌드 중입니다. 그 빌드가 끝날 때까지 기다리세요.",
- "t5.build_locked_t5dr": "T5DR 런처가 지금 이 폴더에서 빌드 중입니다. 끝난 뒤에 여기서 빌드하세요.",
+ "t5.build_locked_t5dr": "T5DR 런처가 지금 이 폴더에서 빌드 중인 것 같습니다. 끝날 때까지 기다리거나, 아니라면 '그래도 빌드'를 선택하세요.",
  "t5.build_lock_failed": "OpenRecomp이 이 폴더에 빌드 잠금 파일을 쓰지 못했습니다. Windows가 그곳에 쓰기를 허용하는지 확인하세요.",
  "t5.install_path_too_long": "폴더 경로가 Windows에 비해 너무 깁니다. 게임 폴더 전체를 C:\\Games\\T5DR 같은 더 짧은 경로로 옮긴 뒤 다시 선택하세요.",
  "t5.build_path_too_long": "폴더 경로가 Windows에 비해 너무 길어 빌드가 중단되었습니다. 게임 폴더를 C:\\Games\\T5DR 같은 더 짧은 경로로 옮긴 뒤 다시 빌드하세요.",
@@ -1898,5 +1898,8 @@
  "progress.drawer_hint": "백그라운드에서 진행 중인 설치 또는 업데이트를 표시합니다.",
  "progress.update_running": "업데이트 진행 중",
  "progress.row_label": "업데이트 중",
- "progress.row_value": "업데이트 중 · {percent} %"
+ "progress.row_value": "업데이트 중 · {percent} %",
+ "t5.build_anyway": "그래도 빌드",
+ "dialog.build_anyway.title": "그래도 빌드할까요?",
+ "dialog.build_anyway.text": "여기서 빌드가 실행 중이라는 확실한 흔적은 없지만 T5DR 런처의 로그가 최근 것입니다. 정말 빌드 중이라면 두 빌드가 동시에 돌 때 폴더가 망가집니다. 지금 빌드할까요?"
 }
