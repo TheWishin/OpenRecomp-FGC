@@ -3,7 +3,9 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
-## v0.1.6.1
+## v0.1.7
+
+Hotfix for 0.1.6 (planned as "0.1.6.1"; launchers only accept three-part versions).
 
 - **Fixed: Tekken 5 Pad bindings gave errors on L1, R2 and every second binding.** Only the first binding of a session
   was saved; the next one failed with "changed on disk". Fixed.
