@@ -1957,5 +1957,7 @@
  "tag2.setting.backend": "Grafik-Backend",
  "tag2.setting.scale": "Interne Auflösung",
  "tag2.setting.vsync": "VSync (nur Bild)",
- "tag2.setting.hint": "Wird vom eigenen Launcher-Code von TAG2 gespeichert; der TAG2-Launcher zeigt denselben Wert."
+ "tag2.setting.hint": "Wird vom eigenen Launcher-Code von TAG2 gespeichert; der TAG2-Launcher zeigt denselben Wert.",
+ "dialog.start_warning.title": "Trotzdem starten?",
+ "tag2.no_audio": "Windows hat gerade keine Audioausgabe (keine Lautsprecher oder Kopfhörer). Ohne sie kann TAG2 direkt nach dem Start mit einem Fehler schließen. Schließe zuerst eine Audioausgabe an oder schalte sie ein, oder starte trotzdem."
 }

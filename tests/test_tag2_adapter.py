@@ -63,6 +63,7 @@ class Tag2Case(unittest.TestCase):
         self.core = RecordingCore()
         self.popen = mock.Mock()
         self.a = Tag2(dict(self.m, adapter="tag2"), self.config, core=self.core, popen=self.popen)
+        self.a.audio_output = lambda: True
 
     def rows(self):
         return {r["id"]: r for r in self.a.online_items() if r.get("id")}
@@ -368,6 +369,52 @@ class InTheLauncher(Tag2Case):
         self.assertTrue(nav.poll_online())
         self.assertEqual(nav.toast, "@tag2.sign_in_again")
         self.assertFalse(nav.poll_online())
+
+    def test_no_audio_output_is_a_warning_the_player_can_confirm(self):
+        self.sign_in()
+        self.a.pick_fighter_slot(0), self.a.set_fighter("9")
+        self.a.pick_fighter_slot(1), self.a.set_fighter("14")
+        nav, game = self.nav()
+        self.a.audio_output = lambda: False
+        nav.start_game(game)                                 # Play offline
+        self.assertEqual((nav.overlay, nav.confirm_kind), ("dialog", "start_warning"))
+        self.assertEqual(nav.view()["dialog"]["title"], i18n.catalog("en")["dialog.start_warning.title"])
+        self.assertEqual(nav.view()["dialog"]["text"], i18n.catalog("en")["tag2.no_audio"])
+        self.assertEqual(self.core.requests, [])             # nothing started while the question is open
+        nav.act("confirm")                                   # No is in focus
+        self.assertIsNone(nav.overlay)
+        self.assertEqual(self.core.requests, [])
+        nav.start_game(game)
+        nav.act("right")
+        nav.act("confirm")                                   # Yes: the start goes ahead, unchanged
+        self.assertEqual(self.core.requests, [("play", dict(mode="offline"))])
+        self.answer(error=CoreError("error", "x"))
+        for row, request in (("tag2_play_online", ("play", dict(mode="online"))),
+                             ("tag2_ranked", ("ranked", dict(team=[9, 14], costumes=[-1, -1])))):
+            items = {it["id"]: it for it in nav._items_online_rows(game) if it.get("id")}
+            items[row]["run"]()
+            self.assertEqual(nav.confirm_kind, "start_warning")
+            nav.act("right")
+            nav.act("confirm")
+            self.assertEqual(self.core.requests[-1], request)
+            self.answer(error=CoreError("error", "x"))
+
+    def test_no_warning_with_an_audio_output_or_when_windows_cannot_tell(self):
+        self.sign_in()
+        nav, game = self.nav()
+        for answer in (True, None):
+            self.a.audio_output = lambda answer=answer: answer
+            nav.start_game(game)
+            self.assertIsNone(nav.overlay)
+            self.assertEqual(self.core.requests[-1], ("play", dict(mode="offline")))
+            self.answer(error=CoreError("error", "x"))
+        self.a.audio_output = lambda: False
+        items = {it["id"]: it for it in nav._items_online_rows(game) if it.get("id")}
+        items["tag2_progress"]["run"]()                      # a row that starts no game asks nothing
+        self.assertIsNone(nav.overlay)
+        self.assertEqual(self.a.start_warning("tag2_sign_in"), "")
+        self.core.why = "@tag2.core_unknown"                 # their launcher starts, not the game: no warning
+        self.assertEqual(self.a.start_warning("start"), "")
 
     def test_every_text_of_the_adapter_is_in_every_catalog(self):
         import re

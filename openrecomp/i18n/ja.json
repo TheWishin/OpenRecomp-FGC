@@ -1957,5 +1957,7 @@
  "tag2.setting.backend": "グラフィックスバックエンド",
  "tag2.setting.scale": "内部解像度",
  "tag2.setting.vsync": "VSync（表示のみ）",
- "tag2.setting.hint": "TAG2 自身のランチャーのコードが保存します。TAG2 のランチャーにも同じ値が表示されます。"
+ "tag2.setting.hint": "TAG2 自身のランチャーのコードが保存します。TAG2 のランチャーにも同じ値が表示されます。",
+ "dialog.start_warning.title": "それでも開始しますか？",
+ "tag2.no_audio": "現在 Windows に音声出力がありません（スピーカーもヘッドホンもなし）。音声出力がないと、TAG2 は起動直後にエラーで終了することがあります。先に音声出力を接続または有効にするか、このまま開始してください。"
 }

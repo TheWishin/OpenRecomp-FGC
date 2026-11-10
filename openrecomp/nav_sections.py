@@ -113,7 +113,8 @@ class Sections:
             elif opens and opens.startswith("text:"):
                 it["run"] = lambda tid=opens[5:]: self._edit_field(tid)
             elif it.get("kind") == "action":
-                it["run"] = lambda iid=it["id"], label=it["label"]: self._dry(i18n.message("dry_start", name=label)) or self.say(g.a.run_online(iid))
+                it["run"] = lambda iid=it["id"], label=it["label"]: self._dry(i18n.message("dry_start", name=label)) or self._start_checked(
+                    g, iid, lambda: self.say(g.a.run_online(iid)))
             out.append(it)
         return out
 

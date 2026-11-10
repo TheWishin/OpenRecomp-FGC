@@ -346,8 +346,10 @@ class Nav(ProgressNav, GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, 
                 self.sec[g.id] = "build"
             self.say(g.a.status()["detail"])
             return
-        if self._offline_action(g.a.start, extra_env=self.launch_env or None):
-            self.say(i18n.message("game_starting", name=i18n.literal(g.short)))
+        def go():
+            if self._offline_action(g.a.start, extra_env=self.launch_env or None):
+                self.say(i18n.message("game_starting", name=i18n.literal(g.short)))
+        self._start_checked(g, "start", go)
 
     def direct_offline(self, name=""):
         """`--offline [game]` (a desktop shortcut, a Steam launch option): start the game offline in fullscreen at

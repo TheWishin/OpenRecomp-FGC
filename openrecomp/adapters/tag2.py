@@ -16,21 +16,23 @@ import threading
 import types
 
 from .. import i18n
+from ..audio_output import default_audio_output
 from ..manifest import save_config
 from .manifest_game import ManifestGame
 from .tag2_core import Core, CoreError
 
-# TAG2's character ids in order (the ids the game and its Ranked profile use).
-FIGHTERS = (
-    "Paul Phoenix", "Marshall Law", "Lei Wulong", "King", "Yoshimitsu", "Nina Williams", "Hwoarang", "Ling Xiaoyu",
-    "Christie Monteiro", "Jin Kazama", "Jaycee", "Kuma", "Bryan Fury", "Heihachi Mishima", "Kazuya Mishima",
-    "Lee Chaolan", "Steve Fox", "Craig Marduk", "Mokujin", "Jack-6", "Roger Jr.", "Anna Williams", "Wang Jinrei",
-    "Ganryu", "Asuka Kazama", "Bruce Irvin", "Baek Doo San", "Devil Jin", "Raven", "Feng Wei", "Armor King", "Lili",
-    "Sergei Dragunov", "Eddy Gordo", "Bob", "Zafina", "Miguel", "Leo", "Lars Alexandersson", "Alisa Bosconovitch",
-    "Jinpachi Mishima", "True Ogre", "Jun Kazama", "Panda", "Unknown", "Kunimitsu", "Slim Bob", "Forest Law",
-    "Miharu Hirano", "Combot", "Angel", "Michelle Chang", "Prototype Jack", "Alex", "Ancient Ogre", "Violet",
-    "Dr. Bosconovitch", "Sebastian", "Tiger Jackson",
-)
+def _fighters():
+    """TAG2's character names by id (openrecomp/data/tag2_fighters.json; the index is the game's character id)."""
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "tag2_fighters.json")
+    try:
+        with open(path, encoding="utf-8") as stream:
+            names = json.load(stream)["fighters"]
+        return tuple(str(name) for name in names)
+    except (OSError, ValueError, KeyError, TypeError):
+        return ()
+
+
+FIGHTERS = _fighters()
 SETTINGS = (          # id, Core field, label, [(value, label)]
     ("tag2_skip_intros", "SkipStartupIntros", "@tag2.setting.skip_intros", ((False, "@off"), (True, "@on"))),
     ("tag2_backend", "GraphicsBackend", "@tag2.setting.backend",
@@ -67,6 +69,7 @@ class Tag2(ManifestGame):
         self._progress = None
         self._account = None            # the Core's answer once it was asked
         self._saved = None              # the Core's settings once it was asked
+        self.audio_output = default_audio_output     # True / False / None (cannot tell); tests replace it
         self._stop_timer = None
 
     # ---------------------------------------------------------------- the Core
@@ -210,6 +213,13 @@ class Tag2(ManifestGame):
             raise RuntimeError("@generic.running")
         self._request("play", "play", mode="offline")
         return 0
+
+    def start_warning(self, what):
+        """A warning the player confirms before this start ("" = none). TAG2's public build can end right after
+        start when Windows has no playback device; the start is not held back and nothing is worked around."""
+        if what not in ("start", "tag2_play_online", "tag2_ranked") or self.core_problem() or self._game is not None:
+            return ""
+        return "@tag2.no_audio" if self.audio_output() is False else ""
 
     def open_native(self):
         if self._game is not None or self._busy():

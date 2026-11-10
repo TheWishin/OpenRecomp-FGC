@@ -1957,5 +1957,7 @@
  "tag2.setting.backend": "Moteur graphique",
  "tag2.setting.scale": "Résolution interne",
  "tag2.setting.vsync": "VSync (image seulement)",
- "tag2.setting.hint": "Enregistré par le code du lanceur de TAG2 ; le lanceur de TAG2 affiche la même valeur."
+ "tag2.setting.hint": "Enregistré par le code du lanceur de TAG2 ; le lanceur de TAG2 affiche la même valeur.",
+ "dialog.start_warning.title": "Démarrer quand même ?",
+ "tag2.no_audio": "Windows n'a pas de sortie audio pour le moment (ni haut-parleurs ni casque). Sans elle, TAG2 peut se fermer avec une erreur juste après le démarrage. Branche ou active d'abord une sortie audio, ou démarre quand même."
 }

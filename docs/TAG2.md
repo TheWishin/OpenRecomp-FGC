@@ -1,6 +1,6 @@
 # Tekken Tag Tournament 2 (TAG2 PC) adapter
 
-Status: **development branch, not released.** Nothing here is in a release package yet (see "Before a release").
+Status: **development branch, not released.** The files are in the package list; the checks under "Before a release" are open.
 
 TAG2 PC is frameperfectlab.com's PC port. `games/tag2.json` (manifest v2) already finds an installed TAG2 PC,
 shows its updates and opens TAG2's own launcher. The adapter `openrecomp/adapters/tag2.py` adds account, team and
@@ -79,13 +79,19 @@ Run from the repository root with the repository's own `.venv` (never an install
   Core**, set `OPENRECOMP_TAG2_CORE` to the `Tag2.Launcher.Core.dll` of a TAG2 PC install: an empty temporary
   root, start settings are only constructed, nothing is started.
 
+Result on 2026-11-10 with the published 0.16.33 Core (SHA-256 `4effa189...0dbce`, copied from an updated TAG2 PC
+folder into an empty temporary root): the bridge compiles against it and all 96 cases plus the 540p guards pass.
+
 No test signs in to TAG2's service, searches a match or submits a result.
 
 ## Open
 
 - **Start without an audio output**: TAG2's public build can end with an access violation right after start
   when Windows has no playback device. TAG2's developer is investigating; the adapter neither hides nor works
-  around it. Keep a playback output active.
+  around it. Before Play offline, Play online and Search Ranked the launcher asks Windows for the default
+  playback device (`openrecomp/audio_output.py`, MMDevice API) and, only on a clear "none", shows a warning the
+  player confirms ("Start anyway?"); the start then goes ahead unchanged. When Windows cannot tell, nothing is
+  asked.
 - **Not tried with a real TAG2 install yet**: the published Core, the real service, a real Ranked request, the
   screens with a controller. See "Before a release".
 - **Outfits** are offered only after the game named them (the first Ranked request of a session); before that
@@ -100,10 +106,11 @@ No test signs in to TAG2's service, searches a match or submits a result.
 
 ## Before a release
 
-1. Run the launch contract against the published Core (`OPENRECOMP_TAG2_CORE`) and keep the 96/96 result.
+1. Run the launch contract against the published Core (`OPENRECOMP_TAG2_CORE`) again for the TAG2 version of the
+   release and keep the 96/96 result.
 2. Live checks with the two dedicated test accounts (passwords from outside the repository, one account per
    side): sign in, sign-in-again after a second sign-in, play online, one Ranked request, the Ranked record.
 3. Hand check of every row with a controller and in all seven languages; antivirus check of the PowerShell host.
-4. Add the adapter's files to `tools/package_release.py` (`tag2.py`, `tag2_core.py`, `tag2_bridge/host.ps1`,
-   `tag2_bridge/Tag2Bridge.cs`) and this document; decide whether the bridge should be precompiled and signed.
+4. Decide whether the bridge should be precompiled and signed instead of compiled on the player's PC (the files
+   are already in `tools/package_release.py`).
 5. TAG2's developer confirms the integration once more for the public release and the TAG2 version it is for.

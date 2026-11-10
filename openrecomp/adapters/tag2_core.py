@@ -162,6 +162,7 @@ class Core:
         for raw in proc.stderr:
             if len(self.stderr) < 2000:
                 self.stderr += raw.decode("utf-8", "replace")
+        proc.stderr.close()
 
     def _read(self, proc):
         try:
@@ -176,6 +177,11 @@ class Core:
                     self._handle(message)
         finally:
             proc.wait()
+            for pipe in (proc.stdout, proc.stdin):
+                try:
+                    pipe.close()
+                except OSError:
+                    pass
             with self.lock:
                 pending, self.calls = list(self.calls.values()), {}
             if not self.ready.is_set():

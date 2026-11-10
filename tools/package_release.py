@@ -28,7 +28,7 @@ SOURCE_GROUPS = {
                    "nav_private_chat.py", "nav_profiles.py", "nav_ranked.py", "nav_list_sort.py", "nav_lobby_chat.py",
                    "nav_rules.py", "nav_spectating.py", "nav_tournaments.py",
                    "pad.py", "ranks.py", "stall.py", "updater.py", "update_service.py", "progress_meter.py", "uninstall.py", "safety.py", "known_installs.py", "file_dialog.py",
-                   "game_library.py", "game_updates.py", "nav_library.py",
+                   "game_library.py", "game_updates.py", "nav_library.py", "audio_output.py",
                    "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py", "t4_art.py", "fighter_render.py", "t5_art_child.py", "t5_startlog.py",
                    "bundled_games.py", "game_manifest.py", "community.py", "report_upload.py", "t4_report.py", "wine.py",
                    "ui_sound.py", "nav_sound.py", "nav_controls_page.py", "pad_glyphs.py", "pad_presets.py", "t4_controls_ini.py", "t4_pad_reader.py", "controls_file.py", "ps_hid.py", "nav_rank_cue.py",
@@ -38,8 +38,10 @@ SOURCE_GROUPS = {
                            "t5_coexist.py", "t5_compatibility.py", "t5_discovery.py", "t5_build_runtime.py", "t5_buildlock.py", "t4_region.py", "other_launchers.py",
                            "t5_accounts.py", "t5_challenges.py", "t5_community.py", "t5_features.py",
                            "t5_moderation.py", "t5_private_chat.py", "t5_profiles.py", "t5_rules.py", "t5_netext.py",
-                           "t5_spectating.py", "t5_tournaments.py", "manifest_game.py"),
-    "openrecomp/data": ("known_games.json",),
+                           "t5_spectating.py", "t5_tournaments.py", "manifest_game.py", "tag2.py", "tag2_core.py"),
+    # TAG2: the host of TAG2's own launcher Core (docs/TAG2.md): source text only, compiled on the player's PC
+    "openrecomp/adapters/tag2_bridge": ("host.ps1", "Tag2Bridge.cs"),
+    "openrecomp/data": ("known_games.json", "tag2_fighters.json"),
     # The T4 lobby server the launcher ships with: one "T4 Online" entry, a placeholder (no server) until the
     # beta server is deployed and tools/set_t4_server.py fills in its address and certificate fingerprint.
     "openrecomp/vendor": ("servers.json",),
@@ -62,7 +64,7 @@ SOURCE_GROUPS = {
     "games": ("t4.json", "t5dr.json", "tag2.json"),
     "docs": ("PACKAGING.md", "INSTALLING.md", "UPDATES.md", "T4_FIRST_RUN.md", "T4_ONLINE.md", "T5DR_ONLINE.md",
              "T5DR_COEXISTENCE.md", "HAND_CHECK.md", "ADD_YOUR_GAME.md", "GAME_SETUP.md", "INSTALLER.md",
-             "RELEASING.md", "RELEASE_KEYS.md", "ADD_A_GAME.md"),
+             "RELEASING.md", "RELEASE_KEYS.md", "ADD_A_GAME.md", "TAG2.md"),
 }
 SOURCE_FILES = {folder + "/" + name for folder, names in SOURCE_GROUPS.items() for name in names}
 SOURCE_FILES.update(("LICENSE", "README.md"))

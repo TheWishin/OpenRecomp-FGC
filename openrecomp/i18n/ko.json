@@ -1957,5 +1957,7 @@
  "tag2.setting.backend": "그래픽 백엔드",
  "tag2.setting.scale": "내부 해상도",
  "tag2.setting.vsync": "VSync(화면만)",
- "tag2.setting.hint": "TAG2 자체 런처 코드가 저장합니다. TAG2 런처에도 같은 값이 표시됩니다."
+ "tag2.setting.hint": "TAG2 자체 런처 코드가 저장합니다. TAG2 런처에도 같은 값이 표시됩니다.",
+ "dialog.start_warning.title": "그래도 시작할까요?",
+ "tag2.no_audio": "지금 Windows에 오디오 출력이 없습니다(스피커나 헤드폰 없음). 오디오 출력이 없으면 TAG2가 시작 직후 오류로 닫힐 수 있습니다. 먼저 오디오 출력을 연결하거나 켜거나, 그래도 시작하세요."
 }

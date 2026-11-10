@@ -441,6 +441,17 @@ def untranslated_literals(source):
         if isinstance(node, ast.JoinedStr):
             if ast.get_source_segment(source, node) in formats:
                 ignore(node)
+    technical.update({
+        # TAG2 (adapters/tag2.py, tag2_core.py): the Core's setting fields and requests, row ids, TAG2's file
+        # names, the PowerShell host's arguments, proper names of graphics APIs and scale factors
+        "tag2", "tag2_skip_intros", "tag2_backend", "tag2_scale", "tag2_vsync", "SkipStartupIntros", "GraphicsBackend",
+        "RenderScale", "PresentVSync", "d3d12", "vulkan", "Direct3D 12", "Vulkan", "1x", "2x", "3x", "local", "stop",
+        "settings_set", "tag2_status", "tag2_sign_in", "tag2_register", "tag2_play_online", "tag2_progress",
+        "tag2_ranked_cancel", "tag2_ranked", "tag2_other_account", "tag2_core", "tag2_team_%d", "sign_in", "register",
+        "ranked_cancel", "progress", "account.dat", "launcher-settings.json", "%s / %s", "tag2_fighters.json",
+        "OpenRecomp-FGC/", "System32", "WindowsPowerShell", "v1.0", "C:\\Windows", "too large", "bridge", ".new",
+        "-Core", "-CoreSha256", "-Root", "-Agent", "-Bridge", "host.ps1", "Tag2Bridge.cs", "closed", "tag2-pc", "Tag2.Launcher.Core.dll", "tag2_bridge",
+    })
     for node in ast.walk(tree):
         if id(node) in ignored or not isinstance(node, ast.Constant) or not isinstance(node.value, str):
             continue

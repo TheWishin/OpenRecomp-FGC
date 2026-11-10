@@ -1957,5 +1957,7 @@
  "tag2.setting.backend": "Backend gráfico",
  "tag2.setting.scale": "Resolução interna",
  "tag2.setting.vsync": "VSync (só imagem)",
- "tag2.setting.hint": "Salvo pelo código do próprio launcher do TAG2; o launcher do TAG2 mostra o mesmo valor."
+ "tag2.setting.hint": "Salvo pelo código do próprio launcher do TAG2; o launcher do TAG2 mostra o mesmo valor.",
+ "dialog.start_warning.title": "Iniciar mesmo assim?",
+ "tag2.no_audio": "O Windows está sem saída de áudio agora (sem alto-falantes ou fones). Sem ela, o TAG2 pode fechar com um erro logo após iniciar. Conecte ou ligue uma saída de áudio primeiro, ou inicie mesmo assim."
 }
