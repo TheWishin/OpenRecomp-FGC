@@ -173,6 +173,7 @@ class Backend(QObject, GameSetupBackend):
                        reduced_motion=self.config.get("reduced_motion", False), on_preferences=self._save_preferences,
                        text_size=self.config.get("text_size", 100), high_contrast=self.config.get("high_contrast", False),
                        on_accessibility=self._save_accessibility,
+                       colours=self.config.get("colours"), on_colours=self._save_colours,
                        on_update_check=self._check_updates, on_update_install=self._install_update,
                        on_game_preview=self._preview_game, on_game_accept=self._accept_game,
                        on_game_remove=self._remove_game, on_game_update_check=self._check_game_update,
@@ -600,6 +601,10 @@ class Backend(QObject, GameSetupBackend):
 
     def _save_accessibility(self, text_size, high_contrast):
         self.config.update(text_size=text_size, high_contrast=bool(high_contrast))
+        self._save_config()
+
+    def _save_colours(self, colours):
+        self.config.update(colours=colours)
         self._save_config()
 
     def _save_ui_sound(self, on, volume):

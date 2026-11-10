@@ -13,25 +13,34 @@ QtObject {
     readonly property int inset: 24
     readonly property int gap: 16
     property bool highContrast: false
+    // Calm (default): neutral greys for every game, the game's colour only as the one accent (focus, primary
+    // action, active tab), no warm gradients, neutral ranks and values. Vivid = the 0.1.6 per-game palette.
+    property bool calm: true
+    readonly property bool quiet: calm && !highContrast
     property bool reducedMotion: false
     property string gameKind: ""
-    readonly property color gameAccent: gameKind === "t4" ? "#71CBE5" : gameKind === "t5dr" ? "#D11F3F" : "#D3B59D"
-    readonly property color ground: highContrast ? "#000000" : gameKind === "t4" ? "#0D141D" : gameKind === "t5dr" ? "#100C10" : "#0E0F11"
-    readonly property color card: highContrast ? "#080808" : gameKind === "t4" ? "#172330" : gameKind === "t5dr" ? "#1B1118" : "#16181C"
-    readonly property color raised: highContrast ? "#161616" : gameKind === "t4" ? "#233342" : gameKind === "t5dr" ? "#29171F" : "#202328"
-    readonly property color highlighted: highContrast ? "#161616" : gameKind === "t5dr" ? "#321C25" : "#303640"
+    readonly property color gameAccent: gameKind === "t4" ? "#71CBE5" : gameKind === "t5dr" ? (quiet ? "#C8394F" : "#D11F3F") : "#D3B59D"
+    readonly property color ground: highContrast ? "#000000" : quiet ? "#0F1012" : gameKind === "t4" ? "#0D141D" : gameKind === "t5dr" ? "#100C10" : "#0E0F11"
+    readonly property color card: highContrast ? "#080808" : quiet ? "#17191C" : gameKind === "t4" ? "#172330" : gameKind === "t5dr" ? "#1B1118" : "#16181C"
+    readonly property color raised: highContrast ? "#161616" : quiet ? "#212327" : gameKind === "t4" ? "#233342" : gameKind === "t5dr" ? "#29171F" : "#202328"
+    readonly property color highlighted: highContrast ? "#161616" : quiet ? "#2C2F35" : gameKind === "t5dr" ? "#321C25" : "#303640"
     readonly property color text: highContrast ? "#FFFFFF" : "#ECE9E1"
     readonly property color muted: highContrast ? "#D8D8D8" : "#A3A5AB"
-    readonly property color value: highContrast ? "#FFE1BC" : gameKind === "t4" ? "#BDD4E1" : gameKind === "t5dr" ? "#BEC3CC" : "#D3B59D"
-    readonly property color rankGold: highContrast ? "#FFE1BC" : gameKind === "t5dr" ? "#E5BD68" : readableAccent(gameAccent)
+    readonly property color value: highContrast ? "#FFE1BC" : quiet ? "#C9CBD0" : gameKind === "t4" ? "#BDD4E1" : gameKind === "t5dr" ? "#BEC3CC" : "#D3B59D"
+    readonly property color rankGold: highContrast ? "#FFE1BC" : quiet ? value : gameKind === "t5dr" ? "#E5BD68" : readableAccent(gameAccent)
     readonly property color selected: highContrast ? "#FFFFFF" : "#F2EFE6"
     readonly property color inkHelp: highContrast ? "#292929" : "#50535A"
-    readonly property color border: highContrast ? "#999999" : "#454A53"
-    readonly property color focus: highContrast ? "#FFFFFF" : gameKind === "t4" ? "#CDEBF5" : gameKind === "t5dr" ? "#F13B56" : "#E9C5A7"
-    readonly property color primaryFill: highContrast ? selected : gameKind === "t5dr" ? "#B51232" : readableAccent(gameAccent)
+    readonly property color border: highContrast ? "#999999" : quiet ? "#3A3D44" : "#454A53"
+    readonly property color focus: highContrast ? "#FFFFFF" : gameKind === "t4" ? "#CDEBF5" : gameKind === "t5dr" ? (quiet ? "#E8566A" : "#F13B56") : "#E9C5A7"
+    readonly property color primaryFill: highContrast ? selected : gameKind === "t5dr" ? (quiet ? "#A3283C" : "#B51232") : readableAccent(gameAccent)
     readonly property color primaryText: highContrast ? ground : gameKind === "t5dr" ? "#FFFFFF" : ground
-    readonly property color highlightStart: highContrast ? highlighted : gameKind === "t5dr" ? "#8D2F12" : highlighted
-    readonly property color highlightEnd: highContrast ? highlighted : gameKind === "t5dr" ? "#870C2A" : highlighted
+    readonly property color highlightStart: highContrast || quiet ? highlighted : gameKind === "t5dr" ? "#8D2F12" : highlighted
+    readonly property color highlightEnd: highContrast || quiet ? highlighted : gameKind === "t5dr" ? "#870C2A" : highlighted
+    // Small status marks (signal bars, badges): neutral when calm, the accent when vivid.
+    readonly property color mark: quiet ? value : readableAccent(gameAccent)
+    // Behind text: picture and atmosphere strength of the background (calm keeps them faint).
+    readonly property real artStrength: quiet ? .3 : .58
+    readonly property real atmosphereStrength: quiet ? .16 : .58
     readonly property color error: highContrast ? "#FFB8BC" : "#FF858C"
     readonly property color success: highContrast ? "#C1FFD2" : "#9AD8B9"
     readonly property int focusWidth: highContrast ? 5 : 3
@@ -53,7 +62,8 @@ QtObject {
         if (highContrast || !raw) return value
         var original = Qt.lighter(raw, 1)
         var result = original
-        var surface = luminance(highlighted)
+        // the lighter of the two palettes' selected surfaces (calm #2C2F35, vivid #303640): one accent tone for both
+        var surface = Math.max(luminance(highlighted), luminance(Qt.color("#303640")))
         for (var step = 1; step <= 20 && (luminance(result) + 0.05) / (surface + 0.05) < 4.5; ++step) {
             var mix = step / 20
             result = Qt.rgba(original.r * (1 - mix) + mix, original.g * (1 - mix) + mix, original.b * (1 - mix) + mix, 1)

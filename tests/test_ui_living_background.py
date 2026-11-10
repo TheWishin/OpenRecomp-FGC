@@ -69,7 +69,23 @@ class LivingBackgroundScene(unittest.TestCase):
         self.assertTrue(self.item.property("softwareRenderer"))
         self.assertEqual(timer.property("interval"), 500)
 
+    def theme(self):
+        component = QQmlComponent(self.engine)
+        component.setData(b'import QtQuick\nimport "."\nQtObject { property var theme: Theme }',
+                          QUrl.fromLocalFile(str(ROOT / "openrecomp/ui/ThemeProbe.qml")))
+        self.probe = component.create()
+        return self.probe.property("theme")
+
+    def test_calm_default_keeps_one_grey_atmosphere_and_faint_art(self):
+        theme = self.theme()
+        self.assertTrue(theme.property("calm"))
+        first = self.item.property("atmosphere")
+        self.item.setProperty("scene", dict(theme="t5dr", source=""))
+        self.assertEqual(first, self.item.property("atmosphere"))
+        self.assertLess(theme.property("artStrength"), .58)
+
     def test_per_game_atmosphere_and_bounded_async_art(self):
+        self.theme().setProperty("calm", False)       # the vivid palette keeps a colour per game
         self.assertTrue(self.item.property("blue"))
         first = self.item.property("atmosphere")
         self.item.setProperty("scene", dict(theme="t5dr", source=""))

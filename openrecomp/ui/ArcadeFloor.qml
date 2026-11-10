@@ -130,7 +130,7 @@ Item {
             Text { x: 12; y: 8; width: parent.width - 24; text: floor.labels.rooms || ""; textFormat: Text.PlainText; color: Theme.text; font.family: floor.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.onlinePx(18) }
             Flow {
                 id: roomActions; x: 8; y: 38; width: parent.width - 16; spacing: 6
-                ArcadeAction { objectName: "lobbyCreateRoom"; root: floor.root; b: floor.arcade.createRoom || ({}); compact: true; height: Theme.target(44); primary: true; onActivated: floor.click(b) }
+                ArcadeAction { objectName: "lobbyCreateRoom"; root: floor.root; b: floor.arcade.createRoom || ({}); compact: true; height: Theme.target(44); primary: !Theme.quiet; onActivated: floor.click(b) }
                 ArcadeAction { root: floor.root; b: floor.arcade.joinCode || ({}); compact: true; height: Theme.target(44); onActivated: floor.click(b) }
             }
             Flickable {

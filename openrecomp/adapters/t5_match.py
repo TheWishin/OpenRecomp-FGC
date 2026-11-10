@@ -113,6 +113,10 @@ class T5Match(Online):
             # 1.2.0's in-game rematch is opt-in: its own launcher announces it only with T5_INGAME_REMATCH=1
             # (tk_tab._game_has_ingame_ui), so both launchers offer the same matches on the same build.
             options["ingame_rematch"] = options["ingame_rematch"] and os.environ.get("T5_INGAME_REMATCH") == "1"
+            # 1.2.3 ranked costume (T5DR docs/RANKED.md "Costumes in ranked"): a game with the in-game select also
+            # starts a fight with buttons=, so ranked fighter and costume can come from the launcher. Older installs'
+            # clients do not take the flag (t5_features.options drops it); an older server ignores it.
+            options["ranked_costume"] = options["ingame_pick"]
             check = getattr(module, "game_supports_auto_skip", None)
             options["auto_skip_after_round"] = bool(options["ingame_rematch"] and check and check(paths))
         except (ImportError, OSError, RuntimeError, AttributeError, ValueError):

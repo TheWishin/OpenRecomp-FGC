@@ -13,7 +13,7 @@ Item {
             GradientStop { position: 1; color: "transparent" }
         }
     }
-    Rectangle { x: parent.width * 0.53; y: 32; width: 3; height: parent.height - 64; color: Theme.gameAccent }
+    Rectangle { x: parent.width * 0.53; y: 32; width: Theme.quiet ? 1 : 3; height: parent.height - 64; color: Theme.quiet ? Theme.border : Theme.gameAccent }
     Column {
         id: identity
         x: parent.width * 0.53 + 24; y: 32; width: parent.width - x - 32; spacing: 12
@@ -61,7 +61,7 @@ Item {
                 visible: (menu.m.recentResults || []).length > 0
                 Repeater {
                     model: menu.m.recentResults || []
-                    ResultCell { required property var modelData; root: menu.root; c: modelData; accent: Theme.success; width: Theme.target(44); height: width }
+                    ResultCell { required property var modelData; root: menu.root; c: modelData; accent: Theme.quiet ? Theme.value : Theme.success; width: Theme.target(44); height: width }
                 }
             }
         }
@@ -91,14 +91,16 @@ Item {
                     required property var modelData
                     objectName: "mainMenuEntry"
                     readonly property bool matchAction: modelData.id === "ranked" || modelData.id === "quick"
+                    // Calm: the one filled accent block follows the focus instead of always sitting on Ranked.
+                    readonly property bool filled: Theme.quiet ? matchAction && !!modelData.focused : modelData.id === "ranked"
                     readonly property real groupH: modelData.groupStart ? groupLabel.height + 12 : 0
                     width: entries.width - 12; height: Math.max(matchAction ? 80 / Theme.viewportScale : Theme.target(50), label.implicitHeight + (matchAction ? subtitle.height + 18 : 14)) + groupH
-                    radius: 4; color: modelData.id === "ranked" ? Theme.primaryFill : matchAction || modelData.focused ? Theme.raised : "transparent"
-                    border.width: matchAction ? 1 : 0; border.color: Theme.readableAccent(menu.root.v.accent)
+                    radius: 4; color: filled ? Theme.primaryFill : matchAction || modelData.focused ? Theme.raised : "transparent"
+                    border.width: matchAction ? 1 : 0; border.color: Theme.quiet && !modelData.focused ? Theme.border : Theme.readableAccent(menu.root.v.accent)
                     Rectangle { visible: !!entry.modelData.focused; width: 6; height: parent.height; color: Theme.gameAccent }
-                    OnlineStyle.HelpText { id: groupLabel; visible: !!entry.modelData.groupStart; x: 22; y: 6; width: parent.width - 40; text: entry.modelData.group || ""; color: entry.modelData.id === "ranked" ? Theme.primaryText : Theme.value }
-                    Text { id: label; objectName: "mainMenuEntryLabel"; x: 22; y: entry.groupH + (entry.height - entry.groupH - height - (subtitle.visible ? subtitle.height + 2 : 0)) / 2; width: parent.width - 40; text: entry.modelData.label || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: entry.modelData.id === "ranked" ? Theme.primaryText : entry.matchAction || entry.modelData.focused ? Theme.text : Theme.muted; font.family: menu.root.display; font.weight: entry.modelData.focused ? Font.Black : Font.Bold; font.pixelSize: Theme.px(24) }
-                    Text { id: subtitle; objectName: "mainMenuEntrySubtitle"; visible: entry.matchAction; x: 22; y: label.y + label.height + 2; width: parent.width - 40; text: entry.modelData.subtitle || ""; textFormat: Text.PlainText; elide: Text.ElideRight; color: entry.modelData.id === "ranked" ? Theme.primaryText : Theme.muted; font.family: menu.root.sans; font.pixelSize: Theme.onlinePx(14) }
+                    OnlineStyle.HelpText { id: groupLabel; visible: !!entry.modelData.groupStart; x: 22; y: 6; width: parent.width - 40; text: entry.modelData.group || ""; color: entry.filled ? Theme.primaryText : Theme.value }
+                    Text { id: label; objectName: "mainMenuEntryLabel"; x: 22; y: entry.groupH + (entry.height - entry.groupH - height - (subtitle.visible ? subtitle.height + 2 : 0)) / 2; width: parent.width - 40; text: entry.modelData.label || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: entry.filled ? Theme.primaryText : entry.matchAction || entry.modelData.focused ? Theme.text : Theme.muted; font.family: menu.root.display; font.weight: entry.modelData.focused ? Font.Black : Font.Bold; font.pixelSize: Theme.px(24) }
+                    Text { id: subtitle; objectName: "mainMenuEntrySubtitle"; visible: entry.matchAction; x: 22; y: label.y + label.height + 2; width: parent.width - 40; text: entry.modelData.subtitle || ""; textFormat: Text.PlainText; elide: Text.ElideRight; color: entry.filled ? Theme.primaryText : Theme.muted; font.family: menu.root.sans; font.pixelSize: Theme.onlinePx(14) }
                     TapHandler { id: tap; onTapped: menu.root.backend.clickMainEntry(entry.modelData.index) }
                     Interaction { handler: tap; selected: !!entry.modelData.focused; disabled: !!entry.modelData.disabled; disabledReason: entry.modelData.subtitle || ""; name: [entry.modelData.label || "", entry.modelData.subtitle || ""].join(". "); onActivated: menu.root.backend.clickMainEntry(entry.modelData.index) }
                 }

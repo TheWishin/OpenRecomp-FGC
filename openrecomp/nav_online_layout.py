@@ -22,6 +22,10 @@ CHAPTER_LABELS = {"lobby": "@online_ui.chapter.lobby", "rooms": "@online_ui.chap
                   "stats": "@online_ui.chapter.stats", "profile": "@online_ui.chapter.profile",
                   "tournaments": "@online_ui.chapter.tournaments", "spectating": "@online_ui.chapter.spectating",
                   "account": "@online_ui.chapter.account"}
+# Chapters that hold one or two rows until opened are shown on a neighbour's page: Statistics on the Leaderboard
+# page (both are community tables), Account under the Profile. Their rows keep "origin" = the old chapter.
+MERGED_INTO = {"stats": "leaderboard", "account": "profile"}
+CHAPTER_LABELS.update(leaderboard="@main_menu.leaderboard", profile="@online_ui.chapter.profile_account")
 HIERARCHY_LABELS = {
     "open_rooms": "@online_hierarchy.open_rooms", "create_room": "@online_hierarchy.create_room",
     "room_empty": "@online_hierarchy.room_empty", "join_invite": "@online_hierarchy.join_invite",
@@ -232,6 +236,11 @@ class OnlineLayout:
             by_region["rooms"].insert(0, dict(kind="action", id=iid, label=label, hint="", verb="@open",
                 run=lambda kind=kind, iid=iid: self.open_room_flow(g, kind, iid)) if not cancelling else
                 dict(kind="action", id=iid, label="@cancel", hint="", verb="@cancel", run=self.close_room_advanced))
+        for source, target in MERGED_INTO.items():
+            for item in by_region[source]:
+                item["origin"] = source
+            by_region[target] += by_region[source]
+            by_region[source] = []
         page = []
         for region, items in by_region.items():
             for item in items:
@@ -515,7 +524,8 @@ class OnlineLayout:
         self._show_chapter(items, target)
         pages = getattr(self, "_t5_profile_pages", None) or {}
         loader = LOADERS.get(target)
-        if loader and pages.get(g.id) != target and not self.dry:
+        shown = {target} | {source for source, into in MERGED_INTO.items() if into == target}
+        if loader and pages.get(g.id) not in shown and not self.dry:
             # Opening the Leaderboard, Statistics or Profile chapter asks the server for it (one request).
             item = next((it for it in items if it.get("id") == loader), None)
             if item and item.get("run"):
@@ -523,9 +533,14 @@ class OnlineLayout:
 
     def _show_chapter(self, items, chapter):
         g = self.game
+        origin = chapter if chapter in MERGED_INTO else None
+        chapter = MERGED_INTO.get(chapter, chapter)
         self.__dict__.setdefault("online_chapter", {})[g.id] = chapter
-        remembered = self.__dict__.setdefault("chapter_focus", {}).get((g.id, chapter))
-        first = next((n for n, it in enumerate(items) if it.get("region") == chapter and it.get("kind") != "heading"), None)
+        remembered = None if origin else self.__dict__.setdefault("chapter_focus", {}).get((g.id, chapter))
+        first = next((n for n, it in enumerate(items) if it.get("region") == chapter and it.get("kind") != "heading"
+                      and (origin is None or it.get("origin") == origin)), None)
+        if first is None:
+            first = next((n for n, it in enumerate(items) if it.get("region") == chapter and it.get("kind") != "heading"), None)
         target = next((n for n, it in enumerate(items) if it.get("id") == remembered and it.get("region") == chapter), first)
         if target is not None:
             self.focus[self.key()] = target
@@ -548,7 +563,7 @@ class OnlineLayout:
         if self.overlay or not self._online_page():
             return
         items = self.items()
-        if any(it.get("region") == chapter for it in items):
+        if any(it.get("region") == MERGED_INTO.get(chapter, chapter) for it in items):
             self._go_chapter(items, chapter)
 
     def _remember_chapter_focus(self, items, i):
@@ -720,7 +735,8 @@ class OnlineLayout:
             page["chapters"] = [dict(id="ranked", label="@official_ui.ranked", active=True, badge="")] + [
                 dict(tab, active=False) for tab in page["chapters"]]
             page["ranked"] = nav_ranked.ranked(self, g, state, items, fi, page["profile"], page["find"])
-        if chapter == "leaderboard":
+        if chapter == "leaderboard" and (getattr(self, "_t5_profile_pages", None) or {}).get(g.id) != "stats":
+            # the merged chapter (0.1.7): the official ranking, or the community statistics as plain sections
             page["leaderboard"] = nav_ranked.leaderboard(self, g, state, items, fi)
         v["online"] = page
 

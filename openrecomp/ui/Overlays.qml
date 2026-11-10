@@ -115,6 +115,21 @@ Item {
             Text { textFormat: Text.PlainText; text: ov.v.fighterTitle; color: ov.root.textC; font.family: ov.root.display; font.weight: Font.Black; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(56)}
             Text { textFormat: Text.PlainText; visible: !!ov.v.grid.main; text: ov.v.fighterMain + (ov.v.grid.main || ""); color: ov.root.muted; font.family: ov.root.sans; font.pixelSize: Theme.px(26); anchors.baseline: parent.children[0].baseline }
         }
+        // The focused fighter's ranked costume (T5DR 1.2.3): X or a click shows the next one.
+        Row {
+            objectName: "fighterCostume"
+            readonly property var cos: (ov.v.grid || {}).costume || ({})
+            visible: !!cos.show
+            anchors.right: parent.right; anchors.rightMargin: 32; y: 34; spacing: 14
+            Text { textFormat: Text.PlainText; text: parent.cos.caption || ""; color: ov.root.muted; font.family: ov.root.sans; font.pixelSize: Theme.px(22); anchors.verticalCenter: parent.verticalCenter }
+            Rectangle {
+                width: costumeValue.implicitWidth + 28; height: costumeValue.implicitHeight + 14; radius: 4
+                color: Theme.raised; border.width: 1; border.color: Theme.border
+                Text { id: costumeValue; objectName: "fighterCostumeValue"; anchors.centerIn: parent; textFormat: Text.PlainText; text: parent.parent.cos.value || ""; color: ov.root.textC; font.family: ov.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(22) }
+                TapHandler { id: costumeTap; onTapped: ov.root.backend.press("x") }
+                Interaction { handler: costumeTap; name: (parent.parent.cos.caption || "") + ". " + (parent.parent.cos.value || ""); onActivated: ov.root.backend.press("x") }
+            }
+        }
         Grid {
             x: 32; y: 96; columns: 9; spacing: 6
             Repeater {
@@ -127,7 +142,8 @@ Item {
                     z: c.focused ? 2 : 1
                     scale: c.focused ? 1.05 : 1
                     Behavior on scale { enabled: !ov.root.reducedMotion; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
-                    color: c.focused ? ov.root.bone : (c.chosen ? Theme.readableAccent(ov.v.accent) : "#1B1D21")
+                    color: c.focused ? ov.root.bone : (c.chosen ? (Theme.quiet ? Theme.highlighted : Theme.readableAccent(ov.v.accent)) : "#1B1D21")
+                    border.width: Theme.quiet && c.chosen && !c.focused ? 2 : 0; border.color: Theme.readableAccent(ov.v.accent)
                     FighterPortrait {
                         objectName: "fighterSelectPortrait"
                         visible: !cell.c.random
@@ -146,7 +162,7 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 8
                         width: parent.width - 8; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
                         text: cell.c.name || ""
-                        color: cell.c.focused || cell.c.chosen ? Theme.ground : ov.root.textC
+                        color: cell.c.focused || (cell.c.chosen && !Theme.quiet) ? Theme.ground : ov.root.textC
                         font.family: ov.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(26)
                     }
                     Rectangle {

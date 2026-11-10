@@ -77,10 +77,14 @@ class Plan(unittest.TestCase):
         foreign.mkdir(parents=True)
         dev = managed_install(self.dir / "dev" / "T4", "t4")
         (dev / ".git").mkdir()
-        plan = uninstall.plan(dict(roots=dict(t4=str(foreign))), program=str(self.program))
+        # plan() now looks for installs beside the GIVEN program: use one with no installs next to it
+        alone = self.dir / "Alone" / "OpenRecomp-FGC"
+        alone.mkdir(parents=True)
+        (alone / "release.json").write_text("{}", encoding="utf-8")
+        plan = uninstall.plan(dict(roots=dict(t4=str(foreign))), program=str(alone))
         self.assertEqual(plan["games"], [])
         self.assertEqual(plan["skipped"][0]["why"], "not_ours")
-        plan = uninstall.plan(dict(roots=dict(t4=str(dev))), program=str(self.program))
+        plan = uninstall.plan(dict(roots=dict(t4=str(dev))), program=str(alone))
         self.assertEqual(plan["skipped"][0]["why"], "unsafe")
         # a developer checkout of the launcher is never a program folder to remove
         (self.program / ".git").mkdir()

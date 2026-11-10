@@ -73,13 +73,13 @@ Item {
                 Column {
                     id: shelfDescription; width: parent.width
                     spacing: 0
-                    Rectangle { width: 40; height: 4; color: Theme.readableAccent(tile.t.accent) || shelf.root.textC }
+                    Rectangle { width: 40; height: 4; color: Theme.quiet && !tile.t.focused ? shelf.root.line : Theme.readableAccent(tile.t.accent) || shelf.root.textC }
                     Item { width: 1; height: 16 }
                     Rectangle {
                         visible: !!tile.t.badge
                         width: Math.min(badgeText.implicitWidth + 20, parent.width); height: visible ? 28 : 0
                         radius: 4; color: "#24272C"
-                        Text { textFormat: Text.PlainText; id: badgeText; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 20); elide: Text.ElideRight; text: tile.t.badge || ""; color: Theme.readableAccent(tile.t.accent) || shelf.root.textC; font.family: shelf.root.mono; font.weight: Font.DemiBold; font.pixelSize: Theme.px(16)}
+                        Text { textFormat: Text.PlainText; id: badgeText; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 20); elide: Text.ElideRight; text: tile.t.badge || ""; color: Theme.quiet ? Theme.value : Theme.readableAccent(tile.t.accent) || shelf.root.textC; font.family: shelf.root.mono; font.weight: Font.DemiBold; font.pixelSize: Theme.px(16)}
                     }
                     Item { width: 1; height: 12 }
                     Text {
@@ -106,15 +106,15 @@ Item {
                         objectName: "shelfStatus"
                         visible: !!tile.t.status
                         width: Math.min(statusText.implicitWidth + 24, parent.width); height: visible ? statusText.implicitHeight + 12 : 0
-                        radius: 4; color: tile.t.statusKind === "ready" ? "#20342D" : "#382E20"
-                        Text { id: statusText; objectName: "shelfStatusText"; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 24); wrapMode: Text.Wrap; textFormat: Text.PlainText; text: tile.t.status || ""; color: tile.t.statusKind === "ready" ? Theme.success : "#F5C77D"; font.family: shelf.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(18)}
+                        radius: 4; color: Theme.quiet ? "#24272C" : tile.t.statusKind === "ready" ? "#20342D" : "#382E20"
+                        Text { id: statusText; objectName: "shelfStatusText"; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 24); wrapMode: Text.Wrap; textFormat: Text.PlainText; text: tile.t.status || ""; color: Theme.quiet ? (tile.t.statusKind === "ready" ? Theme.value : Theme.text) : tile.t.statusKind === "ready" ? Theme.success : "#F5C77D"; font.family: shelf.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(18)}
                     }
                     Rectangle {
                         objectName: "shelfUpdate"
                         visible: !!tile.t.update && !tile.t.status
                         width: Math.min(updateText.implicitWidth + 24, parent.width); height: visible ? updateText.implicitHeight + 12 : 0
-                        radius: 4; color: "#382E20"
-                        Text { textFormat: Text.PlainText; id: updateText; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 24); wrapMode: Text.Wrap; text: tile.t.update || ""; color: "#F5C77D"; font.family: shelf.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(18)}
+                        radius: 4; color: Theme.quiet ? "#24272C" : "#382E20"
+                        Text { textFormat: Text.PlainText; id: updateText; anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width - 24); wrapMode: Text.Wrap; text: tile.t.update || ""; color: Theme.quiet ? Theme.text : "#F5C77D"; font.family: shelf.root.sans; font.weight: Font.DemiBold; font.pixelSize: Theme.px(18)}
                     }
                     Item { width: 1; height: tile.t.focused ? 18 : 0 }
                     Repeater {
@@ -133,7 +133,7 @@ Item {
                         visible: !!tile.t.focused; spacing: 8; height: 40
                         Repeater {
                             model: (tile.t.results || []).length
-                            ResultCell { required property int index; c: shelf.root.ok(tile.t.results, index); accent: Theme.readableAccent(tile.t.accent) || shelf.root.textC; root: shelf.root; width: 40; height: 40 }
+                            ResultCell { required property int index; c: shelf.root.ok(tile.t.results, index); accent: Theme.quiet ? Theme.value : Theme.readableAccent(tile.t.accent) || shelf.root.textC; root: shelf.root; width: 40; height: 40 }
                         }
                         Text { textFormat: Text.PlainText; visible: (tile.t.results || []).length === 0; width: tile.t.focused ? 560 : 0; elide: Text.ElideRight; text: tile.t.empty || ""; color: shelf.root.muted; font.family: shelf.root.sans; font.pixelSize: Theme.px(20); anchors.verticalCenter: parent.verticalCenter }
                     }

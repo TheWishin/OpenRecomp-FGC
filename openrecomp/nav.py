@@ -25,7 +25,7 @@ from .nav_library import Library
 from .nav_online import Online
 from .nav_online_layout import OnlineLayout
 from .nav_online_login import OnlineLogin
-from .nav_settings_page import SettingsPage
+from .nav_settings_page import COLOURS, SettingsPage
 from .nav_picker import Picker
 from .nav_progress import ProgressNav
 from .nav_sections import Sections
@@ -50,7 +50,7 @@ class Nav(ProgressNav, GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, 
                  on_game_remove=None, on_game_update_check=None, on_game_update_install=None, on_setup=None,
                  game_prereleases=False, on_prereleases=None, native_picker=False, picker_dirs=None, on_picker_dir=None,
                  online_prefs=None, on_online_prefs=None, ui_sounds=True, ui_sound_volume=None, on_ui_sound=None,
-                 text_size=100, high_contrast=False, on_accessibility=None):
+                 text_size=100, high_contrast=False, on_accessibility=None, colours=None, on_colours=None):
         self.games = games
         self.ui_sounds = bool(ui_sounds)                  # the launcher's menu sounds (Settings > Audio)
         self.ui_sound_volume = ui_sound.clean_volume(ui_sound_volume)
@@ -68,6 +68,8 @@ class Nav(ProgressNav, GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, 
         self.text_size = text_size if type(text_size) is int and text_size in (100, 115, 130) else 100
         self.high_contrast = bool(high_contrast)
         self.on_accessibility = on_accessibility or (lambda _size, _contrast: None)
+        self.colours = colours if colours in COLOURS else COLOURS[0]    # Settings > Video: calm (default) or vivid
+        self.on_colours = on_colours or (lambda _colours: None)
         self.on_preferences = on_preferences or (lambda _fullscreen, _reduced_motion: None)
         self.dry = False                    # test runs: nothing starts, nothing is written, only a message
         self.pending_clipboard = None
@@ -372,7 +374,7 @@ class Nav(ProgressNav, GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, 
 
     def view(self):
         v = dict(screen=self.screen, overlay=self.overlay or "", toast=self.toast, fullscreen=self.fullscreen, reducedMotion=self.reduced_motion or getattr(self, "system_reduced_motion", False),
-                 textScale=self.text_size / 100, highContrast=self.high_contrast,
+                 textScale=self.text_size / 100, highContrast=self.high_contrast, colours=self.colours,
                  inputMode=self.device, nativeEdit=getattr(self, "native_edit", ""), nativeField={},
                  device="@" + DEVICE_LABEL["kb" if self.device == "kb" else self.pad_kind],
                  trail=self._trail(), social=self.glyph("social"), prevG=self.glyph("prev"), nextG=self.glyph("next"), confirmInk=self.glyph("confirm", True), backG=self.glyph("back"),

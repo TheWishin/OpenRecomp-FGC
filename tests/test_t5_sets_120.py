@@ -129,7 +129,8 @@ class SetTests(unittest.TestCase):
                                  game_files=mock.Mock(return_value=[]))
         with mock.patch("openrecomp.adapters.t5_match.importlib.import_module", return_value=module):
             self.assertEqual(self.a._online_match_client_options(),
-                             dict(sets=True, ingame_pick=False, ingame_rematch=False, auto_skip_after_round=False))
+                             dict(sets=True, ingame_pick=False, ingame_rematch=False, auto_skip_after_round=False,
+                                  ranked_costume=False))
 
     def test_native_game_capabilities_drive_opt_ins_and_driver_parameter(self):
         client = self.match()

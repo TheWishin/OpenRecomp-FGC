@@ -8,7 +8,7 @@ Rectangle {
     property var labels: ({})
     property var glyphs: ({})
     readonly property color accent: Theme.readableAccent(root.v.accent)
-    readonly property bool warmSelection: Theme.gameKind === "t5dr" && !Theme.highContrast && (player.focused || player.selected)
+    readonly property bool warmSelection: Theme.gameKind === "t5dr" && !Theme.highContrast && !Theme.calm && (player.focused || player.selected)
     readonly property bool narrow: Theme.viewportScale < .85 || Theme.textScale > 1.1
     readonly property real actionWidth: narrow ? 108 : 230
     readonly property real dataWidth: width - 48
@@ -56,7 +56,7 @@ Rectangle {
             opacity: card.player.selected || card.player.focused ? 0 : 1
             Row {
                 x: 0; spacing: 2; anchors.verticalCenter: parent.verticalCenter
-                Repeater { model: 4; Rectangle { required property int index; width: 3; height: 4 + index * 3; anchors.bottom: parent.bottom; color: index < (card.player.connection.bars || 0) ? card.accent : Theme.border } }
+                Repeater { model: 4; Rectangle { required property int index; width: 3; height: 4 + index * 3; anchors.bottom: parent.bottom; color: index < (card.player.connection.bars || 0) ? (Theme.quiet ? Theme.mark : card.accent) : Theme.border } }
                 height: 14
             }
             Text { x: 22; width: parent.width - 24; anchors.verticalCenter: parent.verticalCenter; text: card.player.connection.text || ""; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.muted; font.family: card.root.sans; font.pixelSize: Theme.onlinePx(14) }

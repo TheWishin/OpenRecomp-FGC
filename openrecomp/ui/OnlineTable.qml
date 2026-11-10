@@ -48,7 +48,7 @@ Item {
                                 Rectangle {
                                     required property int index
                                     width: 4; height: 6 + index * 4; anchors.bottom: parent.bottom
-                                    color: index < (cell.modelData.bars || 0) ? Theme.success : Theme.border
+                                    color: index < (cell.modelData.bars || 0) ? (Theme.quiet ? Theme.mark : Theme.success) : Theme.border
                                 }
                             }
                         }

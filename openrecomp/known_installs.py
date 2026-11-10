@@ -63,15 +63,19 @@ def _released(root):
 
 
 def _launcher_parent():
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from . import safety
+    return safety.launcher_parent(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
-def candidates(config, gid):
+def candidates(config, gid, parent=None):
+    """Known installs of gid. parent = the folder searched for game folders beside the launcher (default: the
+    imported launcher's parent; uninstall passes the parent of the program it was given)."""
     out = list((config.get("known_roots") or {}).get(gid) or [])
     chosen = (config.get("roots") or {}).get(gid)
     if isinstance(chosen, str):
         out.insert(0, chosen)
-    parents = [_launcher_parent()]
+    beside = parent or _launcher_parent()
+    parents = [beside]
     try:
         parents.append(os.path.join(mf.user_dir(), "installs", gid))
     except Exception:  # noqa: BLE001 -- no user folder yet: nothing installed there either
@@ -79,7 +83,7 @@ def candidates(config, gid):
     for parent in parents:
         for pattern in _FOLDER_GLOB.get(gid, ()):
             for path in sorted(glob.glob(os.path.join(glob.escape(parent), pattern))):
-                if _made_here(gid, path) or (_released(path) and os.path.normcase(parent) == os.path.normcase(_launcher_parent())):
+                if _made_here(gid, path) or (_released(path) and os.path.normcase(parent) == os.path.normcase(beside)):
                     out.append(path)
     return out
 

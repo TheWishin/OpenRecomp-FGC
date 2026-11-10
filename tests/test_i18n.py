@@ -147,7 +147,7 @@ def untranslated_literals(source):
         "Downloads", "Desktop", "APPDATA", "OPENRECOMP_T4_ROOT", "OPENRECOMP_T5DR_ROOT", "T5_ONLINE_DIR",
         "%USERPROFILE%/Downloads/T5DR-Online-*", "%USERPROFILE%/Desktop/T5DR-Online-*", "T5DR-Online-*",
         ".json", ".iso", "*.iso", ".pkg", ".rap", ".openrecomp.tmp", "logs\\build_game.log",
-        "--search", "-Force", "openrecomp", "taskkill", "/T", "/F", "/PID", "W", "L",
+        "--search", "-Force", "openrecomp", "taskkill", "/T", "/F", "/PID", "W", "L", "LP", "RP", "LK", "RK",  # Tekken button notation (ranked costume buttons)
         "controls_edit.py", "controls_ui.py", "padmap.py", "padnav.py", "__init__.py", ".py", "replays.py", "launcher.log",
         "openrecomp-build.lock", "build.log", "OpenRecomp-FGC", "build_game.py", "build_game_dll.py", "clang-cl", "lld-link", "clang.exe",  # t5_buildlock: the lock file, T5DR's build log, the lock's owner
         "controls_edit", "controls_ui", "t5lobby.padmap", "t5lobby.padnav", "problem_report", "problem_check",
@@ -205,7 +205,7 @@ def untranslated_literals(source):
         # the settings page's group ids and its own rows (nav_settings_page)
         "display", "controls", "online", "audio", "offline", "replays", "updates", "advanced", "pad_bindings",
         "settings", "quick", "video", "help", "tier",  # menu routes, tab identifiers and rank data
-        "text_size", "high_contrast", "reduced_motion", "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",
+        "text_size", "high_contrast", "colours", "calm", "vivid", "reduced_motion", "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",
         "check_all", "settingsGroup", "groups", "tier_for", "threshold", "field", "login_show_password",
         "login_remember", "login_forgot", "login_back", "login_saved", "login_account", "login_register", "login_guest",
         "online_status", "online_name", "online_password", "online_server", "mode_direct", "native", "auto_login", "recover",

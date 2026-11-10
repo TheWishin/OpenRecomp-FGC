@@ -28,7 +28,7 @@ VIEW_FIELDS = {
     "topline", "hold", "more", "grid", "osk", "dialog", "picker", "drawer", "quickAccess", "recentSets",
     "progressCard", "folder", "file", "pick", "mainLabel", "fighterTitle", "fighterMain", "fullscreen", "reducedMotion", "build", "online", "settingsPage",
     "bindingsPage", "bindCapture", "ctlPreset",
-    "discord", "sessionPage", "loading", "loadError", "textScale", "highContrast", "mainMenu",
+    "discord", "sessionPage", "loading", "loadError", "textScale", "highContrast", "colours", "mainMenu",
     "globalOffers", "activity", "matchVersus", "gameTheme", "livingBackground", "promotion",
 }
 
@@ -95,7 +95,7 @@ class Layout(unittest.TestCase):
         self.assertEqual(set(check()["dialog"]), {"title", "text", "options"})
         state.act("back")
         state._open_fighters()
-        self.assertEqual(set(check()["grid"]), {"main", "cells", "mosaic"})
+        self.assertEqual(set(check()["grid"]), {"main", "cells", "mosaic", "costume"})
         state.act("back")
         state._open_osk("name")
         self.assertEqual(check()["osk"]["text"], "alt_")
