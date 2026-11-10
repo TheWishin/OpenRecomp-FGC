@@ -142,7 +142,8 @@ Item {
                     z: c.focused ? 2 : 1
                     scale: c.focused ? 1.05 : 1
                     Behavior on scale { enabled: !ov.root.reducedMotion; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
-                    color: c.focused ? ov.root.bone : (c.chosen ? Theme.readableAccent(ov.v.accent) : "#1B1D21")
+                    color: c.focused ? ov.root.bone : (c.chosen ? (Theme.quiet ? Theme.highlighted : Theme.readableAccent(ov.v.accent)) : "#1B1D21")
+                    border.width: Theme.quiet && c.chosen && !c.focused ? 2 : 0; border.color: Theme.readableAccent(ov.v.accent)
                     FighterPortrait {
                         objectName: "fighterSelectPortrait"
                         visible: !cell.c.random
@@ -161,7 +162,7 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 8
                         width: parent.width - 8; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
                         text: cell.c.name || ""
-                        color: cell.c.focused || cell.c.chosen ? Theme.ground : ov.root.textC
+                        color: cell.c.focused || (cell.c.chosen && !Theme.quiet) ? Theme.ground : ov.root.textC
                         font.family: ov.root.display; font.weight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.pixelSize: Theme.px(26)
                     }
                     Rectangle {
