@@ -14,7 +14,7 @@ from PySide6.QtQuick import QQuickWindow  # noqa: F401 -- so the scene's root co
 
 from . import adapters, file_dialog, i18n, launcher_prefs, manifest as mf, stall, ui_sound
 from .nav import Game, Nav
-from .pad import Pads, PlayStationReader, WinMMPlayStationReader, XInputReader
+from .pad import HidPlayStationReader, Pads, PlayStationReader, WinMMPlayStationReader, XInputReader
 from .update_service import UpdateService
 from . import updater
 from .app_game_setup import GameSetupBackend
@@ -639,6 +639,8 @@ class Backend(QObject, GameSetupBackend):
         readers = [XInputReader(), WinMMPlayStationReader()]
         if t5 is not None:
             readers.append(PlayStationReader(t5.root))
+        if t5 is None or readers[-1].source is None:       # no T5DR reader to use: our own (same rules)
+            readers.append(HidPlayStationReader())
         self.pads = Pads(readers)
         self._pad_root = root
         self.pads.suppress()

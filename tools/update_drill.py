@@ -102,7 +102,7 @@ def _exercise_settings(old_install, settings_copy, home):
         if settings.legacy_online_paths != (str(settings_copy / "online.json"),):
             raise DrillError("The helper did not retain the explicit online source.")
         controls = settings_copy / "controls.json"
-        if controls.exists() and settings.env_overrides().get("PS3_CONTROLS") != str(controls):
+        if controls.exists() and str(controls) not in settings.legacy_controls_paths:
             raise DrillError("The helper did not retain the explicit controls source.")
         private = Path(settings.private_path("settings.json"))
         if private.exists():

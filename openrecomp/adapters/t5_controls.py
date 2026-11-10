@@ -7,10 +7,9 @@ import importlib.util
 import inspect
 import os
 import sys
-import tempfile
 import time
 
-from .. import i18n, pad_glyphs, pad_presets
+from .. import controls_file, i18n, pad_glyphs, pad_presets
 from .base import add_path
 from .t5_coexist import readonly_imports
 
@@ -140,13 +139,45 @@ class Controls:
             raise RuntimeError("@controls.unsupported")
         ce, ui, pm, pn = api
         env = self.s.env_overrides()
-        editor = ce.ControlsEditor.load(ce.controls_path(self.s.out_dir, env))
+        path = ce.controls_path(self.s.out_dir, env)       # the file T5DR's own launcher edits and the game reads
+        self._controls_migrate(path)
+        editor = ce.ControlsEditor.load(path)
         session = dict(editor=editor, ports=pm.PortMap(editor.controls()), active=True,
                        capture=None, pending=None, state=dict(state="idle"), devices={})
         session["poller"] = ui.DevicePoller(self._controls_sources(pn), foreground=lambda: session["active"],
                                             controls=lambda: session["editor"].controls())
+        session["checked"] = time.monotonic()
         self._controls_session = session
         return session
+
+    def _controls_migrate(self, path):
+        """OpenRecomp's own copy (before 0.1.7) goes into the shared file once; a failure never blocks the page."""
+        legacy = getattr(self.s, "legacy_controls_paths", None)
+        if not legacy:
+            return
+        try:
+            self.controls_migration = controls_file.migrate(path, legacy)       # what was moved (for a log or a test)
+        except Exception as error:  # noqa: BLE001 -- the private copy stays where it is, and is tried again next time
+            self.controls_migration = [error]
+
+    def _controls_refresh(self, session, now):
+        """The other launcher (or the player) changed controls.ini: show what is in the file, not what we read before."""
+        if session["pending"] is not None or now - session.get("checked", now) < 1.0:
+            return
+        session["checked"] = now
+        editor = session["editor"]
+        known = getattr(editor, "disk_bytes", False)
+        if known is False or not getattr(editor, "path", None):
+            return
+        try:
+            with open(editor.path, "rb") as stream:
+                current = stream.read()
+        except FileNotFoundError:
+            current = None
+        except OSError:
+            return
+        if current != known:
+            session["editor"] = self._controls_modules[0].ControlsEditor.load(editor.path)
 
     @staticmethod
     def _controls_sources(pn):
@@ -369,6 +400,7 @@ class Controls:
         if not active:
             poller.drain()
             return session["state"]
+        self._controls_refresh(session, now)
         session["devices"] = {dev.key: dev for dev in poller.devices}
         session["ports"].update(poller.devices, session["editor"].controls())
         edges = poller.drain()
@@ -404,6 +436,8 @@ class Controls:
                 session["state"] = dict(state="waiting", left=max(0.0, pending["deadline"] - now))
                 return dict(session["state"])
             state, source = result
+            if state == "ok" and self._rest_source(pending["dev"], source):
+                state = "multi"            # a PlayStation trigger's resting end is never a press (the editor refuses it)
             if state == "ok":
                 pressed = getattr(session["capture"], "first", None)
                 session["capture"] = None
@@ -427,6 +461,11 @@ class Controls:
                 session["capture"] = session["pending"] = None
                 session["state"] = dict(state="timeout")
         return dict(session["state"])
+
+    def _rest_source(self, ref, source):
+        pm = self._controls_modules[2]
+        rest, is_ps = getattr(pm, "PS_REST_SOURCES", ()), getattr(pm, "is_ps_pad", None)
+        return source in rest and callable(is_ps) and bool(is_ps(ref.kind, ref.vid, ref.pid))
 
     def _holding(self, session, pending, held, now):
         """Back went down: let go quickly and it is the new button; hold it and the capture is cancelled."""
@@ -462,34 +501,23 @@ class Controls:
         session["state"] = state
 
     def _controls_write(self, session, change):
-        """Run `change(editor)` and save. A private settings copy is replaced only after the complete save, and on
-        any failure the editor is loaded again from the file, which keeps its old bindings."""
+        """Run `change(editor)` and save into the shared controls.ini (atomic, tried again while the game or an
+        antivirus holds the file). If the other launcher changed the file since we read it, read it again and make
+        the same change on top; on any other failure the editor is loaded again from the file."""
         ce = self._controls_modules[0]
-        read_path = session["editor"].path
-        temporary = None
-        try:
-            # The installed editor keeps unknown fields. Publish private edits only
-            # after its complete save succeeds, keeping existing bindings on failure.
-            target = getattr(self.s, "controls_write_path", None)
-            if target is not None:
-                folder = os.path.dirname(target)
-                os.makedirs(folder, exist_ok=True)
-                target = self.s.controls_write_path
-                with tempfile.NamedTemporaryFile(dir=folder, prefix=".controls-", suffix=".json", delete=False) as stream:
-                    temporary = stream.name
-                session["editor"].path = temporary
-            change(session["editor"])
-            session["editor"].save()
-            if target is not None:
-                os.replace(temporary, self.s.controls_write_path)
-                session["editor"].path = target
-        except Exception:
-            session["editor"] = ce.ControlsEditor.load(read_path)
-            self.cancel_binding()
-            raise
-        finally:
-            if temporary is not None and os.path.exists(temporary):
-                os.unlink(temporary)
+        path = session["editor"].path
+        changed = getattr(ce, "FileChanged", None)
+        for attempt in (0, 1):
+            try:
+                change(session["editor"])
+                controls_file.save_with_retry(session["editor"])
+                return
+            except Exception as error:
+                session["editor"] = ce.ControlsEditor.load(path)
+                if attempt == 0 and changed is not None and isinstance(error, changed):
+                    continue
+                self.cancel_binding()
+                raise
 
     def accept_binding(self, swap=True):
         """Save the captured button. With `swap`, the action that had it gets this action's old button."""
