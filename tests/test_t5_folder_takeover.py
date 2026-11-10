@@ -260,7 +260,14 @@ class OneBuildAtATime(Folder):
         process = subprocess.Popen([sys.executable, str(fake), "--out", str(self.root / "native")], stdin=subprocess.DEVNULL)
         self.addCleanup(process.wait)
         self.addCleanup(process.kill)
-        lines = [l for l in (REAL_SCAN() or []) if l[0] == process.pid]
+        # A process that was started this instant has no readable command line yet, and on a busy PC some other
+        # Python or compiler can be unreadable for a moment (the scan then says "could not look"): look again.
+        deadline = time.monotonic() + 10
+        while True:
+            lines = [l for l in (REAL_SCAN() or []) if l[0] == process.pid]
+            if lines or time.monotonic() >= deadline:
+                break
+            time.sleep(0.1)
         self.assertEqual(len(lines), 1)
         self.assertTrue(t5_buildlock.t5dr_build_process(str(self.root / "native"), str(self.root), lines))
         self.assertFalse(t5_buildlock.t5dr_build_process(str(self.temp / "other" / "native"), str(self.temp / "other"), lines))
