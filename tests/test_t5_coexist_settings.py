@@ -171,13 +171,14 @@ class CoexistSettingsTests(unittest.TestCase):
         settings = self.load(settings_source=str(copy))
         self.assertEqual(settings["display"], "maximized")
         self.assertTrue(settings["copy_future"])
-        self.assertEqual(settings.env_overrides()["PS3_CONTROLS"], str(controls))
+        self.assertEqual(settings.env_overrides()["PS3_CONTROLS"], "native-controls")      # only the player's own setting
+        self.assertEqual(settings.legacy_controls_paths, (settings.controls_write_path, str(controls)))
         self.assertEqual(settings.legacy_online_paths, (str(copy / "online.json"),))
         self.assertFalse(self.home.exists())
         private = Path(settings.controls_write_path)
         private.parent.mkdir(parents=True)
         private.write_text("{}", encoding="utf-8")
-        self.assertEqual(settings.env_overrides()["PS3_CONTROLS"], str(private))
+        self.assertEqual(settings.env_overrides()["PS3_CONTROLS"], "native-controls")
         settings["display"] = "window"
         settings.save()
         self.assertEqual({path.name: path.read_bytes() for path in copy.iterdir()}, before)

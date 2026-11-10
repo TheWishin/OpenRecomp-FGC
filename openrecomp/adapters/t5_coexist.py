@@ -140,16 +140,19 @@ class _CoexistSettings:
             base = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "T5DROnline")
         return (os.path.join(base, "online.json"), os.path.join(os.path.dirname(self.source_path), "online.json"))
 
-    def env_overrides(self):
-        env = dict(super().env_overrides())
+    @property
+    def legacy_controls_paths(self):
+        """Where OpenRecomp (before 0.1.6.1) kept controls of its own: the private copy, then a chosen settings copy's.
+        Controls are one file now -- the one T5DR's own launcher edits (t5_controls migrates these once)."""
+        paths = [self.controls_write_path]
         if self._coexist_copy:
-            source = os.path.join(self._coexist_copy, "controls.json")
-            if os.path.isfile(source):
-                env["PS3_CONTROLS"] = source
-        controls = self.controls_write_path
-        if os.path.isfile(controls):
-            env["PS3_CONTROLS"] = controls
-        return env
+            paths.append(os.path.join(self._coexist_copy, "controls.json"))
+        return tuple(paths)
+
+    def env_overrides(self):
+        # No PS3_CONTROLS of our own: the game and both launchers read the same controls.ini (a PS3_CONTROLS the
+        # player set in the settings stays, via super()).
+        return dict(super().env_overrides())
 
     def __setitem__(self, key, value):
         super().__setitem__(key, value)

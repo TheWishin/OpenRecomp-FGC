@@ -197,6 +197,7 @@ class PackageTests(unittest.TestCase):
             "openrecomp/ui/PageLoader.qml", "openrecomp/ui/PeerPing.qml",
             "openrecomp/nav_controls_page.py", "openrecomp/pad_glyphs.py", "openrecomp/pad_presets.py",
             "openrecomp/ui/BindingsPage.qml", "openrecomp/ui/PadGlyph.qml",
+            "openrecomp/controls_file.py",
         }
         self.assertFalse(required - package.SOURCE_FILES)
         root = Path(__file__).parents[1]

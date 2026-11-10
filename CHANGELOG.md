@@ -3,6 +3,14 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
+## v0.1.6.1
+
+- **Fixed: Tekken 5 Pad bindings gave errors on L1, R2 and every second binding.** Only the first binding of a session
+  was saved; the next one failed with "changed on disk". Fixed.
+- **One controls.ini for Tekken 5 DR:** a binding saved here or in T5DR Online's own launcher is the one the game uses
+  and the one the other shows. Saves are atomic and retried while the game or an antivirus holds the file. Controls
+  OpenRecomp kept of its own before are moved in once and backed up; nothing is lost.
+
 ## v0.1.6
 
 - **Fixed: the launcher could not update itself** ("The update could not be completed. Nothing was installed.").

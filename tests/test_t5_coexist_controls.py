@@ -19,8 +19,8 @@ class FileEditor(Editor):
     def load(cls, path):
         editor = cls()
         editor.path = path
-        with open(path, encoding="utf-8") as stream:
-            editor.document = json.load(stream)
+        editor.disk_bytes = Path(path).read_bytes()
+        editor.document = json.loads(editor.disk_bytes.decode("utf-8"))
         editor.binds = {(int(port), source): mask
                         for port, source, mask in editor.document["bindings"]}
         cls.loaded.append(editor)
@@ -33,14 +33,20 @@ class FileEditor(Editor):
                                      for (port, source), mask in self.binds.items()]
         with open(self.path, "w", encoding="utf-8") as stream:
             json.dump(self.document, stream)
+        self.disk_bytes = Path(self.path).read_bytes()
+
+
+def time_far():
+    import time
+    return time.monotonic() + 100
 
 
 class CoexistControls(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory(dir=os.getcwd())
         self.addCleanup(self.folder.cleanup)
-        self.source = Path(self.folder.name) / "old-controls.json"
-        self.private = Path(self.folder.name) / "new-launcher" / "controls.json"
+        self.source = Path(self.folder.name) / "controls.ini"        # the file T5DR's own launcher edits
+        self.private = Path(self.folder.name) / "new-launcher" / "controls.json"      # OpenRecomp's old own copy
         self.original = b'{"bindings": [[0, "A", 1]], "future": {"keep": true}}\n'
         self.source.write_bytes(self.original)
         FileEditor.loaded = []
@@ -49,19 +55,19 @@ class CoexistControls(unittest.TestCase):
                                    edges=[], paused=0)
         ce = SimpleNamespace(ControlsEditor=FileEditor, DeviceRef=Ref, SCOPE_PORT="port",
                              SLOTS=[Slot("1", 1), Slot("2", 2)], mask_text=str,
-                             controls_path=lambda out, env: env["PS3_CONTROLS"])
+                             controls_path=lambda out, env: str(self.source))
         self.adapter = Subject((ce, SimpleNamespace(DevicePoller=Poller, Capture=Capture),
                                 SimpleNamespace(PortMap=PortMap),
                                 SimpleNamespace(default_sources=lambda: [self.bus])))
-        self.adapter.s = SimpleNamespace(out_dir="unused", controls_write_path=str(self.private),
-            env_overrides=lambda: {"PS3_CONTROLS": str(self.private if self.private.exists() else self.source)})
+        self.adapter.s = SimpleNamespace(out_dir="unused", legacy_controls_paths=(str(self.private),),
+                                         env_overrides=lambda: {})
 
     def capture(self):
         self.adapter.begin_binding("pad", "2")
         self.adapter._controls_session["capture"].result = ("ok", "X")
         self.assertEqual(self.adapter.poll_binding()["state"], "ready")
 
-    def test_open_and_cancel_read_existing_bindings_without_copying(self):
+    def test_open_and_cancel_read_existing_bindings_without_writing(self):
         self.adapter.poll_binding()
         self.assertEqual(self.adapter.controls()[0]["slots"][0]["value"], "A")
         self.capture()
@@ -70,21 +76,21 @@ class CoexistControls(unittest.TestCase):
         self.assertFalse(self.private.parent.exists())
         self.assertEqual(self.source.read_bytes(), self.original)
 
-    def test_accepted_binding_saves_private_controls_and_preserves_unknown_fields(self):
+    def test_accepted_binding_is_saved_in_the_shared_file_and_keeps_unknown_fields(self):
         self.capture()
         self.adapter.accept_binding()
-        self.assertEqual(self.source.read_bytes(), self.original)
-        document = json.loads(self.private.read_text(encoding="utf-8"))
+        document = json.loads(self.source.read_text(encoding="utf-8"))
         self.assertEqual(document["future"], {"keep": True})
         self.assertIn([0, "A", 1], document["bindings"])
         self.assertIn([0, "X", 2], document["bindings"])
-        self.assertEqual(self.adapter.s.env_overrides()["PS3_CONTROLS"], str(self.private))
+        self.assertFalse(self.private.exists())
+        self.assertNotIn("PS3_CONTROLS", self.adapter.s.env_overrides())
         self.adapter.controls_close()
         self.adapter.poll_binding()
-        self.assertEqual(self.adapter._controls_session["editor"].path, str(self.private))
+        self.assertEqual(self.adapter._controls_session["editor"].path, str(self.source))
         self.assertEqual(self.adapter.controls()[0]["slots"][1]["value"], "X")
 
-    def test_failed_private_save_reloads_original_and_drops_pending_edit(self):
+    def test_failed_save_reloads_the_shared_file_and_drops_the_pending_edit(self):
         self.capture()
         FileEditor.fail_save = True
         with self.assertRaisesRegex(RuntimeError, "save refused"):
@@ -94,7 +100,47 @@ class CoexistControls(unittest.TestCase):
         self.assertNotIn((0, "X"), session["editor"].binds)
         self.assertIsNone(session["pending"])
         self.assertEqual(self.source.read_bytes(), self.original)
+
+    def test_old_private_copy_is_moved_into_the_shared_file_with_a_backup(self):
+        mine = b'{"bindings": [[0, "A", 1], [0, "Q", 2]]}\n'
+        self.private.parent.mkdir()
+        self.private.write_bytes(mine)
+        os.utime(self.private, (self.source.stat().st_mtime + 50,) * 2)       # written after the shared file
+        self.adapter.poll_binding()
+        self.assertEqual(self.source.read_bytes(), mine)
         self.assertFalse(self.private.exists())
+        self.assertEqual(Path(str(self.private) + ".migrated").read_bytes(), mine)
+        backups = list(self.private.parent.glob("controls-before-migration-*.ini"))
+        self.assertEqual([b.read_bytes() for b in backups], [self.original])
+        self.assertEqual(self.adapter.controls()[0]["slots"][1]["value"], "Q")
+
+    def test_shared_file_written_later_wins_and_the_private_copy_is_kept_as_a_backup(self):
+        mine = b'{"bindings": [[0, "Q", 2]]}\n'
+        self.private.parent.mkdir()
+        self.private.write_bytes(mine)
+        os.utime(self.private, (self.source.stat().st_mtime - 50,) * 2)
+        self.adapter.poll_binding()
+        self.assertEqual(self.source.read_bytes(), self.original)
+        backups = list(self.private.parent.glob("controls-openrecomp-*.ini"))
+        self.assertEqual([b.read_bytes() for b in backups], [mine])
+        self.assertFalse(self.private.exists())
+
+    def test_old_private_copy_becomes_the_file_when_the_shared_one_is_missing(self):
+        mine = b'{"bindings": [[0, "Q", 2]]}\n'
+        self.source.unlink()
+        self.private.parent.mkdir()
+        self.private.write_bytes(mine)
+        self.adapter.poll_binding()
+        self.assertEqual(self.source.read_bytes(), mine)
+        self.assertEqual(Path(str(self.private) + ".migrated").read_bytes(), mine)
+
+    def test_a_change_made_by_the_other_launcher_is_shown_without_reopening(self):
+        self.adapter.poll_binding()
+        self.assertEqual(self.adapter.controls()[0]["slots"][0]["value"], "A")
+        self.source.write_bytes(b'{"bindings": [[0, "Z", 1]]}\n')
+        with mock.patch("openrecomp.adapters.t5_controls.time.monotonic", return_value=time_far()):
+            self.adapter.poll_binding()
+        self.assertEqual(self.adapter.controls()[0]["slots"][0]["value"], "Z")
 
     def test_installed_controls_import_disables_bytecode_and_restores_policy(self):
         name = "_coexist_controls_fixture"
