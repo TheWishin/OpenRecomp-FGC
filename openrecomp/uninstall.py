@@ -12,6 +12,7 @@ import shutil
 import subprocess
 
 from . import game_releases
+from . import safety
 from .manifest import user_dir
 
 GAMES = ("t4", "t5dr")
@@ -56,7 +57,7 @@ def plan(config, program=None):
         chosen = roots.get(game)
         # 0.1.3: every install of the game this launcher knows (the folder in use, the ones used before, the ones it
         # made), not only the one in use; still only those with its own install marker.
-        for root in [chosen] + (candidates(config, game) if isinstance(config, dict) else []):
+        for root in [chosen] + (candidates(config, game, parent=os.path.dirname(os.path.abspath(program))) if isinstance(config, dict) else []):
             if not isinstance(root, str) or not root or not os.path.isdir(root) or _norm(root) in seen:
                 continue
             seen.add(_norm(root))
@@ -109,6 +110,7 @@ def remove_game(game, root, keep_saves=True, stamp=None):
             if name.lower().endswith(NEVER_DELETE):
                 source = os.path.join(folder, name)
                 kept.append(_move_out(source, os.path.join(kept_root, "your-files", name)))
+    safety.require_removable(root)
     shutil.rmtree(root)
     return dict(kept=kept, removed=root)
 
@@ -118,6 +120,12 @@ def execute(the_plan, keep_saves=True, start=None):
     (Setup's uninstaller /S /removesettings, or for a zip copy a short cmd script). -> dict(games, kept, data,
     program_started)."""
     start = start or subprocess.Popen
+    # Only what the confirmed plan listed, and (test runs) nothing outside the temp folders.
+    for item in the_plan.get("games", []):
+        safety.require_removable(item["root"])
+    for key in ("data", "program"):
+        if the_plan.get(key):
+            safety.require_removable(the_plan[key])
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     result = dict(games=[], kept=[], data=False, program_started=False, errors=[])
     for item in the_plan.get("games", []):
@@ -129,6 +137,7 @@ def execute(the_plan, keep_saves=True, start=None):
             result["errors"].append(f"{item['root']}: {error}")
     data = the_plan.get("data")
     if data and os.path.isdir(data):
+        safety.require_removable(data)
         shutil.rmtree(data, ignore_errors=True)
         result["data"] = not os.path.isdir(data)
     if the_plan.get("setup_uninstaller"):

@@ -25,3 +25,11 @@ No game data of any kind: ISO, packages, licences, executables, saves, game pict
 Run `.venv\Scripts\python.exe -m unittest discover -s tests` (`run.cmd` makes `.venv` on first start). All tests must pass.
 
 Your report says: test result, what changed, and plainly what you did not or could not check.
+
+## Tests: never with the installed Python
+Never run tests with the installed portable Python (`...\OpenRecomp-FGC\portable\python.exe`) and never touch the
+owner's real install folder: its `python312._pth` ignores the cwd, so the INSTALLED launcher gets imported and an
+uninstall test removed real T5DR/T4 installs. Use the repo's `.venv` or the system Python from the worktree root.
+Safety nets (`openrecomp/safety.py`): a test run (unittest/pytest/`OPENRECOMP_TESTING=1`) redirects LOCALAPPDATA,
+APPDATA, USERPROFILE, HOME and OPENRECOMP_HOME to a temp sandbox and `uninstall.execute` raises for any path outside
+the temp folders. New tests that touch installs must still use their own temp dirs.
