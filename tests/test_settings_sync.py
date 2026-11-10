@@ -39,7 +39,7 @@ class Base(unittest.TestCase):
         self.install = os.path.join(self.dir, "T5DR-Online-1.2.3")
         self.launcher_json = os.path.join(self.install, "launcher.json")
         os.makedirs(self.install)
-        self.id = ss.install_id(self.install)
+        self.iid = ss.install_id(self.install)
 
     def store(self, who="test", **kw):
         return ss.Store(self.shared, who=who, sleep=lambda _s: None, **kw)
@@ -52,25 +52,25 @@ class Base(unittest.TestCase):
 class FileTests(Base):
     def test_nothing_is_written_until_something_is_saved(self):
         write(self.launcher_json, {"display": "borderless", "pkg": "p.pkg"})
-        result = ss.sync(self.store(), self.id, read(self.launcher_json), self.launcher_json)
+        result = ss.sync(self.store(), self.iid, read(self.launcher_json), self.launcher_json)
         self.assertEqual((result.state, result.values), ("missing", {"display": "borderless"}))
         self.assertFalse(os.path.exists(self.shared))
 
     def test_first_save_makes_the_file_from_launcher_json_and_backs_it_up(self):
         local = {"display": "borderless", "vsync": "off", "pkg": "p.pkg", "language": "de"}
         write(self.launcher_json, local)
-        self.assertTrue(ss.save(self.store("a"), self.id, {"vsync": "on"}, local, self.launcher_json))
+        self.assertTrue(ss.save(self.store("a"), self.iid, {"vsync": "on"}, local, self.launcher_json))
         doc = read(self.file)
         self.assertEqual((doc["format"], doc["version"], doc["updated_by"]), ("t5dr-settings", 1, "a"))
         self.assertEqual(doc["values"], {"display": "borderless", "vsync": "on"})       # no pkg, no language
-        self.assertEqual(doc["installs"][self.id]["seen"], {"display": "borderless", "vsync": "off"})
+        self.assertEqual(doc["installs"][self.iid]["seen"], {"display": "borderless", "vsync": "off"})
         self.assertEqual(len(self.backups()), 1)
-        self.assertTrue(self.backups()[0].startswith(f"launcher-{self.id}-"))
+        self.assertTrue(self.backups()[0].startswith(f"launcher-{self.iid}-"))
         self.assertEqual(os.listdir(self.shared).count(ss.FILE_NAME), 1)
         self.assertFalse([n for n in os.listdir(self.shared) if n.endswith(".tmp")])
 
     def test_folder_only_settings_never_reach_the_file(self):
-        ss.save(self.store(), self.id, {"display": "window", "pkg": "x", "rap": "y", "out": "z", "language": "ja",
+        ss.save(self.store(), self.iid, {"display": "window", "pkg": "x", "rap": "y", "out": "z", "language": "ja",
                                         "background": True, "clock_hint_shown": True, "controls_hint_shown": True,
                                         "gpu_build_warning": False})
         self.assertEqual(read(self.file)["values"], {"display": "window"})
@@ -78,20 +78,20 @@ class FileTests(Base):
     def test_unknown_fields_and_a_newer_version_are_kept(self):
         write(self.file, {"format": "t5dr-settings", "version": 7, "later": {"a": 1},
                           "values": {"display": "window", "from_a_later_launcher": [1, 2]}})
-        self.assertTrue(ss.save(self.store(), self.id, {"display": "maximized"}))
+        self.assertTrue(ss.save(self.store(), self.iid, {"display": "maximized"}))
         doc = read(self.file)
         self.assertEqual(doc["version"], 7)
         self.assertEqual(doc["later"], {"a": 1})
         self.assertEqual(doc["values"], {"display": "maximized", "from_a_later_launcher": [1, 2]})
 
     def test_a_save_keeps_what_another_launcher_saved_meanwhile(self):
-        ss.save(self.store("a"), self.id, {"display": "window", "vsync": "on"})
+        ss.save(self.store("a"), self.iid, {"display": "window", "vsync": "on"})
         ss.save(self.store("b"), "other", {"display": "borderless"})        # the other launcher, while a is open
-        ss.save(self.store("a"), self.id, {"vsync": "off"})
+        ss.save(self.store("a"), self.iid, {"vsync": "off"})
         self.assertEqual(read(self.file)["values"], {"display": "borderless", "vsync": "off"})
 
     def test_a_held_file_is_tried_again(self):
-        ss.save(self.store(), self.id, {"display": "window"})
+        ss.save(self.store(), self.iid, {"display": "window"})
         real, calls = os.replace, []
 
         def replace(src, dst):
@@ -101,22 +101,22 @@ class FileTests(Base):
             return real(src, dst)
 
         with mock.patch.object(ss.os, "replace", replace):
-            self.assertTrue(ss.save(self.store(), self.id, {"display": "maximized"}))
+            self.assertTrue(ss.save(self.store(), self.iid, {"display": "maximized"}))
         self.assertEqual(len(calls), 4)
         self.assertEqual(read(self.file)["values"]["display"], "maximized")
 
     def test_a_file_held_for_good_is_left_alone_and_reported(self):
-        ss.save(self.store(), self.id, {"display": "window"})
+        ss.save(self.store(), self.iid, {"display": "window"})
         before = raw(self.file)
         store = self.store(seconds=0.0)
         with mock.patch.object(ss.os, "replace", side_effect=PermissionError(13, "held")):
-            self.assertFalse(ss.save(store, self.id, {"display": "maximized"}))
+            self.assertFalse(ss.save(store, self.iid, {"display": "maximized"}))
         self.assertEqual(raw(self.file), before)
         self.assertEqual(os.listdir(self.shared), [ss.FILE_NAME])           # no temporary file left
         self.assertTrue(store.notes)
 
     def test_a_file_that_cannot_be_read_now_changes_nothing(self):
-        ss.save(self.store(), self.id, {"display": "window"})
+        ss.save(self.store(), self.iid, {"display": "window"})
         write(self.launcher_json, {"display": "borderless"})
         real = open
 
@@ -127,8 +127,8 @@ class FileTests(Base):
 
         store = self.store(seconds=0.0)
         with mock.patch("builtins.open", held):
-            result = ss.sync(store, self.id, read(self.launcher_json), self.launcher_json)
-            self.assertFalse(ss.save(store, self.id, {"display": "maximized"}))
+            result = ss.sync(store, self.iid, read(self.launcher_json), self.launcher_json)
+            self.assertFalse(ss.save(store, self.iid, {"display": "maximized"}))
         self.assertEqual((result.state, result.values), ("locked", {"display": "borderless"}))
         self.assertEqual(read(self.file)["values"], {"display": "window"})
         self.assertEqual(os.listdir(self.shared), [ss.FILE_NAME])           # not moved aside, not replaced
@@ -143,13 +143,13 @@ class FileTests(Base):
                     f.write(content)
                 write(self.launcher_json, {"display": "borderless"})
                 store = self.store()
-                result = ss.sync(store, self.id, read(self.launcher_json), self.launcher_json)
+                result = ss.sync(store, self.iid, read(self.launcher_json), self.launcher_json)
                 self.assertEqual((result.state, result.values), ("missing", {"display": "borderless"}))
                 aside = [n for n in os.listdir(self.shared) if ".corrupt-" in n]
                 self.assertEqual(len(aside), 1)
                 self.assertEqual(raw(os.path.join(self.shared, aside[0])), content)
                 self.assertFalse(os.path.exists(self.file))
-                self.assertTrue(ss.save(store, self.id, {"vsync": "off"}, read(self.launcher_json)))
+                self.assertTrue(ss.save(store, self.iid, {"vsync": "off"}, read(self.launcher_json)))
                 self.assertEqual(read(self.file)["values"], {"display": "borderless", "vsync": "off"})
 
     def test_a_file_being_replaced_is_read_again_before_it_counts_as_damaged(self):
@@ -188,7 +188,7 @@ class MigrationTests(Base):
 
     def migrate(self):
         store = self.store("openrecomp")
-        result = ss.sync(store, self.id, read(self.launcher_json), self.launcher_json, read(self.own), self.own)
+        result = ss.sync(store, self.iid, read(self.launcher_json), self.launcher_json, read(self.own), self.own)
         return result, store
 
     def test_the_newer_own_file_wins_and_both_are_backed_up(self):
@@ -215,7 +215,7 @@ class MigrationTests(Base):
         self.assertEqual(len(self.backups()), 2)                 # the losing "borderless" is in the backup
 
     def test_own_overrides_meet_a_file_the_other_launcher_already_made(self):
-        ss.save(self.store(now=lambda: time.time() - 600), self.id, {"display": "window", "vsync": "on"})
+        ss.save(self.store(now=lambda: time.time() - 600), self.iid, {"display": "window", "vsync": "on"})
         write(self.launcher_json, {"display": "window", "vsync": "on"}, age=900)
         write(self.own, {"display": "borderless"})               # edited after the file's stamp: wins
         result, _store = self.migrate()
@@ -228,13 +228,13 @@ class MigrationTests(Base):
         ss.save(self.store(), "the-old-folder", {"display": "borderless", "vsync": "off"})
         write(self.launcher_json, {"display": "window", "vsync": "off", "training": "inputs"})
         store = self.store()
-        result = ss.sync(store, self.id, read(self.launcher_json), self.launcher_json)
+        result = ss.sync(store, self.iid, read(self.launcher_json), self.launcher_json)
         self.assertEqual(result.values, {"display": "borderless", "vsync": "off", "training": "inputs"})
         self.assertEqual(result.imported, ())
         self.assertEqual(len(self.backups()), 1)                 # its "window" is kept in the backup
-        self.assertEqual(read(self.file)["installs"][self.id]["seen"],
+        self.assertEqual(read(self.file)["installs"][self.iid]["seen"],
                          {"display": "window", "vsync": "off", "training": "inputs"})
-        ss.sync(self.store(), self.id, read(self.launcher_json), self.launcher_json)
+        ss.sync(self.store(), self.iid, read(self.launcher_json), self.launcher_json)
         self.assertEqual(len(self.backups()), 1)                 # once
 
 
