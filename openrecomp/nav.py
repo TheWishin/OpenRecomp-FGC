@@ -230,7 +230,7 @@ class Nav(ProgressNav, GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, 
         if self.progress_modal():           # an install / update window: nothing behind it reacts
             return self._dialog(a)
         if a == "progress":
-            return self.progress_open()
+            return self.progress_open() or self.build_progress_open()
         if a == "returnGame":
             return self._return_game()
         if a == "discord":                  # the top bar's OpenRecomp-FGC Discord (mouse); pads: Quick access
@@ -424,7 +424,8 @@ class Nav(ProgressNav, GameSetupNav, Shelf, Hub, MainMenu, Sections, BuildPage, 
                 if prompt.get("action") == "social":
                     prompt["label"] = "@feedback.offers"
         v["progressCard"] = self.progress_view()
-        if v["progressCard"]["show"] and self.device == "kb":
+        v["headerProgress"] = self.header_progress_view()
+        if (v["progressCard"]["show"] or not self.overlay and self.build_progress_elsewhere()) and self.device == "kb":
             v["prompts"] = v["prompts"] + [self.prompt("progress", "@progress.show")]
         v["gameTheme"] = self.game.m.get("adapter", "") if self.game and self.screen == "hub" else ""
         from .living_background import background_view

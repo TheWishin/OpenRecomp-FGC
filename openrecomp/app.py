@@ -1016,6 +1016,12 @@ class Backend(QObject, GameSetupBackend):
         click(self.nav, "confirm", "progress_open", jid)
         self.refresh()
 
+    @Slot()
+    def openHeaderProgress(self):
+        self.nav.device = "kb"
+        click(self.nav, "confirm", "header_progress_open")
+        self.refresh()
+
     @Slot(str, bool)
     def respondOffer(self, identity, accept):
         from . import nav_feedback

@@ -34,7 +34,7 @@ class Drawer:
                 out.append(dict(id="native:" + g.id, label=g.a.native_label, value=g.short, game=g, hint=i18n.message("native_hint", name=g.a.native_label)))
         out.append(dict(id="launcher", label="@launcher_settings.title", value="", launcher=True, hint="@launcher_settings.hint"))
         out.append(dict(id="discord", label="@community.discord", value="", discord=True, hint="@community.hint"))
-        if self.progress_jobs() or self.progress_ends:
+        if self.progress_jobs() or self.progress_ends or self.build_progress_elsewhere():
             out.append(dict(id="progress", label="@progress.show", value="", progress=True, hint="@progress.drawer_hint"))
         from . import nav_feedback
         activity = nav_feedback.activity_view(self)
@@ -78,7 +78,7 @@ class Drawer:
                 return self.open_discord()
             if items[self.drawer_focus].get("progress"):
                 self.overlay = None
-                return self.progress_open()
+                return self.progress_open() or self.build_progress_open()
             if items[self.drawer_focus].get("activity"):
                 from . import nav_feedback
                 return nav_feedback.return_activity(self)

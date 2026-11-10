@@ -79,6 +79,7 @@ Window {
                 width: 1920; height: win.headerHeight; color: win.bar
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: win.line }
                 Row {
+                    id: topIdentity
                     objectName: "topIdentity"
                     anchors.left: parent.left; anchors.leftMargin: 48; anchors.verticalCenter: parent.verticalCenter; spacing: 28
                     Image { visible: !!win.v.wordmark; source: win.v.wordmark || ""; asynchronous: true; cache: true; width: 300; height: 40; fillMode: Image.PreserveAspectFit; sourceSize.height: 80; smooth: true; anchors.verticalCenter: parent.verticalCenter }
@@ -122,10 +123,52 @@ Window {
                         Interaction { handler: uiTap1; selected: false; onActivated: win.backend.press("social") }
                     }
                 }
+                // ---------------------------------------------------------------- a running build / install / update, on every screen:
+                // the step, the percentage and the time left of the card it opens (nav_progress.header_progress_view)
+                Rectangle {
+                    id: headerProgress
+                    objectName: "headerProgress"
+                    readonly property var p: win.v.headerProgress || ({show: false})
+                    readonly property real room: topActions.x - 32 - (topIdentity.x + topIdentity.width + 32)
+                    visible: !!p.show && room >= 200
+                    width: Math.max(0, Math.min(640, room)); height: Math.max(Theme.target(44), headerProgressText.implicitHeight + 18)
+                    x: topActions.x - 32 - width; anchors.verticalCenter: parent.verticalCenter; radius: 4
+                    color: headerProgressTap.pressed ? win.line : Theme.card; border.width: 1; border.color: win.line
+                    clip: true
+                    Text {
+                        id: headerProgressFigures
+                        objectName: "headerProgressFigures"
+                        anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: -2
+                        width: Math.min(implicitWidth, parent.width - 28); elide: Text.ElideRight; maximumLineCount: 1
+                        textFormat: Text.PlainText; text: [headerProgress.p.percent || "", headerProgress.p.eta || "", headerProgress.p.more || ""].filter(s => s).join("  ·  ")
+                        color: win.textC; font.family: win.mono; font.weight: Font.Medium; font.pixelSize: Theme.px(win.compactOnline ? 16 : 18)
+                    }
+                    Text {
+                        id: headerProgressText
+                        objectName: "headerProgressText"
+                        anchors.left: parent.left; anchors.leftMargin: 14; anchors.right: headerProgressFigures.left; anchors.rightMargin: 14
+                        anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: -2
+                        elide: Text.ElideRight; maximumLineCount: 1
+                        textFormat: Text.PlainText; text: [headerProgress.p.name || "", headerProgress.p.step || headerProgress.p.title || ""].filter(s => s).join("  ·  ")
+                        color: win.textC; font.family: win.sans; font.weight: Font.Medium; font.pixelSize: Theme.px(win.compactOnline ? 16 : 18)
+                    }
+                    Rectangle {
+                        objectName: "headerProgressTrack"
+                        anchors.bottom: parent.bottom; width: parent.width; height: 4; color: win.line
+                        Rectangle {
+                            objectName: "headerProgressFill"
+                            width: parent.width * (headerProgress.p.fraction < 0 ? 0.35 : Math.max(0, Math.min(1, headerProgress.p.fraction || 0)))
+                            height: parent.height; color: "#E6B450"
+                            opacity: headerProgress.p.fraction < 0 ? 0.7 : 1
+                        }
+                    }
+                    TapHandler { id: headerProgressTap; onTapped: win.backend.openHeaderProgress() }
+                    Interaction { handler: headerProgressTap; selected: false; name: [headerProgress.p.open || "", headerProgressText.text, headerProgressFigures.text].filter(s => s).join(". "); onActivated: win.backend.openHeaderProgress() }
+                }
                 Text {
                     objectName: "mainMenuStatus"
                     visible: !!win.v.mainMenu.show
-                    x: 480; width: topActions.x - x - 32; height: parent.height - 12
+                    x: 480; width: (headerProgress.visible ? headerProgress.x : topActions.x) - x - 32; height: parent.height - 12
                     anchors.verticalCenter: parent.verticalCenter
                     text: [win.v.mainMenu.status || "", win.v.mainMenu.player || "", win.v.mainMenu.activity || ""].filter(s => s).join("  ·  ")
                     textFormat: Text.PlainText; wrapMode: Text.Wrap; verticalAlignment: Text.AlignVCenter
