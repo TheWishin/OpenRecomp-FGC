@@ -1127,6 +1127,21 @@ def make_engine(backend, full):
     return engine
 
 
+def controls_style():
+    """The Basic style for Qt Quick Controls, asked of Qt itself. As an environment variable
+    (QT_QUICK_CONTROLS_STYLE) every game started from here inherited it: a game gets the environment its own
+    launcher gives it, nothing of this one's. A style the player set in the environment stays."""
+    if os.environ.get("QT_QUICK_CONTROLS_STYLE"):
+        return False
+    try:
+        from PySide6.QtQuickControls2 import QQuickStyle
+        QQuickStyle.setStyle("Basic")
+    except ImportError:                 # a Qt without that module: the variable, until the window is loaded
+        os.environ["QT_QUICK_CONTROLS_STYLE"] = "Basic"
+        return True
+    return False
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="openrecomp-fgc", description="OpenRecomp-FGC: Launcher for all your Recomps")
     ap.add_argument("--windowed", action="store_true", help="in a window instead of fullscreen")
@@ -1134,7 +1149,7 @@ def main(argv=None):
                     help="start a game offline in fullscreen at once (t5dr, t4 or another game's id; "
                          "without a name: the game played last)")
     args = ap.parse_args(argv)
-    os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
+    style_variable = controls_style()
     app = QGuiApplication(sys.argv[:1])
     app.setApplicationName("OpenRecomp-FGC")
     icon = os.path.join(UI_DIR, "assets", "icon.ico")
@@ -1151,6 +1166,8 @@ def main(argv=None):
     app.aboutToQuit.connect(backend._flush_config)
     app.aboutToQuit.connect(backend.sounds.close)
     engine = make_engine(backend, full=backend.nav.fullscreen)
+    if style_variable:                  # Qt has read it: no game inherits it
+        os.environ.pop("QT_QUICK_CONTROLS_STYLE", None)
     # A broken QML scene must never acknowledge an update. The old helper owns rollback.
     QTimer.singleShot(updater.CONFIRM_AFTER_MS, lambda: updater.confirm_startup(backend.updates.root))
     if args.offline is not None:        # the window is up first: whatever stands in the way is shown on it

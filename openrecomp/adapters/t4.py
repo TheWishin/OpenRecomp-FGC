@@ -388,10 +388,14 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
             # A normal Play must not inherit a previous direct-IP session.
             env = {key: value for key, value in real_env(s, exe).items()
                    if key.upper() != "TEKKEN4_NET" and not key.upper().startswith("TEKKEN4_NET_")}
-            if self.core.graphics_support(exe)["aa"]:
+            # "Low" is the game's old-PC preset (anti-aliasing off, no anisotropic filtering): the core's own values
+            # stay, as with T4's own launcher -- the choices on this page count at every other step.
+            low = s.get("resolution") == "low"
+            if self.core.graphics_support(exe)["aa"] and not low:
                 env["TEKKEN4_AA"] = graphics["aa"]
             env["TEKKEN4_HUD"] = graphics["hud"]
-            env["TEKKEN4_ANISO"] = graphics["anisotropic"]
+            if not low:
+                env["TEKKEN4_ANISO"] = graphics["anisotropic"]
             env["TEKKEN4_WIDESCREEN"] = "1" if graphics["aspect"] == "16:9" else "0"
             if getattr(self.core, "SAVE_DIR", ""):
                 env["TEKKEN4_CONTROLS"] = self._t4c_path()        # the Pad bindings page's file (a missing file = default)
@@ -499,8 +503,18 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
         defaults = dict(aa=GRAPHICS_OPTIONS["aa"][1 if self.s.get("aa", True) else 0][0],
                         hud=GRAPHICS_OPTIONS["hud"][0][0], anisotropic=GRAPHICS_OPTIONS["anisotropic"][2][0],
                         aspect=GRAPHICS_OPTIONS["aspect"][0][0])
-        return {sid: saved.get(sid, default) if saved.get(sid, default) in [v for v, _label in GRAPHICS_OPTIONS[sid]]
-                else default for sid, default in defaults.items()}
+        values = {sid: saved.get(sid, default) if saved.get(sid, default) in [v for v, _label in GRAPHICS_OPTIONS[sid]]
+                  else default for sid, default in defaults.items()}
+        # T4's own launcher keeps anti-aliasing (on / off) and 16:9 in the game's settings.json: what was chosen there
+        # counts here too, so both launchers start the same game for the same settings.
+        if (values["aa"] != GRAPHICS_OPTIONS["aa"][0][0]) != bool(self.s.get("aa", True)):
+            values["aa"] = defaults["aa"]
+        if "widescreen" in getattr(self.core, "DEFAULTS", {}):
+            wide = bool(self.s.get("widescreen"))
+            seen = saved.get("aspect_core")
+            if "aspect" not in saved or (isinstance(seen, bool) and seen != wide):
+                values["aspect"] = GRAPHICS_OPTIONS["aspect"][1 if wide else 0][0]
+        return values
 
     def settings(self):
         res = [(k, "@resolution.auto" if k == "auto" else label.split(" (")[0]) for k, label, _x in self.core.RESOLUTIONS]
@@ -560,10 +574,17 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
             if value not in [v for v, _label in GRAPHICS_OPTIONS[sid]]:
                 return
             self.config.setdefault("t4_graphics", {})[sid] = value
+            if sid == "aspect" and "widescreen" in getattr(self.core, "DEFAULTS", {}):
+                # the game's own setting follows (T4's own launcher reads it); aspect_core: what it was when chosen here
+                self.config["t4_graphics"]["aspect_core"] = value == GRAPHICS_OPTIONS[sid][1][0]
             save_config(self.config)
             if sid == "aa":
                 with self._settings_lock:
                     self.s[sid] = value != GRAPHICS_OPTIONS[sid][0][0]
+                    self.core.save_settings(self.s)
+            elif "aspect_core" in self.config["t4_graphics"] and sid == "aspect":
+                with self._settings_lock:
+                    self.s["widescreen"] = self.config["t4_graphics"]["aspect_core"]
                     self.core.save_settings(self.s)
             return
         with self._settings_lock:

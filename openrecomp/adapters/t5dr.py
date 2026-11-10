@@ -25,7 +25,7 @@ from .launch_guard import LaunchGuard
 from .t5_coexist import load_settings, readonly_imports
 from .t5_compatibility import build_compatibility
 from .t5_build_runtime import start_build_with_python
-from . import t5_buildlock
+from . import t5_buildlock, t5_monitor
 from .. import t5_art_child, t5_startlog
 from ..manifest import art_dir
 from ..fighter_render import t5_cache_name
@@ -396,7 +396,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                 raise RuntimeError("@online.game_running")
             game = self.core.GameRun(self.s.out_dir, self.s)
             self.game = game
-            result = game.start(extra_env=extra_env)
+            result = game.start(**t5_monitor.start_arguments(self.core, game.start, extra_env))
             t5_startlog.write(self, result, extra_env)
             self._track_playtime(game.running, process=getattr(game, "proc", None), extra_env=extra_env)
             self._game_guard = guard
