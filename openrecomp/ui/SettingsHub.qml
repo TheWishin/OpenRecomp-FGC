@@ -14,7 +14,7 @@ Item {
             OnlineStyle.SecondaryButton {
                 required property var modelData
                 b: ({label: modelData.label, focused: modelData.active})
-                maxW: (groupStrip.width - 32) / 5
+                maxW: Math.min(600, (groupStrip.width - 8 * Math.max(0, (page.s.tabs || []).length - 1)) / Math.max(1, (page.s.tabs || []).length))
                 width: maxW
                 onActivated: page.root.backend.selectSettingsTab(modelData.id)
             }

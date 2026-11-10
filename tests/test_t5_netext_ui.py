@@ -100,10 +100,10 @@ class NetextScene(unittest.TestCase):
                     self.assertLessEqual(label.property("contentHeight"), label.height() + 1)
                     nav.act("confirm", device="xbox")
                     refresh()
-                    self.assertEqual(backend._v["online"]["chapter"], "account")
+                    self.assertEqual(backend._v["online"]["chapter"], "profile")      # Account sits under Profile (0.1.7)
                     self.assertEqual(nav.items()[nav.focus_index(nav.items())]["id"], "netext_max_ping")
                     for index, row in enumerate(nav.items()):
-                        if row.get("id", "").startswith("netext_") and row.get("region") == "account":
+                        if row.get("id", "").startswith("netext_") and row.get("origin") == "account":
                             nav.focus[nav.key()] = index
                             refresh()
                             self.assertNotIn("fake-password", str(backend._v))

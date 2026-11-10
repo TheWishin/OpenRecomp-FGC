@@ -10,7 +10,7 @@ Item {
     readonly property bool animated: visible && motionActive && !reducedMotion && !Theme.highContrast
     readonly property bool softwareRenderer: GraphicsInfo.api === GraphicsInfo.Software
     readonly property bool blue: scene.theme === "t4"
-    readonly property color atmosphere: blue ? "#244C69" : "#60152B"
+    readonly property color atmosphere: Theme.quiet ? "#2A2D33" : blue ? "#244C69" : "#60152B"
     property real drift: 0
     property real direction: 1
     clip: true
@@ -39,7 +39,7 @@ Item {
             GradientStop { position: .55; color: backdrop.atmosphere }
             GradientStop { position: 1; color: "transparent" }
         }
-        opacity: Theme.highContrast ? 0 : .58
+        opacity: Theme.highContrast ? 0 : Theme.atmosphereStrength
     }
     Repeater {
         model: 7
@@ -49,8 +49,8 @@ Item {
             y: backdrop.height * (.04 + (index * .137) % .85)
             width: index % 3 ? 1 : 2; height: backdrop.height * (.12 + index * .017)
             rotation: 22
-            color: backdrop.blue ? "#71CBE5" : "#D11F3F"
-            opacity: Theme.highContrast ? 0 : .09 + index * .012
+            color: Theme.quiet ? Theme.border : backdrop.blue ? "#71CBE5" : "#D11F3F"
+            opacity: Theme.highContrast ? 0 : Theme.quiet ? .05 : .09 + index * .012
         }
     }
     Image {
@@ -63,7 +63,7 @@ Item {
         asynchronous: true; cache: true
         sourceSize.width: 1100; sourceSize.height: 900
         fillMode: Image.PreserveAspectCrop; verticalAlignment: Image.AlignTop
-        opacity: status === Image.Ready && !Theme.highContrast ? .58 : 0
+        opacity: status === Image.Ready && !Theme.highContrast ? Theme.artStrength : 0
         Behavior on opacity { NumberAnimation { duration: backdrop.reducedMotion ? 0 : 160; easing.type: Easing.OutCubic } }
     }
     // Even a white source is capped below 0.10 relative luminance behind text.

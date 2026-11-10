@@ -50,9 +50,9 @@ Window {
     readonly property real progressReserve: progressCard.show ? progressCardHeight + 8 : 0
     readonly property real promptHeight: Math.max(compactOnline ? 48 : 60, promptRow.implicitHeight + (compactOnline ? 8 : 12))
 
-    onVChanged: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; Theme.gameKind = v.gameTheme || ""; Theme.reducedMotion = reducedMotion; if (v.toast) lastToast = v.toast }
+    onVChanged: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; Theme.calm = v.colours !== "vivid"; Theme.gameKind = v.gameTheme || ""; Theme.reducedMotion = reducedMotion; if (v.toast) lastToast = v.toast }
     onReducedMotionChanged: Theme.reducedMotion = reducedMotion
-    Component.onCompleted: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; Theme.gameKind = v.gameTheme || ""; Theme.reducedMotion = reducedMotion; lastToast = v.toast || "" }
+    Component.onCompleted: { Theme.textScale = v.textScale || 1; Theme.highContrast = !!v.highContrast; Theme.calm = v.colours !== "vivid"; Theme.gameKind = v.gameTheme || ""; Theme.reducedMotion = reducedMotion; lastToast = v.toast || "" }
 
     function ok(a, i) { return (a && a[i]) || ({}) }
     function focusStage() { stage.forceActiveFocus() }

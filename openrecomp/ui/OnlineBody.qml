@@ -9,7 +9,7 @@ Item {
     readonly property var rooms: o.rooms || ({})
     readonly property var labels: o.labels || ({})
     readonly property bool roomPage: o.chapter === "rooms"
-    readonly property bool officialPage: o.chapter === "ranked" || o.chapter === "leaderboard"
+    readonly property bool officialPage: o.chapter === "ranked" || (o.chapter === "leaderboard" && !!o.leaderboard)
     readonly property bool sideDetail: !!b.detail && width >= 1100 && Theme.textScale <= 1.15
     function sections() {
         var rows = body.b.sections || []
@@ -20,7 +20,7 @@ Item {
         return rows.concat([{title: d.title || "", lines: lines}])
     }
     PageLoader { anchors.fill: parent; active: body.o.chapter === "ranked"; page: "RankedPage.qml"; root: body.root }
-    PageLoader { anchors.fill: parent; active: body.o.chapter === "leaderboard"; page: "LeaderboardPage.qml"; root: body.root }
+    PageLoader { anchors.fill: parent; active: body.o.chapter === "leaderboard" && !!body.o.leaderboard; page: "LeaderboardPage.qml"; root: body.root }
     OnlineStyle.PageTitle { id: title; visible: !body.officialPage; x: 0; y: 2; width: parent.width - (roomHeaderActions.visible ? roomHeaderActions.width + 16 : 0); text: body.rooms.createOpen ? body.labels.create_room || "" : body.b.title || "" }
     Row {
         id: roomHeaderActions

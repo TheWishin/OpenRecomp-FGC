@@ -255,7 +255,9 @@ class ProfileNavigationTests(unittest.TestCase):
         # On the lobby page the pages are chapters: no Back row, the statistics stay in their chapter.
         ids = [item.get("id") for item in self.nav.items()]
         self.assertNotIn("close_profile", ids)
-        self.assertEqual(self.nav.view()["online"]["chapter"], "stats")
+        # 0.1.7: Statistics opens on the Leaderboard & stats page (its rows keep origin "stats")
+        self.assertEqual(self.nav.view()["online"]["chapter"], "leaderboard")
+        self.assertEqual(self.nav.items()[self.nav.focus_index(self.nav.items())].get("origin"), "stats")
 
     def test_dry_profile_navigation_never_requests_or_plays(self):
         self.nav.dry = True

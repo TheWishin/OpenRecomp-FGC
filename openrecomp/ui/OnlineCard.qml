@@ -44,7 +44,7 @@ Item {
         objectName: "versusFighterHalf"
         color: Theme.raised; clip: true
         gradient: Gradient {
-            GradientStop { position: 0; color: Qt.rgba(Theme.gameAccent.r, Theme.gameAccent.g, Theme.gameAccent.b, .24) }
+            GradientStop { position: 0; color: Qt.rgba(Theme.gameAccent.r, Theme.gameAccent.g, Theme.gameAccent.b, Theme.quiet ? .08 : .24) }
             GradientStop { position: 1; color: Theme.raised }
         }
         FighterPortrait {

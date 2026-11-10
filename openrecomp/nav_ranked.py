@@ -74,7 +74,7 @@ def leaderboard(nav, g, state, items, fi):
                 ("leaderboard_mode", "leaderboard_fighter")]
     sorts = [nav._btn(items, n, fi) for n, it in enumerate(items) if str(it.get("id") or "").startswith("leaderboard_sort:")]
     buttons = [nav._btn(items, n, fi) for n, it in enumerate(items) if it.get("id") in
-               ("leaderboard_refresh", "leaderboard_previous", "leaderboard_next", "leaderboard_podium")]
+               ("leaderboard_refresh", "leaderboard_previous", "leaderboard_next", "leaderboard_podium", "stats_refresh")]
     return dict(labels=LABELS, podium=[entry(row) for row in podium], rows=[entry(row) for row in shown],
                 own=entry(own) if own else None, controls=controls, sorts=sorts, buttons=buttons,
                 podiumOpen=nav.__dict__.get("board_podium", {}).get(g.id, False),

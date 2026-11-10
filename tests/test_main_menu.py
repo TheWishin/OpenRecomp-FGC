@@ -205,7 +205,10 @@ class MainMenuTests(unittest.TestCase):
         nav._open_main_entry(entry)
         self.assertEqual(nav.section(), "settings")
         self.assertEqual(nav.items()[nav.focus_index(nav.items())]["id"], "practice")
-        self.assertEqual(nav.view()["settingsPage"]["activeTab"], "game")
+        page = nav.view()["settingsPage"]
+        # the Game tab holds one row here, so it is shown on its neighbour's page (0.1.7): the active tab owns it
+        self.assertIn(page["activeTab"], [tab["id"] for tab in page["tabs"]])
+        self.assertTrue(any(line.get("index") == nav.focus_index(nav.items()) for line in page["tabLines"]))
         self.assertEqual(adapter.calls, [])
         adapter.settings = lambda: [dict(id="training", value="off", label="@training_display", options=[])]
         self.assertNotIn("practice", {e["id"] for e in nav._main_entries(nav.game)})

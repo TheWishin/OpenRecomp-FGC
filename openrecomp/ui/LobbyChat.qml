@@ -184,7 +184,7 @@ Rectangle {
                 pane.root.backend.editText(compose.fieldId, compose.editor.text)
             }
         }
-        ArcadeAction { id: send; root: pane.root; x: pane.compact ? parent.width - width : 0; y: pane.compact ? 0 : compose.height + 8; width: pane.compact ? implicitWidth : parent.width; b: pane.chat.send || ({}); label: pane.compact ? pane.chat.sendShort || b.label || "" : b.label || ""; accessibleLabel: b.label || ""; primary: true; onActivated: pane.click(b) }
+        ArcadeAction { id: send; root: pane.root; x: pane.compact ? parent.width - width : 0; y: pane.compact ? 0 : compose.height + 8; width: pane.compact ? implicitWidth : parent.width; b: pane.chat.send || ({}); label: pane.compact ? pane.chat.sendShort || b.label || "" : b.label || ""; accessibleLabel: b.label || ""; primary: !Theme.quiet; onActivated: pane.click(b) }
     }
     ArcadeAction {
         visible: !pane.expanded

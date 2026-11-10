@@ -30,6 +30,9 @@ SETTINGS_LINES = 12
 SETTINGS_TABS = ("video", "audio", "controls", "game", "help")
 TAB_LABELS = dict(video="@settings_tabs.video", audio="@settings_tabs.audio", controls="@settings_tabs.controls",
                   game="@settings_tabs.game", help="@settings_tabs.help")
+COLOURS = ("calm", "vivid")
+# a tab with this many rows or fewer is not a page of its own: its rows join the tab before it (or after it)
+SMALL_TAB = 2
 TAB_OF = dict(display="video", audio="audio", controls="controls", online="game", offline="game",
               replays="game", updates="help", advanced="help")
 
@@ -121,6 +124,8 @@ class SettingsPage:
                                    (130, "@accessibility.larger")], self._set_text_size),
                  ("high_contrast", "@accessibility.high_contrast", "@accessibility.high_contrast_hint",
                   self.high_contrast, [(False, "@off"), (True, "@on")], self._set_high_contrast),
+                 ("colours", "@accessibility.colours", "@accessibility.colours_hint", self.colours,
+                  [("calm", "@accessibility.colours_calm"), ("vivid", "@accessibility.colours_vivid")], self._set_colours),
                  ("reduced_motion", "@motion", "@motion_hint", self.reduced_motion,
                   [(False, "@motion_full"), (True, "@motion_reduced")], self._set_reduced_motion))
         for sid, label, hint, current, options, setter in specs:
@@ -137,6 +142,10 @@ class SettingsPage:
     def _set_high_contrast(self, value):
         self.high_contrast = bool(value)
         self.on_accessibility(self.text_size, self.high_contrast)
+
+    def _set_colours(self, value):
+        self.colours = value if value in COLOURS else COLOURS[0]
+        self.on_colours(self.colours)
 
     def _set_reduced_motion(self, value):
         self.reduced_motion = bool(value)
@@ -209,11 +218,40 @@ class SettingsPage:
                                              lead=d.get("lead") or it.get("hint", ""), value=it.get("value") or "",
                                              options=options[:12], rows=[dict(k=r["k"], v=r["v"]) for r in d.get("rows") or []
                                                                      if r.get("k") != "@current"][:6]))
-        active_tab = TAB_OF.get(it.get("settingsGroup"), "video")
+        owner = self._settings_tab_owner(items)
+        active_tab = owner.get(TAB_OF.get(it.get("settingsGroup"), "video"), "video")
+        kept = [tab for tab in SETTINGS_TABS if owner.get(tab) == tab]
         v["settingsPage"].update(activeTab=active_tab, optionLabel="@settings_ui.available_options",
-            tabs=[dict(id=tab, label=TAB_LABELS[tab], active=tab == active_tab)
-                  for tab in SETTINGS_TABS if any(TAB_OF.get(line.get("group")) == tab for line in lines)],
-            tabLines=[line for line in lines if TAB_OF.get(line.get("group")) == active_tab])
+            tabs=[dict(id=tab, label=self._settings_tab_label(tab, owner), active=tab == active_tab) for tab in kept],
+            tabLines=[line for line in lines if owner.get(TAB_OF.get(line.get("group"))) == active_tab])
+
+    @staticmethod
+    def _settings_tab_owner(items):
+        """tab -> the tab its rows are shown on. A tab of SMALL_TAB rows or fewer (Controls with only Pad bindings,
+        Audio with one switch) joins the tab before it, the first one the tab after it: no page for one or two rows."""
+        counts = {tab: 0 for tab in SETTINGS_TABS}
+        for it in items:
+            tab = TAB_OF.get(it.get("settingsGroup"))
+            if it.get("kind") != "heading" and tab:
+                counts[tab] += 1
+        present = [tab for tab in SETTINGS_TABS if counts[tab]]
+        big = [tab for tab in present if counts[tab] > SMALL_TAB]
+        if not big:
+            return {tab: present[0] for tab in present} if present else {}
+        owner = {}
+        for tab in present:
+            if tab in big:
+                owner[tab] = tab
+            else:
+                before = [b for b in big if SETTINGS_TABS.index(b) < SETTINGS_TABS.index(tab)]
+                owner[tab] = before[-1] if before else big[0]
+        return owner
+
+    def _settings_tab_label(self, tab, owner):
+        joined = [t for t in SETTINGS_TABS if owner.get(t) == tab]
+        if len(joined) == 1:
+            return TAB_LABELS[tab]
+        return i18n.literal(" · ".join(i18n.localize(TAB_LABELS[t], self.language) for t in joined))
 
     def _settings_language(self, code):
         if code in i18n.LANGUAGES and code != self.language and not self._dry(i18n.message("dry_change", name="@language")):

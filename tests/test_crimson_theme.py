@@ -21,6 +21,7 @@ class CrimsonTokens(unittest.TestCase):
         probe = component.create()
         self.assertIsNotNone(probe, [error.toString() for error in component.errors()])
         theme = probe.property("theme")
+        theme.setProperty("calm", False)          # the vivid palette (0.1.7: Settings > Interface colours)
         theme.setProperty("gameKind", "t5dr")
         for high_contrast in (False, True):
             theme.setProperty("highContrast", high_contrast)
@@ -53,7 +54,15 @@ class CrimsonRendering(unittest.TestCase):
     setUp = test_ui_arcade.ArcadeRendering.setUp
     tearDown = test_ui_arcade.ArcadeRendering.tearDown
     named = test_ui_arcade.ArcadeRendering.named
-    publish = test_ui_arcade.ArcadeRendering.publish
+
+    def publish(self, game, scene, language="en"):
+        # These pin the vivid palette; the calm default is checked in test_calm_ui.
+        self.backend.nav = test_ui_arcade.online_shots.scene(game, scene, language)
+        self.backend.nav.colours = "vivid"
+        self.backend._v = test_ui_arcade.online_shots.snapshot(self.backend.nav)
+        self.backend.viewChanged.emit()
+        test_ui_arcade.wait_pages(self.win)
+        spin(20)
 
     def assert_primary(self, button, labels):
         fill = button.property("color")

@@ -205,7 +205,7 @@ def untranslated_literals(source):
         # the settings page's group ids and its own rows (nav_settings_page)
         "display", "controls", "online", "audio", "offline", "replays", "updates", "advanced", "pad_bindings",
         "settings", "quick", "video", "help", "tier",  # menu routes, tab identifiers and rank data
-        "text_size", "high_contrast", "reduced_motion", "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",
+        "text_size", "high_contrast", "colours", "calm", "vivid", "reduced_motion", "launcher_update", "game_updates", "test_versions", "screen_side", "always_left", "reset:replay_dir",
         "check_all", "settingsGroup", "groups", "tier_for", "threshold", "field", "login_show_password",
         "login_remember", "login_forgot", "login_back", "login_saved", "login_account", "login_register", "login_guest",
         "online_status", "online_name", "online_password", "online_server", "mode_direct", "native", "auto_login", "recover",

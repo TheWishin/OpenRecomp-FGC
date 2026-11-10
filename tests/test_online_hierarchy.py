@@ -5,7 +5,7 @@ import unittest
 
 from openrecomp import i18n
 from openrecomp.nav import Game, Nav
-from openrecomp.nav_online_layout import CHAPTERS
+from openrecomp.nav_online_layout import CHAPTERS, MERGED_INTO
 from pad_step import pad_step
 from test_online_nav import Lobby
 from test_online_page import lobby_snapshot
@@ -63,11 +63,11 @@ class SharedOnlineHierarchy(unittest.TestCase):
         for language in i18n.LANGUAGES:
             for t4 in (False, True):
                 adapter, nav = hierarchy_nav(language, t4)
-                self.assertEqual({c["id"] for c in nav.view()["online"]["chapters"]}, set(CHAPTERS))
+                self.assertEqual({c["id"] for c in nav.view()["online"]["chapters"]}, set(CHAPTERS) - set(MERGED_INTO))
                 for chapter in CHAPTERS:
                     nav.click_chapter(chapter)
                     page = nav.view()["online"]
-                    self.assertEqual(page["chapter"], chapter)
+                    self.assertEqual(page["chapter"], MERGED_INTO.get(chapter, chapter))
                     self.assertTrue(page["body"]["title"])
                     targets = [it["id"] for it in nav.items()
                                if it.get("region") == chapter and it.get("kind") != "heading"]
@@ -112,7 +112,7 @@ class OnlineHierarchyProjection(unittest.TestCase):
         page = self.page("account")
         rows = self.nav.items()
         expected = {n for n, row in enumerate(rows)
-                    if row.get("region") == "account" and row.get("kind") != "heading"}
+                    if row.get("region") == "profile" and row.get("kind") != "heading"}
         self.assertGreater(len(expected), 13)
         self.assertEqual(set(self.indices(page["body"]["sections"])), expected)
         self.assertLess(len(page["body"]["lines"]), len(expected))

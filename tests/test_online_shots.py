@@ -68,7 +68,7 @@ class SyntheticOnlineScreenshots(unittest.TestCase):
                                 if chapter in ("searching", "cancelling", "matched", "matched_picks", "starting", "playing", "result", "reporting", "disconnect_retry"):
                                     self.assertEqual(nav.game.a.snapshot["phase"], {"matched_picks": "matched", "reporting": "result_sent", "disconnect_retry": "error"}.get(chapter, chapter))
                                 else:
-                                    expected = "rooms" if chapter in ("rooms_create", "community_room") else "lobby" if chapter == "feedback" or chapter in online_shots.ARCADE_SCENES + online_shots.COMMUNITY_SCENES else chapter.removesuffix("_empty")
+                                    expected = "rooms" if chapter in ("rooms_create", "community_room") else "lobby" if chapter == "feedback" or chapter in online_shots.ARCADE_SCENES + online_shots.COMMUNITY_SCENES else {"stats": "leaderboard", "account": "profile"}.get(chapter, chapter.removesuffix("_empty"))
                                     self.assertEqual(view["online"]["chapter"], expected)
                             self.assertEqual(nav.game.a.calls, [])
                             self.assertFalse(view["online"].get("profile", {}).get("face"))

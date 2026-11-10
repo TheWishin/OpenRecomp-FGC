@@ -37,7 +37,7 @@ Flickable {
         width: parent.width; height: Math.max(40, values.implicitHeight + 16); radius: 4
         color: entry.focused ? Theme.highlighted : entry.own ? "#252C33" : "#1B1E23"
         border.width: entry.focused ? 4 : entry.own ? 2 : 1
-        border.color: entry.focused ? "#F2EFE6" : entry.own ? "#D3B59D" : "#3A3D42"
+        border.color: entry.focused ? "#F2EFE6" : entry.own ? (Theme.quiet ? Theme.value : "#D3B59D") : "#3A3D42"
         Accessible.role: Accessible.Button
         Accessible.name: [entry.place, entry.name, entry.rank, entry.rating, entry.record, entry.main].join(", ")
         Accessible.onPressAction: if (entry.index >= 0) page.root.backend.clickRow(entry.index)
@@ -79,7 +79,7 @@ Flickable {
                 OnlineStyle.SectionCard {
                     required property var modelData
                     width: (content.width - 16) / 3; height: podiumContent.height + 16
-                    border.color: "#D3B59D"
+                    border.color: Theme.quiet ? Theme.border : "#D3B59D"
                     Accessible.role: Accessible.Button
                     Accessible.name: [modelData.place, modelData.name, modelData.rank, modelData.rating].join(", ")
                     Accessible.onPressAction: if (modelData.index >= 0) page.root.backend.clickRow(modelData.index)

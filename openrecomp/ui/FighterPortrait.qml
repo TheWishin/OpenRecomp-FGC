@@ -9,7 +9,7 @@ Rectangle {
     property bool mirrored: false
     property bool showcase: false
     color: Theme.raised; clip: true
-    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 4; color: Theme.gameAccent }
+    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: Theme.quiet ? 2 : 4; color: Theme.quiet ? Theme.border : Theme.gameAccent }
     Item {
         id: fallback
         objectName: "fighterFallback"
@@ -22,7 +22,7 @@ Rectangle {
             transform: Scale { xScale: (portrait.mirrored ? -1 : 1) * fallback.width / 100; yScale: fallback.height / 120; origin.x: 50; origin.y: 60 }
             anchors.centerIn: parent
             ShapePath {
-                fillColor: "transparent"; strokeColor: Theme.gameAccent; strokeWidth: 1.5
+                fillColor: "transparent"; strokeColor: Theme.quiet ? Theme.muted : Theme.gameAccent; strokeWidth: 1.5
                 capStyle: ShapePath.RoundCap; joinStyle: ShapePath.RoundJoin
                 PathSvg { path: "M 59 11 C 51 6 41 9 39 18 C 37 27 42 34 50 35 C 58 36 64 30 65 22 C 66 17 64 13 59 11 Z M 42 42 L 32 44 L 24 31 L 13 34 L 20 58 L 37 65 L 36 83 L 23 108 L 38 112 L 52 90 L 62 111 L 78 108 L 65 79 L 64 58 L 78 52 L 87 31 L 75 26 L 65 42 L 57 40 M 37 65 L 42 50 M 64 58 L 59 49 M 36 83 L 65 79" }
             }
