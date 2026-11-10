@@ -35,7 +35,7 @@ SOURCE_GROUPS = {
                    "nav_feedback.py", "nav_main_menu.py", "launcher_page.py", "launcher_prefs.py", "nav_playtime.py", "nav_progress.py", "playtime.py", "playtime_format.py", "player_main.py", "living_background.py"),
     "openrecomp/adapters": ("__init__.py", "base.py", "arcade_metadata.py", "launch_guard.py", "support.py", "t4.py", "t4_controls.py", "t4_install.py",
                            "t4_online.py", "t4_support.py", "t4_source.py", "t4_prerequisites.py", "build_tool_downloads.py", "t5dr.py", "t5_controls.py", "t5_match.py", "t5_online.py",
-                           "t5_coexist.py", "t5_compatibility.py", "t5_discovery.py", "t5_build_runtime.py", "t5_buildlock.py", "t4_region.py", "other_launchers.py",
+                           "t5_coexist.py", "t5_compatibility.py", "t5_discovery.py", "t5_build_runtime.py", "t5_buildlock.py", "t5_monitor.py", "t4_region.py", "other_launchers.py",
                            "t5_accounts.py", "t5_challenges.py", "t5_community.py", "t5_features.py",
                            "t5_moderation.py", "t5_private_chat.py", "t5_profiles.py", "t5_rules.py", "t5_netext.py",
                            "t5_spectating.py", "t5_tournaments.py", "manifest_game.py"),
