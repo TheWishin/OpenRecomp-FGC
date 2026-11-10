@@ -10,6 +10,7 @@ TheWishin/Tekken4Recomp).
 - **One controls.ini for Tekken 5 DR:** a binding saved here or in T5DR Online's own launcher is the one the game uses
   and the one the other shows. Saves are atomic and retried while the game or an antivirus holds the file. Controls
   OpenRecomp kept of its own before are moved in once and backed up; nothing is lost.
+- Known: not yet tested with a real pad or from a packaged build.
 
 ## v0.1.6
 
