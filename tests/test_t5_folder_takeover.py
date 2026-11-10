@@ -280,6 +280,29 @@ class OneBuildAtATime(Folder):
         process.wait()
         self.assertFalse(t5_buildlock.t5dr_build_process(str(self.root / "native"), str(self.root), [l for l in scan() if l[0] == process.pid]))
 
+    @unittest.skipUnless(os.name == "nt", "the process list is read on Windows")
+    def test_a_process_with_a_very_long_command_line_is_still_read(self):
+        """Over about 4,000 characters the command line did not fit the buffer: the process counted as unreadable
+        and the strict scan answered "could not look" for the whole PC."""
+        from openrecomp.adapters import other_launchers
+        fake = self.root / "tools" / "build_game.py"
+        fake.write_text("import time" + chr(10) + "time.sleep(60)" + chr(10), encoding="utf-8")
+        long = "x" * 20000
+        process = subprocess.Popen([sys.executable, str(fake), "--out", str(self.root / "native"), long],
+                                   stdin=subprocess.DEVNULL)
+        self.addCleanup(process.wait)
+        self.addCleanup(process.kill)
+        mine = lambda name: name.startswith("python")      # noqa: E731
+        deadline = time.monotonic() + 10
+        while True:
+            found = [line for pid, line in other_launchers._command_lines(mine) if long in line]
+            if found or time.monotonic() >= deadline:
+                break
+            time.sleep(0.1)
+        self.assertTrue(found)
+        self.assertGreater(len(found[0]), 20000)
+        self.assertTrue(t5_buildlock._is_build(found[0], [t5_buildlock._norm(str(self.root)).lower()]))
+
     def test_build_anyway_skips_the_t5dr_check_once(self):
         self.start_foreign_build()
         self.processes = [(4242, self.build_line())]

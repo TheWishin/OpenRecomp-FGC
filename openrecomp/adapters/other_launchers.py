@@ -24,6 +24,9 @@ EVERY = 3.0
 
 
 # ---------------------------------------------------------------- processes and their command lines (Windows)
+MAX_COMMAND_LINE_BYTES = 1 << 20
+
+
 def _still_running(k32, handle):
     import ctypes
     code = ctypes.c_ulong()
@@ -82,7 +85,13 @@ def _command_lines(names=None, strict=False):
                         size = wintypes.ULONG(0)
                         buffer = ctypes.create_string_buffer(8192)
                         # 60 = ProcessCommandLineInformation (Windows 8.1+): a UNICODE_STRING into the buffer.
-                        if ntdll.NtQueryInformationProcess(handle, 60, buffer, len(buffer), ctypes.byref(size)) >= 0:
+                        status = ntdll.NtQueryInformationProcess(handle, 60, buffer, len(buffer), ctypes.byref(size))
+                        # A command line longer than the buffer (up to 32,767 characters): Windows names the size
+                        # it needs. Without this a long one counted as "cannot be read" and the whole scan as blind.
+                        while status < 0 and len(buffer) < size.value <= MAX_COMMAND_LINE_BYTES:
+                            buffer = ctypes.create_string_buffer(size.value)
+                            status = ntdll.NtQueryInformationProcess(handle, 60, buffer, len(buffer), ctypes.byref(size))
+                        if status >= 0:
                             text = UnicodeString.from_buffer(buffer)
                             if text.buffer and text.length:
                                 out.append((entry.pid, ctypes.wstring_at(text.buffer, text.length // 2)))
