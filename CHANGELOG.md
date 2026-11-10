@@ -3,34 +3,59 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
-## Unreleased
+## v0.1.7
 
-- **New: a running build or update stays in the top bar.** On every screen the top bar shows the step, the
-  percentage and the time left of the build, install or update that runs. A click (F7; on a pad: Quick access >
-  Show progress) opens its card. The bar goes when the job ends.
-- **Tekken 5 DR: one set of settings for both launchers.** What you set in OpenRecomp (display, resolution, graphics, input delay, training, sounds, replays, name ...) is what T5DR's own launcher shows, and the other way round, like the controls since 0.1.7. Nothing to do: your existing settings are taken over at the first start (where both launchers had a different value, the one saved last wins; the old files are kept as backups in `%APPDATA%\T5DROnline\settings-backup`). Package, licence and language stay per launcher. Details: docs/SETTINGS_SYNC.md.
-- **New: `--offline` starts the game at once.** `OpenRecomp.exe --offline` (or `--offline t5dr` / `--offline t4`)
-  starts the game offline in fullscreen without the main menu or the Online page: for a desktop shortcut or Steam's
-  launch options, and for playing with a controller only.
-- **Fixed: Tekken 4's Build could stay at "Checking the build tools" for ever.** A tool on the PC that did not answer
-  (a PATH shim whose helper kept running) held the check, and with it the build. Each tool now gets 8 seconds.
-- **A cut-off launcher update no longer blocks later updates.** When the PC was switched off or the update helper was
-  killed mid-way, every later update was refused ("another update owns this installation"). The next start now sees
-  that the helper is gone; files that were half exchanged are put back before the next update.
-- **A cut-off game install cleans up after itself:** the work folder of an install whose launcher is gone (download and
-  half unpacked game, several GB) is removed at the next install instead of staying for good.
-- The "another OpenRecomp is building here" lock is only believed while that very launcher process lives (not when
-  Windows gave its process number to another program after a restart).
-- **Fixed: Tekken 5 Pad bindings gave errors on L1, R2 and every second binding.** Only the first binding of a session
-  was saved; the next one failed with "changed on disk". Fixed.
-- **One controls.ini for Tekken 5 DR:** a binding saved here or in T5DR Online's own launcher is the one the game uses
-  and the one the other shows. Saves are atomic and retried while the game or an antivirus holds the file. Controls
-  OpenRecomp kept of its own before are moved in once and backed up; nothing is lost.
+### Fixed
+
+- **Tekken 5 Pad bindings: L1, R2 and every later button are saved again.** In 0.1.6 only the first binding of a
+  session was saved; the next one failed with "changed on disk".
 - A PlayStation pad's trigger resting position is no longer taken for a press while binding.
-- **PlayStation pads read directly (DualShock 4, DualSense, Edge):** Tekken 4's Pad bindings page now sees them like the
-  game does (XInput slots 5-8, USB and Bluetooth, also the extended Bluetooth report Steam/DS4Windows switch them to),
-  and the launcher can be navigated with them without a T5DR install. Read-only, shared with the game, only while the
-  page is open; a pad Steam Input hands on as an Xbox pad is left to Steam.
+- **PlayStation pads are read directly (DualShock 4, DualSense, Edge):** Tekken 4's Pad bindings page sees them like
+  the game does (USB and Bluetooth, also the extended Bluetooth report Steam/DS4Windows switch them to), and the
+  launcher can be navigated with them without a T5DR install. Read-only, only while the page is open; a pad Steam
+  Input hands on as an Xbox pad is left to Steam.
+- **Tekken 5 DR: one set of controls and settings for both launchers.** A binding or a setting (display, resolution,
+  graphics, input delay, training, sounds, replays, name ...) saved here is what T5DR Online's own launcher shows and
+  what the game uses, and the other way round. Nothing to do: existing controls and settings are taken over at the
+  first start (where both launchers had a different value, the one saved last wins; the old files are kept as backups
+  in `%APPDATA%\T5DROnline\settings-backup`). Package, licence and language stay per launcher. Details:
+  docs/SETTINGS_SYNC.md.
+- **Games start as their own launchers start them.** Tekken 5 DR opens on the monitor this launcher is on; Tekken 4
+  gets the settings its own launcher gives (Low keeps anti-aliasing and anisotropic filtering off; 16:9 chosen in
+  either launcher counts in both); games no longer inherit this launcher's Qt style setting.
+- **Tekken 4's Build could stay at "Checking the build tools" for ever.** A tool on the PC that did not answer held
+  the check, and with it the build. Each tool now gets 8 seconds.
+- **A cut-off launcher update no longer blocks later updates** ("another update owns this installation"); files that
+  were half exchanged are put back before the next update. A cut-off game install removes its work folder (several
+  GB) at the next install.
+- The "another OpenRecomp is building here" lock is only believed while a real build process lives; a cut-off
+  build log no longer blocks, and there is "Build anyway".
+
+### New
+
+- **A running build or update stays in the top bar.** On every screen the top bar shows the step, the percentage and
+  the time left of the build, install or update that runs. A click (F7; on a pad: Quick access > Show progress) opens
+  its card. The bar goes when the job ends.
+- **`--offline` starts the game at once.** `OpenRecomp.exe --offline` (or `--offline t5dr` / `--offline t4`) starts
+  the game offline in fullscreen without the main menu or the Online page: for a desktop shortcut, Steam's launch
+  options, or playing with a controller only.
+- **Tekken 5 DR: rematch in the game is on by default,** as in T5DR Online's own launcher. To turn it off, set
+  `T5_INGAME_REMATCH=0`.
+- **Tekken Tag Tournament 2 (TAG2 PC), first step.** When a TAG2 PC install of the published version 0.16.33 is
+  found, Play starts it offline directly and four quick settings (skip intros, graphics backend, internal
+  resolution, VSync) can be changed here. Any other TAG2 version works as before: through TAG2's own launcher.
+  Sign-in, online play and Ranked stay in TAG2's own launcher (the rows for them exist but are switched off), and so
+  do updates, build, repair and controller setup. Before a start without an audio output the launcher warns: TAG2
+  can close with an error right after start when Windows has no speakers or headphones. Details: docs/TAG2.md.
+- Calmer interface: one accent colour on grey surfaces, fewer pages. Tekken 5 DR ranked costume can be chosen in the
+  launcher (T5DR 1.2.3).
+
+### Known
+
+- The pad binding fix was tested with simulated pads only, not yet with a real controller or from a packaged build.
+- TAG2: sign-in, online play and Ranked were never tried against TAG2's live service and are off; nothing of the
+  TAG2 part was tried with a real TAG2 install yet.
+- Tekken 5 DR quick-match button bindings: the fix was not ready for this version.
 
 ## v0.1.6
 
