@@ -1911,5 +1911,7 @@
  "t5.build_anyway": "Compiler quand même",
  "dialog.build_anyway.title": "Compiler quand même ?",
  "dialog.build_anyway.text": "Aucune compilation n'a été trouvée avec certitude ici, mais le journal du lanceur T5DR est récent. Si sa compilation tourne vraiment, deux compilations à la fois abîment le dossier. Compiler maintenant ?",
- "direct.unknown_game": "Aucun jeu nommé {name} dans ce launcher. Choisissez-en un ici."
+ "direct.unknown_game": "Aucun jeu nommé {name} dans ce launcher. Choisissez-en un ici.",
+ "header_progress.percent": "{percent} %",
+ "header_progress.more": "+{count} de plus"
 }

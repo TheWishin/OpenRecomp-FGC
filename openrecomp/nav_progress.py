@@ -116,26 +116,34 @@ class ProgressNav:
         v["prompts"].append(self.prompt("back", "@progress.hide"))
 
     # ------------------------------------------------------------------------------------------ the card
-    def _progress_line(self, name, st, steps):
-        """"Tekken 4 · Download 45 % · 82/181 MB · 1 min": one running job."""
+    def _progress_parts(self, st, steps):
+        """What a running job says, for its card line and for the header bar: (step, percent or -1, time left or "")."""
         if st.get("cancelling"):
-            return i18n.message("progress.line_plain", name=name, text="@setup.cancelling")
+            return "@setup.cancelling", -1, ""
         if st.get("phase") == "waiting":
-            return i18n.message("progress.line_plain", name=name, text="@updates.waiting")
+            return "@updates.waiting", -1, ""
         if not cancel_safe(st):
-            return i18n.message("progress.line_plain", name=name, text="@progress.installing")
+            return "@progress.installing", -1, ""
         step = "@progress.step_download" if st.get("step") == "download" else steps.get(st.get("step"), steps.get("download"))
         total = int(st.get("total") or 0)
         if not total:
-            return i18n.message("progress.line_plain", name=name, text=step)
-        done = int(st.get("done") or 0)
-        text = i18n.message("progress.line_mb", name=name, step=step, percent=min(100, int(done * 100 / total)),
-                            done=self._mb(done), total=self._mb(total))
+            return step, -1, ""
         left = int(st.get("left") or 0)
+        left_text = ""
         if left:
             left_text = (i18n.message("progress.left_min", min=max(1, round(left / 60))) if left >= 60
                          else i18n.message("progress.left_s", sec=left))
-            text = i18n.message("progress.line_left", text=text, left=left_text)
+        return step, min(100, int(int(st.get("done") or 0) * 100 / total)), left_text
+
+    def _progress_line(self, name, st, steps):
+        """"Tekken 4 · Download 45 % · 82/181 MB · 1 min": one running job."""
+        step, percent, left = self._progress_parts(st, steps)
+        if percent < 0:
+            return i18n.message("progress.line_plain", name=name, text=step)
+        text = i18n.message("progress.line_mb", name=name, step=step, percent=percent,
+                            done=self._mb(int(st.get("done") or 0)), total=self._mb(int(st.get("total") or 0)))
+        if left:
+            text = i18n.message("progress.line_left", text=text, left=left)
         return text
 
     def _progress_fraction(self, st):
@@ -224,6 +232,83 @@ class ProgressNav:
             self.setup_game = job["id"]
             self._ask("setup_progress")
         return True
+
+    # ------------------------------------------------------------------------------------------ the header bar
+    def build_jobs(self):
+        """The running game builds, as the Build page's big card shows them: (game, that card's dict).
+        Only games whose build clock runs are asked (poll_build starts the clock, on every screen)."""
+        jobs = []
+        now = self._now()
+        for g in self.games:
+            clock = (getattr(self, "build_clocks", None) or {}).get(g.id)
+            if clock is None or not clock["running"]:
+                continue
+            state = g.a.build_state()
+            clock = self._build_clock(g, state, now)
+            if state.get("running"):
+                jobs.append((g, self._build_main(g, state, clock, now, None, -1, {})))
+        return jobs
+
+    def header_progress_jobs(self):
+        """Every running job for the top bar, builds first: the Build card's step, bar and time left for a build, the
+        progress card's for an install / update. Nothing is measured here."""
+        jobs = []
+        for g, main in self.build_jobs():
+            fraction = float(main["progress"])
+            jobs.append(dict(id=g.id, build=True, name=i18n.literal(g.short), title=main["title"], step=main["stepLine"],
+                             fraction=fraction, percent=int(fraction * 100) if fraction >= 0 else -1, eta=main["eta"]))
+        for j in self.progress_jobs():
+            step, percent, left = self._progress_parts(j["st"], j["steps"])
+            jobs.append(dict(id=j["id"], build=False, name=j["name"], title="@progress.update_running", step=step,
+                             fraction=self._progress_fraction(j["st"]), percent=percent, eta=left))
+        return jobs
+
+    def header_progress_view(self):
+        """The top bar's progress: the first running job (and how many more run); gone when none runs."""
+        jobs = self.header_progress_jobs()
+        if not jobs:
+            return dict(show=False)
+        job = jobs[0]
+        percent = i18n.message("header_progress.percent", percent=job["percent"]) if job["percent"] >= 0 else ""
+        more = i18n.message("header_progress.more", count=len(jobs) - 1) if len(jobs) > 1 else ""
+        return dict(show=True, id=job["id"], build=job["build"], name=job["name"], title=job["title"], step=job["step"],
+                    fraction=job["fraction"], percent=percent, eta=job["eta"], more=more, open="@progress.show")
+
+    def header_progress_open(self):
+        """A click on the top bar's progress: the Build page of the game being built (its big card), or the
+        progress window of the install / update."""
+        if self.overlay:
+            return False
+        jobs = self.header_progress_jobs()
+        if not jobs:
+            return False
+        job = jobs[0]
+        if not job["build"]:
+            return self.progress_open(job["id"])
+        return self.build_progress_open(job["id"])
+
+    def build_progress_open(self, gid=""):
+        """Go to the Build page of a game being built (the first one without gid), focus on its big button."""
+        if self.overlay:
+            return False
+        g = next((g for g, _main in self.build_jobs() if not gid or g.id == gid), None)
+        if g is None or "build" not in self.sections(g):
+            return False
+        self._cancel_hold()
+        self._select_game(g)
+        self.screen = "hub"
+        self.main_menu_game = ""
+        self.sec[g.id] = "build"
+        items = self._items_build(g)
+        self.focus[g.id + ":build"] = next((i for i, item in enumerate(items) if item.get("id") == "build"), 0)
+        return True
+
+    def build_progress_elsewhere(self):
+        """True while a build runs whose Build page is not the page shown: the footer offers the way there."""
+        here = ""
+        if self.game and self.screen == "hub" and getattr(self, "main_menu_game", "") != self.game.id and self.section() == "build":
+            here = self.game.id
+        return any(g.id != here for g, _main in self.build_jobs())
 
     # ------------------------------------------------------------------------------------------ "Update running"
     def lock_items(self, items):

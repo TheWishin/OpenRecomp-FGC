@@ -1911,5 +1911,7 @@
  "t5.build_anyway": "Compilar mesmo assim",
  "dialog.build_anyway.title": "Compilar mesmo assim?",
  "dialog.build_anyway.text": "Não foi encontrada com certeza nenhuma compilação aqui, mas o registro do launcher do T5DR é recente. Se a compilação dele estiver mesmo rodando, duas compilações ao mesmo tempo estragam a pasta. Compilar agora?",
- "direct.unknown_game": "Não há nenhum jogo chamado {name} neste launcher. Escolha um aqui."
+ "direct.unknown_game": "Não há nenhum jogo chamado {name} neste launcher. Escolha um aqui.",
+ "header_progress.percent": "{percent} %",
+ "header_progress.more": "+{count} a mais"
 }
