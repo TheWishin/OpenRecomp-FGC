@@ -630,12 +630,28 @@ class Online:
                     out.append(friend_action("invite_room", "@online.invite_room", friend))
             out.append(friend_action("remove_friend", "@online.remove_friend", friend))
 
+    def _poll_section(self, g):
+        """An adapter with rows of its own (online_items) and requests that answer later: let it finish them."""
+        poll = getattr(g.a, "section_poll", None)
+        if not callable(poll):
+            return False
+        try:
+            changed = bool(poll())
+            toast = g.a.section_toast()
+        except Exception:  # noqa: BLE001 -- keep the timer alive without exposing login details
+            self.say("@online.failure", 12)
+            return True
+        if toast:
+            self.say(toast, 8)
+        return changed or bool(toast)
+
     def poll_online(self):
         if self.dry:
             return False
         changed = False
         for g in self.games:
             if not getattr(g.a, "online_supported", lambda: False)():
+                changed = self._poll_section(g) or changed
                 continue
             try:
                 from . import nav_rank_cue
@@ -741,6 +757,11 @@ class Online:
             for g in self.games:
                 if only is not None and g.id != only:
                     continue
+                if callable(getattr(g.a, "section_close", None)):
+                    try:
+                        g.a.section_close()
+                    except Exception:  # noqa: BLE001 -- a failed cleanup must not prevent closing the app
+                        pass
                 if getattr(g.a, "online_supported", lambda: False)():
                     try:
                         g.a.online_close()

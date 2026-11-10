@@ -104,12 +104,17 @@ class Sections:
         for it in g.a.online_items():
             it = dict(it)
             opens = it.get("opens")
-            if opens == "fighters":
+            if it.get("disabled"):
+                it["run"] = None
+            elif opens == "fighters":
                 it["run"] = self._open_fighters
+            elif opens and opens.startswith("fighters:"):         # a team: the adapter is told which place is chosen
+                it["run"] = lambda slot=int(opens[9:]): (g.a.pick_fighter_slot(slot), self._open_fighters())
             elif opens and opens.startswith("text:"):
                 it["run"] = lambda tid=opens[5:]: self._edit_field(tid)
             elif it.get("kind") == "action":
-                it["run"] = lambda iid=it["id"], label=it["label"]: self._dry(i18n.message("dry_start", name=label)) or self.say(g.a.run_online(iid))
+                it["run"] = lambda iid=it["id"], label=it["label"]: self._dry(i18n.message("dry_start", name=label)) or self._start_checked(
+                    g, iid, lambda: self.say(g.a.run_online(iid)))
             out.append(it)
         return out
 
