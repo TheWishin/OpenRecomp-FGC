@@ -1,0 +1,14 @@
+Oxanium Regular, original unmodified TTF
+Author: Severin Meyer / The Oxanium Project Authors
+Source: https://github.com/sevmeyer/oxanium/tree/a8f39e0c71186190027a093e9001459410192d1e
+License: SIL Open Font License 1.1 (Oxanium-OFL.txt)
+SHA256: 2B9C2A53EE0A8248AB901463838CC81075B410724046A09683B3CC91870FE52A
+
+World coastline: Natural Earth ne_110m_land
+Source: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson
+Terms: https://www.naturalearthdata.com/about/terms-of-use/
+Public domain. Only the coastline coordinates are converted to WorldMap.bin.
+Source SHA256: 9E0729EE253CA7D7A5C4AE9395FB1902264C5377C52E224D13DD85010E2835D9
+
+LED glyphs and interface surfaces are drawn specifically for this launcher.
+They are not original Namco/Tekken fonts or game assets.

@@ -9,7 +9,7 @@ def _has_code(kind):
     return kind in KNOWN and importlib.util.find_spec(f"{__name__}.{kind}") is not None
 
 
-KNOWN = ("t5dr", "t4")          # make() handles these kinds; a branch that adds an adapter adds its kind here
+KNOWN = ("t5dr", "t4", "tag2")          # make() handles these kinds; a branch that adds an adapter adds its kind here
 
 
 def make(manifest, config):
@@ -50,6 +50,9 @@ def make(manifest, config):
                 missing = Missing(manifest, config)
                 missing.wrong_folder = wrong
                 return missing
+        elif kind == "tag2":
+            from .tag2 import Tag2
+            return Tag2(manifest, config)
     except Exception as e:  # noqa: BLE001 -- one broken game must not take the launcher down
         missing = Missing(manifest, config)
         missing.problem = f"{manifest['short']}: {e}"
