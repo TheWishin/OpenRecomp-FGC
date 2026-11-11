@@ -49,7 +49,11 @@ def program_dir():
 def plan(config, program=None):
     """What a complete uninstall would do: dict(games=[{game, root}], skipped=[{game, root, why}], data=<folder|"">,
     program=<folder|"">, setup_uninstaller=<exe|"">). Paths only; nothing is touched."""
+    # Without a program folder given, the games beside the running launcher -- in a test run the sandbox's folder
+    # (safety.launcher_parent), never a real folder beside the checkout.
+    parent = None if program else safety.launcher_parent(os.path.dirname(program_dir()))
     program = program or program_dir()
+    parent = parent or os.path.dirname(os.path.abspath(program))
     roots = (config.get("roots") or {}) if isinstance(config, dict) else {}
     games, skipped, seen = [], [], set()
     from .known_installs import candidates
@@ -57,7 +61,7 @@ def plan(config, program=None):
         chosen = roots.get(game)
         # 0.1.3: every install of the game this launcher knows (the folder in use, the ones used before, the ones it
         # made), not only the one in use; still only those with its own install marker.
-        for root in [chosen] + (candidates(config, game, parent=os.path.dirname(os.path.abspath(program))) if isinstance(config, dict) else []):
+        for root in [chosen] + (candidates(config, game, parent=parent) if isinstance(config, dict) else []):
             if not isinstance(root, str) or not root or not os.path.isdir(root) or _norm(root) in seen:
                 continue
             seen.add(_norm(root))

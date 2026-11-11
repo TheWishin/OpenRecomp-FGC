@@ -17,7 +17,7 @@ from .t4_support import T4Support
 from .t4_controls import T4Controls
 from .t5_online import game_process_running
 from .t4_install import install_root, install_source, source_root
-from .. import i18n, t4_art, wine
+from .. import i18n, safety, t4_art, wine
 from ..fighter_render import t4_cache_token
 from ..manifest import art_dir, save_config
 from ..game_releases import clear_rebuild, rebuild_required
@@ -47,7 +47,10 @@ BETA_DISABLED_SWITCHES = (
 BETA_HARNESS_SWITCHES = (
     "TEKKEN4_NET_END", "TEKKEN4_NET_SHOTS", "TEKKEN4_NET_DESYNC_DUMP", "TEKKEN4_NET_SIM",
 )
-DEFAULT_SOURCE_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "T4")
+# The T4 folder beside the launcher's program folder. Under a test run it is the sandbox's (safety.launcher_parent, as
+# known_installs does): the uninstall plan of a test run once listed a real T4 folder beside a checkout.
+DEFAULT_SOURCE_ROOT = os.path.join(safety.launcher_parent(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "T4")
 
 
 def find_root(manifest, config):
