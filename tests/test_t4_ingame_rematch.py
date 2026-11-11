@@ -21,9 +21,9 @@ class FileTests(unittest.TestCase):
         self.base = os.path.join(self.directory.name, "t4_result-abc.json")
 
     def test_switch_is_off_unless_one(self):
-        # off by default while T4 is a beta (the T4 game's own default is off too)
-        self.assertEqual(t4_rematch.DEFAULT, "0")
-        self.assertFalse(t4_rematch.wanted({}))
+        # on by default (owner 2026-11-11); off while T4 is a beta (the T4 game's own default is off too)
+        self.assertEqual(t4_rematch.DEFAULT, "1")
+        self.assertTrue(t4_rematch.wanted({}))
         self.assertTrue(t4_rematch.wanted({"T4_INGAME_REMATCH": "1"}))
         self.assertTrue(t4_rematch.wanted({"T4_INGAME_REMATCH": " 1 "}))
         self.assertFalse(t4_rematch.wanted({"T4_INGAME_REMATCH": "0"}))
@@ -140,14 +140,14 @@ class AdapterTests(unittest.TestCase):
         with mock.patch.dict(os.environ, T4_INGAME_REMATCH="0"):
             self.assertFalse(self.a._online_client_options()["ingame_rematch"])
         os.environ.pop("T4_INGAME_REMATCH")
-        self.assertFalse(self.a._online_client_options()["ingame_rematch"])       # the default: off
+        self.assertTrue(self.a._online_client_options()["ingame_rematch"])        # the default: on (owner 2026-11-11)
 
-    def test_default_off_starts_the_game_without_the_switch(self):
+    def test_default_on_starts_the_game_with_the_switch(self):
         self.game()
         os.environ.pop("T4_INGAME_REMATCH")
         client = self.playing()
-        self.assertNotIn("TEKKEN4_INGAME_REMATCH", self.a.starts[-1])
-        self.assertIsNone(self.a._t4_ingame)
+        self.assertEqual(self.a.starts[-1].get("TEKKEN4_INGAME_REMATCH"), "1")
+        self.assertIsNotNone(self.a._t4_ingame)
         base = self.a.starts[-1]["TEKKEN4_NET_RESULT"]
         self.result(client, base, rule=False)
         self.assertEqual(len(self.a.stops), 1)                              # closed with the verdict, as before
