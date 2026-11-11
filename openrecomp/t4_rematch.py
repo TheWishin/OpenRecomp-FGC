@@ -18,7 +18,7 @@ import os
 import re
 
 SWITCH = "T4_INGAME_REMATCH"
-DEFAULT = "0"              # off while T4 is a beta; "1" would make the question the default (as T5DR's since 1.2.0)
+DEFAULT = "1"              # on: the question is the default (as T5DR's since 1.2.0); the owner decided 2026-11-11
 GAME_SWITCH = "TEKKEN4_INGAME_REMATCH"
 MARKER = GAME_SWITCH.encode("ascii")
 STATES = ("off", "pending", "rematch", "declined", "timeout")
