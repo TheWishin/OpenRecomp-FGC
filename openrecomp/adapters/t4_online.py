@@ -1,5 +1,6 @@
 """T4 online: direct-IP / VPN checks, and the lobby (accounts, players, chat, matches) through the vendored client."""
 import hashlib
+import copy
 import importlib
 import ipaddress
 import json
@@ -16,7 +17,7 @@ from .base import NO_WINDOW
 from .t5_match import T5Match
 from .t5_online import Online, SearchRefused, entry_tls, game_process_running
 from ..manifest import save_config, user_dir
-from .. import wine
+from .. import t4_rematch, wine
 from ..vendor.t4lobby import ranks as t4_ranks
 
 
@@ -928,13 +929,125 @@ class T4Online(T4Direct, Online):
         # Ranked sets (best of 3, rated once): every game is a new connection and a new T4 game, started by itself
         # after the server's countdown (_online_match_found, origin "set").
         # Friends, rooms (private, community, tables), tournaments, private chat, mentions and casual sets as in
-        # T5DR. Off until the T4 game has them: spectate, the life rules, the in-game rematch, the auto skips; the
+        # T5DR. Off until the T4 game has them: spectate, the life rules, the auto skips; the
         # challenge delay stays 0..2 (T4's netplay takes 0..4, T5DR 1.2.0's picker offers 0..8).
+        # The rematch question in the game (t4_rematch.py): opt-in (T4_INGAME_REMATCH=1) while T4 is a beta, with a game
+        # that has it.
         options.update(relays=True, friends=True, private_rooms=True, tournaments=True, spectate=False, sets=True,
                        match_rules=False, private_chat=True, badges=True, mentions=True, casual_sets=True,
-                       room_tables=True, input_delay8=False, ingame_rematch=False, auto_skip_after_round=False,
-                       auto_skip_intro=False)
+                       room_tables=True, input_delay8=False, ingame_rematch=self._t4_ingame_offered(),
+                       auto_skip_after_round=False, auto_skip_intro=False)
         return options
+
+    def _t4_ingame_offered(self):
+        """This PC can ask the rematch in the game: its switch is on (T4_INGAME_REMATCH=1) and the installed game knows
+        the question."""
+        if not t4_rematch.wanted():
+            return False
+        try:
+            exe = self.core.find_runtime(self.s)[0]
+            stamp = (exe, os.path.getmtime(exe), os.path.getsize(exe))
+        except (OSError, TypeError, AttributeError, IndexError):
+            return False
+        cache = getattr(self, "_t4_ingame_cache", None)
+        if cache is None or cache[0] != stamp:
+            cache = self._t4_ingame_cache = (stamp, t4_rematch.game_has_it(exe))
+        return cache[1]
+
+    def _t4_run_alive(self):
+        run = getattr(self, "_online_owned_run", None)
+        return run is not None and run.proc.poll() is None
+
+    def _t4_ingame_drop(self, stop=True):
+        """The question in the game is over for this session: back to the launcher's own ways."""
+        self._t4_ingame = None
+        if stop and getattr(self, "_online_owned_run", None) is not None:
+            self._online_stop_owned()
+
+    def _t4_ingame_poll(self):
+        """The rematch question in the game. The two games decide (the same answer on both PCs); the launcher only
+        carries it to the lobby: yes -> this player's vote with keep (the lobby then continues the match in the
+        running games), no / time out -> a decline, the games close by themselves. Anything unexpected closes the
+        game and leaves the launcher's own rematch, as before the question existed."""
+        ing = getattr(self, "_t4_ingame", None)
+        if not ing or not getattr(self, "_t4_result_sent", False):
+            return False
+        now = time.monotonic()
+        if ing["hold"] is not None and now >= ing["hold"]:
+            self._t4_ingame_drop()
+            return True
+        if ing["voted"] is not None or self._online_busy:
+            return False
+        if not self._t4_run_alive():
+            self._t4_ingame = None           # the game is gone (closed, or it ended after a no)
+            return False
+        what = t4_rematch.state(self._t4_result_path)
+        if what in (None, "pending"):
+            return False
+        if what == "off":
+            # the opponent's game has no question: the result's grace, then the game is closed as always
+            self._t4_ingame = None
+            self._t4_result_stop_at = now + 5.0
+            return True
+        client = self._online_client
+        if self._online_phase != "result_sent" or client is None or not ing.get("server"):
+            return False                     # the lobby's verdict first: the vote is about that match
+        mid, generation = self._online_match_id, self._online_generation
+        if what == "rematch":
+            ing["voted"], ing["hold"] = True, now + t4_rematch.CONTINUE_SECONDS
+            self._t4_rematch_from = mid
+            self._online_authorized = self._online_next_authorized = True
+            self._online_rematch_pending = True
+            self._online_rematch = False
+            self._online_message = "@online.rematch_wait"
+
+            def rematch():
+                self._online_check_request(generation, client)
+                return client.rematch(match_id=mid, accept=True, keep=True)
+            self._online_submit("t4_rematch", rematch)
+            return True
+        ing["voted"], ing["hold"] = False, now + 6.0
+        self._online_rematch = self._online_next_authorized = False
+        self._online_rematch_pending = False
+        self._online_message = "@online.rematch_declined"
+
+        def decline():
+            self._online_check_request(generation, client)
+            return client.rematch(match_id=mid, accept=False, keep=False)
+        self._online_submit("t4_rematch_decline", decline)
+        return True
+
+    def _t4_continue_match(self, event):
+        """match_start {continue: true} (no ticket): the rematch goes on in the running games. The game learns the
+        new match's id from the -next file and writes that match's result to its own file."""
+        ing = getattr(self, "_t4_ingame", None)
+        mid = event.get("match")
+        if (not ing or ing["voted"] is not True or not mid or not self._t4_run_alive()
+                or self._online_phase not in ("starting", "result_sent")
+                or getattr(self, "_online_match_id", None) not in (None, mid)):
+            return True
+        index = ing["index"] + 1
+        try:
+            named = t4_rematch.write_next(ing["base"], index, mid)
+        except OSError:
+            named = False
+        if not named:
+            self._t4_ingame_drop()
+            return True
+        ing.update(index=index, voted=None, hold=None, server=False)
+        ticket = copy.copy(ing["ticket"])
+        ticket.match_id = mid
+        self._online_ticket = ticket
+        self._online_match_id = mid
+        self._t4_result_path = t4_rematch.result_path(ing["base"], index)
+        self._t4_result_sent, self._t4_result_stop_at = False, None
+        self._t4_result = {}
+        self._online_rematch = self._online_rematch_pending = False
+        self._online_next_authorized = False
+        self._online_result_received = False
+        self._online_started_sent = self._online_playing_sent = False    # told to the lobby again for this match
+        self._online_phase, self._online_message = "playing", "@online.playing"
+        return True
 
     def _online_game_env(self, ticket):
         if ticket.role not in ("host", "join"):
@@ -983,6 +1096,17 @@ class T4Online(T4Direct, Online):
                     pass
             env["TEKKEN4_NET_RESULT"] = path
             self._t4_result_path = path
+        # The rematch question in the game: casual matches only (a set starts its next game by itself), with a
+        # server that has it. The two games still check each other: against an older game nothing changes.
+        self._t4_ingame = None
+        client, info = getattr(self, "_online_client", None), getattr(self, "_online_set", {})
+        if (self._t4_result_path and not ticket.ranked and not (info and info.get("state") == "active")
+                and self._t4_ingame_offered() and callable(getattr(client, "ingame_rematch_ok", None))
+                and client.ingame_rematch_ok()):
+            t4_rematch.clear(self._t4_result_path)
+            env[t4_rematch.GAME_SWITCH] = "1"
+            self._t4_ingame = dict(base=self._t4_result_path, index=1, voted=None, hold=None, server=False,
+                                   ticket=ticket)
         return env
 
     def _t4_game_result_poll(self):
@@ -994,6 +1118,8 @@ class T4Online(T4Direct, Online):
             self._t4_result_stop_at = None
             if getattr(self, "_online_owned_run", None) is not None:
                 self._online_stop_owned()
+            return True
+        if self._t4_ingame_poll():
             return True
         path = getattr(self, "_t4_result_path", None)
         if (not path or getattr(self, "_t4_result_sent", False) or self._online_phase != "playing"
@@ -1014,7 +1140,12 @@ class T4Online(T4Direct, Online):
         self._t4_result = dict(winner=winner, score=list(score), slot=ticket.slot, source="game")
         self._online_result_message = "@online.result_sent"
         self._online_submit("result_game", lambda: client.report_result(winner=winner, score=score, **kw))
-        self._t4_result_stop_at = time.monotonic() + 5.0
+        ing = getattr(self, "_t4_ingame", None)
+        if ing:
+            # the game asks "Rematch?" now: it stays until the question is answered (or a bound passed)
+            ing["hold"] = time.monotonic() + t4_rematch.HOLD_SECONDS
+        else:
+            self._t4_result_stop_at = time.monotonic() + 5.0
         return True
 
     def _online_match_message(self):
@@ -1183,6 +1314,8 @@ class T4Online(T4Direct, Online):
                 self._online_rematch = self._online_next_authorized = self._online_authorized = False
                 self._online_rematch_pending = False
                 self._online_message = "@online.rematch_declined"
+                if getattr(self, "_t4_ingame", None):
+                    self._t4_ingame_drop()      # (the game was kept for the question)
             return True
         if kind in ("nat_status", "nat_upgrade", "nat_fallback"):
             if self._online_phase not in ("matched", "starting", "playing"):
@@ -1201,6 +1334,8 @@ class T4Online(T4Direct, Online):
             return True
         if kind == "match_start":
             ticket = event.get("ticket")
+            if ticket is None and event.get("continue"):
+                return self._t4_continue_match(event)
             if ticket is None:
                 return True
             if getattr(self, "_online_match_id", None) and ticket.match_id != self._online_match_id:
@@ -1283,10 +1418,19 @@ class T4Online(T4Direct, Online):
                 self._online_to_lobby("@online.result_void")
                 return True
             if self._online_phase in ("playing", "result", "result_sent"):
-                self._online_stop_owned()
+                # The question in the game: the lobby offers it for this match (both players have it) and this
+                # PC's game is asking. Then the game stays and the launcher's own rematch button is not shown.
+                ing = getattr(self, "_t4_ingame", None)
+                held = bool(ing and isinstance(event.get("rematch_ui"), dict) and event.get("rematch_window")
+                            and event.get("status") != "void" and self._t4_run_alive())
+                if held:
+                    ing["server"] = True
+                else:
+                    self._t4_ingame = None
+                    self._online_stop_owned()
                 self._online_phase = "result_sent"
                 if not getattr(self, "_online_result_received", False):
-                    self._online_rematch = bool(event.get("rematch_window"))
+                    self._online_rematch = bool(event.get("rematch_window")) and not held
                     self._online_rematch_pending = False
                     self._online_next_authorized = False
                     self._online_result_received = True
@@ -1405,6 +1549,9 @@ class T4Online(T4Direct, Online):
             self._online_early_start = None
             self._online_match = {}
             self._online_phase, self._online_message = "logged_in", "@online.logged_in"
+            if getattr(self, "_t4_ingame", None):
+                decline = True
+                self._t4_ingame_drop()          # (the game was kept for the question)
             if decline and client and callable(getattr(client, "rematch", None)):
                 def decline_rematch():
                     self._online_check_request(generation, client)
@@ -1430,6 +1577,8 @@ class T4Online(T4Direct, Online):
             return True
         if action == "t4_rematch":
             previous = self.__dict__.pop("_t4_rematch_from", None)
+            if error and getattr(self, "_t4_ingame", None):
+                self._t4_ingame_drop()          # the lobby did not take the vote: no rematch in the running game
             if error and self._online_match_id == previous and self._online_phase == "result_sent":
                 # A correlated match_found can arrive before a lost request reply. Its new ticket keeps the vote.
                 self._online_next_authorized = self._online_authorized = False
@@ -1638,6 +1787,7 @@ class T4Online(T4Direct, Online):
         return changed
 
     def _online_match_reset(self):
+        self._t4_ingame = None
         self._online_authorized = False
         self._online_next_authorized = self._online_rematch = False
         self._online_rematch_pending = False

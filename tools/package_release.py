@@ -30,7 +30,7 @@ SOURCE_GROUPS = {
                    "pad.py", "ranks.py", "stall.py", "updater.py", "update_service.py", "progress_meter.py", "uninstall.py", "safety.py", "known_installs.py", "file_dialog.py",
                    "game_library.py", "game_updates.py", "nav_library.py", "audio_output.py",
                    "game_releases.py", "game_setup.py", "app_game_setup.py", "nav_game_setup.py", "t4_art.py", "fighter_render.py", "t5_art_child.py", "t5_startlog.py",
-                   "bundled_games.py", "game_manifest.py", "community.py", "report_upload.py", "t4_report.py", "wine.py",
+                   "bundled_games.py", "game_manifest.py", "community.py", "report_upload.py", "t4_report.py", "t4_rematch.py", "wine.py",
                    "ui_sound.py", "nav_sound.py", "nav_controls_page.py", "pad_glyphs.py", "pad_presets.py", "t4_controls_ini.py", "t4_pad_reader.py", "controls_file.py", "settings_sync.py", "ps_hid.py", "nav_rank_cue.py",
                    "nav_feedback.py", "nav_main_menu.py", "launcher_page.py", "launcher_prefs.py", "nav_playtime.py", "nav_progress.py", "playtime.py", "playtime_format.py", "player_main.py", "living_background.py"),
     "openrecomp/adapters": ("__init__.py", "base.py", "arcade_metadata.py", "launch_guard.py", "support.py", "t4.py", "t4_controls.py", "t4_install.py",

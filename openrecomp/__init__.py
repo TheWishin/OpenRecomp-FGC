@@ -1,5 +1,5 @@
 """OpenRecomp-FGC: Launcher for all your Recomps."""
-__version__ = "0.1.7"
+__version__ = "0.1.8-dev"
 
 from . import safety as _safety
 

@@ -3,6 +3,14 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
+## v0.1.8 (unreleased)
+
+- **Tekken 4: the rematch can be asked in the game (opt-in, `T4_INGAME_REMATCH=1`).** With a Tekken 4 build that has
+  the question (the T4 0.1.5 beta candidate has it, switched off), a lobby server that offers it and an opponent who has it too, the
+  game asks "Rematch?" after a casual online match, both players answer with the pad, and a rematch plays on in the
+  running game without a new start. Off by default while Tekken 4 is a beta; without the switch, or with an older
+  game, server or opponent, everything is as before.
+
 ## v0.1.7
 
 A calmer look, one set of settings and one controls file shared with Tekken 5 DR's own launcher, a ranked costume

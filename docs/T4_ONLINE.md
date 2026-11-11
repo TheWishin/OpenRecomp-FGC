@@ -114,8 +114,20 @@ challenges with **First to** 1-10 and **P1 / P2**), Rooms (classic, community, p
 tables), Friends (requests, invites), Leaderboard, Statistics, Profile (history, per-fighter numbers),
 Tournaments, Account (password, recovery codes, blocks, mutes). An older T4 server only offers what it has.
 
+**Rematch question in the game** (opt-in in 0.1.8: `T4_INGAME_REMATCH=1`; T4 games from branch
+`t4-ingame-rematch-018` on, the T4 0.1.5 beta candidate included; the T4 port's docs/DIRECTFIGHT_T4.md has the design): after
+a casual match the game asks "Rematch?" itself (Cross = yes, Circle = no, 7.5 s). Both yes: the next match plays on
+in the running game, no new game start; the launcher only sends each player's vote (`rematch` with `keep`) and names
+the new lobby match for the game (`<result>-next.json`). No or no answer: the games close and the result card is
+back. It is off unless `T4_INGAME_REMATCH=1` is set for the launcher (the T4 game's own switch
+`TEKKEN4_INGAME_REMATCH` is off by default too; the launcher sets it to 1 only when everything below holds), and it
+needs: a game that has it (the launcher looks for the switch's name in the game's program file), a server that
+offers it (`ingame_rematch_v1`, `T5L_INGAME_REMATCH`), the opponent's launcher and game having it too, and a casual
+match outside a running set. In every other case, and whenever something does not answer in time, the game is
+closed after the match and Rematch / Back to lobby work as before.
+
 Not yet, because the T4 game needs them first: spectating and replays, training rooms and the health
-handicap, the in-game rematch question and automatic skips, choosing the stage in the lobby (pick it on
+handicap, automatic skips, choosing the stage in the lobby (pick it on
 T4's own stage select). The launcher can request automatic VS entry, but a direct-to-fight
 handoff remains unverified. The T4 server switches unsupported game features off
 (`T5L_GAME_CAPS_OFF`, `T5L_STAGE_CHOICE`), and the launcher does not offer them for T4.
