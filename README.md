@@ -23,7 +23,9 @@ guest or account login, player list, rooms, chat, quick match and challenges thr
 lobby server (Tekken 4) or the T5DR lobby (Tekken 5 DR). Ranked is available when the server enables it and requires an account;
 T4 keeps separate ratings and uses the shared 37-rank T5DR ladder for tier labels,
 retaining server-supplied labels when no known tier is available. Direct IP or VPN is under
-Settings > Advanced > **Direct connection (LAN / no server)**.
+Settings > Advanced > **Direct connection (LAN / no server)**. Tekken Tag Tournament 2 (TAG2 PC 0.16.33, an install
+you already have) can be started offline from here, with four quick settings; its sign-in, online play and Ranked
+stay in TAG2's own launcher ([docs/TAG2.md](docs/TAG2.md)).
 
 Known issues (the same list as in the changelog): pads, including the PlayStation reader and the Pad bindings pages,
 are tested with stand-ins and not yet on real hardware; Tekken 4 online through the launcher needs a T4 lobby server

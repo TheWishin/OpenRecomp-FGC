@@ -1,6 +1,8 @@
 # Tekken Tag Tournament 2 (TAG2 PC) adapter
 
-Status: **development branch, not released.** The files are in the package list; the checks under "Before a release" are open.
+Status: **first step, released in 0.1.7.** Offline Play and the four quick settings for TAG2 PC 0.16.33; the rows that
+talk to TAG2's live service (sign in, play online, Ranked) are off by default. The checks under "Before a release"
+that need a real TAG2 install are still open.
 
 TAG2 PC is frameperfectlab.com's PC port. `games/tag2.json` (manifest v2) already finds an installed TAG2 PC,
 shows its updates and opens TAG2's own launcher. The adapter `openrecomp/adapters/tag2.py` adds account, team and

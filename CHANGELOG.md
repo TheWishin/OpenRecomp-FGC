@@ -16,8 +16,8 @@ choice, and fixes for stuck builds and cut-off updates. The ranked costume needs
   costume; X (or a click) shows the next one. It is remembered per fighter (the same choice T5DR's own launcher
   keeps) and sent with the ranked search. Needs T5DR Online 1.2.3 or newer and the new lobby server; fighters with
   one costume, Random and older installs show no choice.
-- **Tekken 5 DR in-game rematch:** for installs that have it (T5DR 1.2.1 and newer) the rematch question in the game is
-  announced by default; `T5_INGAME_REMATCH=0` turns it off. Installs without it (1.2.0) keep it opt-in.
+- **Tekken 5 DR in-game rematch:** for installs that have it (T5DR 1.2.0 and newer) the rematch question in the game is
+  announced by default, as in T5DR Online's own launcher; `T5_INGAME_REMATCH=0` turns it off.
 - **Tekken 5 DR opens on the monitor the launcher is on**, as T5DR's own launcher does.
 - **Tekken 4 starts with the settings its own launcher gives:** Low keeps anti-aliasing off and no anisotropic
   filtering, and a 16:9 choice made in T4's launcher counts here (and the other way round).
