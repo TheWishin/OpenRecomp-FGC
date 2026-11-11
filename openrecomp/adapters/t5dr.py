@@ -25,7 +25,7 @@ from .launch_guard import LaunchGuard
 from .t5_coexist import load_settings, readonly_imports
 from .t5_compatibility import build_compatibility
 from .t5_build_runtime import start_build_with_python
-from . import t5_buildlock, t5_monitor
+from . import t5_buildlock, t5_monitor, t5_runtime
 from .. import t5_art_child, t5_startlog
 from ..manifest import art_dir
 from ..fighter_render import t5_cache_name
@@ -273,6 +273,12 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
                 state.update(ok=False, needs_rebuild=True)
             elif compatibility == "unknown" and state.get("built"):
                 state["ok"] = False
+        if state.get("needs_rebuild"):
+            # T5DR 1.2.4+: the build has the other prebuilt runtime than this PC needs (SSE2 / SSE4.1). The install's
+            # game_state asks for the rebuild itself; this names the reason (asked only when a rebuild is due).
+            runtime = t5_runtime.rebuild_for(self.core, self.s.out_dir)
+            if runtime:
+                state["runtime_rebuild"] = runtime
         return state
 
     def _refresh_state(self):
@@ -331,6 +337,10 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             status, detail = "@build_again", "@t5.coexist.build_differs"
         elif st.get("compatibility") == "unknown" and st.get("built"):
             status, detail = "@not_ready", "@t5.coexist.build_unknown"
+        elif st["needs_rebuild"] and st.get("runtime_rebuild") == "sse2":
+            status, detail = "@build_again", "@t5.rebuild_runtime_sse2"
+        elif st["needs_rebuild"] and st.get("runtime_rebuild") == "sse41":
+            status, detail = "@build_again", "@t5.rebuild_runtime_sse41"
         elif st["needs_rebuild"]:
             status, detail = "@build_again", "@t5.rebuild_detail"
         else:

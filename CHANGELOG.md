@@ -10,6 +10,12 @@ TheWishin/Tekken4Recomp).
   game asks "Rematch?" after a casual online match, both players answer with the pad, and a rematch plays on in the
   running game without a new start. Off by default while Tekken 4 is a beta; without the switch, or with an older
   game, server or opponent, everything is as before.
+- **Tekken 5 DR on processors without SSE4.1** (needs T5DR Online 1.2.4 or newer, which ships a second, slower build
+  for them): Build game picks it by itself, the same way T5DR's own launcher does (it is the T5DR install's own
+  check: Windows first, then the processor itself through the bundled compiler, because Windows 10 before 2004
+  always answers "no"). When a build has the other version, the Play page says so and Build again makes the right
+  one. Check my problem shows "No SSE4.1: the game uses its slower build" with the speed to expect; with an older
+  T5DR install it now says the processor is too old instead of "another issue".
 
 ## v0.1.7
 

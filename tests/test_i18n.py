@@ -138,7 +138,7 @@ def untranslated_literals(source):
         "rb_cost.txt", ".t5_netext", r"[a-z]{2,3}(?:-[A-Z]{2})?",
         "_items_", "_view_", "source:", "text:", "space", "del", "done", "random", "reload", "nt", "utf-8", "w", "replace",
         "folder", "file", "dir", "action", "dev", "auto", "1080p", "1440p", "4K", "SLUS-20328", "T5DR Online",
-        "launcher", "runtime", "core.py", "t4core.py", "t4_launcher.pyw", "t5dr_launcher.pyw", "t5dr.exe",
+        "launcher", "runtime", "sse41", "sse2", "core.py", "t4core.py", "t4_launcher.pyw", "t5dr_launcher.pyw", "t5dr.exe",
         "reports", "t4-report-", "Tekken 4 Online",  # T4 report folder, temporary prefix and lobby metadata
         "openrecomp-release.json", ".git", "TEKKEN/DATA.BIN", "IRX/IOPRP243.IMG", "t4-game-files.json",  # T4 folder checks and game files (0.1.3)
         "T5DR Online.exe", "T5DROnline", "online.json", "release.json", "lobby", "t5lobby", "tools", "data",

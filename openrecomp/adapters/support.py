@@ -32,6 +32,12 @@ FINDINGS = {
     "wine": ("@support.finding.wine.title", "@support.finding.wine.fix"),
     "wine_graphics": ("@support.finding.wine_graphics.title", "@support.finding.wine_graphics.fix"),
     "firewall": ("@support.finding.firewall.title", "@support.finding.firewall.fix"),
+    "old_cpu": ("@support.finding.old_cpu.title", "@support.finding.old_cpu.fix"),
+}
+# The same key as a hint: T5DR 1.2.4+ ships an SSE2 runtime that BUILD GAME picks by itself on a processor without
+# SSE4.1 (its problem_check then says "slower build" instead of "too old").
+HINTS = {
+    "old_cpu": ("@support.finding.old_cpu_sse2.title", "@support.finding.old_cpu_sse2.fix"),
 }
 
 
@@ -197,9 +203,10 @@ class T5Support:
                 check, _report = self._support_runtime()
                 findings = []
                 for finding in check.check(self.s.out_dir):
-                    label, fix = FINDINGS.get(finding.key, ("@support.finding.unknown.title", "@support.finding.unknown.fix"))
-                    findings.append(dict(id=finding.key, label=label, seen="", fix=fix,
-                                         kind=getattr(finding, "kind", "problem")))
+                    kind = getattr(finding, "kind", "problem")
+                    label, fix = ((HINTS.get(finding.key) if kind == "hint" else None)
+                                  or FINDINGS.get(finding.key, ("@support.finding.unknown.title", "@support.finding.unknown.fix")))
+                    findings.append(dict(id=finding.key, label=label, seen="", fix=fix, kind=kind))
                 state.update(checked=True, findings=findings)
             elif kind == "send":
                 _check, report = self._support_runtime()
