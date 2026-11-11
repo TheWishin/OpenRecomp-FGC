@@ -9,19 +9,51 @@
 the couch: designed for controller use, with mouse and keyboard support too. Physical-pad acceptance is still required. Button prompts follow the device you
 used last.
 
+**Release 0.1.7.** Download `OpenRecomp-v0.1.7.zip` or `OpenRecomp-FGC-Setup-0.1.7.exe` from
+https://github.com/TheWishin/OpenRecomp-FGC/releases. What is new: [CHANGELOG.md](CHANGELOG.md).
+
 > OpenRecomp-FGC contains **no game data**: no ISO, no packages, no keys, no BIOS, no translated game code, no game art.
 > You build each game from your own copy. Pictures on the launcher are read from your own build and stay on your PC.
 
 ## Status
 
-T4 beta release candidate. Online opens the same login and lobby screens as T5DR:
+Release 0.1.7. The launcher runs Tekken 5: Dark Resurrection (through an installed T5DR Online) and Tekken 4 (USA)
+and has a free slot for more. Online opens the same login and lobby screens as T5DR:
 guest or account login, player list, rooms, chat, quick match and challenges through a T4
-lobby server. Ranked is available when the server enables it and requires an account;
+lobby server (Tekken 4) or the T5DR lobby (Tekken 5 DR). Ranked is available when the server enables it and requires an account;
 T4 keeps separate ratings and uses the shared 37-rank T5DR ladder for tier labels,
 retaining server-supplied labels when no known tier is available. Direct IP or VPN is under
 Settings > Advanced > **Direct connection (LAN / no server)**.
-Release depends on the owner's two-PC test and the
-clean-PC checks below; a Sunday release is a target, not a completed acceptance result.
+
+Known issues (the same list as in the changelog): pads, including the PlayStation reader and the Pad bindings pages,
+are tested with stand-ins and not yet on real hardware; Tekken 4 online through the launcher needs a T4 lobby server
+and direct entry into a fight is not verified against a real Tekken 4 build; the Tekken 5 DR in-game rematch has not
+had its two-PC test yet.
+
+## Requirements
+
+- Windows 10 or 11, 64-bit. Nothing else to install for the launcher: the zip brings its own Python and Qt (no
+  Python, Visual Studio, Git or Microsoft download). Linux and macOS: not supported
+  ([Steam Deck notes](docs/LINUX_STEAM_DECK.md)).
+- Each game has its own needs, the same as in its own notes: **Tekken 5 DR** needs a DirectX 12 graphics card, a
+  processor with SSE4.1 and 4 GB RAM (see the
+  [T5DR Online requirements](https://github.com/TheWishin/T5DROnline#requirements)); **Tekken 4** needs OpenGL 4.3, 4 GB
+  RAM and any 64-bit processor.
+- Your own copy of each game: the PSN package (`.pkg`) and licence (`.rap`) of Tekken 5 DR, an ISO of Tekken 4 USA
+  (SLUS-20328). No game data is in the download.
+- A folder you can write to (not Program Files), with a short path.
+- Internet: for lobbies and updates; the first Tekken 5 DR build fetches about 50 KB of public key data from github.com.
+  **Tekken 4 downloads nothing to build** (since Tekken 4 0.1.4: the compiler is in the zip, no Microsoft files).
+
+## Install
+
+1. Download `OpenRecomp-FGC-Setup-0.1.7.exe` (installs the launcher) or `OpenRecomp-v0.1.7.zip` from the Releases page.
+   Windows may warn once about an unsigned program.
+2. Setup: run it. Zip: extract **everything** into its own folder and open `OpenRecomp.exe`. Do not run it from
+   inside the zip viewer.
+3. On the shelf choose a game and install it (Tekken 5 DR: T5DR Online; Tekken 4: its release). The launcher checks
+   every download.
+4. **Build** the game from your own copy (Tekken 5 DR: `.pkg` and `.rap`; Tekken 4: the ISO) and press Play.
 
 | Game | How it connects | Sections |
 |---|---|---|
@@ -69,9 +101,8 @@ it does not replace the longer release checks.
 
 ## Start
 
-The player release is intended for Windows 10/11: extract the whole release zip and open `OpenRecomp.exe`.
-Its private runtime and native starter still need owner packaging and clean-PC acceptance. The controller walk and
-remaining release gates are in [T4 first run](docs/T4_FIRST_RUN.md).
+The player release is for Windows 10/11: extract the whole release zip and open `OpenRecomp.exe` (see Install above).
+The controller walk is in [T4 first run](docs/T4_FIRST_RUN.md).
 
 For this source checkout, you need Python 3.12:
 
@@ -90,7 +121,7 @@ both source scans pass and no file holds this PC's user name, profile path,
 computer name or Git e-mail. The runtime is reused on later runs. It contains
 `START_HERE.txt`, `START_HIER.txt`, `BUNDLE.txt`, `OpenRecomp-FGC/` and the
 sibling `T4/` source catalog. Tekken 5 DR is not inside: each player puts their
-own unpacked `T5DR-Online-1.2.0` folder next to the two, where the launcher finds
+own unpacked T5DR Online folder (1.2.3 or newer) next to the two, where the launcher finds
 it, and builds it once in its own `T5DR Online.exe` with their .pkg and .rap.
 Keep the folders together and double-click `OpenRecomp-FGC/run.cmd`; the bundled
 launcher runtime needs no separate installation or first-start download.
@@ -100,7 +131,8 @@ build, game data or game pictures are included. See
 and the [hand check](docs/HAND_CHECK.md) for the two-PC walk through both games.
 
 Follow the German [test-bundle walk](docs/T4_FIRST_RUN.md). The launcher finds
-`T4/`, checks build tools by itself and installs missing ones with winget or verified official downloads, verifies the
+`T4/`, checks build tools by itself (this **source** test bundle only: it installs missing ones with winget or
+verified official downloads; the player release of Tekken 4 needs no tools and downloads nothing), verifies the
 player's ISO and shows build progress. Then open Online and log in to the T4 lobby.
 For the optional advanced direct IP route, compare Build-ID and compiler/MSVC before
 Host/Join. Firewall, UDP 7400, port-forwarding and Tailscale steps for that route are in the

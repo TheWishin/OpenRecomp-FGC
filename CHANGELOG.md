@@ -3,9 +3,34 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
-## Unreleased
+## v0.1.7
 
-- **New: a running build or update stays in the top bar.** On every screen the top bar shows the step, the
+A calmer look, one set of settings and one controls file shared with Tekken 5 DR's own launcher, a ranked costume
+choice, and fixes for stuck builds and cut-off updates. The ranked costume needs T5DR Online 1.2.3 or newer.
+
+- **A calmer launcher by default.** Settings > Video > Interface colours: **Calm** (default) uses neutral greys for
+  every game and the game's colour only as the accent (focus, active tab, the main action); **Vivid** is the 0.1.6
+  palette. The Online page has 7 sections instead of 9 (Statistics opens on "Leaderboard & stats", account tools
+  on "Profile & account"). A settings tab with only one or two rows joins the tab before it.
+- **Tekken 5 DR ranked: pick the costume of your fighter.** In the fighter grid the focused fighter shows its ranked
+  costume; X (or a click) shows the next one. It is remembered per fighter (the same choice T5DR's own launcher
+  keeps) and sent with the ranked search. Needs T5DR Online 1.2.3 or newer and the new lobby server; fighters with
+  one costume, Random and older installs show no choice.
+- **Tekken 5 DR in-game rematch:** for installs that have it (T5DR 1.2.1 and newer) the rematch question in the game is
+  announced by default; `T5_INGAME_REMATCH=0` turns it off. Installs without it (1.2.0) keep it opt-in.
+- **Tekken 5 DR opens on the monitor the launcher is on**, as T5DR's own launcher does.
+- **Tekken 4 starts with the settings its own launcher gives:** Low keeps anti-aliasing off and no anisotropic
+  filtering, and a 16:9 choice made in T4's launcher counts here (and the other way round).
+- **A game starts with the environment its own launcher gives it:** the launcher's interface style no longer leaks
+  into the games.
+- **The build check is steadier.** Only a real build process blocks a build (a cut-off `build.log` no longer does),
+  and **Build anyway** (with a confirmation) is offered while T5DR's launcher looks busy. Long command lines no
+  longer make the process check answer "could not look".
+- Every Tekken 5 DR game start writes one line to the install's launcher log (process, log file, settings given;
+  user names and paths masked). Rank plates and fighter pictures are decoded in a short helper process, only while no
+  game or online match runs. The "Free items offline" hint says it unlocks the greyed-out customization items.
+
+- **A running build or update stays in the top bar.** On every screen the top bar shows the step, the
   percentage and the time left of the build, install or update that runs. A click (F7; on a pad: Quick access >
   Show progress) opens its card. The bar goes when the job ends.
 - **Tekken 5 DR: one set of settings for both launchers.** What you set in OpenRecomp (display, resolution, graphics, input delay, training, sounds, replays, name ...) is what T5DR's own launcher shows, and the other way round, like the controls since 0.1.7. Nothing to do: your existing settings are taken over at the first start (where both launchers had a different value, the one saved last wins; the old files are kept as backups in `%APPDATA%\T5DROnline\settings-backup`). Package, licence and language stay per launcher. Details: docs/SETTINGS_SYNC.md.
@@ -31,6 +56,15 @@ TheWishin/Tekken4Recomp).
   game does (XInput slots 5-8, USB and Bluetooth, also the extended Bluetooth report Steam/DS4Windows switch them to),
   and the launcher can be navigated with them without a T5DR install. Read-only, shared with the game, only while the
   page is open; a pad Steam Input hands on as an Xbox pad is left to Steam.
+
+### Known issues
+
+- **Pads are not tried on real hardware yet.** The PlayStation pad reader (DualShock 4, DualSense, Edge) and the
+  Tekken 5 and Tekken 4 Pad bindings pages are tested with stand-ins only.
+- **Tekken 4 online through the launcher needs a T4 lobby server.** Without one, use the direct connection under
+  Settings > Advanced. Direct entry into a fight and the game's fighter and stage choice are not verified against a
+  real Tekken 4 build.
+- **The Tekken 5 DR in-game rematch has not had its two-PC test yet.**
 
 ## v0.1.6
 

@@ -51,8 +51,8 @@ offline synth exports; they do not verify physical playback or perceived balance
 
 | Game | Home | Lobby | Match found | Recording | Original sound preview |
 | --- | --- | --- | --- | --- | --- |
-| T5DR | [PNG](../build/shots/vibe/t5-en-home.png) | [PNG](../build/shots/vibe/t5-en-lobby_dense.png) | [PNG](../build/shots/vibe/t5-en-matched.png) | [12 s GIF](../build/shots/vibe/t5-navigation.gif) | [WAV](../build/shots/vibe/t5dr-sound-preview.wav) |
-| T4 | [PNG](../build/shots/vibe/t4-en-home.png) | [PNG](../build/shots/vibe/t4-en-lobby_dense.png) | [PNG](../build/shots/vibe/t4-en-matched.png) | [12 s GIF](../build/shots/vibe/t4-navigation.gif) | [WAV](../build/shots/vibe/t4-sound-preview.wav) |
+| T5DR | PNG (`build/shots/vibe/t5-en-home.png`) | PNG (`build/shots/vibe/t5-en-lobby_dense.png`) | PNG (`build/shots/vibe/t5-en-matched.png`) | 12 s GIF (`build/shots/vibe/t5-navigation.gif`) | WAV (`build/shots/vibe/t5dr-sound-preview.wav`) |
+| T4 | PNG (`build/shots/vibe/t4-en-home.png`) | PNG (`build/shots/vibe/t4-en-lobby_dense.png`) | PNG (`build/shots/vibe/t4-en-matched.png`) | 12 s GIF (`build/shots/vibe/t4-navigation.gif`) | WAV (`build/shots/vibe/t4-sound-preview.wav`) |
 
 Self-review found and corrected small T5DR main art, beige T4 focus colours,
 720p/130% summary overflow, a transform precision regression, and GIF palette
