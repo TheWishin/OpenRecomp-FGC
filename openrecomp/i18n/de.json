@@ -1961,5 +1961,10 @@
  "tag2.setting.vsync": "VSync (nur Bild)",
  "tag2.setting.hint": "Wird vom eigenen Launcher-Code von TAG2 gespeichert; der TAG2-Launcher zeigt denselben Wert.",
  "dialog.start_warning.title": "Trotzdem starten?",
- "tag2.no_audio": "Windows hat gerade keine Audioausgabe (keine Lautsprecher oder Kopfhörer). Ohne sie kann TAG2 direkt nach dem Start mit einem Fehler schließen. Schließe zuerst eine Audioausgabe an oder schalte sie ein, oder starte trotzdem."
+ "tag2.no_audio": "Windows hat gerade keine Audioausgabe (keine Lautsprecher oder Kopfhörer). Ohne sie kann TAG2 direkt nach dem Start mit einem Fehler schließen. Schließe zuerst eine Audioausgabe an oder schalte sie ein, oder starte trotzdem.",
+ "t4.intro_audio_delay": "Intro-Ton verzögern (ms)",
+ "t4.intro_audio_delay_ms_1770": "1770 ms",
+ "t4.intro_audio_delay_custom": "{ms} ms",
+ "t4.intro_audio_delay_hint": "Das Intro beginnt mit 1,77 Sekunden schwarzem Bild, während die Musik schon läuft. Mit 1770 ms startet die Musik mit der ersten Szene. Standard: Aus.",
+ "t4.intro_audio_delay_lead": "Betrifft nur den Ton der Filme. Gilt ab dem nächsten Spielstart."
 }

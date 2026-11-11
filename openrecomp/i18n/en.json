@@ -1961,5 +1961,10 @@
  "tag2.setting.vsync": "VSync (picture only)",
  "tag2.setting.hint": "Saved by TAG2's own launcher code; TAG2's launcher shows the same value.",
  "dialog.start_warning.title": "Start anyway?",
- "tag2.no_audio": "Windows has no audio output right now (no speakers or headphones). TAG2 can close with an error right after starting without one. Connect or switch on an audio output first, or start anyway."
+ "tag2.no_audio": "Windows has no audio output right now (no speakers or headphones). TAG2 can close with an error right after starting without one. Connect or switch on an audio output first, or start anyway.",
+ "t4.intro_audio_delay": "Delay intro sound (ms)",
+ "t4.intro_audio_delay_ms_1770": "1770 ms",
+ "t4.intro_audio_delay_custom": "{ms} ms",
+ "t4.intro_audio_delay_hint": "The intro opens on 1.77 seconds of black picture with the music already playing. With 1770 ms the music starts with the first scene. Default: Off.",
+ "t4.intro_audio_delay_lead": "Changes the sound of the movies only. Counts from the next game start."
 }

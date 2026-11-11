@@ -1961,5 +1961,10 @@
  "tag2.setting.vsync": "VSync (image seulement)",
  "tag2.setting.hint": "Enregistré par le code du lanceur de TAG2 ; le lanceur de TAG2 affiche la même valeur.",
  "dialog.start_warning.title": "Démarrer quand même ?",
- "tag2.no_audio": "Windows n'a pas de sortie audio pour le moment (ni haut-parleurs ni casque). Sans elle, TAG2 peut se fermer avec une erreur juste après le démarrage. Branche ou active d'abord une sortie audio, ou démarre quand même."
+ "tag2.no_audio": "Windows n'a pas de sortie audio pour le moment (ni haut-parleurs ni casque). Sans elle, TAG2 peut se fermer avec une erreur juste après le démarrage. Branche ou active d'abord une sortie audio, ou démarre quand même.",
+ "t4.intro_audio_delay": "Retarder le son de l'intro (ms)",
+ "t4.intro_audio_delay_ms_1770": "1770 ms",
+ "t4.intro_audio_delay_custom": "{ms} ms",
+ "t4.intro_audio_delay_hint": "L'intro commence par 1,77 seconde d'image noire alors que la musique joue déjà. Avec 1770 ms, la musique démarre avec la première scène. Par défaut : désactivé.",
+ "t4.intro_audio_delay_lead": "Ne change que le son des vidéos. S'applique au prochain lancement du jeu."
 }

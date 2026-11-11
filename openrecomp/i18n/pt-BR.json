@@ -1961,5 +1961,10 @@
  "tag2.setting.vsync": "VSync (só imagem)",
  "tag2.setting.hint": "Salvo pelo código do próprio launcher do TAG2; o launcher do TAG2 mostra o mesmo valor.",
  "dialog.start_warning.title": "Iniciar mesmo assim?",
- "tag2.no_audio": "O Windows está sem saída de áudio agora (sem alto-falantes ou fones). Sem ela, o TAG2 pode fechar com um erro logo após iniciar. Conecte ou ligue uma saída de áudio primeiro, ou inicie mesmo assim."
+ "tag2.no_audio": "O Windows está sem saída de áudio agora (sem alto-falantes ou fones). Sem ela, o TAG2 pode fechar com um erro logo após iniciar. Conecte ou ligue uma saída de áudio primeiro, ou inicie mesmo assim.",
+ "t4.intro_audio_delay": "Atrasar o som da intro (ms)",
+ "t4.intro_audio_delay_ms_1770": "1770 ms",
+ "t4.intro_audio_delay_custom": "{ms} ms",
+ "t4.intro_audio_delay_hint": "A intro começa com 1,77 segundo de tela preta enquanto a música já toca. Com 1770 ms a música começa com a primeira cena. Padrão: desativado.",
+ "t4.intro_audio_delay_lead": "Muda só o som dos vídeos. Vale a partir do próximo início do jogo."
 }
