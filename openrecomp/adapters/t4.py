@@ -17,7 +17,7 @@ from .t4_support import T4Support
 from .t4_controls import T4Controls
 from .t5_online import game_process_running
 from .t4_install import install_root, install_source, source_root
-from .. import t4_art, wine
+from .. import i18n, t4_art, wine
 from ..fighter_render import t4_cache_token
 from ..manifest import art_dir, save_config
 from ..game_releases import clear_rebuild, rebuild_required
@@ -35,6 +35,10 @@ GRAPHICS_OPTIONS = {
     # online too, with any mix of 4:3 and 16:9 (T4 docs/WIDESCREEN.md).
     "aspect": [("4:3", "@aspect.4_3"), ("16:9", "@aspect.16_9")],
 }
+# TEKKEN4_MOVIE_AUDIO_DELAY_MS (T4 docs/MOVIE_AUDIO.md): the intro opens on 1.77 s of black with its music already
+# playing; 1770 starts the music with the first scene. Sound only, never part of a match.
+INTRO_AUDIO_DELAYS = [(0, "@off"), (1770, "@t4.intro_audio_delay_ms_1770")]
+INTRO_AUDIO_DELAY_MAX = 5000
 BETA_DISABLED_SWITCHES = (
     "TEKKEN4_RUNAHEAD", "TEKKEN4_NET_HASH_PROFILE", "TEKKEN4_NET_COST_PROFILE",
     "TEKKEN4_NET_COALESCE", "TEKKEN4_NET_STRICT_HELLO", "TEKKEN4_RB_AUDIO_TIMELINE",
@@ -399,6 +403,9 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
             env["TEKKEN4_WIDESCREEN"] = "1" if graphics["aspect"] == "16:9" else "0"
             if getattr(self.core, "SAVE_DIR", ""):
                 env["TEKKEN4_CONTROLS"] = self._t4c_path()        # the Pad bindings page's file (a missing file = default)
+            env.pop("TEKKEN4_MOVIE_AUDIO_DELAY_MS", None)
+            if self._intro_audio_delay():
+                env["TEKKEN4_MOVIE_AUDIO_DELAY_MS"] = str(self._intro_audio_delay())
             env.update(extra_env or {})
             env.update(self._beta_env())
             if getattr(self.core, "source_only", False) and (extra_env or {}).get("TEKKEN4_NET"):
@@ -491,6 +498,11 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
         saved = self.config.get("t4_diagnostics")
         return isinstance(saved, dict) and saved.get("net_diagnostics") is True
 
+    def _intro_audio_delay(self):
+        # 0 = off. A whole number of milliseconds typed into the launcher's config counts too (0..5000).
+        saved = self.config.get("t4_intro_audio_delay_ms")
+        return saved if type(saved) is int and 0 < saved <= INTRO_AUDIO_DELAY_MAX else 0
+
     def _beta_env(self):
         # The Sunday experiments have no two-PC acceptance evidence yet.
         env = {name: "0" for name in BETA_DISABLED_SWITCHES}
@@ -520,6 +532,10 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
         res = [(k, "@resolution.auto" if k == "auto" else label.split(" (")[0]) for k, label, _x in self.core.RESOLUTIONS]
         yes_no = [(False, "@off"), (True, "@on")]
         graphics = self._graphics_values()
+        delay = self._intro_audio_delay()
+        delays = list(INTRO_AUDIO_DELAYS)
+        if delay not in [ms for ms, _label in delays]:
+            delays.append((delay, i18n.message("t4.intro_audio_delay_custom", ms=delay)))
         return [
             dict(id="resolution", label="@internal_resolution", options=res, value=self.s.get("resolution", "auto"),
                  hint="@resolution.hint", lead="@resolution.t4_lead"),
@@ -530,6 +546,8 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
                  lead="@exclusive.lead"),
             dict(id="sound", label="@sound", options=yes_no, value=bool(self.s.get("sound", True)),
                  hint="@sound.hint", lead="@sound.lead"),
+            dict(id="intro_audio_delay", label="@t4.intro_audio_delay", options=delays, value=delay,
+                 hint="@t4.intro_audio_delay_hint", lead="@t4.intro_audio_delay_lead"),
             dict(id="aa", label="@aa", options=GRAPHICS_OPTIONS["aa"], value=graphics["aa"],
                  hint="@aa.hint", lead="@aa.lead"),
             dict(id="hud", label="@hud", options=GRAPHICS_OPTIONS["hud"], value=graphics["hud"],
@@ -560,6 +578,12 @@ class T4(T4Controls, T4Support, T4Online, Adapter):
             if type(value) is not bool:
                 return
             self.config["t4_name_plates"] = value
+            save_config(self.config)
+            return
+        if sid == "intro_audio_delay":
+            if type(value) is not int or not 0 <= value <= INTRO_AUDIO_DELAY_MAX:
+                return
+            self.config["t4_intro_audio_delay_ms"] = value
             save_config(self.config)
             return
         if sid == "net_diagnostics":

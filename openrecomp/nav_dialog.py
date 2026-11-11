@@ -9,6 +9,15 @@ class Dialog:
         self.confirm_kind = kind
         self.exit_focus = 0
 
+    def _start_checked(self, g, what, go):
+        """Start through `go`, after the adapter's warning for this start (if it has one) was confirmed."""
+        warning = getattr(g.a, "start_warning", None)
+        text = warning(what) if callable(warning) else ""
+        if not text:
+            return go()
+        self.start_warning = dict(text=text, go=go)
+        self._ask("start_warning")
+
     def _dialog(self, a):
         if self.confirm_kind == "online_challenge":
             return self._online_challenge_dialog(a)
@@ -44,6 +53,8 @@ class Dialog:
                     self.say("@cancelling_build")
             elif yes and self.confirm_kind == "stop_game" and not self._dry("@dry_stop"):
                 self._offline_action(self.game.a.stop)
+            elif yes and self.confirm_kind == "start_warning":
+                self.__dict__.pop("start_warning")["go"]()         # the player read it and starts anyway
             elif yes and self.confirm_kind == "rebuild":
                 self._start_build(self.game, force=True)
             elif yes and self.confirm_kind == "build_anyway":
@@ -160,6 +171,8 @@ class Dialog:
             title, text = "@dialog.quit.title", "@dialog.quit.text"
         elif self.confirm_kind == "stop_game":
             title, text = "@dialog.stop.title", "@dialog.stop.text"
+        elif self.confirm_kind == "start_warning":
+            title, text = "@dialog.start_warning.title", self.start_warning["text"]
         elif self.confirm_kind == "rebuild":
             title, text = "@dialog.rebuild.title", "@dialog.rebuild.text"
         elif self.confirm_kind == "build_anyway":

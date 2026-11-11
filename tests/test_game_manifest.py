@@ -158,7 +158,7 @@ class LoadTest(Home):
         tag2 = next(m for m in manifests if m["id"] == "tag2")
         self.assertEqual(problems, [])
         a = adapters.make(tag2, {})
-        self.assertEqual(type(a).__name__, "ManifestGame")        # no tag2 adapter on this launcher
+        self.assertIn("ManifestGame", [c.__name__ for c in type(a).__mro__])   # with or without the tag2 adapter
         self.assertFalse(a.found())
         from openrecomp.app import load_games
         self.assertNotIn("tag2", [g.m["id"] for g in load_games({})[0]])

@@ -56,6 +56,16 @@ choice, and fixes for stuck builds and cut-off updates. The ranked costume needs
   game does (XInput slots 5-8, USB and Bluetooth, also the extended Bluetooth report Steam/DS4Windows switch them to),
   and the launcher can be navigated with them without a T5DR install. Read-only, shared with the game, only while the
   page is open; a pad Steam Input hands on as an Xbox pad is left to Steam.
+- **Tekken 4: Delay intro sound (ms).** Settings > Tekken 4: **Off** (default) or **1770**. The intro movie's music
+  starts over 1.77 s of black before the first picture; 1770 starts the sound with the picture. Only a value other
+  than 0 is given to the game (`TEKKEN4_MOVIE_AUDIO_DELAY_MS`); needs a Tekken 4 build that knows the switch
+  (Tekken 4 0.1.5-beta).
+- **Tekken Tag Tournament 2 (TAG2 PC), first step.** When a TAG2 PC install of the published version 0.16.33 is
+  found, Play starts it offline directly and four quick settings (skip intros, graphics backend, internal
+  resolution, VSync) can be changed here. Any other TAG2 version works as before: through TAG2's own launcher.
+  Sign-in, online play and Ranked stay in TAG2's own launcher (the rows for them exist but are switched off), and so
+  do updates, build, repair and controller setup. Before a start without an audio output the launcher warns: TAG2
+  can close with an error right after start when Windows has no speakers or headphones. Details: docs/TAG2.md.
 
 ### Known issues
 
@@ -65,6 +75,11 @@ choice, and fixes for stuck builds and cut-off updates. The ranked costume needs
   Settings > Advanced. Direct entry into a fight and the game's fighter and stage choice are not verified against a
   real Tekken 4 build.
 - **The Tekken 5 DR in-game rematch has not had its two-PC test yet.**
+- **The pad binding fix was tested with simulated pads only,** not yet with a real controller or from a packaged
+  build.
+- **TAG2:** sign-in, online play and Ranked were never tried against TAG2's live service and are off; nothing of the
+  TAG2 part was tried with a real TAG2 install yet.
+- **Tekken 5 DR quick-match button bindings:** the fix was not ready for this version.
 
 ## v0.1.6
 

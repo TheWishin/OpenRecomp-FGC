@@ -94,6 +94,15 @@ class SharedFile(unittest.TestCase):
         self.assertIn("8 = RT", text)
         self.assertEqual(sorted(p.name for p in self.ini.parent.iterdir()), ["controls.ini"])
 
+    def test_second_binding_of_a_session_saves_and_keeps_the_first(self):
+        self.bind("2", "X")
+        self.bind("L1", "LB")                                         # 0.1.6: "changed on disk", nothing saved
+        self.assertEqual(self.ini.read_text().splitlines(), ["1 = A", "2 = X", "4 = LB"])
+        self.adapter.controls_close()
+        self.adapter.poll_binding()                                   # a new page reads the same file
+        slots = {slot["id"]: slot["value"] for slot in self.adapter.controls()[0]["slots"]}
+        self.assertEqual((slots["2"], slots["L1"]), ("X", "LB"))
+
     def test_other_launcher_changed_the_file_since_we_read_it(self):
         self.adapter.poll_binding()
         self.adapter.begin_binding("pad", "R2")
