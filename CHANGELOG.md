@@ -3,7 +3,7 @@
 Player-facing changes of OpenRecomp-FGC. The games have their own notes (TheWishin/T5DROnline,
 TheWishin/Tekken4Recomp).
 
-## v0.1.8 (unreleased)
+## v0.1.8
 
 - **Tekken 4: the rematch can be asked in the game (opt-in, `T4_INGAME_REMATCH=1`).** With a Tekken 4 build that has
   the question (the T4 0.1.5 beta candidate has it, switched off), a lobby server that offers it and an opponent who has it too, the
