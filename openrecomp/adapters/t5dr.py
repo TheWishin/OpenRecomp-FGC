@@ -274,7 +274,7 @@ class T5DR(Controls, T5Support, T5Match, Adapter):
             elif compatibility == "unknown" and state.get("built"):
                 state["ok"] = False
         if state.get("needs_rebuild"):
-            # T5DR 1.2.4+: the build has the other prebuilt runtime than this PC needs (SSE2 / SSE4.1). The install's
+            # T5DR 1.2.3+: the build has the other prebuilt runtime than this PC needs (SSE2 / SSE4.1). The install's
             # game_state asks for the rebuild itself; this names the reason (asked only when a rebuild is due).
             runtime = t5_runtime.rebuild_for(self.core, self.s.out_dir)
             if runtime:

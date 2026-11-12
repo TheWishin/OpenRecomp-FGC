@@ -9,9 +9,10 @@ small and all of it is files next to the game's result file (TEKKEN4_NET_RESULT)
     <stem>-next.json      written by the launcher: {"index": k, "match": "<lobby match id>"} -- the lobby's id of
                           the session's k-th match, once the server made the rematch
 
-Capability as T5DR's, but OFF by default while Tekken 4 is a beta (the T4 game's own default is off too): on only with
-T4_INGAME_REMATCH=1, and only with a game that has it (its program file names the switch TEKKEN4_INGAME_REMATCH).
-Everything else falls back to the launcher's own rematch. Turning the default on is DEFAULT below.
+Capability as T5DR's, on by default since 0.1.8 (owner, 2026-11-11; DEFAULT below; T4_INGAME_REMATCH=0 turns it off),
+used only with a server that offers it and a game that has it (its program file names the switch
+TEKKEN4_INGAME_REMATCH; the T4 game's own default is off, the launcher sets it). Everything else falls back to the
+launcher's own rematch.
 """
 import json
 import os
@@ -28,7 +29,7 @@ _MATCH_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 def wanted(env=None):
-    """The question in the game: T4_INGAME_REMATCH=1 turns it on, 0 off, unset = DEFAULT (off: the launcher asks)."""
+    """The question in the game: T4_INGAME_REMATCH=1 turns it on, 0 off, unset = DEFAULT (on)."""
     value = (os.environ if env is None else env).get(SWITCH, DEFAULT).strip()
     return value == "1"
 

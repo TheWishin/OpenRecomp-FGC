@@ -114,13 +114,14 @@ challenges with **First to** 1-10 and **P1 / P2**), Rooms (classic, community, p
 tables), Friends (requests, invites), Leaderboard, Statistics, Profile (history, per-fighter numbers),
 Tournaments, Account (password, recovery codes, blocks, mutes). An older T4 server only offers what it has.
 
-**Rematch question in the game** (opt-in in 0.1.8: `T4_INGAME_REMATCH=1`; T4 games from branch
+**Rematch question in the game** (on by default since 0.1.8, `T4_INGAME_REMATCH=0` turns it off; T4 games from branch
 `t4-ingame-rematch-018` on, the T4 0.1.5 beta candidate included; the T4 port's docs/DIRECTFIGHT_T4.md has the design): after
 a casual match the game asks "Rematch?" itself (Cross = yes, Circle = no, 7.5 s). Both yes: the next match plays on
 in the running game, no new game start; the launcher only sends each player's vote (`rematch` with `keep`) and names
 the new lobby match for the game (`<result>-next.json`). No or no answer: the games close and the result card is
-back. It is off unless `T4_INGAME_REMATCH=1` is set for the launcher (the T4 game's own switch
-`TEKKEN4_INGAME_REMATCH` is off by default too; the launcher sets it to 1 only when everything below holds), and it
+back. It is on unless `T4_INGAME_REMATCH=0` is set for the launcher; it appears only when the lobby server offers it
+(the Tekken 4 lobby does not yet) and both players have Tekken 4 0.1.5-beta (the T4 game's own switch
+`TEKKEN4_INGAME_REMATCH` is off by default; the launcher sets it to 1 only when everything below holds). It
 needs: a game that has it (the launcher looks for the switch's name in the game's program file), a server that
 offers it (`ingame_rematch_v1`, `T5L_INGAME_REMATCH`), the opponent's launcher and game having it too, and a casual
 match outside a running set. In every other case, and whenever something does not answer in time, the game is

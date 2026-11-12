@@ -34,7 +34,7 @@ FINDINGS = {
     "firewall": ("@support.finding.firewall.title", "@support.finding.firewall.fix"),
     "old_cpu": ("@support.finding.old_cpu.title", "@support.finding.old_cpu.fix"),
 }
-# The same key as a hint: T5DR 1.2.4+ ships an SSE2 runtime that BUILD GAME picks by itself on a processor without
+# The same key as a hint: T5DR 1.2.3+ ships an SSE2 runtime that BUILD GAME picks by itself on a processor without
 # SSE4.1 (its problem_check then says "slower build" instead of "too old").
 HINTS = {
     "old_cpu": ("@support.finding.old_cpu_sse2.title", "@support.finding.old_cpu_sse2.fix"),

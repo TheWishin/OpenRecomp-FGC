@@ -1,4 +1,4 @@
-"""Which prebuilt T5DR runtime a build needs on this PC: the normal one (SSE4.1) or, from T5DR 1.2.4 on, the SSE2 one
+"""Which prebuilt T5DR runtime a build needs on this PC: the normal one (SSE4.1) or, from T5DR 1.2.3 on, the SSE2 one
 for processors without SSE4.1 (`runtime\\sse2\\t5dr.exe`; T5DR's docs/SSE2_BASELINE.md "Shipping it").
 
 Nothing is decided here. BUILD GAME (the install's tools/build_game.py, which OpenRecomp runs through the install's
@@ -51,7 +51,7 @@ def this_pc(core):
 
 def of_build(core, out_dir):
     """'sse41' | 'sse2': the runtime the build under out_dir was made with, None when there is no build stamp.
-    A stamp without the field is from a build before 1.2.4, which only knew the normal runtime."""
+    A stamp without the field is from a build before 1.2.3, which only knew the normal runtime."""
     stamp = os.path.join(out_dir or "", "build", "t5dr_build.json")
     try:
         with open(stamp, encoding="utf-8") as stream:

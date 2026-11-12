@@ -9,7 +9,7 @@
 the couch: designed for controller use, with mouse and keyboard support too. Physical-pad acceptance is still required. Button prompts follow the device you
 used last.
 
-**Release 0.1.7.** Download `OpenRecomp-v0.1.7.zip` or `OpenRecomp-FGC-Setup-0.1.7.exe` from
+**Release 0.1.8.** Download `OpenRecomp-v0.1.8.zip` or `OpenRecomp-FGC-Setup-0.1.8.exe` from
 https://github.com/TheWishin/OpenRecomp-FGC/releases. What is new: [CHANGELOG.md](CHANGELOG.md).
 
 > OpenRecomp-FGC contains **no game data**: no ISO, no packages, no keys, no BIOS, no translated game code, no game art.
@@ -17,7 +17,7 @@ https://github.com/TheWishin/OpenRecomp-FGC/releases. What is new: [CHANGELOG.md
 
 ## Status
 
-Release 0.1.7. The launcher runs Tekken 5: Dark Resurrection (through an installed T5DR Online) and Tekken 4 (USA)
+Release 0.1.8 (it includes everything planned for 0.1.7). The launcher runs Tekken 5: Dark Resurrection (through an installed T5DR Online) and Tekken 4 (USA)
 and has a free slot for more. Online opens the same login and lobby screens as T5DR:
 guest or account login, player list, rooms, chat, quick match and challenges through a T4
 lobby server (Tekken 4) or the T5DR lobby (Tekken 5 DR). Ranked is available when the server enables it and requires an account;
@@ -30,7 +30,10 @@ stay in TAG2's own launcher ([docs/TAG2.md](docs/TAG2.md)).
 Known issues (the same list as in the changelog): pads, including the PlayStation reader and the Pad bindings pages,
 are tested with stand-ins and not yet on real hardware; Tekken 4 online through the launcher needs a T4 lobby server
 and direct entry into a fight is not verified against a real Tekken 4 build; the Tekken 5 DR in-game rematch has not
-had its two-PC test yet.
+had its two-PC test yet; the Tekken 4 intro's sound and picture are not in sync (Settings > Tekken 4 > Delay intro
+sound: 1770); the Tekken 4 HON-MARU stage is not yet confirmed by a player. The Tekken 4 rematch question in the
+game is on by default but appears online only once the lobby server offers it (not yet); both players need Tekken 4
+0.1.5-beta.
 
 ## Requirements
 
@@ -38,7 +41,7 @@ had its two-PC test yet.
   Python, Visual Studio, Git or Microsoft download). Linux and macOS: not supported
   ([Steam Deck notes](docs/LINUX_STEAM_DECK.md)).
 - Each game has its own needs, the same as in its own notes: **Tekken 5 DR** needs a DirectX 12 graphics card, a
-  processor with SSE4.1 and 4 GB RAM (see the
+  processor with SSE4.1 (from T5DR Online 1.2.3 an older processor gets a slower build) and 4 GB RAM (see the
   [T5DR Online requirements](https://github.com/TheWishin/T5DROnline#requirements)); **Tekken 4** needs OpenGL 4.3, 4 GB
   RAM and any 64-bit processor.
 - Your own copy of each game: the PSN package (`.pkg`) and licence (`.rap`) of Tekken 5 DR, an ISO of Tekken 4 USA
@@ -49,7 +52,7 @@ had its two-PC test yet.
 
 ## Install
 
-1. Download `OpenRecomp-FGC-Setup-0.1.7.exe` (installs the launcher) or `OpenRecomp-v0.1.7.zip` from the Releases page.
+1. Download `OpenRecomp-FGC-Setup-0.1.8.exe` (installs the launcher) or `OpenRecomp-v0.1.8.zip` from the Releases page.
    Windows may warn once about an unsigned program.
 2. Setup: run it. Zip: extract **everything** into its own folder and open `OpenRecomp.exe`. Do not run it from
    inside the zip viewer.

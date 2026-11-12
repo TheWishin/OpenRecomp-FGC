@@ -5,19 +5,35 @@ TheWishin/Tekken4Recomp).
 
 ## v0.1.8
 
-- **Tekken 4: the rematch can be asked in the game (opt-in, `T4_INGAME_REMATCH=1`).** With a Tekken 4 build that has
-  the question (the T4 0.1.5 beta candidate has it, switched off), a lobby server that offers it and an opponent who has it too, the
-  game asks "Rematch?" after a casual online match, both players answer with the pad, and a rematch plays on in the
-  running game without a new start. Off by default while Tekken 4 is a beta; without the switch, or with an older
-  game, server or opponent, everything is as before.
-- **Tekken 5 DR on processors without SSE4.1** (needs T5DR Online 1.2.4 or newer, which ships a second, slower build
-  for them): Build game picks it by itself, the same way T5DR's own launcher does (it is the T5DR install's own
-  check: Windows first, then the processor itself through the bundled compiler, because Windows 10 before 2004
-  always answers "no"). When a build has the other version, the Play page says so and Build again makes the right
-  one. Check my problem shows "No SSE4.1: the game uses its slower build" with the speed to expect; with an older
-  T5DR install it now says the processor is too old instead of "another issue".
+0.1.7 was never released on its own: **this release includes everything planned for 0.1.7** (the section below),
+among it the Tekken 5 Pad bindings fix (L1, R2 and every later binding are saved again), the progress bar in the top
+bar for builds and updates, Tekken 4's "Delay intro sound" setting (default Off) and the first step for Tekken Tag
+Tournament 2 (offline Play; its online rows are off).
+
+- **Tekken 4: the rematch question in the game is on by default.** After a casual online match the game itself asks
+  "Rematch?" (Cross = yes, Circle = no); when both say yes the next match plays on in the running game, without a
+  new start. It appears online only when the lobby server offers it -- the Tekken 4 lobby does not have it yet, so
+  until the server is updated nothing changes. Both players need Tekken 4 0.1.5-beta. With an older game, server or
+  opponent everything is as before; `T4_INGAME_REMATCH=0` turns it off.
+- **Tekken 5 DR on processors without SSE4.1** (T5DR Online 1.2.3 and newer ship a second, slower build for them):
+  Build game picks it by itself, the same way T5DR's own launcher does (it is the T5DR install's own check: Windows
+  first, then the processor itself through the bundled compiler, because Windows 10 before 2004 always answers "no").
+  When a build has the other version, the Play page says so and Build again makes the right one. Check my problem
+  shows "No SSE4.1: the game uses its slower build" with the speed to expect; with an older T5DR install it now says
+  the processor is too old instead of "another issue".
+- Fixed for testers: a test run of the launcher could list a real Tekken 4 folder beside the program as one of its
+  installs (nothing was removed; players were never affected).
+
+### Known issues
+
+- **Tekken 4: the intro's sound and picture are not in sync** (the music starts about 2 seconds before the first
+  scene). Settings > Tekken 4 > Delay intro sound: 1770 holds the sound until the first scene.
+- **Tekken 4 HON-MARU stage:** not yet confirmed by a player.
+- The known issues of 0.1.7 below still apply.
 
 ## v0.1.7
+
+Never released on its own: everything in this section is part of 0.1.8.
 
 A calmer look, one set of settings and one controls file shared with Tekken 5 DR's own launcher, a ranked costume
 choice, and fixes for stuck builds and cut-off updates. The ranked costume needs T5DR Online 1.2.3 or newer.
